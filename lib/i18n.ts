@@ -324,6 +324,9 @@ export const translations = {
       contact: "Contact",
       rights: "All rights reserved.",
       org: "EyesOpen Association",
+      newsletter_label: "Stay informed about the latest EOCON 2026 news",
+      newsletter_cta: "Subscribe",
+      newsletter_ok: "Successfully subscribed!",
     },
     testimonials: {
       title: "What They Say",
@@ -658,6 +661,9 @@ export const translations = {
       contact: "Contact",
       rights: "Tous droits réservés.",
       org: "Association EyesOpen",
+      newsletter_label: "Restez informés des dernières nouvelles d'EOCON 2026",
+      newsletter_cta: "S'inscrire",
+      newsletter_ok: "Inscrit(e) avec succès !",
     },
     testimonials: {
       title: "Ce qu'ils disent",

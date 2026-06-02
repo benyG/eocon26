@@ -1,7 +1,22 @@
 "use client";
+import { useState } from "react";
 import { Translations } from "@/lib/i18n";
 
 export default function Footer({ t }: { t: Translations }) {
+  const [email, setEmail] = useState("");
+  const [nlState, setNlState] = useState<"idle" | "loading" | "ok" | "err">("idle");
+
+  async function subscribe(e: React.FormEvent) {
+    e.preventDefault();
+    setNlState("loading");
+    const res = await fetch("/api/newsletter", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    setNlState(res.ok ? "ok" : "err");
+  }
+
   const socials = [
     { label: "Twitter/X", href: "https://twitter.com/237HACKERS", icon: "𝕏" },
     { label: "LinkedIn", href: "https://linkedin.com/company/eyesopen-association", icon: "in" },
@@ -23,6 +38,47 @@ export default function Footer({ t }: { t: Translations }) {
   return (
     <footer className="border-t border-neon-green/10 py-16 px-4 bg-black/60">
       <div className="max-w-6xl mx-auto">
+
+        {/* Newsletter banner */}
+        <div className="mb-12 p-6 rounded-2xl border border-neon-green/20 bg-neon-green/5 flex flex-col sm:flex-row items-center gap-4">
+          <div className="flex-1">
+            <p className="text-neon-green text-xs font-mono uppercase tracking-widest mb-1" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+              &gt; NEWSLETTER
+            </p>
+            <p className="text-white font-bold text-sm">
+              {t.footer.newsletter_label}
+            </p>
+          </div>
+          {nlState === "ok" ? (
+            <p className="text-neon-green text-sm font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+              ✓ {t.footer.newsletter_ok}
+            </p>
+          ) : (
+            <form onSubmit={subscribe} className="flex gap-2 w-full sm:w-auto">
+              <input
+                type="email"
+                required
+                placeholder="email@example.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                className="cyber-input px-3 py-2 rounded text-sm flex-1 sm:w-56"
+              />
+              <button
+                type="submit"
+                disabled={nlState === "loading"}
+                className="btn-neon-solid px-4 py-2 rounded text-sm border border-neon-green disabled:opacity-50 whitespace-nowrap"
+              >
+                {nlState === "loading" ? "..." : t.footer.newsletter_cta}
+              </button>
+            </form>
+          )}
+          {nlState === "err" && (
+            <p className="text-red-400 text-xs font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+              Erreur, réessayez.
+            </p>
+          )}
+        </div>
+
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
           {/* Brand */}
           <div className="lg:col-span-2">

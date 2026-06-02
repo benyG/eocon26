@@ -1,8 +1,39 @@
 "use client";
+import { useEffect, useState } from "react";
 import { Translations } from "@/lib/i18n";
+
+interface Sponsor {
+  id: number;
+  name: string;
+  tier: string;
+  logoUrl: string | null;
+  website: string | null;
+}
+
+const tierOrder = ["platinum", "gold", "silver", "bronze"];
+const tierColors: Record<string, string> = {
+  platinum: "#E5E4E2",
+  gold: "#FFD700",
+  silver: "#C0C0C0",
+  bronze: "#CD7F32",
+};
 
 export default function Sponsors({ t }: { t: Translations }) {
   const tiers = t.sponsors.tiers;
+  const [sponsors, setSponsors] = useState<Sponsor[]>([]);
+
+  useEffect(() => {
+    fetch("/api/sponsors").then(r => r.json()).then(data => {
+      if (Array.isArray(data)) setSponsors(data);
+    }).catch(() => {});
+  }, []);
+
+  const grouped = tierOrder.reduce<Record<string, Sponsor[]>>((acc, tier) => {
+    acc[tier] = sponsors.filter(s => s.tier === tier);
+    return acc;
+  }, {});
+
+  const hasSponsors = sponsors.length > 0;
 
   return (
     <section id="sponsors" className="py-24 px-4 relative">
@@ -17,22 +48,63 @@ export default function Sponsors({ t }: { t: Translations }) {
           <p className="text-gray-500 text-sm mt-2 max-w-2xl mx-auto">{t.sponsors.description}</p>
         </div>
 
-        {/* Sponsor placeholder logos */}
-        <div className="mb-16 p-8 rounded-2xl border border-dashed border-neon-green/10 text-center">
-          <p className="text-gray-600 text-sm font-mono mb-6" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-            {/* sponsor logos will appear here */}
-            [ SPONSOR LOGOS COMING SOON ]
-          </p>
-          <div className="flex flex-wrap justify-center gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="w-32 h-16 rounded border border-dashed border-gray-800 flex items-center justify-center"
-              >
-                <span className="text-gray-700 text-xs font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>SPONSOR</span>
+        {/* Sponsor logos */}
+        <div className="mb-16 p-8 rounded-2xl border border-dashed border-neon-green/10">
+          {hasSponsors ? (
+            <div className="space-y-8">
+              {tierOrder.map(tier => {
+                const tierSponsors = grouped[tier];
+                if (!tierSponsors.length) return null;
+                return (
+                  <div key={tier}>
+                    <p
+                      className="text-xs font-mono uppercase tracking-widest mb-4 text-center"
+                      style={{ color: tierColors[tier], fontFamily: "'Share Tech Mono', monospace" }}
+                    >
+                      ◆ {tier}
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-6">
+                      {tierSponsors.map(s => (
+                        <a
+                          key={s.id}
+                          href={s.website || undefined}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center rounded border border-gray-800 hover:border-neon-green/30 transition-all p-3 bg-white/5"
+                          style={{ minWidth: "120px", minHeight: "60px" }}
+                          title={s.name}
+                        >
+                          {s.logoUrl ? (
+                            <img src={s.logoUrl} alt={s.name} className="max-h-12 max-w-[140px] object-contain" />
+                          ) : (
+                            <span className="text-gray-400 text-sm font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                              {s.name}
+                            </span>
+                          )}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center">
+              <p className="text-gray-600 text-sm font-mono mb-6" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                [ SPONSOR LOGOS COMING SOON ]
+              </p>
+              <div className="flex flex-wrap justify-center gap-6">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-32 h-16 rounded border border-dashed border-gray-800 flex items-center justify-center"
+                  >
+                    <span className="text-gray-700 text-xs font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>SPONSOR</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Tiers */}

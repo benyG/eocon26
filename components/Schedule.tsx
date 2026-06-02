@@ -1,5 +1,15 @@
 "use client";
+import { useEffect, useState } from "react";
 import { Translations } from "@/lib/i18n";
+
+interface Session {
+  id: number;
+  time: string;
+  title: string;
+  type: string;
+  speakerName: string | null;
+  sortOrder: number;
+}
 
 const typeColors: Record<string, string> = {
   keynote: "#00ff9d",
@@ -20,7 +30,18 @@ const typeLabels: Record<string, { en: string; fr: string }> = {
 };
 
 export default function Schedule({ t, lang }: { t: Translations; lang: "en" | "fr" }) {
-  const items = t.schedule.items;
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/sessions").then(r => r.json()).then(data => {
+      if (Array.isArray(data)) setSessions(data);
+    }).catch(() => {}).finally(() => setLoaded(true));
+  }, []);
+
+  const items = sessions.length > 0
+    ? sessions.map(s => ({ time: s.time, title: s.speakerName ? `${s.title} — ${s.speakerName}` : s.title, type: s.type }))
+    : t.schedule.items;
 
   return (
     <section id="schedule" className="py-24 px-4 relative">
@@ -39,7 +60,7 @@ export default function Schedule({ t, lang }: { t: Translations; lang: "en" | "f
           {Object.entries(typeColors).map(([type, color]) => (
             <div key={type} className="flex items-center gap-2 text-xs text-gray-500" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
               <div className="w-3 h-3 rounded-sm" style={{ background: color }} />
-              {typeLabels[type][lang]}
+              {typeLabels[type]?.[lang] ?? type}
             </div>
           ))}
         </div>
@@ -49,54 +70,42 @@ export default function Schedule({ t, lang }: { t: Translations; lang: "en" | "f
           <div className="absolute left-16 top-0 bottom-0 w-px bg-gradient-to-b from-neon-green/30 via-neon-green/10 to-transparent" />
 
           <div className="space-y-3">
-            {items.map((item, i) => (
-              <div
-                key={i}
-                className="flex gap-4 group"
-              >
-                {/* Time */}
-                <div
-                  className="w-12 shrink-0 text-right text-xs text-neon-green/60 pt-4"
-                  style={{ fontFamily: "'Share Tech Mono', monospace" }}
-                >
-                  {item.time}
-                </div>
-
-                {/* Dot */}
-                <div className="relative flex items-start pt-4">
+            {items.map((item, i) => {
+              const color = typeColors[item.type] ?? "#888";
+              return (
+                <div key={i} className="flex gap-4 group">
                   <div
-                    className="w-3 h-3 rounded-full border-2 shrink-0 mt-0.5 transition-all group-hover:scale-150"
-                    style={{
-                      borderColor: typeColors[item.type],
-                      background: item.type === "break" || item.type === "logistics" ? "transparent" : typeColors[item.type] + "40",
-                    }}
-                  />
-                </div>
-
-                {/* Content */}
-                <div
-                  className={`flex-1 p-4 rounded-lg mb-1 transition-all group-hover:bg-white/[0.03] type-${item.type}`}
-                  style={{
-                    borderLeft: `3px solid ${typeColors[item.type]}`,
-                    background: "rgba(255,255,255,0.02)",
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-white font-medium text-sm">{item.title}</span>
-                    <span
-                      className="text-xs px-1.5 py-0.5 rounded opacity-60"
+                    className="w-12 shrink-0 text-right text-xs text-neon-green/60 pt-4"
+                    style={{ fontFamily: "'Share Tech Mono', monospace" }}
+                  >
+                    {item.time}
+                  </div>
+                  <div className="relative flex items-start pt-4">
+                    <div
+                      className="w-3 h-3 rounded-full border-2 shrink-0 mt-0.5 transition-all group-hover:scale-150"
                       style={{
-                        color: typeColors[item.type],
-                        background: typeColors[item.type] + "20",
-                        fontFamily: "'Share Tech Mono', monospace",
+                        borderColor: color,
+                        background: item.type === "break" || item.type === "logistics" ? "transparent" : color + "40",
                       }}
-                    >
-                      {typeLabels[item.type][lang]}
-                    </span>
+                    />
+                  </div>
+                  <div
+                    className="flex-1 p-4 rounded-lg mb-1 transition-all group-hover:bg-white/[0.03]"
+                    style={{ borderLeft: `3px solid ${color}`, background: "rgba(255,255,255,0.02)" }}
+                  >
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-white font-medium text-sm">{item.title}</span>
+                      <span
+                        className="text-xs px-1.5 py-0.5 rounded opacity-60"
+                        style={{ color, background: color + "20", fontFamily: "'Share Tech Mono', monospace" }}
+                      >
+                        {typeLabels[item.type]?.[lang] ?? item.type}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

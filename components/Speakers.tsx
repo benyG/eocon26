@@ -1,5 +1,18 @@
 "use client";
+import { useEffect, useState } from "react";
 import { Translations } from "@/lib/i18n";
+
+interface Speaker {
+  id: number;
+  name: string;
+  role: string;
+  company: string;
+  country: string;
+  photoUrl: string | null;
+  isKeynote: boolean;
+  talkTitle: string | null;
+  talkAbstract: string | null;
+}
 
 const pastSpeakers = [
   { name: "Abene Bertin", role: "Sr. Information Security Architect", country: "Canada", initials: "AB" },
@@ -22,7 +35,48 @@ const accentColors = [
   "#00ff9d", "#ff0066", "#0066ff", "#cc00ff",
 ];
 
-function SpeakerCard({ name, role, country, initials, color }: {
+function initials(name: string) {
+  return name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+}
+
+function SpeakerCard({ speaker, color }: { speaker: Speaker; color: string }) {
+  return (
+    <div className="cyber-card rounded-xl p-5 text-center group cursor-default">
+      {speaker.photoUrl ? (
+        <img
+          src={speaker.photoUrl}
+          alt={speaker.name}
+          className="w-16 h-16 rounded-full mx-auto mb-3 object-cover transition-transform group-hover:scale-110"
+        />
+      ) : (
+        <div
+          className="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center text-black font-bold text-lg transition-transform group-hover:scale-110"
+          style={{ background: color, fontFamily: "'Share Tech Mono', monospace" }}
+        >
+          {initials(speaker.name)}
+        </div>
+      )}
+      <h4 className="font-bold text-white text-sm mb-1">{speaker.name}</h4>
+      {speaker.isKeynote && (
+        <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-neon-green/10 text-neon-green mb-1" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+          KEYNOTE
+        </span>
+      )}
+      <p className="text-gray-500 text-xs mb-1">{speaker.role}{speaker.company ? ` · ${speaker.company}` : ""}</p>
+      {speaker.talkTitle && (
+        <p className="text-gray-600 text-xs italic mb-2 line-clamp-2">"{speaker.talkTitle}"</p>
+      )}
+      <span
+        className="inline-block text-xs px-2 py-0.5 rounded-full border text-neon-green/70"
+        style={{ borderColor: "rgba(0,255,157,0.2)", fontFamily: "'Share Tech Mono', monospace" }}
+      >
+        {speaker.country}
+      </span>
+    </div>
+  );
+}
+
+function PastSpeakerCard({ name, role, country, initials: ini, color }: {
   name: string; role: string; country: string; initials: string; color: string;
 }) {
   return (
@@ -31,7 +85,7 @@ function SpeakerCard({ name, role, country, initials, color }: {
         className="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center text-black font-bold text-lg transition-transform group-hover:scale-110"
         style={{ background: color, fontFamily: "'Share Tech Mono', monospace" }}
       >
-        {initials}
+        {ini}
       </div>
       <h4 className="font-bold text-white text-sm mb-1">{name}</h4>
       <p className="text-gray-500 text-xs mb-2">{role}</p>
@@ -57,6 +111,16 @@ function TBACard() {
 }
 
 export default function Speakers({ t, onOpenModal }: { t: Translations; onOpenModal: (m: string) => void }) {
+  const [speakers, setSpeakers] = useState<Speaker[]>([]);
+
+  useEffect(() => {
+    fetch("/api/speakers").then(r => r.json()).then(data => {
+      if (Array.isArray(data)) setSpeakers(data);
+    }).catch(() => {});
+  }, []);
+
+  const tbaCount = Math.max(0, 6 - speakers.length);
+
   return (
     <section id="speakers" className="py-24 px-4 relative bg-dark-800/30">
       <div className="max-w-6xl mx-auto">
@@ -69,10 +133,13 @@ export default function Speakers({ t, onOpenModal }: { t: Translations; onOpenMo
           <p className="text-gray-400 text-lg max-w-2xl mx-auto">{t.speakers.subtitle}</p>
         </div>
 
-        {/* 2026 speakers — TBA grid */}
+        {/* 2026 speakers */}
         <div className="mb-12">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-            {Array.from({ length: 6 }).map((_, i) => <TBACard key={i} />)}
+            {speakers.map((s, i) => (
+              <SpeakerCard key={s.id} speaker={s} color={accentColors[i % accentColors.length]} />
+            ))}
+            {Array.from({ length: tbaCount }).map((_, i) => <TBACard key={`tba-${i}`} />)}
           </div>
           <div className="text-center">
             <p className="text-gray-500 text-sm mb-4 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
@@ -94,7 +161,7 @@ export default function Speakers({ t, onOpenModal }: { t: Translations; onOpenMo
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {pastSpeakers.map((s, i) => (
-              <SpeakerCard key={s.name} {...s} color={accentColors[i % accentColors.length]} />
+              <PastSpeakerCard key={s.name} {...s} color={accentColors[i % accentColors.length]} />
             ))}
           </div>
         </div>

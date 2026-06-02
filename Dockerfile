@@ -21,24 +21,30 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# OpenSSL required by Prisma query engine on Alpine
+RUN apk add --no-cache openssl
+
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Install Prisma CLI at the exact version used in the project
-RUN npm install --no-save prisma@5
-
-# Copy app
+# Copy app (owned by nextjs)
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Prisma client and schema
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+# Prisma schema
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+
+# Install Prisma CLI at exact project version (runs as root, then chown)
+RUN npm install --no-save prisma@5 && \
+    chown -R nextjs:nodejs node_modules
+
+# Prisma generated client (override after chown)
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 
 # Entrypoint
-COPY docker-entrypoint.sh ./
+COPY --chown=nextjs:nodejs docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
 USER nextjs

@@ -8,7 +8,8 @@ export async function GET() {
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     });
     return NextResponse.json(speakers);
-  } catch {
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  } catch (e) {
+    console.error("[/api/speakers]", e);
+    return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }

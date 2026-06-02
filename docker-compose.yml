@@ -7,6 +7,10 @@ services:
       - .env
     environment:
       NODE_ENV: production
+      GOOGLE_APPLICATION_CREDENTIALS: /app/gcs-service-account.json
+    volumes:
+      # Mount GCS credentials — place this file on the host before starting
+      - /opt/eocon/gcs-service-account.json:/app/gcs-service-account.json:ro
     # Not exposed publicly — Caddy proxies internally
     expose:
       - "3000"

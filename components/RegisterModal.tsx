@@ -12,10 +12,26 @@ export default function RegisterModal({ t, onClose }: RegisterModalProps) {
   const [selectedTier, setSelectedTier] = useState("");
   const [formData, setFormData] = useState({ fname: "", lname: "", email: "", org: "", country: "" });
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...formData, ticketType: selectedTier }),
+      });
+      if (!res.ok) throw new Error("Server error");
+      setSubmitted(true);
+    } catch {
+      setError("Une erreur est survenue. Veuillez réessayer.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const tierColors = ["#00ff9d", "#ffaa00", "#0066ff"];
@@ -133,8 +149,9 @@ export default function RegisterModal({ t, onClose }: RegisterModalProps) {
                     Selected: <span className="text-neon-green">{selectedTier}</span>
                   </p>
                 </div>
-                <button type="submit" className="w-full btn-neon-solid py-3 rounded text-sm border-2 border-neon-green">
-                  {t.register.form.submit}
+                {error && <p className="text-red-400 text-xs font-mono">{error}</p>}
+                <button type="submit" disabled={loading} className="w-full btn-neon-solid py-3 rounded text-sm border-2 border-neon-green disabled:opacity-50">
+                  {loading ? "..." : t.register.form.submit}
                 </button>
               </form>
             </div>

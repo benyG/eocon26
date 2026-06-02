@@ -1,0 +1,35 @@
+services:
+  db:
+    image: mysql:8.4
+    container_name: eocon_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-r00tpass}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-eocon}
+      MYSQL_USER: ${MYSQL_USER:-eocon}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-eoconpass}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-r00tpass}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: eocon_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-eocon}:${MYSQL_PASSWORD:-eoconpass}@db:3306/${MYSQL_DATABASE:-eocon}
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+
+volumes:
+  mysql_data:

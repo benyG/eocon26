@@ -7,10 +7,26 @@ export default function CFPSection({ t }: { t: Translations }) {
     name: "", email: "", org: "", country: "", talk_title: "", format: "", abstract: "", bio: ""
   });
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/cfp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      if (!res.ok) throw new Error("Server error");
+      setSubmitted(true);
+    } catch {
+      setError("Une erreur est survenue. Veuillez réessayer.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formats = [t.cfp.format1, t.cfp.format2, t.cfp.format3, t.cfp.format4];
@@ -160,8 +176,9 @@ export default function CFPSection({ t }: { t: Translations }) {
                     onChange={e => setFormData({ ...formData, bio: e.target.value })}
                   />
                 </div>
-                <button type="submit" className="w-full btn-neon-solid py-3 rounded text-sm border-2 border-neon-green">
-                  {t.cfp.form.submit}
+                {error && <p className="text-red-400 text-xs font-mono">{error}</p>}
+                <button type="submit" disabled={loading} className="w-full btn-neon-solid py-3 rounded text-sm border-2 border-neon-green disabled:opacity-50">
+                  {loading ? "..." : t.cfp.form.submit}
                 </button>
               </form>
             )}

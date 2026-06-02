@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model CFPSubmission {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  org       String?
+  country   String?
+  talkTitle String
+  format    String?
+  abstract  String
+  bio       String?
+  createdAt DateTime @default(now())
+
+  @@map("cfp_submissions")
+}
+
+model VolunteerApplication {
+  id         Int      @id @default(autoincrement())
+  name       String
+  email      String
+  phone      String?
+  city       String?
+  role       String?
+  experience String?
+  motivation String
+  createdAt  DateTime @default(now())
+
+  @@map("volunteer_applications")
+}
+
+model Registration {
+  id         Int      @id @default(autoincrement())
+  fname      String
+  lname      String
+  email      String
+  org        String?
+  country    String?
+  ticketType String
+  createdAt  DateTime @default(now())
+
+  @@map("registrations")
+}

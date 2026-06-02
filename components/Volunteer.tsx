@@ -7,10 +7,26 @@ export default function Volunteer({ t }: { t: Translations }) {
     name: "", email: "", phone: "", city: "", role: "", experience: "", motivation: ""
   });
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/volunteer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      if (!res.ok) throw new Error("Server error");
+      setSubmitted(true);
+    } catch {
+      setError("Une erreur est survenue. Veuillez réessayer.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -119,8 +135,9 @@ export default function Volunteer({ t }: { t: Translations }) {
                   <textarea required rows={3} className="cyber-input w-full px-3 py-2 rounded text-sm resize-none" placeholder={t.volunteer.form.motivation}
                     value={formData.motivation} onChange={e => setFormData({ ...formData, motivation: e.target.value })} />
                 </div>
-                <button type="submit" className="w-full btn-neon-solid py-3 rounded text-sm border-2 border-neon-green">
-                  {t.volunteer.form.submit}
+                {error && <p className="text-red-400 text-xs font-mono">{error}</p>}
+                <button type="submit" disabled={loading} className="w-full btn-neon-solid py-3 rounded text-sm border-2 border-neon-green disabled:opacity-50">
+                  {loading ? "..." : t.volunteer.form.submit}
                 </button>
               </form>
             )}

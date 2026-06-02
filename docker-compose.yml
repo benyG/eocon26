@@ -18,11 +18,11 @@ services:
     container_name: eocon_caddy
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"   # HTTP/3
+    - "8080:80"
+    - "3000:443"
+    - "3000:443/udp"   # HTTP/3
     environment:
-      DOMAIN: ${DOMAIN}
+      DOMAIN: test.eyesopensecurity.com
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data        # certificates (persisted)

@@ -1,0 +1,11 @@
+services:
+  app:
+    build: .
+    container_name: eocon_app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+    ports:
+      - "3000:3000"

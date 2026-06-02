@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model CFPSubmission {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  org       String?
+  country   String?
+  talkTitle String
+  format    String?
+  abstract  String   @db.Text
+  bio       String?  @db.Text
+  status    String   @default("pending") // pending | accepted | rejected
+  createdAt DateTime @default(now())
+
+  @@map("cfp_submissions")
+}
+
+model VolunteerApplication {
+  id         Int      @id @default(autoincrement())
+  name       String
+  email      String
+  phone      String?
+  city       String?
+  role       String?
+  experience String?  @db.Text
+  motivation String   @db.Text
+  status     String   @default("pending")
+  createdAt  DateTime @default(now())
+
+  @@map("volunteer_applications")
+}
+
+model Registration {
+  id         Int      @id @default(autoincrement())
+  fname      String
+  lname      String
+  email      String
+  org        String?
+  country    String?
+  ticketType String
+  status     String   @default("pending")
+  createdAt  DateTime @default(now())
+
+  @@map("registrations")
+}
+
+model Speaker {
+  id           Int      @id @default(autoincrement())
+  name         String
+  title        String
+  company      String?
+  country      String?
+  bio          String   @db.Text
+  photoUrl     String?
+  linkedin     String?
+  twitter      String?
+  talkTitle    String?
+  talkAbstract String?  @db.Text
+  talkFormat   String?
+  isKeynote    Boolean  @default(false)
+  edition      String   @default("2026")
+  isVisible    Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@map("speakers")
+}
+
+model Sponsor {
+  id        Int      @id @default(autoincrement())
+  name      String
+  logoUrl   String?
+  website   String?
+  tier      String   // PLATINUM | GOLD | SILVER | BRONZE
+  isVisible Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("sponsors")
+}
+
+model ConferenceSession {
+  id          Int      @id @default(autoincrement())
+  time        String
+  title       String
+  type        String   // keynote | talk | workshop | panel | break | logistics
+  speakerName String?
+  room        String?
+  description String?  @db.Text
+  sortOrder   Int      @default(0)
+  isVisible   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@map("sessions")
+}
+
+model NewsletterSubscriber {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  createdAt DateTime @default(now())
+
+  @@map("newsletter_subscribers")
+}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { sendRegistrationTicket } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,6 +14,10 @@ export async function POST(req: NextRequest) {
     const registration = await prisma.registration.create({
       data: { fname, lname, email, org, country, ticketType },
     });
+
+    sendRegistrationTicket(email, fname, lname, ticketType, registration.id).catch(e =>
+      console.error("[Register email]", e),
+    );
 
     return NextResponse.json({ success: true, id: registration.id }, { status: 201 });
   } catch (err) {

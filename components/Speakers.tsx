@@ -14,19 +14,29 @@ interface Speaker {
   talkAbstract: string | null;
 }
 
-const pastSpeakers = [
-  { name: "Abene Bertin", role: "Sr. Information Security Architect", country: "Canada", initials: "AB" },
-  { name: "Chioma Chigozie-Okwum", role: "Director, Spiritan University", country: "Nigeria", initials: "CC" },
-  { name: "Simon Nolet", role: "Spécialiste Sécurité Offensive", country: "Canada", initials: "SN" },
-  { name: "Bernard Wanyama", role: "President, ISACA Kampala", country: "Uganda", initials: "BW" },
-  { name: "Shruti Kalsi", role: "Director at EY-Parthenon", country: "India", initials: "SK" },
-  { name: "Tomslin Samme-Nlar", role: "CEO CyberDefenz, Pentester", country: "Cameroon", initials: "TS" },
-  { name: "Kevin Monkam", role: "Information Security Architect", country: "France", initials: "KM" },
-  { name: "Honoré Tapoko", role: "Sr. Cybersecurity Engineer", country: "United States", initials: "HT" },
-  { name: "Blay Abu Safian", role: "CEO of Inveteck Global", country: "Ghana", initials: "BA" },
-  { name: "Isaac Noumba", role: "Security Product Manager at F5", country: "United States", initials: "IN" },
-  { name: "Sagar Tiwari", role: "Independent OSINT Researcher", country: "Australia", initials: "ST" },
-  { name: "Stephen Pullum", role: "Founder Africurity", country: "United States", initials: "SP" },
+interface PastSpeaker {
+  id: number;
+  name: string;
+  role: string;
+  company: string | null;
+  country: string | null;
+  edition: string | null;
+  photoUrl: string | null;
+}
+
+const FALLBACK_PAST: PastSpeaker[] = [
+  { id: -1, name: "Abene Bertin", role: "Sr. Information Security Architect", company: null, country: "Canada", edition: null, photoUrl: null },
+  { id: -2, name: "Chioma Chigozie-Okwum", role: "Director, Spiritan University", company: null, country: "Nigeria", edition: null, photoUrl: null },
+  { id: -3, name: "Simon Nolet", role: "Spécialiste Sécurité Offensive", company: null, country: "Canada", edition: null, photoUrl: null },
+  { id: -4, name: "Bernard Wanyama", role: "President, ISACA Kampala", company: null, country: "Uganda", edition: null, photoUrl: null },
+  { id: -5, name: "Shruti Kalsi", role: "Director at EY-Parthenon", company: null, country: "India", edition: null, photoUrl: null },
+  { id: -6, name: "Tomslin Samme-Nlar", role: "CEO CyberDefenz, Pentester", company: null, country: "Cameroon", edition: null, photoUrl: null },
+  { id: -7, name: "Kevin Monkam", role: "Information Security Architect", company: null, country: "France", edition: null, photoUrl: null },
+  { id: -8, name: "Honoré Tapoko", role: "Sr. Cybersecurity Engineer", company: null, country: "United States", edition: null, photoUrl: null },
+  { id: -9, name: "Blay Abu Safian", role: "CEO of Inveteck Global", company: null, country: "Ghana", edition: null, photoUrl: null },
+  { id: -10, name: "Isaac Noumba", role: "Security Product Manager at F5", company: null, country: "United States", edition: null, photoUrl: null },
+  { id: -11, name: "Sagar Tiwari", role: "Independent OSINT Researcher", company: null, country: "Australia", edition: null, photoUrl: null },
+  { id: -12, name: "Stephen Pullum", role: "Founder Africurity", company: null, country: "United States", edition: null, photoUrl: null },
 ];
 
 const accentColors = [
@@ -76,17 +86,26 @@ function SpeakerCard({ speaker, color }: { speaker: Speaker; color: string }) {
   );
 }
 
-function PastSpeakerCard({ name, role, country, initials: ini, color }: {
+function PastSpeakerCard({ name, role, country, initials: ini, color, photoUrl, edition }: {
   name: string; role: string; country: string; initials: string; color: string;
+  photoUrl?: string | null; edition?: string | null;
 }) {
   return (
     <div className="cyber-card rounded-xl p-5 text-center group cursor-default">
-      <div
-        className="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center text-black font-bold text-lg transition-transform group-hover:scale-110"
-        style={{ background: color, fontFamily: "'Share Tech Mono', monospace" }}
-      >
-        {ini}
-      </div>
+      {photoUrl ? (
+        <img
+          src={photoUrl}
+          alt={name}
+          className="w-16 h-16 rounded-full mx-auto mb-3 object-cover transition-transform group-hover:scale-110"
+        />
+      ) : (
+        <div
+          className="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center text-black font-bold text-lg transition-transform group-hover:scale-110"
+          style={{ background: color, fontFamily: "'Share Tech Mono', monospace" }}
+        >
+          {ini}
+        </div>
+      )}
       <h4 className="font-bold text-white text-sm mb-1">{name}</h4>
       <p className="text-gray-500 text-xs mb-2">{role}</p>
       <span
@@ -95,6 +114,11 @@ function PastSpeakerCard({ name, role, country, initials: ini, color }: {
       >
         {country}
       </span>
+      {edition && (
+        <p className="text-gray-700 text-xs mt-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+          EOCON {edition}
+        </p>
+      )}
     </div>
   );
 }
@@ -112,11 +136,16 @@ function TBACard() {
 
 export default function Speakers({ t, onOpenModal }: { t: Translations; onOpenModal: (m: string) => void }) {
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
+  const [pastSpeakers, setPastSpeakers] = useState<PastSpeaker[]>([]);
 
   useEffect(() => {
     fetch("/api/speakers").then(r => r.json()).then(data => {
       if (Array.isArray(data)) setSpeakers(data);
     }).catch(() => {});
+    fetch("/api/past-speakers").then(r => r.json()).then(data => {
+      if (Array.isArray(data) && data.length > 0) setPastSpeakers(data);
+      else setPastSpeakers(FALLBACK_PAST);
+    }).catch(() => setPastSpeakers(FALLBACK_PAST));
   }, []);
 
   const tbaCount = Math.max(0, 6 - speakers.length);
@@ -161,7 +190,16 @@ export default function Speakers({ t, onOpenModal }: { t: Translations; onOpenMo
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {pastSpeakers.map((s, i) => (
-              <PastSpeakerCard key={s.name} {...s} color={accentColors[i % accentColors.length]} />
+              <PastSpeakerCard
+                key={s.id}
+                name={s.name}
+                role={s.role}
+                country={s.country || ""}
+                initials={initials(s.name)}
+                color={accentColors[i % accentColors.length]}
+                photoUrl={s.photoUrl}
+                edition={s.edition}
+              />
             ))}
           </div>
         </div>

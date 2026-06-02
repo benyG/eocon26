@@ -9,7 +9,8 @@ services:
       NODE_ENV: production
       GOOGLE_APPLICATION_CREDENTIALS: /app/gcs-service-account.json
     volumes:
-      # Mount GCS credentials — place this file on the host before starting
+      # Mount GCS credentials — must be readable by uid 1001 (nextjs user)
+      # Run on host: chmod 644 /opt/eocon/gcs-service-account.json
       - /opt/eocon/gcs-service-account.json:/app/gcs-service-account.json:ro
     # Not exposed publicly — Caddy proxies internally
     expose:

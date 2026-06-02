@@ -88,18 +88,52 @@ model Sponsor {
 }
 
 model ConferenceSession {
-  id          Int      @id @default(autoincrement())
-  time        String
-  title       String
-  type        String   // keynote | talk | workshop | panel | break | logistics
-  speakerName String?
-  room        String?
-  description String?  @db.Text
-  sortOrder   Int      @default(0)
-  isVisible   Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id           Int       @id @default(autoincrement())
+  date         String?   // YYYY-MM-DD — the actual event day
+  time         String    // display time e.g. "09:00"
+  endTime      String?   // e.g. "10:00"
+  title        String
+  type         String    // keynote | talk | workshop | panel | break | logistics
+  speakerName  String?
+  room         String?
+  description  String?   @db.Text
+  sortOrder    Int       @default(0)
+  isVisible    Boolean   @default(true)
+  displayFrom  DateTime? // show on frontend only from this date
+  displayUntil DateTime? // hide after this date
+  createdAt    DateTime  @default(now())
 
   @@map("sessions")
+}
+
+model TeamMember {
+  id        Int      @id @default(autoincrement())
+  name      String
+  role      String
+  bio       String?  @db.Text
+  photoUrl  String?
+  linkedin  String?
+  twitter   String?
+  isVisible Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("team_members")
+}
+
+model PastSpeaker {
+  id        Int      @id @default(autoincrement())
+  name      String
+  role      String
+  company   String?
+  country   String?
+  edition   String?  // e.g. "2024", "2023"
+  photoUrl  String?
+  isVisible Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("past_speakers")
 }
 
 model NewsletterSubscriber {

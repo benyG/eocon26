@@ -13,6 +13,7 @@ import Sponsors from "@/components/Sponsors";
 import CFPSection from "@/components/CFPModal";
 import Volunteer from "@/components/Volunteer";
 import Venue from "@/components/Venue";
+import Team from "@/components/Team";
 import Footer from "@/components/Footer";
 import RegisterModal from "@/components/RegisterModal";
 
@@ -39,6 +40,7 @@ export default function Home() {
       <CFPSection t={t} />
       <Volunteer t={t} />
       <Sponsors t={t} />
+      <Team t={t} />
       <Venue t={t} />
       <Footer t={t} />
 

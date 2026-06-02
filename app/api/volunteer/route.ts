@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { sendVolunteerConfirmation } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,6 +14,10 @@ export async function POST(req: NextRequest) {
     const application = await prisma.volunteerApplication.create({
       data: { name, email, phone, city, role, experience, motivation },
     });
+
+    sendVolunteerConfirmation(email, name).catch(e =>
+      console.error("[Volunteer email]", e),
+    );
 
     return NextResponse.json({ success: true, id: application.id }, { status: 201 });
   } catch (err) {

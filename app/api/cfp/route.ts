@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { sendCFPConfirmation } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,6 +14,10 @@ export async function POST(req: NextRequest) {
     const submission = await prisma.cFPSubmission.create({
       data: { name, email, org, country, talkTitle: talk_title, format, abstract, bio },
     });
+
+    sendCFPConfirmation(email, name, talk_title).catch(e =>
+      console.error("[CFP email]", e),
+    );
 
     return NextResponse.json({ success: true, id: submission.id }, { status: 201 });
   } catch (err) {

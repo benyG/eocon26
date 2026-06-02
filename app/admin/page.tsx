@@ -1,8 +1,8 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-type Tab = "dashboard" | "speakers" | "sponsors" | "sessions" | "cfp" | "volunteers" | "registrations" | "newsletter";
+type Tab = "dashboard" | "speakers" | "sponsors" | "sessions" | "cfp" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -26,6 +26,69 @@ function Badge({ status }: { status: string }) {
     <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: (colors[status] || "#888") + "20", color: colors[status] || "#888", fontFamily: "'Share Tech Mono', monospace" }}>
       {status}
     </span>
+  );
+}
+
+function Avatar({ photoUrl, name, size = 12 }: { photoUrl?: string; name: string; size?: number }) {
+  if (photoUrl) {
+    return <img src={photoUrl} alt={name} className={`w-${size} h-${size} rounded-full object-cover shrink-0`} />;
+  }
+  return (
+    <div className={`w-${size} h-${size} rounded-full bg-neon-green/20 flex items-center justify-center text-neon-green font-bold shrink-0 text-sm`}>
+      {name.slice(0, 2).toUpperCase()}
+    </div>
+  );
+}
+
+function PhotoUploadField({
+  value,
+  folder,
+  onChange,
+}: {
+  value: string;
+  folder: string;
+  onChange: (url: string) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("folder", folder);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      if (res.ok) {
+        const json = await res.json();
+        onChange(json.url as string);
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="flex gap-2">
+      <input
+        type="text"
+        className="cyber-input flex-1 px-3 py-2 rounded text-xs"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder="https://..."
+      />
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        className="btn-neon px-3 py-2 rounded text-xs shrink-0"
+        disabled={uploading}
+      >
+        {uploading ? "..." : "Upload"}
+      </button>
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+    </div>
   );
 }
 
@@ -61,6 +124,12 @@ export default function AdminDashboard() {
       } else if (t === "sessions") {
         const res = await fetch("/api/admin/sessions");
         if (res.ok) { const json = await res.json(); setData(d => ({ ...d, sessions: json })); }
+      } else if (t === "team") {
+        const res = await fetch("/api/admin/team");
+        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, team: json })); }
+      } else if (t === "past-speakers") {
+        const res = await fetch("/api/admin/past-speakers");
+        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, "past-speakers": json })); }
       } else if (["cfp", "volunteers", "registrations", "newsletter"].includes(t)) {
         const typeMap: Record<string, string> = { cfp: "cfp", volunteers: "volunteer", registrations: "registration", newsletter: "newsletter" };
         const res = await fetch(`/api/admin/submissions?type=${typeMap[t]}`);
@@ -93,6 +162,8 @@ export default function AdminDashboard() {
     fetchData(tab);
   };
 
+  const cancelForm = () => { setShowForm(false); setForm({}); setEditing(null); };
+
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: "dashboard", label: "Dashboard" },
     { id: "speakers", label: "Speakers", count: stats.speakers },
@@ -102,7 +173,26 @@ export default function AdminDashboard() {
     { id: "volunteers", label: "Bénévoles", count: stats.volunteers },
     { id: "registrations", label: "Inscriptions", count: stats.registrations },
     { id: "newsletter", label: "Newsletter", count: stats.subscribers },
+    { id: "team", label: "Équipe" },
+    { id: "past-speakers", label: "Anciens Intervenants" },
   ];
+
+  // Group sessions by date
+  const sessionsByDate = (() => {
+    const sessions = (data.sessions || []) as Record<string, unknown>[];
+    const groups: Record<string, Record<string, unknown>[]> = {};
+    for (const s of sessions) {
+      const key = (s.date as string) || "Sans date";
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(s);
+    }
+    const sortedKeys = Object.keys(groups).sort((a, b) => {
+      if (a === "Sans date") return 1;
+      if (b === "Sans date") return -1;
+      return a.localeCompare(b);
+    });
+    return { groups, sortedKeys };
+  })();
 
   return (
     <div className="min-h-screen bg-dark-900" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
@@ -117,7 +207,7 @@ export default function AdminDashboard() {
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-48 min-h-screen border-r border-neon-green/10 bg-black/40 p-4 space-y-1 shrink-0">
+        <aside className="w-52 min-h-screen border-r border-neon-green/10 bg-black/40 p-4 space-y-1 shrink-0">
           {tabs.map(t => (
             <button
               key={t.id}
@@ -131,27 +221,33 @@ export default function AdminDashboard() {
         </aside>
 
         {/* Main */}
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-6 min-w-0">
+
           {/* DASHBOARD */}
           {tab === "dashboard" && (
             <div>
               <h1 className="text-2xl font-black text-white mb-6">Dashboard</h1>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
                 <StatCard label="Speakers" value={stats.speakers || 0} />
                 <StatCard label="Sponsors" value={stats.sponsors || 0} color="#ffd700" />
-                <StatCard label="CFP" value={stats.cfp || 0} color="#0066ff" />
-                <StatCard label="Bénévoles" value={stats.volunteers || 0} color="#cc00ff" />
-                <StatCard label="Inscriptions" value={stats.registrations || 0} color="#ff6600" />
-                <StatCard label="Newsletter" value={stats.subscribers || 0} color="#ff0066" />
+                <StatCard label="Sessions" value={stats.sessions || 0} color="#0066ff" />
+                <StatCard label="CFP" value={stats.cfp || 0} color="#cc00ff" />
+                <StatCard label="Bénévoles" value={stats.volunteers || 0} color="#ff6600" />
+                <StatCard label="Inscriptions" value={stats.registrations || 0} color="#ff0066" />
+                <StatCard label="Newsletter" value={stats.subscribers || 0} color="#ffaa00" />
+                <StatCard label="Équipe" value={stats.team || 0} color="#00ccff" />
+                <StatCard label="Anciens intervenants" value={stats.pastSpeakers || 0} color="#aa88ff" />
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 {[
                   { tab: "speakers", label: "Gérer les Speakers", desc: "Ajouter, éditer et ordonner les intervenants 2026" },
                   { tab: "sponsors", label: "Gérer les Sponsors", desc: "Logos, tiers et liens des sponsors" },
-                  { tab: "sessions", label: "Éditer le Programme", desc: "Créer et ordonner les sessions de la journée" },
+                  { tab: "sessions", label: "Éditer le Programme", desc: "Créer et ordonner les sessions par date" },
                   { tab: "cfp", label: "Propositions de Talks", desc: "Examiner et statuer sur les CFP reçus" },
                   { tab: "volunteers", label: "Candidatures Bénévoles", desc: "Gérer les candidatures reçues" },
                   { tab: "registrations", label: "Inscriptions", desc: "Liste complète des participants inscrits" },
+                  { tab: "team", label: "Équipe d'organisation", desc: "Gérer les membres de l'équipe organisatrice" },
+                  { tab: "past-speakers", label: "Anciens Intervenants", desc: "Archive des intervenants des éditions précédentes" },
                 ].map(item => (
                   <button key={item.tab} onClick={() => setTab(item.tab as Tab)} className="cyber-card rounded-xl p-5 text-left hover:border-neon-green/50 transition-all">
                     <div className="text-neon-green font-bold text-sm mb-1">{item.label}</div>
@@ -172,11 +268,11 @@ export default function AdminDashboard() {
 
               {showForm && (
                 <div className="cyber-card rounded-xl p-6 mb-6">
-                  <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier" : "Nouveau Speaker"}</h3>
+                  <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier le Speaker" : "Nouveau Speaker"}</h3>
                   <div className="grid sm:grid-cols-2 gap-3">
                     {[
-                      { key: "name", label: "Nom *", required: true },
-                      { key: "title", label: "Titre / Poste *", required: true },
+                      { key: "name", label: "Nom *" },
+                      { key: "title", label: "Titre / Poste *" },
                       { key: "company", label: "Entreprise" },
                       { key: "country", label: "Pays" },
                       { key: "photoUrl", label: "URL Photo" },
@@ -216,7 +312,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="flex gap-3 mt-4">
                     <button onClick={() => save("/api/admin/speakers")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
-                    <button onClick={() => { setShowForm(false); setForm({}); setEditing(null); }} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+                    <button onClick={cancelForm} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
                   </div>
                 </div>
               )}
@@ -225,18 +321,14 @@ export default function AdminDashboard() {
                 <div className="space-y-2">
                   {((data.speakers || []) as Record<string, unknown>[]).map((s) => (
                     <div key={s.id as number} className="cyber-card rounded-lg p-4 flex items-center gap-4">
-                      {s.photoUrl ? <img src={s.photoUrl as string} alt={s.name as string} className="w-12 h-12 rounded-full object-cover shrink-0" /> : (
-                        <div className="w-12 h-12 rounded-full bg-neon-green/20 flex items-center justify-center text-neon-green font-bold shrink-0 text-sm">
-                          {(s.name as string).slice(0, 2).toUpperCase()}
-                        </div>
-                      )}
+                      <Avatar photoUrl={s.photoUrl as string} name={s.name as string} size={12} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-white font-bold text-sm">{s.name as string}</span>
                           {!!s.isKeynote && <span className="text-xs px-1.5 py-0.5 rounded bg-neon-green/20 text-neon-green">Keynote</span>}
                           {!s.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">Masqué</span>}
                         </div>
-                        <p className="text-gray-500 text-xs">{s.title as string}{s.company ? ` · ${s.company}` : ""} {s.country ? `· ${s.country}` : ""}</p>
+                        <p className="text-gray-500 text-xs">{s.title as string}{s.company ? ` · ${s.company}` : ""}{s.country ? ` · ${s.country}` : ""}</p>
                         {!!s.talkTitle && <p className="text-neon-green/60 text-xs mt-0.5 truncate">🎤 {s.talkTitle as string}</p>}
                       </div>
                       <div className="flex gap-2 shrink-0">
@@ -261,6 +353,7 @@ export default function AdminDashboard() {
 
               {showForm && (
                 <div className="cyber-card rounded-xl p-6 mb-6">
+                  <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier le Sponsor" : "Nouveau Sponsor"}</h3>
                   <div className="grid sm:grid-cols-2 gap-3">
                     {[{ key: "name", label: "Nom du Sponsor *" }, { key: "website", label: "Site Web" }, { key: "logoUrl", label: "URL du Logo" }].map(f => (
                       <div key={f.key}>
@@ -285,7 +378,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="flex gap-3 mt-4">
                     <button onClick={() => save("/api/admin/sponsors")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
-                    <button onClick={() => { setShowForm(false); setForm({}); setEditing(null); }} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+                    <button onClick={cancelForm} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
                   </div>
                 </div>
               )}
@@ -322,23 +415,34 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* SESSIONS */}
+          {/* SESSIONS — Calendar UI */}
           {tab === "sessions" && (
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-black text-white">Programme</h1>
-                <button onClick={() => { setForm({ isVisible: true, type: "talk", sortOrder: 0 }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter</button>
+                <button onClick={() => { setForm({ isVisible: true, type: "talk", sortOrder: 0, date: "", time: "", endTime: "" }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter</button>
               </div>
 
               {showForm && (
                 <div className="cyber-card rounded-xl p-6 mb-6">
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    {[{ key: "time", label: "Heure (ex: 09:00) *" }, { key: "title", label: "Titre *" }, { key: "speakerName", label: "Speaker" }, { key: "room", label: "Salle" }].map(f => (
-                      <div key={f.key}>
-                        <label className="block text-xs text-gray-500 mb-1">{f.label}</label>
-                        <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form[f.key] as string) || ""} onChange={e => setForm({ ...form, [f.key]: e.target.value })} />
-                      </div>
-                    ))}
+                  <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier la Session" : "Nouvelle Session"}</h3>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Date</label>
+                      <input type="date" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.date as string) || ""} onChange={e => setForm({ ...form, date: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Heure début (HH:MM)</label>
+                      <input type="text" placeholder="09:00" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.time as string) || ""} onChange={e => setForm({ ...form, time: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Heure fin (HH:MM)</label>
+                      <input type="text" placeholder="10:00" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.endTime as string) || ""} onChange={e => setForm({ ...form, endTime: e.target.value })} />
+                    </div>
+                    <div className="lg:col-span-2">
+                      <label className="block text-xs text-gray-500 mb-1">Titre *</label>
+                      <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.title as string) || ""} onChange={e => setForm({ ...form, title: e.target.value })} />
+                    </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Type</label>
                       <select className="cyber-input w-full px-3 py-2 rounded text-xs bg-transparent" value={(form.type as string) || "talk"} onChange={e => setForm({ ...form, type: e.target.value })}>
@@ -346,43 +450,96 @@ export default function AdminDashboard() {
                       </select>
                     </div>
                     <div>
+                      <label className="block text-xs text-gray-500 mb-1">Intervenant</label>
+                      <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.speakerName as string) || ""} onChange={e => setForm({ ...form, speakerName: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Salle</label>
+                      <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.room as string) || ""} onChange={e => setForm({ ...form, room: e.target.value })} />
+                    </div>
+                    <div>
                       <label className="block text-xs text-gray-500 mb-1">Ordre</label>
                       <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.sortOrder as number) || 0} onChange={e => setForm({ ...form, sortOrder: Number(e.target.value) })} />
                     </div>
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-2 lg:col-span-3">
                       <label className="block text-xs text-gray-500 mb-1">Description</label>
                       <textarea rows={2} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.description as string) || ""} onChange={e => setForm({ ...form, description: e.target.value })} />
                     </div>
-                    <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-                      <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
-                      Visible
-                    </label>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Visible depuis (datetime)</label>
+                      <input type="datetime-local" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.displayFrom as string) || ""} onChange={e => setForm({ ...form, displayFrom: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Visible jusqu'à (datetime)</label>
+                      <input type="datetime-local" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.displayUntil as string) || ""} onChange={e => setForm({ ...form, displayUntil: e.target.value })} />
+                    </div>
+                    <div className="flex items-center">
+                      <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                        <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
+                        Visible sur le site
+                      </label>
+                    </div>
                   </div>
                   <div className="flex gap-3 mt-4">
                     <button onClick={() => save("/api/admin/sessions")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
-                    <button onClick={() => { setShowForm(false); setForm({}); setEditing(null); }} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+                    <button onClick={cancelForm} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
                   </div>
                 </div>
               )}
 
-              <div className="space-y-2">
-                {((data.sessions || []) as Record<string, unknown>[]).map(s => (
-                  <div key={s.id as number} className="flex gap-3 items-center rounded-lg p-3" style={{ background: "rgba(255,255,255,0.02)", borderLeft: `3px solid ${typeColors[s.type as string] || "#444"}` }}>
-                    <span className="text-neon-green/60 text-xs w-12 shrink-0 font-mono">{s.time as string}</span>
-                    <div className="flex-1">
-                      <span className="text-white text-sm">{s.title as string}</span>
-                      {!!s.speakerName && <span className="text-gray-500 text-xs ml-2">— {s.speakerName as string}</span>}
+              {loading ? <p className="text-gray-600 text-xs">Chargement...</p> : (
+                <div className="space-y-8">
+                  {sessionsByDate.sortedKeys.map(dateKey => (
+                    <div key={dateKey}>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="h-px flex-1 bg-neon-green/10" />
+                        <h2 className="text-neon-green text-xs font-bold uppercase tracking-widest px-2">
+                          {dateKey === "Sans date" ? "Sans date" : new Date(dateKey + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                        </h2>
+                        <div className="h-px flex-1 bg-neon-green/10" />
+                      </div>
+                      <div className="space-y-2">
+                        {sessionsByDate.groups[dateKey]
+                          .sort((a, b) => {
+                            const timeA = (a.time as string) || "";
+                            const timeB = (b.time as string) || "";
+                            if (timeA !== timeB) return timeA.localeCompare(timeB);
+                            return ((a.sortOrder as number) || 0) - ((b.sortOrder as number) || 0);
+                          })
+                          .map(s => (
+                            <div
+                              key={s.id as number}
+                              className="flex gap-3 items-center rounded-lg p-3"
+                              style={{ background: "rgba(255,255,255,0.02)", borderLeft: `3px solid ${typeColors[s.type as string] || "#444"}` }}
+                            >
+                              <div className="shrink-0 w-20 text-right">
+                                <span className="text-neon-green/60 text-xs font-mono">{(s.time as string) || "--:--"}</span>
+                                {!!(s.endTime as string) && <span className="block text-gray-600 text-xs font-mono">{s.endTime as string}</span>}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <span className="text-white text-sm font-bold">{s.title as string}</span>
+                                {!!(s.speakerName as string) && <span className="text-gray-500 text-xs ml-2">— {s.speakerName as string}</span>}
+                                {!!(s.room as string) && <span className="text-gray-600 text-xs ml-2">· {s.room as string}</span>}
+                              </div>
+                              <span
+                                className="text-xs px-1.5 py-0.5 rounded shrink-0"
+                                style={{ background: (typeColors[s.type as string] || "#444") + "20", color: typeColors[s.type as string] || "#888" }}
+                              >
+                                {s.type as string}
+                              </span>
+                              {!s.isVisible && <span className="text-xs text-gray-600 shrink-0">Masqué</span>}
+                              <div className="flex gap-2 shrink-0">
+                                <button onClick={() => { setForm({ ...s }); setEditing(s.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">Éditer</button>
+                                <button onClick={() => del("/api/admin/sessions", s.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">Suppr.</button>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
                     </div>
-                    <span className="text-xs px-1.5 py-0.5 rounded shrink-0" style={{ background: (typeColors[s.type as string] || "#444") + "20", color: typeColors[s.type as string] || "#888" }}>{s.type as string}</span>
-                    {!s.isVisible && <span className="text-xs text-gray-600 shrink-0">Masqué</span>}
-                    <div className="flex gap-2 shrink-0">
-                      <button onClick={() => { setForm({ ...s }); setEditing(s.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">Éditer</button>
-                      <button onClick={() => del("/api/admin/sessions", s.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">Suppr.</button>
-                    </div>
-                  </div>
-                ))}
-                {!data.sessions?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune session</p>}
-              </div>
+                  ))}
+                  {!data.sessions?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune session — cliquez sur + Ajouter</p>}
+                </div>
+              )}
             </div>
           )}
 
@@ -510,6 +667,189 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+
+          {/* TEAM */}
+          {tab === "team" && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h1 className="text-2xl font-black text-white">Équipe d&apos;organisation</h1>
+                <button
+                  onClick={() => { setForm({ isVisible: true, sortOrder: 0 }); setEditing(null); setShowForm(true); }}
+                  className="btn-neon px-4 py-2 rounded text-xs"
+                >
+                  + Ajouter
+                </button>
+              </div>
+
+              {showForm && (
+                <div className="cyber-card rounded-xl p-6 mb-6">
+                  <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier le Membre" : "Nouveau Membre"}</h3>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Nom *</label>
+                      <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.name as string) || ""} onChange={e => setForm({ ...form, name: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Rôle *</label>
+                      <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.role as string) || ""} onChange={e => setForm({ ...form, role: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">LinkedIn URL</label>
+                      <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.linkedin as string) || ""} onChange={e => setForm({ ...form, linkedin: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Twitter @handle</label>
+                      <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.twitter as string) || ""} onChange={e => setForm({ ...form, twitter: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Ordre d&apos;affichage</label>
+                      <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.sortOrder as number) || 0} onChange={e => setForm({ ...form, sortOrder: Number(e.target.value) })} />
+                    </div>
+                    <div className="flex items-end pb-1">
+                      <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                        <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
+                        Visible sur le site
+                      </label>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs text-gray-500 mb-1">Photo</label>
+                      <PhotoUploadField
+                        value={(form.photoUrl as string) || ""}
+                        folder="team"
+                        onChange={url => setForm({ ...form, photoUrl: url })}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs text-gray-500 mb-1">Biographie</label>
+                      <textarea rows={3} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.bio as string) || ""} onChange={e => setForm({ ...form, bio: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="flex gap-3 mt-4">
+                    <button onClick={() => save("/api/admin/team")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
+                    <button onClick={cancelForm} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+                  </div>
+                </div>
+              )}
+
+              {loading ? <p className="text-gray-600 text-xs">Chargement...</p> : (
+                <div className="space-y-2">
+                  {((data.team || []) as Record<string, unknown>[]).map(m => (
+                    <div key={m.id as number} className="cyber-card rounded-lg p-4 flex items-center gap-4">
+                      <Avatar photoUrl={m.photoUrl as string} name={m.name as string} size={12} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-bold text-sm">{m.name as string}</span>
+                          {!m.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">Masqué</span>}
+                        </div>
+                        <p className="text-neon-green/70 text-xs">{m.role as string}</p>
+                        {!!(m.bio as string) && <p className="text-gray-500 text-xs mt-0.5 truncate">{m.bio as string}</p>}
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button onClick={() => { setForm({ ...m }); setEditing(m.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green transition-colors px-2 py-1 border border-gray-700 rounded">Éditer</button>
+                        <button onClick={() => del("/api/admin/team", m.id as number)} className="text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-1 border border-red-900 rounded">Suppr.</button>
+                      </div>
+                    </div>
+                  ))}
+                  {!data.team?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucun membre — cliquez sur + Ajouter</p>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* PAST-SPEAKERS */}
+          {tab === "past-speakers" && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h1 className="text-2xl font-black text-white">Anciens Intervenants</h1>
+                <button
+                  onClick={() => { setForm({ isVisible: true, sortOrder: 0, edition: "2024" }); setEditing(null); setShowForm(true); }}
+                  className="btn-neon px-4 py-2 rounded text-xs"
+                >
+                  + Ajouter
+                </button>
+              </div>
+
+              {showForm && (
+                <div className="cyber-card rounded-xl p-6 mb-6">
+                  <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier l'Intervenant" : "Nouvel Ancien Intervenant"}</h3>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Nom *</label>
+                      <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.name as string) || ""} onChange={e => setForm({ ...form, name: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Rôle / Titre</label>
+                      <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.role as string) || ""} onChange={e => setForm({ ...form, role: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Entreprise</label>
+                      <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.company as string) || ""} onChange={e => setForm({ ...form, company: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Pays</label>
+                      <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.country as string) || ""} onChange={e => setForm({ ...form, country: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Édition (ex: 2024)</label>
+                      <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.edition as string) || ""} onChange={e => setForm({ ...form, edition: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Ordre d&apos;affichage</label>
+                      <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.sortOrder as number) || 0} onChange={e => setForm({ ...form, sortOrder: Number(e.target.value) })} />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs text-gray-500 mb-1">Photo</label>
+                      <PhotoUploadField
+                        value={(form.photoUrl as string) || ""}
+                        folder="past-speakers"
+                        onChange={url => setForm({ ...form, photoUrl: url })}
+                      />
+                    </div>
+                    <div className="flex items-center">
+                      <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                        <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
+                        Visible sur le site
+                      </label>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 mt-4">
+                    <button onClick={() => save("/api/admin/past-speakers")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
+                    <button onClick={cancelForm} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+                  </div>
+                </div>
+              )}
+
+              {loading ? <p className="text-gray-600 text-xs">Chargement...</p> : (
+                <div className="space-y-2">
+                  {((data["past-speakers"] || []) as Record<string, unknown>[]).map(ps => (
+                    <div key={ps.id as number} className="cyber-card rounded-lg p-4 flex items-center gap-4">
+                      <Avatar photoUrl={ps.photoUrl as string} name={ps.name as string} size={12} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-white font-bold text-sm">{ps.name as string}</span>
+                          {!!(ps.edition as string) && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green/70">{ps.edition as string}</span>
+                          )}
+                          {!ps.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">Masqué</span>}
+                        </div>
+                        <p className="text-gray-400 text-xs">
+                          {(ps.role as string) || ""}
+                          {(ps.company as string) ? ` · ${ps.company}` : ""}
+                          {(ps.country as string) ? ` · ${ps.country}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button onClick={() => { setForm({ ...ps }); setEditing(ps.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green transition-colors px-2 py-1 border border-gray-700 rounded">Éditer</button>
+                        <button onClick={() => del("/api/admin/past-speakers", ps.id as number)} className="text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-1 border border-red-900 rounded">Suppr.</button>
+                      </div>
+                    </div>
+                  ))}
+                  {!data["past-speakers"]?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucun ancien intervenant — cliquez sur + Ajouter</p>}
+                </div>
+              )}
+            </div>
+          )}
+
         </main>
       </div>
     </div>

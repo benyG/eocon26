@@ -1,19 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHmac } from "crypto";
 
-function isValidToken(token: string): boolean {
+async function isValidToken(token: string): Promise<boolean> {
   const SECRET = process.env.ADMIN_SECRET || "change-me-in-production";
   const password = process.env.ADMIN_PASSWORD || "admin";
-  const expected = createHmac("sha256", SECRET).update(password).digest("hex");
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(password));
+  const expected = Array.from(new Uint8Array(sig))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
   return token === expected;
 }
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-
   if (pathname.startsWith("/admin") && !pathname.startsWith("/admin/login")) {
     const token = req.cookies.get("admin_token")?.value;
-    if (!token || !isValidToken(token)) {
+    if (!token || !(await isValidToken(token))) {
       return NextResponse.redirect(new URL("/admin/login", req.url));
     }
   }

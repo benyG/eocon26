@@ -7,7 +7,6 @@ services:
       - .env
     environment:
       NODE_ENV: production
-    # Not exposed publicly — Caddy proxies internally
     expose:
       - "3000"
     networks:
@@ -18,15 +17,13 @@ services:
     container_name: eocon_caddy
     restart: unless-stopped
     ports:
-    - "8080:80"
-    - "3000:443"
-    - "3000:443/udp"   # HTTP/3
+      - "8080:80"
     environment:
       DOMAIN: test.eyesopensecurity.com
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data        # certificates (persisted)
-      - caddy_config:/config    # caddy config cache
+      - caddy_data:/data
+      - caddy_config:/config
     networks:
       - web
     depends_on:

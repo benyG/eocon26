@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-type Tab = "dashboard" | "speakers" | "sponsors" | "sessions" | "workshops" | "cfp" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "onboarding" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "export";
+type Tab = "dashboard" | "speakers" | "sponsors" | "sessions" | "workshops" | "cfp" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "onboarding" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "analytics" | "certificates" | "export";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -743,6 +743,195 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
   );
 }
 
+function AnalyticsPanel({ data }: { data: Record<string, unknown> | null }) {
+  if (!data) return <p className="text-gray-600 text-xs py-8 text-center">Chargement...</p>;
+
+  const curve = data.registrationCurve as { date: string; count: number }[];
+  const byTicket = data.byTicket as Record<string, number>;
+  const topCountries = data.topCountries as { country: string; count: number }[];
+  const total = data.totalRegistrations as number;
+  const maxCount = Math.max(...curve.map(c => c.count), 1);
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-black text-white">Analytics</h1>
+
+      {/* KPI row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: "Inscriptions", value: data.totalRegistrations as number, color: "#00ff9d" },
+          { label: "Check-ins", value: data.checkedIn as number, color: "#0066ff" },
+          { label: "Taux CFP", value: `${data.cfpRate}%`, color: "#ff6600" },
+          { label: "Taux bénévoles", value: `${data.volRate}%`, color: "#cc00ff" },
+        ].map(k => (
+          <div key={k.label} className="cyber-card rounded-xl p-4 text-center">
+            <div className="text-2xl font-black font-mono" style={{ color: k.color, fontFamily: "'Share Tech Mono', monospace" }}>{k.value}</div>
+            <div className="text-gray-500 text-xs uppercase tracking-wider mt-1">{k.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Registration curve */}
+      <div className="cyber-card rounded-xl p-5">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Courbe d&apos;inscriptions</h2>
+        {curve.length === 0 ? (
+          <p className="text-gray-600 text-xs text-center py-4">Aucune donnée</p>
+        ) : (
+          <div className="flex items-end gap-1 h-32">
+            {curve.map(c => (
+              <div key={c.date} className="flex flex-col items-center flex-1 min-w-0 group" title={`${c.date}: ${c.count}`}>
+                <div
+                  className="w-full rounded-t transition-all"
+                  style={{ height: `${Math.round((c.count / maxCount) * 100)}%`, background: "#00ff9d", minHeight: 2, opacity: 0.8 }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex justify-between text-gray-700 text-xs mt-1">
+          <span>{curve[0]?.date || ""}</span>
+          <span>{total} total</span>
+          <span>{curve[curve.length - 1]?.date || ""}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* By ticket type */}
+        <div className="cyber-card rounded-xl p-5">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Par type de billet</h2>
+          <div className="space-y-2">
+            {Object.entries(byTicket).map(([type, count]) => (
+              <div key={type} className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 w-24 shrink-0">{type}</span>
+                <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full bg-neon-green/60" style={{ width: `${total > 0 ? Math.round((count / total) * 100) : 0}%` }} />
+                </div>
+                <span className="text-xs font-mono text-neon-green w-8 text-right">{count}</span>
+              </div>
+            ))}
+            {!Object.keys(byTicket).length && <p className="text-gray-600 text-xs">Aucune donnée</p>}
+          </div>
+        </div>
+
+        {/* Top countries */}
+        <div className="cyber-card rounded-xl p-5">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Top pays</h2>
+          <div className="space-y-2">
+            {topCountries.map(c => (
+              <div key={c.country} className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 w-24 shrink-0 truncate">{c.country}</span>
+                <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full bg-neon-blue/60" style={{ width: `${total > 0 ? Math.round((c.count / total) * 100) : 0}%` }} />
+                </div>
+                <span className="text-xs font-mono text-neon-blue w-8 text-right" style={{ color: "#0066ff" }}>{c.count}</span>
+              </div>
+            ))}
+            {!topCountries.length && <p className="text-gray-600 text-xs">Aucune donnée</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* CFP funnel */}
+      <div className="cyber-card rounded-xl p-5">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Funnel CFP</h2>
+        <div className="flex gap-6 items-center">
+          {[
+            { label: "Soumis", value: data.cfpTotal as number, color: "#888" },
+            { label: "Acceptés", value: data.cfpAccepted as number, color: "#00ff9d" },
+            { label: "Taux", value: `${data.cfpRate}%`, color: "#ff6600" },
+          ].map(f => (
+            <div key={f.label} className="text-center">
+              <div className="text-2xl font-black font-mono" style={{ color: f.color, fontFamily: "'Share Tech Mono', monospace" }}>{f.value}</div>
+              <div className="text-gray-500 text-xs mt-1">{f.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CertificatesPanel() {
+  const [sending, setSending] = useState<string | null>(null);
+  const [result, setResult] = useState<{ sent: number; failed: number } | null>(null);
+
+  const send = async (type: string) => {
+    setSending(type);
+    setResult(null);
+    const res = await fetch("/api/admin/certificates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type }),
+    });
+    if (res.ok) setResult(await res.json());
+    setSending(null);
+  };
+
+  return (
+    <div>
+      <h1 className="text-2xl font-black text-white mb-2">Certificats</h1>
+      <p className="text-gray-500 text-xs mb-6">Envoi des certificats par email après l&apos;événement</p>
+      {result && (
+        <div className="cyber-card rounded-xl p-4 mb-6 border-neon-green/30">
+          <span className="text-neon-green text-sm">✓ {result.sent} envoyés</span>
+          {result.failed > 0 && <span className="text-red-400 text-sm ml-3">✗ {result.failed} échecs</span>}
+        </div>
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="cyber-card rounded-xl p-6">
+          <h2 className="text-white font-bold mb-2">Certificat Participants</h2>
+          <p className="text-gray-500 text-xs mb-4">Envoyé à tous les participants ayant été check-in le jour J</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => send("participants")}
+              disabled={!!sending}
+              className="btn-neon px-4 py-2 rounded text-sm"
+            >
+              {sending === "participants" ? "Envoi..." : "Envoyer à tous"}
+            </button>
+            <a href="/api/admin/certificates" onClick={e => { e.preventDefault(); window.open("/api/admin/certificates?preview=participant", "_blank"); }}
+              className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white border border-gray-700 hover:border-gray-500 transition-colors">
+              Aperçu
+            </a>
+          </div>
+        </div>
+        <div className="cyber-card rounded-xl p-6">
+          <h2 className="text-white font-bold mb-2">Certificat Speakers</h2>
+          <p className="text-gray-500 text-xs mb-4">Envoyé à tous les speakers 2026 avec un talk assigné</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => send("speakers")}
+              disabled={!!sending}
+              className="btn-neon px-4 py-2 rounded text-sm"
+            >
+              {sending === "speakers" ? "Envoi..." : "Envoyer à tous"}
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="cyber-card rounded-xl p-5 mt-6">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">Aperçus</h2>
+        <div className="flex gap-3">
+          <a
+            href="#"
+            onClick={e => { e.preventDefault(); fetch("/api/admin/certificates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "preview-participant" }) }).then(r => r.text()).then(html => { const w = window.open(); w?.document.write(html); }); }}
+            className="text-xs text-neon-green hover:underline"
+          >
+            Voir aperçu participant →
+          </a>
+          <a
+            href="#"
+            onClick={e => { e.preventDefault(); fetch("/api/admin/certificates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "preview-speaker" }) }).then(r => r.text()).then(html => { const w = window.open(); w?.document.write(html); }); }}
+            className="text-xs text-neon-green hover:underline"
+          >
+            Voir aperçu speaker →
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [stats, setStats] = useState<Record<string, number>>({});
@@ -801,6 +990,9 @@ export default function AdminDashboard() {
       } else if (t === "logistics") {
         const res = await fetch("/api/admin/logistics");
         if (res.ok) { const json = await res.json(); setData(d => ({ ...d, logistics: json })); }
+      } else if (t === "analytics") {
+        const res = await fetch("/api/admin/analytics");
+        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, analytics: [json] })); }
       } else if (["cfp", "volunteers", "registrations", "newsletter"].includes(t)) {
         const typeMap: Record<string, string> = { cfp: "cfp", volunteers: "volunteer", registrations: "registration", newsletter: "newsletter" };
         const res = await fetch(`/api/admin/submissions?type=${typeMap[t]}`);
@@ -883,6 +1075,8 @@ export default function AdminDashboard() {
     { id: "sponsor-pipeline", label: "Pipeline Sponsors" },
     { id: "budget", label: "Budget" },
     { id: "logistics", label: "Logistique" },
+    { id: "analytics", label: "Analytics" },
+    { id: "certificates", label: "Certificats" },
     { id: "export", label: "Export CSV" },
   ];
 
@@ -1834,6 +2028,16 @@ export default function AdminDashboard() {
               tasks={(data.logistics || []) as Record<string, unknown>[]}
               onRefresh={() => fetchData("logistics")}
             />
+          )}
+
+          {/* ANALYTICS */}
+          {tab === "analytics" && (
+            <AnalyticsPanel data={(data.analytics?.[0] as Record<string, unknown>) ?? null} />
+          )}
+
+          {/* CERTIFICATES */}
+          {tab === "certificates" && (
+            <CertificatesPanel />
           )}
 
           {/* EXPORT */}

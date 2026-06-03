@@ -3,8 +3,12 @@ import { Storage } from "@google-cloud/storage";
 function getStorage() {
   // Prefer inline JSON credentials (avoids file permission issues in Docker)
   if (process.env.GCS_CREDENTIALS_JSON) {
-    const credentials = JSON.parse(process.env.GCS_CREDENTIALS_JSON);
-    return new Storage({ credentials });
+    try {
+      const credentials = JSON.parse(process.env.GCS_CREDENTIALS_JSON);
+      return new Storage({ credentials });
+    } catch {
+      throw new Error("GCS_CREDENTIALS_JSON is not valid JSON");
+    }
   }
   // Fall back to key file path
   return new Storage({ keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS });

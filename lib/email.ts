@@ -5,6 +5,15 @@ function getResend() {
 }
 const FROM = process.env.EMAIL_FROM || "EOCON 2026 <noreply@eyesopensecurity.com>";
 
+function esc(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
 export async function sendCFPConfirmation(to: string, name: string, talkTitle: string) {
   await getResend().emails.send({
     from: FROM,
@@ -13,8 +22,8 @@ export async function sendCFPConfirmation(to: string, name: string, talkTitle: s
     html: `
       <div style="font-family:monospace;background:#0a0a0a;color:#fff;padding:32px;max-width:600px">
         <h1 style="color:#00ff9d">&gt; EOCON 2026</h1>
-        <p>Bonjour <strong>${name}</strong>,</p>
-        <p>Votre proposition <em>"${talkTitle}"</em> a bien été reçue. Notre comité de sélection l'examinera et vous contactera prochainement.</p>
+        <p>Bonjour <strong>${esc(name)}</strong>,</p>
+        <p>Votre proposition <em>&ldquo;${esc(talkTitle)}&rdquo;</em> a bien été reçue. Notre comité de sélection l'examinera et vous contactera prochainement.</p>
         <hr style="border-color:#222;margin:24px 0"/>
         <p style="color:#555;font-size:12px">📅 28 Novembre 2026 · Hotel Onomo, Douala · #EOCON #EOCTF</p>
       </div>`,
@@ -29,7 +38,7 @@ export async function sendVolunteerConfirmation(to: string, name: string) {
     html: `
       <div style="font-family:monospace;background:#0a0a0a;color:#fff;padding:32px;max-width:600px">
         <h1 style="color:#00ff9d">&gt; EOCON 2026</h1>
-        <p>Bonjour <strong>${name}</strong>,</p>
+        <p>Bonjour <strong>${esc(name)}</strong>,</p>
         <p>Merci pour votre candidature bénévole ! Nous sommes ravis de votre intérêt et reviendrons vers vous très bientôt.</p>
         <hr style="border-color:#222;margin:24px 0"/>
         <p style="color:#555;font-size:12px">📅 28 Novembre 2026 · Hotel Onomo, Douala · #EOCON</p>
@@ -53,8 +62,8 @@ export async function sendRegistrationTicket(
       <div style="font-family:monospace;background:#0a0a0a;color:#fff;padding:32px;max-width:600px">
         <h1 style="color:#00ff9d">&gt; EOCON 2026 — BILLET CONFIRMÉ</h1>
         <div style="background:#111;border:1px solid #00ff9d33;border-radius:12px;padding:24px;margin:24px 0">
-          <p style="margin:0 0 8px"><span style="color:#00ff9d">Participant :</span> ${fname} ${lname}</p>
-          <p style="margin:0 0 8px"><span style="color:#00ff9d">Type :</span> ${ticketType}</p>
+          <p style="margin:0 0 8px"><span style="color:#00ff9d">Participant :</span> ${esc(fname)} ${esc(lname)}</p>
+          <p style="margin:0 0 8px"><span style="color:#00ff9d">Type :</span> ${esc(ticketType)}</p>
           <p style="margin:0 0 8px"><span style="color:#00ff9d">Référence :</span> <strong>${ticketId}</strong></p>
           <p style="margin:0"><span style="color:#00ff9d">Date :</span> 28 Novembre 2026</p>
         </div>

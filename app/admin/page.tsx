@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-type Tab = "dashboard" | "speakers" | "sponsors" | "sessions" | "workshops" | "cfp" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "onboarding";
+type Tab = "dashboard" | "speakers" | "sponsors" | "sessions" | "workshops" | "cfp" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "onboarding" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "export";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -200,6 +200,549 @@ function AdminUsersPanel() {
   );
 }
 
+// ---- Communication Panel ----
+function CommunicationPanel({ templates, onRefresh }: { templates: Record<string, unknown>[]; onRefresh: () => void }) {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<Record<string, unknown>>({ segment: "all" });
+  const [editing, setEditing] = useState<number | null>(null);
+  const [sending, setSending] = useState<number | null>(null);
+  const [sendResult, setSendResult] = useState<string | null>(null);
+
+  const save = async () => {
+    const method = editing ? "PUT" : "POST";
+    const url = editing ? `/api/admin/email-templates/${editing}` : "/api/admin/email-templates";
+    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    setShowForm(false); setEditing(null); setForm({ segment: "all" }); onRefresh();
+  };
+
+  const del = async (id: number) => {
+    if (!confirm("Supprimer ce template ?")) return;
+    await fetch(`/api/admin/email-templates/${id}`, { method: "DELETE" });
+    onRefresh();
+  };
+
+  const send = async (id: number) => {
+    if (!confirm("Envoyer cet email à tous les destinataires du segment ?")) return;
+    setSending(id); setSendResult(null);
+    const res = await fetch("/api/admin/email-templates/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ templateId: id }) });
+    const json = await res.json() as Record<string, unknown>;
+    setSending(null);
+    setSendResult(res.ok ? `✓ Envoyé : ${json.sent} / ${json.total} (${json.failed} erreurs)` : `✗ Erreur : ${json.error}`);
+    onRefresh();
+  };
+
+  const seedTemplates = async () => {
+    const templates = [
+      { name: "J-30 — Save the Date", subject: "EOCON 2026 — Réservez la date !", segment: "newsletter", htmlBody: "<h1>EOCON 2026</h1><p>L'événement cybersécurité de l'année arrive dans 30 jours. Inscrivez-vous dès maintenant !</p>" },
+      { name: "J-7 — Rappel inscription", subject: "Plus que 7 jours — EOCON 2026", segment: "newsletter", htmlBody: "<h1>EOCON 2026 — J-7</h1><p>Plus que 7 jours ! Confirmez votre participation maintenant.</p>" },
+      { name: "J-1 — Infos pratiques", subject: "EOCON 2026 demain — Infos pratiques", segment: "registered", htmlBody: "<h1>À demain !</h1><p>Retrouvez toutes les informations pratiques pour EOCON 2026.</p>" },
+    ];
+    for (const t of templates) {
+      await fetch("/api/admin/email-templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) });
+    }
+    onRefresh();
+  };
+
+  const segmentLabel: Record<string, string> = { all: "Tous", registered: "Inscrits", cfp_accepted: "CFP acceptés", volunteers: "Bénévoles", newsletter: "Newsletter" };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-black text-white">Communication Email</h1>
+        <div className="flex gap-2">
+          <button onClick={seedTemplates} className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">+ Templates J-30/J-7/J-1</button>
+          <button onClick={() => { setForm({ segment: "all" }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">+ Nouveau template</button>
+        </div>
+      </div>
+      {sendResult && (
+        <div className="mb-4 p-3 rounded text-xs" style={{ background: sendResult.startsWith("✓") ? "#00ff9d15" : "#ff006615", color: sendResult.startsWith("✓") ? "#00ff9d" : "#ff0066", border: `1px solid ${sendResult.startsWith("✓") ? "#00ff9d40" : "#ff006640"}` }}>
+          {sendResult}
+        </div>
+      )}
+      {showForm && (
+        <div className="cyber-card rounded-xl p-5 mb-6 space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Nom du template</label>
+              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.name as string) || ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Segment</label>
+              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.segment as string) || "all"} onChange={e => setForm(f => ({ ...f, segment: e.target.value }))}>
+                {Object.entries(segmentLabel).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs text-gray-500 block mb-1">Sujet</label>
+              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.subject as string) || ""} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs text-gray-500 block mb-1">Corps HTML</label>
+              <textarea rows={8} className="cyber-input w-full px-3 py-2 rounded text-xs resize-y font-mono" value={(form.htmlBody as string) || ""} onChange={e => setForm(f => ({ ...f, htmlBody: e.target.value }))} />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">Sauvegarder</button>
+            <button onClick={() => { setShowForm(false); setForm({ segment: "all" }); setEditing(null); }} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
+          </div>
+        </div>
+      )}
+      <div className="space-y-3">
+        {templates.map(t => (
+          <div key={t.id as number} className="cyber-card rounded-xl p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-white font-bold text-sm">{t.name as string}</p>
+                <p className="text-gray-400 text-xs mt-0.5">{t.subject as string}</p>
+                <div className="flex gap-2 mt-1">
+                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "#0066ff20", color: "#0066ff" }}>{segmentLabel[t.segment as string] || (t.segment as string)}</span>
+                  {t.sentAt ? (
+                    <span className="text-xs px-2 py-0.5 rounded" style={{ background: "#00ff9d20", color: "#00ff9d" }}>Envoyé le {new Date(t.sentAt as string).toLocaleDateString("fr-FR")}</span>
+                  ) : (
+                    <span className="text-xs px-2 py-0.5 rounded" style={{ background: "#ffffff10", color: "#888" }}>Brouillon</span>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  onClick={() => send(t.id as number)}
+                  disabled={sending === (t.id as number)}
+                  className="text-xs px-3 py-1.5 rounded transition-colors"
+                  style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}
+                >
+                  {sending === (t.id as number) ? "Envoi..." : "Envoyer"}
+                </button>
+                <button onClick={() => { setForm({ ...t }); setEditing(t.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">Éditer</button>
+                <button onClick={() => del(t.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">Suppr.</button>
+              </div>
+            </div>
+          </div>
+        ))}
+        {!templates.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun template — créez-en un ou utilisez les templates pré-configurés</p>}
+      </div>
+    </div>
+  );
+}
+
+// ---- Sponsor Pipeline Panel ----
+const PROSPECT_STATUSES = [
+  { value: "contacted", label: "Contacté", color: "#0066ff" },
+  { value: "meeting", label: "Réunion", color: "#cc00ff" },
+  { value: "positive", label: "Avancée positive", color: "#00ff9d" },
+  { value: "negative", label: "Avancée négative", color: "#ff6600" },
+  { value: "concluded", label: "Conclu", color: "#00ff9d" },
+  { value: "abandoned", label: "Abandonné", color: "#ff0066" },
+  { value: "paused", label: "En pause", color: "#888" },
+];
+
+function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<string, unknown>[]; onRefresh: () => void }) {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<Record<string, unknown>>({ status: "contacted" });
+
+  const save = async () => {
+    await fetch("/api/admin/sponsor-prospects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    setShowForm(false); setForm({ status: "contacted" }); onRefresh();
+  };
+
+  const updateStatus = async (id: number, status: string) => {
+    await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    onRefresh();
+  };
+
+  const updateNotes = async (id: number, notes: string) => {
+    await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notes }) });
+  };
+
+  const del = async (id: number) => {
+    if (!confirm("Supprimer ce prospect ?")) return;
+    await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "DELETE" });
+    onRefresh();
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-black text-white">Pipeline Sponsors</h1>
+        <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter prospect</button>
+      </div>
+      {showForm && (
+        <div className="cyber-card rounded-xl p-5 mb-6 space-y-3">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[
+              { key: "org", label: "Organisation *" },
+              { key: "contact", label: "Contact" },
+              { key: "email", label: "Email" },
+              { key: "phone", label: "Téléphone" },
+              { key: "package", label: "Package / Tier" },
+            ].map(f => (
+              <div key={f.key}>
+                <label className="text-xs text-gray-500 block mb-1">{f.label}</label>
+                <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form[f.key] as string) || ""} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} />
+              </div>
+            ))}
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Statut</label>
+              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.status as string) || "contacted"} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
+                {PROSPECT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </div>
+            <div className="sm:col-span-2 lg:col-span-3">
+              <label className="text-xs text-gray-500 block mb-1">Notes</label>
+              <textarea rows={2} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.notes as string) || ""} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">Sauvegarder</button>
+            <button onClick={() => { setShowForm(false); setForm({ status: "contacted" }); }} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
+          </div>
+        </div>
+      )}
+      <div className="space-y-3">
+        {PROSPECT_STATUSES.map(st => {
+          const group = prospects.filter(p => p.status === st.value);
+          if (!group.length) return null;
+          return (
+            <div key={st.value} className="mb-4">
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-2" style={{ color: st.color }}>
+                <span className="w-2 h-2 rounded-full inline-block" style={{ background: st.color }} />
+                {st.label} ({group.length})
+              </h3>
+              <div className="space-y-2 pl-4">
+                {group.map(p => (
+                  <div key={p.id as number} className="cyber-card rounded-lg p-4" style={{ borderLeft: `3px solid ${st.color}40` }}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-bold text-sm">{p.org as string}</p>
+                        <div className="flex gap-3 text-xs text-gray-500 mt-0.5 flex-wrap">
+                          {!!(p.contact as string) && <span>{p.contact as string}</span>}
+                          {!!(p.email as string) && <span className="text-neon-green/60">{p.email as string}</span>}
+                          {!!(p.phone as string) && <span>{p.phone as string}</span>}
+                          {!!(p.package as string) && <span className="px-1.5 py-0.5 rounded" style={{ background: st.color + "20", color: st.color }}>{p.package as string}</span>}
+                        </div>
+                        {!!(p.notes as string) && (
+                          <textarea
+                            defaultValue={(p.notes as string) || ""}
+                            onBlur={e => updateNotes(p.id as number, e.target.value)}
+                            className="cyber-input w-full text-xs rounded p-2 mt-2 h-12 resize-none"
+                            placeholder="Notes..."
+                          />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <select
+                          className="cyber-input text-xs px-2 py-1 rounded"
+                          value={p.status as string}
+                          onChange={e => updateStatus(p.id as number, e.target.value)}
+                        >
+                          {PROSPECT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                        </select>
+                        <button onClick={() => del(p.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">Suppr.</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        {!prospects.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun prospect pour l&apos;instant</p>}
+      </div>
+    </div>
+  );
+}
+
+// ---- Budget Panel ----
+const BUDGET_COST_LABELS = [
+  "Hébergement services web", "Sponsoring pages LinkedIn/Twitter/Instagram", "Insertion Média papier",
+  "Communication Média TV/Radio", "Couverture TV/Radio", "Salle de conférence Hotel",
+  "Service conférence", "Hébergement parties prenantes clés", "Transports",
+  "Impressions", "Gadjets", "Sécurité", "Santé", "Animation DJ",
+];
+
+function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; onRefresh: () => void }) {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<Record<string, unknown>>({ category: "costs", planned: 0, actual: 0, status: "pending" });
+
+  const save = async () => {
+    await fetch("/api/admin/budget", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    setShowForm(false); setForm({ category: "costs", planned: 0, actual: 0, status: "pending" }); onRefresh();
+  };
+
+  const update = async (id: number, data: Record<string, unknown>) => {
+    await fetch(`/api/admin/budget/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    onRefresh();
+  };
+
+  const del = async (id: number) => {
+    if (!confirm("Supprimer ?")) return;
+    await fetch(`/api/admin/budget/${id}`, { method: "DELETE" });
+    onRefresh();
+  };
+
+  const seedCosts = async () => {
+    for (const label of BUDGET_COST_LABELS) {
+      await fetch("/api/admin/budget", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ category: "costs", label, planned: 0, actual: 0, status: "pending" }) });
+    }
+    onRefresh();
+  };
+
+  const revenues = items.filter(i => i.category === "revenue");
+  const costs = items.filter(i => i.category === "costs");
+  const totalPlannedRev = revenues.reduce((s, i) => s + ((i.planned as number) || 0), 0);
+  const totalActualRev = revenues.reduce((s, i) => s + ((i.actual as number) || 0), 0);
+  const totalPlannedCost = costs.reduce((s, i) => s + ((i.planned as number) || 0), 0);
+  const totalActualCost = costs.reduce((s, i) => s + ((i.actual as number) || 0), 0);
+
+  const renderTable = (rows: Record<string, unknown>[], title: string, color: string) => (
+    <div className="cyber-card rounded-xl p-5 mb-6">
+      <h3 className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color }}>{title}</h3>
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-gray-800 text-gray-500">
+            <th className="text-left py-2 px-2 font-normal">Libellé</th>
+            <th className="text-right py-2 px-2 font-normal">Prévu (€)</th>
+            <th className="text-right py-2 px-2 font-normal">Réel (€)</th>
+            <th className="text-left py-2 px-2 font-normal">Statut</th>
+            <th className="py-2 px-2" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.id as number} className="border-b border-gray-900 hover:bg-white/[0.01]">
+              <td className="py-2 px-2 text-white">{r.label as string}</td>
+              <td className="py-2 px-2 text-right">
+                <input
+                  type="number"
+                  className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
+                  defaultValue={(r.planned as number) || 0}
+                  onBlur={e => update(r.id as number, { planned: parseFloat(e.target.value) || 0 })}
+                />
+              </td>
+              <td className="py-2 px-2 text-right">
+                <input
+                  type="number"
+                  className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
+                  defaultValue={(r.actual as number) || 0}
+                  onBlur={e => update(r.id as number, { actual: parseFloat(e.target.value) || 0 })}
+                />
+              </td>
+              <td className="py-2 px-2">
+                <select
+                  className="cyber-input text-xs px-2 py-1 rounded"
+                  value={r.status as string}
+                  onChange={e => update(r.id as number, { status: e.target.value })}
+                >
+                  <option value="pending">En attente</option>
+                  <option value="paid">Payé</option>
+                  <option value="cancelled">Annulé</option>
+                </select>
+              </td>
+              <td className="py-2 px-2">
+                <button onClick={() => del(r.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {!rows.length && <p className="text-gray-600 text-xs py-4 text-center">Aucun élément</p>}
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-black text-white">Budget</h1>
+        <div className="flex gap-2">
+          <button onClick={seedCosts} className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">Pré-remplir dépenses</button>
+          <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter ligne</button>
+        </div>
+      </div>
+
+      {/* Summary */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        {[
+          { label: "Revenus prévus", value: totalPlannedRev, color: "#00ff9d" },
+          { label: "Revenus réels", value: totalActualRev, color: "#00ff9d" },
+          { label: "Dépenses prévues", value: totalPlannedCost, color: "#ff0066" },
+          { label: "Dépenses réelles", value: totalActualCost, color: "#ff0066" },
+        ].map(s => (
+          <div key={s.label} className="cyber-card rounded-xl p-4 text-center">
+            <div className="text-xl font-black font-mono" style={{ color: s.color }}>{s.value.toLocaleString("fr-FR")} €</div>
+            <div className="text-gray-500 text-xs mt-1">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {showForm && (
+        <div className="cyber-card rounded-xl p-5 mb-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Catégorie</label>
+              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.category as string) || "costs"} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
+                <option value="revenue">Revenus</option>
+                <option value="costs">Dépenses</option>
+              </select>
+            </div>
+            <div className="lg:col-span-2">
+              <label className="text-xs text-gray-500 block mb-1">Libellé</label>
+              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.label as string) || ""} onChange={e => setForm(p => ({ ...p, label: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Montant prévu (€)</label>
+              <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.planned as number) || 0} onChange={e => setForm(p => ({ ...p, planned: parseFloat(e.target.value) || 0 }))} />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-3">
+            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">Ajouter</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {renderTable(revenues, "Revenus", "#00ff9d")}
+      {renderTable(costs, "Dépenses", "#ff0066")}
+    </div>
+  );
+}
+
+// ---- Logistics Panel ----
+const LOGISTICS_SEED_CATEGORIES = [
+  { category: "Production", tasks: ["Production gadjets & impressions"] },
+  { category: "Coordination bénévoles", tasks: ["Briefing équipe bénévoles", "Attribution des rôles"] },
+  { category: "Plan salle", tasks: ["Validation plan salle", "Installation signalétique"] },
+  { category: "Vérification billets", tasks: ["Test scanner QR", "Formation opérateurs check-in"] },
+  { category: "Kit speakers", tasks: ["Préparation kit speakers", "Distribution badges speakers"] },
+  { category: "Animateur", tasks: ["Brief animateur"] },
+  { category: "Discours", tasks: ["Discours d'ouverture", "Discours de clôture"] },
+  { category: "Eau", tasks: ["Commande eau/boissons"] },
+  { category: "Internet", tasks: ["Test connexion salle", "WiFi invités opérationnel"] },
+  { category: "Tests techniques", tasks: ["Tests techniques salle", "Test son & vidéo", "Test retransmission"] },
+  { category: "Caméras", tasks: ["Installation caméras", "Test enregistrement"] },
+];
+
+function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]; onRefresh: () => void }) {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<Record<string, unknown>>({ done: false });
+
+  const save = async () => {
+    await fetch("/api/admin/logistics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    setShowForm(false); setForm({ done: false }); onRefresh();
+  };
+
+  const update = async (id: number, data: Record<string, unknown>) => {
+    await fetch(`/api/admin/logistics/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    onRefresh();
+  };
+
+  const del = async (id: number) => {
+    if (!confirm("Supprimer ?")) return;
+    await fetch(`/api/admin/logistics/${id}`, { method: "DELETE" });
+    onRefresh();
+  };
+
+  const seed = async () => {
+    for (const { category, tasks: ts } of LOGISTICS_SEED_CATEGORIES) {
+      for (let i = 0; i < ts.length; i++) {
+        await fetch("/api/admin/logistics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ category, title: ts[i], sortOrder: i }) });
+      }
+    }
+    onRefresh();
+  };
+
+  const totalDone = tasks.filter(t => t.done).length;
+  const total = tasks.length;
+  const pct = total ? Math.round((totalDone / total) * 100) : 0;
+
+  const byCategory: Record<string, Record<string, unknown>[]> = {};
+  for (const t of tasks) {
+    const cat = (t.category as string) || "Autre";
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(t);
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-black text-white">Logistique</h1>
+        <div className="flex gap-2">
+          {!tasks.length && <button onClick={seed} className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">Pré-remplir tâches</button>}
+          <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter tâche</button>
+        </div>
+      </div>
+
+      {total > 0 && (
+        <div className="cyber-card rounded-xl p-4 mb-6">
+          <div className="flex justify-between text-xs text-gray-500 mb-2">
+            <span>Progression globale</span>
+            <span className="text-neon-green font-bold">{totalDone}/{total} ({pct}%)</span>
+          </div>
+          <div className="h-3 bg-gray-900 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pct === 100 ? "#00ff9d" : "#0066ff" }} />
+          </div>
+        </div>
+      )}
+
+      {showForm && (
+        <div className="cyber-card rounded-xl p-5 mb-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Catégorie</label>
+              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.category as string) || ""} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} placeholder="ex: Technique" />
+            </div>
+            <div className="lg:col-span-2">
+              <label className="text-xs text-gray-500 block mb-1">Titre *</label>
+              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.title as string) || ""} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Responsable</label>
+              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.assignee as string) || ""} onChange={e => setForm(p => ({ ...p, assignee: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Échéance</label>
+              <input type="date" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.deadline as string) || ""} onChange={e => setForm(p => ({ ...p, deadline: e.target.value }))} />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-3">
+            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">Ajouter</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-6">
+        {Object.entries(byCategory).map(([cat, catTasks]) => {
+          const catDone = catTasks.filter(t => t.done).length;
+          return (
+            <div key={cat}>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-bold text-neon-green/70 uppercase tracking-widest">{cat}</h3>
+                <span className="text-xs text-gray-600">{catDone}/{catTasks.length}</span>
+              </div>
+              <div className="space-y-2">
+                {catTasks.map(t => (
+                  <div key={t.id as number} className="cyber-card rounded-lg p-3 flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={!!t.done}
+                      onChange={e => update(t.id as number, { done: e.target.checked })}
+                      className="w-4 h-4 accent-neon-green shrink-0"
+                    />
+                    <span className={`flex-1 text-sm transition-colors ${t.done ? "line-through text-gray-600" : "text-white"}`}>{t.title as string}</span>
+                    {!!(t.assignee as string) && <span className="text-xs text-gray-500 shrink-0">{t.assignee as string}</span>}
+                    {!!(t.deadline as string) && <span className="text-xs text-gray-600 shrink-0">{new Date(t.deadline as string).toLocaleDateString("fr-FR")}</span>}
+                    <button onClick={() => del(t.id as number)} className="text-red-400 text-xs hover:text-red-300 shrink-0">✗</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        {!tasks.length && <p className="text-gray-600 text-xs py-8 text-center">Aucune tâche — créez-en une ou utilisez le pré-remplissage</p>}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [stats, setStats] = useState<Record<string, number>>({});
@@ -246,6 +789,18 @@ export default function AdminDashboard() {
       } else if (t === "onboarding") {
         const res = await fetch("/api/admin/speakers");
         if (res.ok) { const json = await res.json(); setData(d => ({ ...d, speakers: json })); }
+      } else if (t === "communication") {
+        const res = await fetch("/api/admin/email-templates");
+        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, "email-templates": json })); }
+      } else if (t === "sponsor-pipeline") {
+        const res = await fetch("/api/admin/sponsor-prospects");
+        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, "sponsor-prospects": json })); }
+      } else if (t === "budget") {
+        const res = await fetch("/api/admin/budget");
+        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, budget: json })); }
+      } else if (t === "logistics") {
+        const res = await fetch("/api/admin/logistics");
+        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, logistics: json })); }
       } else if (["cfp", "volunteers", "registrations", "newsletter"].includes(t)) {
         const typeMap: Record<string, string> = { cfp: "cfp", volunteers: "volunteer", registrations: "registration", newsletter: "newsletter" };
         const res = await fetch(`/api/admin/submissions?type=${typeMap[t]}`);
@@ -324,6 +879,11 @@ export default function AdminDashboard() {
     { id: "team", label: "Équipe", count: stats.team },
     { id: "past-speakers", label: "Anciens Speakers" },
     { id: "users", label: "Utilisateurs Admin" },
+    { id: "communication", label: "Communication" },
+    { id: "sponsor-pipeline", label: "Pipeline Sponsors" },
+    { id: "budget", label: "Budget" },
+    { id: "logistics", label: "Logistique" },
+    { id: "export", label: "Export CSV" },
   ];
 
   // Group sessions by date
@@ -1241,6 +1801,63 @@ export default function AdminDashboard() {
             <div>
               <h1 className="text-2xl font-black text-white mb-6">Utilisateurs Admin</h1>
               <AdminUsersPanel />
+            </div>
+          )}
+
+          {/* COMMUNICATION */}
+          {tab === "communication" && (
+            <CommunicationPanel
+              templates={(data["email-templates"] || []) as Record<string, unknown>[]}
+              onRefresh={() => fetchData("communication")}
+            />
+          )}
+
+          {/* SPONSOR PIPELINE */}
+          {tab === "sponsor-pipeline" && (
+            <SponsorPipelinePanel
+              prospects={(data["sponsor-prospects"] || []) as Record<string, unknown>[]}
+              onRefresh={() => fetchData("sponsor-pipeline")}
+            />
+          )}
+
+          {/* BUDGET */}
+          {tab === "budget" && (
+            <BudgetPanel
+              items={(data.budget || []) as Record<string, unknown>[]}
+              onRefresh={() => fetchData("budget")}
+            />
+          )}
+
+          {/* LOGISTICS */}
+          {tab === "logistics" && (
+            <LogisticsPanel
+              tasks={(data.logistics || []) as Record<string, unknown>[]}
+              onRefresh={() => fetchData("logistics")}
+            />
+          )}
+
+          {/* EXPORT */}
+          {tab === "export" && (
+            <div>
+              <h1 className="text-2xl font-black text-white mb-6">Export CSV</h1>
+              <div className="grid sm:grid-cols-2 gap-4">
+                {[
+                  { type: "registrations", label: "Inscriptions CSV", color: "#ff0066", desc: "Tous les participants inscrits" },
+                  { type: "cfp", label: "CFP CSV", color: "#cc00ff", desc: "Toutes les propositions de talks" },
+                  { type: "volunteers", label: "Bénévoles CSV", color: "#ff6600", desc: "Candidatures bénévoles" },
+                  { type: "newsletter", label: "Newsletter CSV", color: "#ffaa00", desc: "Abonnés à la newsletter" },
+                ].map(item => (
+                  <a
+                    key={item.type}
+                    href={`/api/admin/export?type=${item.type}`}
+                    className="cyber-card rounded-xl p-6 block hover:opacity-90 transition-opacity"
+                    style={{ borderColor: item.color + "40" }}
+                  >
+                    <div className="text-lg font-bold mb-1" style={{ color: item.color }}>⬇ {item.label}</div>
+                    <div className="text-gray-500 text-xs">{item.desc}</div>
+                  </a>
+                ))}
+              </div>
             </div>
           )}
 

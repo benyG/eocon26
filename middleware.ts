@@ -36,7 +36,7 @@ async function isValidToken(token: string): Promise<boolean> {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isAdminPage = pathname.startsWith("/admin") && !pathname.startsWith("/admin/login");
-  const isAdminApi = pathname.startsWith("/api/admin");
+  const isAdminApi = pathname.startsWith("/api/admin") && pathname !== "/api/admin/login";
 
   if (isAdminPage || isAdminApi) {
     const token = req.cookies.get("admin_token")?.value;

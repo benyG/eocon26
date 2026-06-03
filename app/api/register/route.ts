@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { sendRegistrationTicket } from "@/lib/email";
 import { rateLimit, getIp } from "@/lib/rateLimit";
+import { generateQrPayload } from "@/lib/qr";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VALID_TICKET_TYPES = ["standard", "student", "vip", "sponsor", "online", "early-bird"];
@@ -38,6 +39,9 @@ export async function POST(req: NextRequest) {
         ticketType,
       },
     });
+
+    const qrCode = generateQrPayload(registration.id);
+    await prisma.registration.update({ where: { id: registration.id }, data: { qrCode } });
 
     sendRegistrationTicket(email, fname, lname, ticketType, registration.id).catch(e =>
       console.error("[Register email]", e),

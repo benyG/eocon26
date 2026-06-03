@@ -220,3 +220,67 @@ model TicketCapacity {
 
   @@map("ticket_capacities")
 }
+
+model EmailTemplate {
+  id          Int       @id @default(autoincrement())
+  name        String
+  subject     String
+  htmlBody    String    @db.LongText
+  segment     String    @default("all") // all | registered | cfp_accepted | volunteers | newsletter
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@map("email_templates")
+}
+
+model EmailLog {
+  id         Int      @id @default(autoincrement())
+  templateId Int?
+  recipient  String
+  subject    String
+  status     String   @default("sent") // sent | failed
+  sentAt     DateTime @default(now())
+
+  @@map("email_logs")
+}
+
+model SponsorProspect {
+  id        Int      @id @default(autoincrement())
+  org       String
+  contact   String?
+  email     String?
+  phone     String?
+  package   String?  // tier/package name
+  status    String   @default("contacted") // contacted | meeting | negative | positive | concluded | abandoned | paused
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("sponsor_prospects")
+}
+
+model BudgetItem {
+  id        Int      @id @default(autoincrement())
+  category  String   @default("costs") // revenue | costs
+  label     String
+  planned   Float    @default(0)
+  actual    Float    @default(0)
+  status    String   @default("pending") // pending | paid | cancelled
+  createdAt DateTime @default(now())
+
+  @@map("budget_items")
+}
+
+model LogisticsTask {
+  id        Int      @id @default(autoincrement())
+  category  String
+  title     String
+  assignee  String?
+  deadline  DateTime?
+  done      Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("logistics_tasks")
+}

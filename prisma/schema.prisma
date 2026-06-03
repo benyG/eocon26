@@ -178,6 +178,7 @@ model AdminUser {
   passwordHash String
   permissions  String         @db.Text // JSON: { cfp: "write", speakers: "read", ... }
   isActive     Boolean        @default(true)
+  profileId    String?
   createdAt    DateTime       @default(now())
   sessions     AdminSession[]
 
@@ -323,4 +324,22 @@ model ProspectLead {
   createdAt          DateTime @default(now())
 
   @@map("prospect_leads")
+}
+
+model SponsorPackage {
+  id             Int      @id @default(autoincrement())
+  tier           String   @unique // PLATINUM | GOLD | SILVER | BRONZE | PARTNER
+  nameFr         String
+  nameEn         String
+  price          Int      // in FCFA
+  maxSponsors    Int      @default(1)
+  perks          String   @db.Text // JSON array of perk strings
+  perksFr        String   @db.Text // JSON array
+  perksEn        String   @db.Text // JSON array
+  isVisible      Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  highlightColor String?  // hex color for display
+  createdAt      DateTime @default(now())
+
+  @@map("sponsor_packages")
 }

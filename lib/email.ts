@@ -1,4 +1,6 @@
 import { Resend } from "resend";
+import QRCode from "qrcode";
+import { generateQrPayload } from "@/lib/qr";
 
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY || "");
@@ -84,6 +86,8 @@ export async function sendRegistrationTicket(
   registrationId: number,
 ) {
   const ticketId = `EOCON26-${String(registrationId).padStart(5, "0")}`;
+  const qrString = generateQrPayload(registrationId);
+  const qrDataUrl = await QRCode.toDataURL(qrString, { width: 200, margin: 2, color: { dark: "#000000", light: "#ffffff" } });
   await getResend().emails.send({
     from: FROM,
     to,
@@ -96,6 +100,10 @@ export async function sendRegistrationTicket(
           <p style="margin:0 0 8px"><span style="color:#00ff9d">Type :</span> ${esc(ticketType)}</p>
           <p style="margin:0 0 8px"><span style="color:#00ff9d">Référence :</span> <strong>${ticketId}</strong></p>
           <p style="margin:0"><span style="color:#00ff9d">Date :</span> 28 Novembre 2026</p>
+          <div style="text-align:center;margin:24px 0">
+            <img src="${qrDataUrl}" alt="QR Code d'accès" style="width:180px;height:180px;border:4px solid #00ff9d;border-radius:8px" />
+            <p style="color:#00ff9d;font-size:12px;margin-top:8px">Présentez ce QR code à l'entrée</p>
+          </div>
         </div>
         <p>📍 Hotel Onomo, Douala, Cameroun</p>
         <p>Présentez ce billet (email ou capture d'écran) à l'entrée.</p>

@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-type Tab = "dashboard" | "speakers" | "sponsors" | "sessions" | "workshops" | "cfp" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers";
+type Tab = "dashboard" | "speakers" | "sponsors" | "sessions" | "workshops" | "cfp" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "onboarding";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -92,6 +92,114 @@ function PhotoUploadField({
   );
 }
 
+function AdminUsersPanel() {
+  const SECTIONS = ["cfp", "speakers", "sponsors", "sessions", "volunteers", "registrations", "newsletter", "team"];
+  const [users, setUsers] = useState<Record<string, unknown>[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<Record<string, unknown>>({ permissions: {} });
+
+  useEffect(() => {
+    fetch("/api/admin/users").then(r => r.json()).then(setUsers);
+  }, []);
+
+  const save = async () => {
+    await fetch("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    const res = await fetch("/api/admin/users");
+    setUsers(await res.json());
+    setShowForm(false);
+    setForm({ permissions: {} });
+  };
+
+  const toggle = async (id: number, isActive: boolean) => {
+    await fetch(`/api/admin/users/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive }),
+    });
+    setUsers(prev => prev.map(u => u.id === id ? { ...u, isActive } : u));
+  };
+
+  return (
+    <div>
+      <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-sm mb-4">+ Nouvel utilisateur</button>
+      {showForm && (
+        <div className="cyber-card rounded-xl p-5 mb-6 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Nom</label>
+              <input className="cyber-input w-full text-sm rounded px-3 py-2" value={(form.name as string) || ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Email</label>
+              <input type="email" className="cyber-input w-full text-sm rounded px-3 py-2" value={(form.email as string) || ""} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Mot de passe</label>
+            <input type="password" className="cyber-input w-full text-sm rounded px-3 py-2" value={(form.password as string) || ""} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-2">Permissions (read / write / none)</label>
+            <div className="grid grid-cols-4 gap-2">
+              {SECTIONS.map(s => (
+                <div key={s}>
+                  <p className="text-xs text-gray-400 mb-1 capitalize">{s}</p>
+                  <select className="cyber-input w-full text-xs rounded px-2 py-1"
+                    value={((form.permissions as Record<string, string>)[s]) || "none"}
+                    onChange={e => setForm(f => ({ ...f, permissions: { ...(f.permissions as Record<string, string>), [s]: e.target.value } }))}>
+                    <option value="none">Aucun</option>
+                    <option value="read">Lecture</option>
+                    <option value="write">Écriture</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={save} className="btn-neon px-4 py-2 rounded text-sm">Créer</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white">Annuler</button>
+          </div>
+        </div>
+      )}
+      <div className="space-y-2">
+        {users.map(u => {
+          const perms = JSON.parse((u.permissions as string) || "{}") as Record<string, string>;
+          return (
+            <div key={u.id as number} className="cyber-card rounded-xl p-4 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-white text-sm font-bold">{u.name as string}</p>
+                <p className="text-gray-500 text-xs">{u.email as string}</p>
+                <div className="flex gap-1 mt-1 flex-wrap">
+                  {Object.entries(perms).filter(([, v]) => v !== "none").map(([k, v]) => (
+                    <span key={k} className="text-xs px-1.5 py-0.5 rounded" style={{ background: v === "write" ? "#00ff9d20" : "#0066ff20", color: v === "write" ? "#00ff9d" : "#0066ff" }}>
+                      {k}:{v}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className={`text-xs px-2 py-0.5 rounded ${u.isActive ? "text-neon-green bg-neon-green/10" : "text-gray-600 bg-gray-800"}`}>
+                  {u.isActive ? "Actif" : "Inactif"}
+                </span>
+                <button
+                  onClick={() => toggle(u.id as number, !(u.isActive as boolean))}
+                  className="text-xs text-gray-500 hover:text-white transition-colors"
+                >
+                  {u.isActive ? "Désactiver" : "Activer"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [stats, setStats] = useState<Record<string, number>>({});
@@ -100,6 +208,8 @@ export default function AdminDashboard() {
   const [form, setForm] = useState<Record<string, unknown>>({});
   const [editing, setEditing] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [cfpNotes, setCfpNotes] = useState<Record<number, string>>({});
+  const [onboarding, setOnboarding] = useState<Record<number, Record<string, boolean | string>>>({});
   const router = useRouter();
 
   const logout = async () => {
@@ -133,6 +243,9 @@ export default function AdminDashboard() {
       } else if (t === "past-speakers") {
         const res = await fetch("/api/admin/past-speakers");
         if (res.ok) { const json = await res.json(); setData(d => ({ ...d, "past-speakers": json })); }
+      } else if (t === "onboarding") {
+        const res = await fetch("/api/admin/speakers");
+        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, speakers: json })); }
       } else if (["cfp", "volunteers", "registrations", "newsletter"].includes(t)) {
         const typeMap: Record<string, string> = { cfp: "cfp", volunteers: "volunteer", registrations: "registration", newsletter: "newsletter" };
         const res = await fetch(`/api/admin/submissions?type=${typeMap[t]}`);
@@ -167,18 +280,50 @@ export default function AdminDashboard() {
 
   const cancelForm = () => { setShowForm(false); setForm({}); setEditing(null); };
 
+  const sendDecision = async (id: number, action: "accept" | "reject") => {
+    const notes = cfpNotes[id] || "";
+    await fetch("/api/admin/submissions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "cfp", id, action, notes }),
+    });
+    fetchData(tab);
+    fetchStats();
+  };
+
+  const loadOnboarding = async (speakerId: number) => {
+    const res = await fetch(`/api/admin/speakers/${speakerId}/onboarding`);
+    if (res.ok) {
+      const json = await res.json();
+      setOnboarding(prev => ({ ...prev, [speakerId]: json }));
+    }
+  };
+
+  const saveOnboarding = async (speakerId: number, updates: Record<string, boolean | string>) => {
+    const current = onboarding[speakerId] || {};
+    const merged = { ...current, ...updates };
+    setOnboarding(prev => ({ ...prev, [speakerId]: merged }));
+    await fetch(`/api/admin/speakers/${speakerId}/onboarding`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+  };
+
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: "dashboard", label: "Dashboard" },
     { id: "speakers", label: "Speakers", count: stats.speakers },
+    { id: "onboarding", label: "Onboarding Speakers" },
     { id: "sponsors", label: "Sponsors", count: stats.sponsors },
-    { id: "sessions", label: "Schedule" },
+    { id: "sessions", label: "Programme", count: stats.sessions },
+    { id: "workshops", label: "Workshops", count: stats.workshops },
     { id: "cfp", label: "CFP", count: stats.cfp },
     { id: "volunteers", label: "Bénévoles", count: stats.volunteers },
     { id: "registrations", label: "Inscriptions", count: stats.registrations },
-    { id: "newsletter", label: "Newsletter", count: stats.subscribers },
-    { id: "team", label: "Équipe" },
-    { id: "workshops", label: "Ateliers", count: stats.workshops },
-    { id: "past-speakers", label: "Anciens Intervenants", count: stats.pastSpeakers },
+    { id: "newsletter", label: "Newsletter", count: stats.newsletter },
+    { id: "team", label: "Équipe", count: stats.team },
+    { id: "past-speakers", label: "Anciens Speakers" },
+    { id: "users", label: "Utilisateurs Admin" },
   ];
 
   // Group sessions by date
@@ -550,29 +695,69 @@ export default function AdminDashboard() {
           {/* CFP */}
           {tab === "cfp" && (
             <div>
-              <h1 className="text-2xl font-black text-white mb-6">Propositions de Talks ({(data.cfp || []).length})</h1>
-              <div className="space-y-3">
+              <h1 className="text-2xl font-black text-white mb-4">Propositions de Talks</h1>
+              {/* Stats bar */}
+              <div className="grid grid-cols-4 gap-3 mb-6">
+                {[
+                  { label: "Total", key: "cfp", color: "#888" },
+                  { label: "En attente", key: "cfpPending", color: "#ffaa00" },
+                  { label: "Acceptés", key: "cfpAccepted", color: "#00ff9d" },
+                  { label: "Refusés", key: "cfpRejected", color: "#ff0066" },
+                ].map(s => (
+                  <div key={s.key} className="cyber-card rounded-xl p-4 text-center">
+                    <div className="text-2xl font-black font-mono" style={{ color: s.color, fontFamily: "'Share Tech Mono', monospace" }}>
+                      {(stats as Record<string, number>)[s.key] ?? ((data.cfp || []) as Record<string, unknown>[]).filter((x) => s.key === "cfp" || x.status === (s.key === "cfpPending" ? "pending" : s.key === "cfpAccepted" ? "accepted" : "rejected")).length}
+                    </div>
+                    <div className="text-gray-500 text-xs uppercase tracking-wider mt-1">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-4">
                 {((data.cfp || []) as Record<string, unknown>[]).map(s => (
                   <div key={s.id as number} className="cyber-card rounded-xl p-5">
-                    <div className="flex items-start justify-between gap-4 mb-2">
+                    <div className="flex items-start justify-between gap-4 mb-3">
                       <div>
                         <p className="text-white font-bold">{s.name as string} <span className="text-gray-500 font-normal text-sm">— {s.email as string}</span></p>
                         <p className="text-neon-green text-sm mt-0.5">🎤 {s.talkTitle as string}</p>
                         {!!s.org && <p className="text-gray-500 text-xs">{s.org as string}{s.country ? ` · ${s.country}` : ""}</p>}
+                        {!!s.format && <span className="text-xs px-2 py-0.5 rounded bg-neon-green/10 text-neon-green/70 mr-2">{s.format as string}</span>}
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge status={s.status as string} />
-                        <select className="cyber-input text-xs px-2 py-1 rounded bg-transparent" value={s.status as string}
-                          onChange={e => updateStatus("cfp", s.id as number, e.target.value)}>
-                          <option value="pending" className="bg-dark-800">pending</option>
-                          <option value="accepted" className="bg-dark-800">accepted</option>
-                          <option value="rejected" className="bg-dark-800">rejected</option>
-                        </select>
-                      </div>
+                      <Badge status={s.status as string} />
                     </div>
-                    {!!s.format && <span className="text-xs px-2 py-0.5 rounded bg-neon-green/10 text-neon-green/70 mr-2">{s.format as string}</span>}
-                    <p className="text-gray-400 text-xs mt-2 line-clamp-3">{s.abstract as string}</p>
-                    <p className="text-gray-600 text-xs mt-2">{new Date(s.createdAt as string).toLocaleDateString("fr-FR")}</p>
+                    <p className="text-gray-400 text-xs mb-3 line-clamp-3">{s.abstract as string}</p>
+                    {!!s.bio && <p className="text-gray-600 text-xs mb-3 italic line-clamp-2">{s.bio as string}</p>}
+                    <textarea
+                      placeholder="Notes comité (interne)..."
+                      value={cfpNotes[s.id as number] ?? ((s.notes as string) || "")}
+                      onChange={e => setCfpNotes(prev => ({ ...prev, [s.id as number]: e.target.value }))}
+                      className="cyber-input w-full text-xs rounded p-2 mb-3 h-16 resize-none"
+                    />
+                    <div className="flex items-center gap-2 justify-between">
+                      <span className="text-gray-600 text-xs">{new Date(s.createdAt as string).toLocaleDateString("fr-FR")}</span>
+                      {s.status === "pending" && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => sendDecision(s.id as number, "accept")}
+                            className="px-3 py-1.5 rounded text-xs font-bold transition-all"
+                            style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}
+                          >
+                            ✓ Accepter + Email
+                          </button>
+                          <button
+                            onClick={() => sendDecision(s.id as number, "reject")}
+                            className="px-3 py-1.5 rounded text-xs font-bold transition-all"
+                            style={{ background: "#ff006620", color: "#ff0066", border: "1px solid #ff006640" }}
+                          >
+                            ✗ Refuser + Email
+                          </button>
+                        </div>
+                      )}
+                      {s.status !== "pending" && (
+                        <span className="text-xs text-gray-600">
+                          Décision envoyée {s.decisionSentAt ? new Date(s.decisionSentAt as string).toLocaleDateString("fr-FR") : ""}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
                 {!data.cfp?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune soumission</p>}
@@ -587,7 +772,7 @@ export default function AdminDashboard() {
               <div className="space-y-3">
                 {((data.volunteers || []) as Record<string, unknown>[]).map(v => (
                   <div key={v.id as number} className="cyber-card rounded-xl p-5">
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start justify-between gap-4 mb-3">
                       <div>
                         <p className="text-white font-bold">{v.name as string} <span className="text-gray-500 font-normal text-sm">— {v.email as string}</span></p>
                         {!!v.role && <p className="text-neon-green/70 text-sm">Rôle souhaité : {v.role as string}</p>}
@@ -604,6 +789,50 @@ export default function AdminDashboard() {
                         </select>
                       </div>
                     </div>
+                    {v.status === "accepted" && (
+                      <div className="border-t border-gray-800 pt-3 mt-2">
+                        <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Affectation</p>
+                        <div className="flex gap-2 flex-wrap">
+                          <input
+                            type="text"
+                            placeholder="Rôle assigné"
+                            defaultValue={(v.assignedRole as string) || ""}
+                            className="cyber-input text-xs rounded px-2 py-1 flex-1 min-w-[120px]"
+                            onBlur={async (e) => {
+                              await fetch("/api/admin/submissions", {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ type: "volunteer-assign", id: v.id, assignedRole: e.target.value }),
+                              });
+                            }}
+                          />
+                          <input
+                            type="datetime-local"
+                            defaultValue={(v.shiftStart as string)?.slice(0, 16) || ""}
+                            className="cyber-input text-xs rounded px-2 py-1"
+                            onBlur={async (e) => {
+                              await fetch("/api/admin/submissions", {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ type: "volunteer-assign", id: v.id, shiftStart: e.target.value }),
+                              });
+                            }}
+                          />
+                          <input
+                            type="datetime-local"
+                            defaultValue={(v.shiftEnd as string)?.slice(0, 16) || ""}
+                            className="cyber-input text-xs rounded px-2 py-1"
+                            onBlur={async (e) => {
+                              await fetch("/api/admin/submissions", {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ type: "volunteer-assign", id: v.id, shiftEnd: e.target.value }),
+                              });
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                     <p className="text-gray-600 text-xs mt-2">{new Date(v.createdAt as string).toLocaleDateString("fr-FR")}</p>
                   </div>
                 ))}
@@ -620,20 +849,23 @@ export default function AdminDashboard() {
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-neon-green/10 text-gray-500 text-left">
-                      {["Nom", "Email", "Organisation", "Pays", "Ticket", "Statut", "Date"].map(h => (
+                      {["Nom", "Email", "Ticket", "Statut", "Check-in", "Date"].map(h => (
                         <th key={h} className="py-2 px-3 font-normal">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {((data.registrations || []) as Record<string, unknown>[]).map(r => (
-                      <tr key={r.id as number} className="border-b border-gray-800 hover:bg-white/[0.02] transition-colors">
-                        <td className="py-2 px-3 text-white">{r.fname as string} {r.lname as string}</td>
-                        <td className="py-2 px-3 text-gray-400">{r.email as string}</td>
-                        <td className="py-2 px-3 text-gray-500">{(r.org as string) || "—"}</td>
-                        <td className="py-2 px-3 text-gray-500">{(r.country as string) || "—"}</td>
+                      <tr key={r.id as number} className={`border-b border-gray-800 hover:bg-white/[0.02] transition-colors ${r.checkedInAt ? "bg-neon-green/[0.02]" : ""}`}>
+                        <td className="py-2 px-3 text-white">{r.fname as string} {r.lname as string}<br/><span className="text-gray-500">{r.email as string}</span></td>
+                        <td className="py-2 px-3 text-gray-500">{(r.org as string) || (r.country as string) || "—"}</td>
                         <td className="py-2 px-3"><span className="px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green/70">{r.ticketType as string}</span></td>
                         <td className="py-2 px-3"><Badge status={r.status as string} /></td>
+                        <td className="py-2 px-3">
+                          {r.checkedInAt
+                            ? <span className="text-neon-green text-xs">✓ {new Date(r.checkedInAt as string).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                            : <span className="text-gray-600 text-xs">—</span>}
+                        </td>
                         <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleDateString("fr-FR")}</td>
                       </tr>
                     ))}
@@ -933,6 +1165,82 @@ export default function AdminDashboard() {
                   {!data["past-speakers"]?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucun ancien intervenant — cliquez sur + Ajouter</p>}
                 </div>
               )}
+            </div>
+          )}
+
+          {tab === "onboarding" && (
+            <div>
+              <h1 className="text-2xl font-black text-white mb-2">Onboarding Speakers</h1>
+              <p className="text-gray-500 text-xs mb-6">Suivi des 9 étapes de préparation par speaker</p>
+              <div className="space-y-4">
+                {((data.speakers || []) as Record<string, unknown>[]).filter(s => s.edition === "2026").map(s => {
+                  const ob = onboarding[s.id as number] || {};
+                  const checkboxes: { key: string; label: string }[] = [
+                    { key: "selectionMailSent", label: "Mail de sélection envoyé" },
+                    { key: "modalitiesMailSent", label: "Mail des modalités envoyé" },
+                    { key: "timingMailSent", label: "Mail de timing envoyé" },
+                    { key: "bioReceived", label: "Bio reçue" },
+                    { key: "photoReceived", label: "Photo reçue" },
+                    { key: "slidesReceived", label: "Slides reçues" },
+                    { key: "transportArranged", label: "Transport arrangé" },
+                    { key: "accommodationDone", label: "Hébergement confirmé" },
+                    { key: "agreementSigned", label: "Entente conclue" },
+                  ];
+                  const doneCount = checkboxes.filter(c => ob[c.key]).length;
+                  const isReady = doneCount === checkboxes.length;
+                  return (
+                    <div key={s.id as number} className="cyber-card rounded-xl p-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar photoUrl={s.photoUrl as string} name={s.name as string} size={10} />
+                          <div>
+                            <p className="text-white font-bold text-sm">{s.name as string}</p>
+                            <p className="text-gray-500 text-xs">{s.talkTitle as string}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-xs text-gray-500">{doneCount}/9</div>
+                          <div className="w-24 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all" style={{ width: `${(doneCount/9)*100}%`, background: isReady ? "#00ff9d" : "#0066ff" }} />
+                          </div>
+                          {isReady && <span className="text-xs text-neon-green font-bold">✓ PRÊT</span>}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 mb-3">
+                        {checkboxes.map(c => (
+                          <label key={c.key} className="flex items-center gap-2 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={!!ob[c.key]}
+                              onChange={e => {
+                                if (!ob.id && !ob.speakerId) loadOnboarding(s.id as number);
+                                saveOnboarding(s.id as number, { [c.key]: e.target.checked });
+                              }}
+                              className="w-3 h-3 accent-neon-green"
+                            />
+                            <span className={`text-xs transition-colors ${ob[c.key] ? "text-neon-green" : "text-gray-500 group-hover:text-gray-300"}`}>{c.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <textarea
+                        placeholder="Notes internes..."
+                        value={(ob.notes as string) || ""}
+                        onChange={e => setOnboarding(prev => ({ ...prev, [s.id as number]: { ...prev[s.id as number], notes: e.target.value } }))}
+                        onBlur={e => saveOnboarding(s.id as number, { notes: e.target.value })}
+                        className="cyber-input w-full text-xs rounded p-2 h-12 resize-none"
+                      />
+                    </div>
+                  );
+                })}
+                {!data.speakers?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucun speaker 2026</p>}
+              </div>
+            </div>
+          )}
+
+          {tab === "users" && (
+            <div>
+              <h1 className="text-2xl font-black text-white mb-6">Utilisateurs Admin</h1>
+              <AdminUsersPanel />
             </div>
           )}
 

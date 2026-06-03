@@ -24,7 +24,16 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { type, id, status, notes, action } = await req.json();
+  const body = await req.json();
+  const { type, id, status, notes, action, assignedRole, shiftStart, shiftEnd } = body;
+
+  if (type === "volunteer-assign") {
+    const updateData: Record<string, unknown> = {};
+    if (assignedRole !== undefined) updateData.assignedRole = assignedRole;
+    if (shiftStart !== undefined) updateData.shiftStart = shiftStart ? new Date(shiftStart) : null;
+    if (shiftEnd !== undefined) updateData.shiftEnd = shiftEnd ? new Date(shiftEnd) : null;
+    return NextResponse.json(await prisma.volunteerApplication.update({ where: { id }, data: updateData }));
+  }
 
   // Enhanced CFP accept/reject with email
   if (type === "cfp" && (action === "accept" || action === "reject")) {

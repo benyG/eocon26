@@ -21,6 +21,8 @@ model CFPSubmission {
   status         String    @default("pending") // pending | accepted | rejected
   notes          String?   @db.Text
   decisionSentAt DateTime?
+  aiScore        Float?
+  aiAnalysis     String?   @db.Text
   createdAt      DateTime  @default(now())
 
   @@map("cfp_submissions")
@@ -283,4 +285,36 @@ model LogisticsTask {
   createdAt DateTime @default(now())
 
   @@map("logistics_tasks")
+}
+
+model SocialPost {
+  id        Int      @id @default(autoincrement())
+  brief     String   @db.Text
+  platform  String   // linkedin | twitter | instagram
+  lang      String   // fr | en
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@map("social_posts")
+}
+
+model ProspectLead {
+  id                 Int      @id @default(autoincrement())
+  source             String   @default("manual") // apollo | google_places | manual
+  org                String
+  sector             String?
+  city               String?
+  website            String?
+  phone              String?
+  contactName        String?
+  contactTitle       String?
+  contactEmail       String?
+  contactLinkedin    String?
+  aiScore            Float?
+  aiScoreReason      String?  @db.Text
+  recommendedPackage String?
+  addedToPipeline    Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  @@map("prospect_leads")
 }

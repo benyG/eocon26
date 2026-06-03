@@ -288,12 +288,18 @@ model LogisticsTask {
 }
 
 model SocialPost {
-  id        Int      @id @default(autoincrement())
-  brief     String   @db.Text
-  platform  String   // linkedin | twitter | instagram
-  lang      String   // fr | en
-  content   String   @db.Text
-  createdAt DateTime @default(now())
+  id             Int       @id @default(autoincrement())
+  brief          String    @db.Text
+  platform       String    // linkedin | twitter | instagram
+  lang           String    // fr | en
+  content        String    @db.Text
+  imageUrl       String?
+  scheduledAt    DateTime?
+  publishedAt    DateTime?
+  linkedinPostId String?
+  status         String    @default("draft") // draft | scheduled | published | failed
+  errorMessage   String?   @db.Text
+  createdAt      DateTime  @default(now())
 
   @@map("social_posts")
 }

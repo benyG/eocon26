@@ -395,6 +395,42 @@ function CommunicationPanel({ templates, onRefresh }: { templates: Record<string
   const [socialBrief, setSocialBrief] = useState("");
   const [generatingSocial, setGeneratingSocial] = useState(false);
   const [socialPosts, setSocialPosts] = useState<Record<string, string> | null>(null);
+  const [linkedinPosts, setLinkedinPosts] = useState<Record<string, unknown>[]>([]);
+  const [publishing, setPublishing] = useState<number | null>(null);
+  const [scheduleId, setScheduleId] = useState<number | null>(null);
+  const [scheduleDate, setScheduleDate] = useState("");
+
+  const loadLinkedinPosts = useCallback(async () => {
+    const res = await fetch("/api/admin/ai/social-posts");
+    if (res.ok) setLinkedinPosts(await res.json());
+  }, []);
+
+  useEffect(() => { loadLinkedinPosts(); }, [loadLinkedinPosts]);
+
+  const publishNow = async (id: number) => {
+    setPublishing(id);
+    const res = await fetch("/api/admin/ai/publish-post", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    const data = await res.json() as Record<string, unknown>;
+    if (data.linkedinUrl) window.open(data.linkedinUrl as string, "_blank");
+    await loadLinkedinPosts();
+    setPublishing(null);
+  };
+
+  const schedulePost = async (id: number) => {
+    if (!scheduleDate) return;
+    await fetch("/api/admin/ai/publish-post", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, scheduledAt: scheduleDate }),
+    });
+    setScheduleId(null);
+    setScheduleDate("");
+    await loadLinkedinPosts();
+  };
 
   const generateSocial = async () => {
     if (!socialBrief.trim()) return;
@@ -558,6 +594,93 @@ function CommunicationPanel({ templates, onRefresh }: { templates: Record<string
           </div>
         ))}
         {!templates.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun template — créez-en un ou utilisez les templates pré-configurés</p>}
+      </div>
+
+      {/* LinkedIn calendar */}
+      <div className="cyber-card rounded-xl p-5 mt-6">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#0066ff" }}>
+          📅 Calendrier LinkedIn
+        </h3>
+        <div className="space-y-3">
+          {linkedinPosts.map(post => {
+            const statusColors: Record<string, string> = {
+              draft: "#888",
+              scheduled: "#ffaa00",
+              published: "#00ff9d",
+              failed: "#ff0066",
+            };
+            const status = post.status as string;
+            const color = statusColors[status] || "#888";
+            return (
+              <div key={post.id as number} className="border border-gray-800 rounded-lg p-4">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: color + "20", color, fontFamily: "'Share Tech Mono', monospace" }}>
+                      {status}
+                    </span>
+                    <span className="text-xs text-gray-600">{post.lang as string}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {status === "draft" && (
+                      <>
+                        <button
+                          onClick={() => publishNow(post.id as number)}
+                          disabled={publishing === (post.id as number)}
+                          className="text-xs px-2 py-1 rounded transition-all"
+                          style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}
+                        >
+                          {publishing === (post.id as number) ? "..." : "▶ Publier"}
+                        </button>
+                        <button
+                          onClick={() => setScheduleId(post.id as number)}
+                          className="text-xs px-2 py-1 rounded transition-all"
+                          style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0040" }}
+                        >
+                          🕐 Planifier
+                        </button>
+                      </>
+                    )}
+                    {status === "scheduled" && (
+                      <span className="text-xs text-gray-500">
+                        📅 {post.scheduledAt ? new Date(post.scheduledAt as string).toLocaleString("fr-FR") : ""}
+                      </span>
+                    )}
+                    {status === "published" && post.linkedinPostId && (
+                      <a
+                        href={`https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs"
+                        style={{ color: "#00ff9d" }}
+                      >
+                        Voir →
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <p className="text-gray-400 text-xs line-clamp-3 whitespace-pre-wrap">{post.content as string}</p>
+                {scheduleId === (post.id as number) && (
+                  <div className="flex gap-2 mt-2">
+                    <input
+                      type="datetime-local"
+                      value={scheduleDate}
+                      onChange={e => setScheduleDate(e.target.value)}
+                      className="cyber-input text-xs rounded px-2 py-1 flex-1"
+                    />
+                    <button onClick={() => schedulePost(post.id as number)} className="btn-neon px-3 py-1 rounded text-xs">OK</button>
+                    <button onClick={() => setScheduleId(null)} className="text-xs text-gray-500 hover:text-white px-2">✕</button>
+                  </div>
+                )}
+                {status === "failed" && post.errorMessage && (
+                  <p className="text-red-400 text-xs mt-1">{post.errorMessage as string}</p>
+                )}
+              </div>
+            );
+          })}
+          {!linkedinPosts.length && (
+            <p className="text-gray-600 text-xs text-center py-4">Aucun post LinkedIn généré. Utilisez le générateur ci-dessus.</p>
+          )}
+        </div>
       </div>
     </div>
   );

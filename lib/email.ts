@@ -46,6 +46,36 @@ export async function sendVolunteerConfirmation(to: string, name: string) {
   });
 }
 
+export async function sendCFPDecision(
+  email: string,
+  name: string,
+  talkTitle: string,
+  decision: "accepted" | "rejected",
+): Promise<void> {
+  const n = esc(name);
+  const t = esc(talkTitle);
+  const isAccepted = decision === "accepted";
+  await getResend().emails.send({
+    from: FROM,
+    to: email,
+    subject: isAccepted
+      ? `🎉 CFP Accepté - EOCON 2026 : "${talkTitle}"`
+      : `CFP - EOCON 2026 : "${talkTitle}"`,
+    html: isAccepted
+      ? `<p>Bonjour ${n},</p>
+         <p>Nous avons le plaisir de vous informer que votre proposition <strong>"${t}"</strong> a été <strong>acceptée</strong> pour EOCON 2026 !</p>
+         <p>Notre équipe prendra contact avec vous prochainement pour les détails pratiques.</p>
+         <p>Bienvenue parmi les speakers d'EOCON 2026 !</p>
+         <p>— L'équipe EOCON</p>`
+      : `<p>Bonjour ${n},</p>
+         <p>Merci pour votre proposition <strong>"${t}"</strong> soumise à EOCON 2026.</p>
+         <p>Après examen par notre comité, nous ne sommes malheureusement pas en mesure de la retenir cette année.</p>
+         <p>Nous vous encourageons à soumettre à nouveau lors de la prochaine édition.</p>
+         <p>Merci pour votre participation,</p>
+         <p>— L'équipe EOCON</p>`,
+  });
+}
+
 export async function sendRegistrationTicket(
   to: string,
   fname: string,

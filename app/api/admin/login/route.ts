@@ -1,20 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { signToken } from "@/lib/adminAuth";
+import { rateLimit, getIp } from "@/lib/rateLimit";
 
 export async function POST(req: NextRequest) {
+  // 10 attempts per IP per 15 minutes
+  const ip = getIp(req);
+  if (!rateLimit(`login:${ip}`, 10, 15 * 60 * 1000)) {
+    return NextResponse.json({ error: "Trop de tentatives, réessayez dans 15 minutes." }, { status: 429 });
+  }
+
   const { password } = await req.json();
-  const expected = process.env.ADMIN_PASSWORD || "admin";
+  const expected = process.env.ADMIN_PASSWORD;
+  if (!expected) {
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
 
   if (password !== expected) {
-    return NextResponse.json({ error: "Invalid password" }, { status: 401 });
+    return NextResponse.json({ error: "Mot de passe incorrect" }, { status: 401 });
   }
 
   const token = signToken(password);
   const res = NextResponse.json({ success: true });
   res.cookies.set("admin_token", token, {
     httpOnly: true,
-    // secure only if COOKIE_SECURE=true — set to false when running behind HTTP (no TLS proxy)
-    secure: process.env.COOKIE_SECURE === "true",
+    // Secure by default; disable only in explicit local dev
+    secure: process.env.COOKIE_SECURE !== "false",
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 7,
     path: "/",

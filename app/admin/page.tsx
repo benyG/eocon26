@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-type Tab = "dashboard" | "speakers" | "sponsors" | "sessions" | "workshops" | "cfp" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers";
+type Tab = "dashboard" | "speakers" | "sponsors" | "sessions" | "workshops" | "cfp" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "onboarding" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "analytics" | "certificates" | "export" | "prospection";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -92,6 +92,1247 @@ function PhotoUploadField({
   );
 }
 
+function AdminUsersPanel() {
+  const SECTIONS = ["cfp", "speakers", "sponsors", "sessions", "volunteers", "registrations", "newsletter", "team"];
+  const [users, setUsers] = useState<Record<string, unknown>[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<Record<string, unknown>>({ permissions: {} });
+
+  useEffect(() => {
+    fetch("/api/admin/users").then(r => r.json()).then(setUsers);
+  }, []);
+
+  const save = async () => {
+    await fetch("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    const res = await fetch("/api/admin/users");
+    setUsers(await res.json());
+    setShowForm(false);
+    setForm({ permissions: {} });
+  };
+
+  const toggle = async (id: number, isActive: boolean) => {
+    await fetch(`/api/admin/users/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive }),
+    });
+    setUsers(prev => prev.map(u => u.id === id ? { ...u, isActive } : u));
+  };
+
+  return (
+    <div>
+      <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-sm mb-4">+ Nouvel utilisateur</button>
+      {showForm && (
+        <div className="cyber-card rounded-xl p-5 mb-6 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Nom</label>
+              <input className="cyber-input w-full text-sm rounded px-3 py-2" value={(form.name as string) || ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Email</label>
+              <input type="email" className="cyber-input w-full text-sm rounded px-3 py-2" value={(form.email as string) || ""} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Mot de passe</label>
+            <input type="password" className="cyber-input w-full text-sm rounded px-3 py-2" value={(form.password as string) || ""} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-2">Permissions (read / write / none)</label>
+            <div className="grid grid-cols-4 gap-2">
+              {SECTIONS.map(s => (
+                <div key={s}>
+                  <p className="text-xs text-gray-400 mb-1 capitalize">{s}</p>
+                  <select className="cyber-input w-full text-xs rounded px-2 py-1"
+                    value={((form.permissions as Record<string, string>)[s]) || "none"}
+                    onChange={e => setForm(f => ({ ...f, permissions: { ...(f.permissions as Record<string, string>), [s]: e.target.value } }))}>
+                    <option value="none">Aucun</option>
+                    <option value="read">Lecture</option>
+                    <option value="write">Écriture</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={save} className="btn-neon px-4 py-2 rounded text-sm">Créer</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white">Annuler</button>
+          </div>
+        </div>
+      )}
+      <div className="space-y-2">
+        {users.map(u => {
+          const perms = JSON.parse((u.permissions as string) || "{}") as Record<string, string>;
+          return (
+            <div key={u.id as number} className="cyber-card rounded-xl p-4 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-white text-sm font-bold">{u.name as string}</p>
+                <p className="text-gray-500 text-xs">{u.email as string}</p>
+                <div className="flex gap-1 mt-1 flex-wrap">
+                  {Object.entries(perms).filter(([, v]) => v !== "none").map(([k, v]) => (
+                    <span key={k} className="text-xs px-1.5 py-0.5 rounded" style={{ background: v === "write" ? "#00ff9d20" : "#0066ff20", color: v === "write" ? "#00ff9d" : "#0066ff" }}>
+                      {k}:{v}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className={`text-xs px-2 py-0.5 rounded ${u.isActive ? "text-neon-green bg-neon-green/10" : "text-gray-600 bg-gray-800"}`}>
+                  {u.isActive ? "Actif" : "Inactif"}
+                </span>
+                <button
+                  onClick={() => toggle(u.id as number, !(u.isActive as boolean))}
+                  className="text-xs text-gray-500 hover:text-white transition-colors"
+                >
+                  {u.isActive ? "Désactiver" : "Activer"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function AiScoreBadge({ score, analysis }: { score: number | null; analysis: string | null }) {
+  if (score === null) return null;
+  const color = score >= 7 ? "#00ff9d" : score >= 5 ? "#ffaa00" : "#ff0066";
+  let parsed: { summary?: string; recommendation?: string } = {};
+  try { parsed = JSON.parse(analysis || "{}"); } catch { /* ignore */ }
+  return (
+    <div className="flex items-center gap-1" title={parsed.summary || ""}>
+      <span className="text-xs px-2 py-0.5 rounded font-mono font-bold" style={{ background: color + "20", color, fontFamily: "'Share Tech Mono', monospace" }}>
+        IA {score.toFixed(1)}/10
+      </span>
+      {parsed.recommendation && (
+        <span className="text-xs text-gray-600">{parsed.recommendation}</span>
+      )}
+    </div>
+  );
+}
+
+function ProspectionPanel({ leads }: { leads: Record<string, unknown>[] }) {
+  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
+  const [apolloKeywords, setApolloKeywords] = useState("cybersecurity,technology,finance");
+  const [genEmail, setGenEmail] = useState<{ fr: string; en: string; subjectFr: string; subjectEn: string } | null>(null);
+  const [emailTarget, setEmailTarget] = useState<Record<string, unknown> | null>(null);
+
+  const searchApollo = async () => {
+    setLoading(true);
+    await fetch("/api/admin/ai/apollo-search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keywords: apolloKeywords.split(",").map(k => k.trim()) }),
+    });
+    setLoading(false);
+    window.location.reload();
+  };
+
+  const searchPlaces = async () => {
+    if (!query.trim()) return;
+    setLoading(true);
+    await fetch("/api/admin/ai/places-search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+    setLoading(false);
+    window.location.reload();
+  };
+
+  const generateEmail = async (lead: Record<string, unknown>) => {
+    setEmailTarget(lead);
+    const res = await fetch("/api/admin/ai/sponsor-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        org: lead.org,
+        contact: lead.contactName,
+        contactTitle: lead.contactTitle,
+        package: lead.recommendedPackage,
+        sector: lead.sector,
+        mode: "prospect",
+      }),
+    });
+    if (res.ok) {
+      const d = await res.json() as { subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string };
+      setGenEmail({ fr: d.bodyFr, en: d.bodyEn, subjectFr: d.subjectFr, subjectEn: d.subjectEn });
+    }
+  };
+
+  const addToPipeline = async (id: number) => {
+    await fetch("/api/admin/ai/prospect-leads", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, addedToPipeline: true }),
+    });
+    window.location.reload();
+  };
+
+  const scoreColor = (s: number | null) => s === null ? "#888" : s >= 7 ? "#00ff9d" : s >= 5 ? "#ffaa00" : "#ff0066";
+
+  return (
+    <div>
+      <h1 className="text-2xl font-black text-white mb-2">Prospection IA</h1>
+      <p className="text-gray-500 text-xs mb-6">Identification automatique de sponsors potentiels via Apollo.io + Google Places</p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="cyber-card rounded-xl p-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#00ff9d" }}>Apollo.io — Grandes entreprises</h3>
+          <label className="text-xs text-gray-500 block mb-1">Mots-clés secteurs</label>
+          <input
+            value={apolloKeywords}
+            onChange={e => setApolloKeywords(e.target.value)}
+            className="cyber-input w-full text-xs rounded px-3 py-2 mb-3"
+            placeholder="cybersecurity,technology,finance"
+          />
+          <button onClick={searchApollo} disabled={loading} className="btn-neon px-4 py-2 rounded text-xs w-full">
+            {loading ? "Recherche..." : "🔍 Rechercher via Apollo"}
+          </button>
+        </div>
+        <div className="cyber-card rounded-xl p-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#0066ff" }}>Google Places — PME locales</h3>
+          <label className="text-xs text-gray-500 block mb-1">Recherche (ex: entreprise tech Douala)</label>
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            className="cyber-input w-full text-xs rounded px-3 py-2 mb-3"
+            placeholder="banque Douala, tech Cameroun..."
+          />
+          <button onClick={searchPlaces} disabled={loading} className="btn-neon px-4 py-2 rounded text-xs w-full">
+            {loading ? "Recherche..." : "🔍 Rechercher via Google Places"}
+          </button>
+        </div>
+      </div>
+
+      {genEmail && emailTarget && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between mb-4">
+              <h3 className="text-white font-bold">Email généré — {emailTarget.org as string}</h3>
+              <button onClick={() => setGenEmail(null)} className="text-gray-500 hover:text-white">✕</button>
+            </div>
+            <div className="space-y-4">
+              {[
+                { lang: "FR", subject: genEmail.subjectFr, body: genEmail.fr },
+                { lang: "EN", subject: genEmail.subjectEn, body: genEmail.en },
+              ].map(e => (
+                <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-bold text-gray-400">{e.lang}</span>
+                    <button onClick={() => navigator.clipboard.writeText(`${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>Copier</button>
+                  </div>
+                  <p className="text-white text-xs font-bold mb-2">Objet: {e.subject}</p>
+                  <p className="text-gray-400 text-xs whitespace-pre-wrap">{e.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {leads.map(lead => (
+          <div key={lead.id as number} className={`cyber-card rounded-xl p-5 ${lead.addedToPipeline ? "opacity-50" : ""}`}>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.source === "apollo" ? "#0066ff20" : "#cc00ff20", color: lead.source === "apollo" ? "#0066ff" : "#cc00ff", fontFamily: "'Share Tech Mono', monospace" }}>
+                    {lead.source as string}
+                  </span>
+                  {lead.aiScore !== null && lead.aiScore !== undefined && (
+                    <span className="text-xs px-2 py-0.5 rounded font-mono font-bold" style={{ background: scoreColor(lead.aiScore as number) + "20", color: scoreColor(lead.aiScore as number), fontFamily: "'Share Tech Mono', monospace" }}>
+                      {(lead.aiScore as number).toFixed(1)}/10
+                    </span>
+                  )}
+                  {!!lead.recommendedPackage && (
+                    <span className="text-xs text-gray-500">{lead.recommendedPackage as string}</span>
+                  )}
+                </div>
+                <p className="text-white font-bold">{lead.org as string}</p>
+                {!!lead.sector && <p className="text-gray-500 text-xs">{lead.sector as string}{lead.city ? ` · ${lead.city}` : ""}</p>}
+                {!!lead.contactName && <p className="text-xs mt-1" style={{ color: "#00ff9d" }}>👤 {lead.contactName as string}{lead.contactTitle ? ` — ${lead.contactTitle}` : ""}</p>}
+                {!!lead.contactEmail && <p className="text-gray-400 text-xs">{lead.contactEmail as string}</p>}
+                {!!lead.aiScoreReason && <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>}
+              </div>
+              <div className="flex flex-col gap-2 shrink-0">
+                {!lead.addedToPipeline ? (
+                  <>
+                    <button onClick={() => generateEmail(lead)} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}>
+                      ✉ Email IA
+                    </button>
+                    <button onClick={() => addToPipeline(lead.id as number)} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}>
+                      + Pipeline
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-xs text-gray-600">✓ En pipeline</span>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+        {!leads.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun prospect trouvé. Lancez une recherche.</p>}
+      </div>
+    </div>
+  );
+}
+
+// ---- Communication Panel ----
+function CommunicationPanel({ templates, onRefresh }: { templates: Record<string, unknown>[]; onRefresh: () => void }) {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<Record<string, unknown>>({ segment: "all" });
+  const [editing, setEditing] = useState<number | null>(null);
+  const [sending, setSending] = useState<number | null>(null);
+  const [sendResult, setSendResult] = useState<string | null>(null);
+  const [socialBrief, setSocialBrief] = useState("");
+  const [generatingSocial, setGeneratingSocial] = useState(false);
+  const [socialPosts, setSocialPosts] = useState<Record<string, string> | null>(null);
+  const [linkedinPosts, setLinkedinPosts] = useState<Record<string, unknown>[]>([]);
+  const [publishing, setPublishing] = useState<number | null>(null);
+  const [scheduleId, setScheduleId] = useState<number | null>(null);
+  const [scheduleDate, setScheduleDate] = useState("");
+
+  const loadLinkedinPosts = useCallback(async () => {
+    const res = await fetch("/api/admin/ai/social-posts");
+    if (res.ok) setLinkedinPosts(await res.json());
+  }, []);
+
+  useEffect(() => { loadLinkedinPosts(); }, [loadLinkedinPosts]);
+
+  const publishNow = async (id: number) => {
+    setPublishing(id);
+    const res = await fetch("/api/admin/ai/publish-post", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    const data = await res.json() as Record<string, unknown>;
+    if (data.linkedinUrl) window.open(data.linkedinUrl as string, "_blank");
+    await loadLinkedinPosts();
+    setPublishing(null);
+  };
+
+  const schedulePost = async (id: number) => {
+    if (!scheduleDate) return;
+    await fetch("/api/admin/ai/publish-post", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, scheduledAt: scheduleDate }),
+    });
+    setScheduleId(null);
+    setScheduleDate("");
+    await loadLinkedinPosts();
+  };
+
+  const generateSocial = async () => {
+    if (!socialBrief.trim()) return;
+    setGeneratingSocial(true);
+    const res = await fetch("/api/admin/ai/generate-posts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ brief: socialBrief }),
+    });
+    if (res.ok) setSocialPosts(await res.json() as Record<string, string>);
+    setGeneratingSocial(false);
+  };
+
+  const save = async () => {
+    const method = editing ? "PUT" : "POST";
+    const url = editing ? `/api/admin/email-templates/${editing}` : "/api/admin/email-templates";
+    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    setShowForm(false); setEditing(null); setForm({ segment: "all" }); onRefresh();
+  };
+
+  const del = async (id: number) => {
+    if (!confirm("Supprimer ce template ?")) return;
+    await fetch(`/api/admin/email-templates/${id}`, { method: "DELETE" });
+    onRefresh();
+  };
+
+  const send = async (id: number) => {
+    if (!confirm("Envoyer cet email à tous les destinataires du segment ?")) return;
+    setSending(id); setSendResult(null);
+    const res = await fetch("/api/admin/email-templates/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ templateId: id }) });
+    const json = await res.json() as Record<string, unknown>;
+    setSending(null);
+    setSendResult(res.ok ? `✓ Envoyé : ${json.sent} / ${json.total} (${json.failed} erreurs)` : `✗ Erreur : ${json.error}`);
+    onRefresh();
+  };
+
+  const seedTemplates = async () => {
+    const templates = [
+      { name: "J-30 — Save the Date", subject: "EOCON 2026 — Réservez la date !", segment: "newsletter", htmlBody: "<h1>EOCON 2026</h1><p>L'événement cybersécurité de l'année arrive dans 30 jours. Inscrivez-vous dès maintenant !</p>" },
+      { name: "J-7 — Rappel inscription", subject: "Plus que 7 jours — EOCON 2026", segment: "newsletter", htmlBody: "<h1>EOCON 2026 — J-7</h1><p>Plus que 7 jours ! Confirmez votre participation maintenant.</p>" },
+      { name: "J-1 — Infos pratiques", subject: "EOCON 2026 demain — Infos pratiques", segment: "registered", htmlBody: "<h1>À demain !</h1><p>Retrouvez toutes les informations pratiques pour EOCON 2026.</p>" },
+    ];
+    for (const t of templates) {
+      await fetch("/api/admin/email-templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) });
+    }
+    onRefresh();
+  };
+
+  const segmentLabel: Record<string, string> = { all: "Tous", registered: "Inscrits", cfp_accepted: "CFP acceptés", volunteers: "Bénévoles", newsletter: "Newsletter" };
+
+  return (
+    <div>
+      {/* Social post generator */}
+      <div className="cyber-card rounded-xl p-5 mb-6">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#cc00ff" }}>✨ Générateur de posts réseaux sociaux</h3>
+        <textarea
+          value={socialBrief}
+          onChange={e => setSocialBrief(e.target.value)}
+          placeholder="Brief (ex: annonce ouverture des inscriptions, ton enthousiaste)..."
+          className="cyber-input w-full text-xs rounded p-3 mb-3 h-20 resize-none"
+        />
+        <button
+          onClick={generateSocial}
+          disabled={generatingSocial}
+          className="btn-neon px-4 py-2 rounded text-xs mb-4"
+        >
+          {generatingSocial ? "Génération..." : "✨ Générer 6 posts (FR+EN)"}
+        </button>
+        {socialPosts && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {(["linkedin", "twitter", "instagram"] as const).map(platform => (
+              <div key={platform} className="space-y-2">
+                <h4 className="text-xs text-gray-500 uppercase">{platform}</h4>
+                {(["fr", "en"] as const).map(lang => {
+                  const key = `${platform}_${lang}`;
+                  return (
+                    <div key={lang} className="border border-gray-800 rounded-lg p-3">
+                      <div className="flex justify-between mb-1">
+                        <span className="text-xs text-gray-600 uppercase">{lang}</span>
+                        <button onClick={() => navigator.clipboard.writeText(socialPosts[key] || "")} className="text-xs" style={{ color: "#00ff9d" }}>Copier</button>
+                      </div>
+                      <p className="text-gray-400 text-xs whitespace-pre-wrap line-clamp-6">{socialPosts[key]}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-black text-white">Communication Email</h1>
+        <div className="flex gap-2">
+          <button onClick={seedTemplates} className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">+ Templates J-30/J-7/J-1</button>
+          <button onClick={() => { setForm({ segment: "all" }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">+ Nouveau template</button>
+        </div>
+      </div>
+      {sendResult && (
+        <div className="mb-4 p-3 rounded text-xs" style={{ background: sendResult.startsWith("✓") ? "#00ff9d15" : "#ff006615", color: sendResult.startsWith("✓") ? "#00ff9d" : "#ff0066", border: `1px solid ${sendResult.startsWith("✓") ? "#00ff9d40" : "#ff006640"}` }}>
+          {sendResult}
+        </div>
+      )}
+      {showForm && (
+        <div className="cyber-card rounded-xl p-5 mb-6 space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Nom du template</label>
+              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.name as string) || ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Segment</label>
+              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.segment as string) || "all"} onChange={e => setForm(f => ({ ...f, segment: e.target.value }))}>
+                {Object.entries(segmentLabel).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs text-gray-500 block mb-1">Sujet</label>
+              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.subject as string) || ""} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs text-gray-500 block mb-1">Corps HTML</label>
+              <textarea rows={8} className="cyber-input w-full px-3 py-2 rounded text-xs resize-y font-mono" value={(form.htmlBody as string) || ""} onChange={e => setForm(f => ({ ...f, htmlBody: e.target.value }))} />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">Sauvegarder</button>
+            <button onClick={() => { setShowForm(false); setForm({ segment: "all" }); setEditing(null); }} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
+          </div>
+        </div>
+      )}
+      <div className="space-y-3">
+        {templates.map(t => (
+          <div key={t.id as number} className="cyber-card rounded-xl p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-white font-bold text-sm">{t.name as string}</p>
+                <p className="text-gray-400 text-xs mt-0.5">{t.subject as string}</p>
+                <div className="flex gap-2 mt-1">
+                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "#0066ff20", color: "#0066ff" }}>{segmentLabel[t.segment as string] || (t.segment as string)}</span>
+                  {t.sentAt ? (
+                    <span className="text-xs px-2 py-0.5 rounded" style={{ background: "#00ff9d20", color: "#00ff9d" }}>Envoyé le {new Date(t.sentAt as string).toLocaleDateString("fr-FR")}</span>
+                  ) : (
+                    <span className="text-xs px-2 py-0.5 rounded" style={{ background: "#ffffff10", color: "#888" }}>Brouillon</span>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  onClick={() => send(t.id as number)}
+                  disabled={sending === (t.id as number)}
+                  className="text-xs px-3 py-1.5 rounded transition-colors"
+                  style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}
+                >
+                  {sending === (t.id as number) ? "Envoi..." : "Envoyer"}
+                </button>
+                <button onClick={() => { setForm({ ...t }); setEditing(t.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">Éditer</button>
+                <button onClick={() => del(t.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">Suppr.</button>
+              </div>
+            </div>
+          </div>
+        ))}
+        {!templates.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun template — créez-en un ou utilisez les templates pré-configurés</p>}
+      </div>
+
+      {/* LinkedIn calendar */}
+      <div className="cyber-card rounded-xl p-5 mt-6">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#0066ff" }}>
+          📅 Calendrier LinkedIn
+        </h3>
+        <div className="space-y-3">
+          {linkedinPosts.map(post => {
+            const statusColors: Record<string, string> = {
+              draft: "#888",
+              scheduled: "#ffaa00",
+              published: "#00ff9d",
+              failed: "#ff0066",
+            };
+            const status = post.status as string;
+            const color = statusColors[status] || "#888";
+            return (
+              <div key={post.id as number} className="border border-gray-800 rounded-lg p-4">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: color + "20", color, fontFamily: "'Share Tech Mono', monospace" }}>
+                      {status}
+                    </span>
+                    <span className="text-xs text-gray-600">{post.lang as string}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {status === "draft" && (
+                      <>
+                        <button
+                          onClick={() => publishNow(post.id as number)}
+                          disabled={publishing === (post.id as number)}
+                          className="text-xs px-2 py-1 rounded transition-all"
+                          style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}
+                        >
+                          {publishing === (post.id as number) ? "..." : "▶ Publier"}
+                        </button>
+                        <button
+                          onClick={() => setScheduleId(post.id as number)}
+                          className="text-xs px-2 py-1 rounded transition-all"
+                          style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0040" }}
+                        >
+                          🕐 Planifier
+                        </button>
+                      </>
+                    )}
+                    {status === "scheduled" && (
+                      <span className="text-xs text-gray-500">
+                        📅 {post.scheduledAt ? new Date(post.scheduledAt as string).toLocaleString("fr-FR") : ""}
+                      </span>
+                    )}
+                    {status === "published" && !!post.linkedinPostId && (
+                      <a
+                        href={`https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs"
+                        style={{ color: "#00ff9d" }}
+                      >
+                        Voir →
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <p className="text-gray-400 text-xs line-clamp-3 whitespace-pre-wrap">{post.content as string}</p>
+                {scheduleId === (post.id as number) && (
+                  <div className="flex gap-2 mt-2">
+                    <input
+                      type="datetime-local"
+                      value={scheduleDate}
+                      onChange={e => setScheduleDate(e.target.value)}
+                      className="cyber-input text-xs rounded px-2 py-1 flex-1"
+                    />
+                    <button onClick={() => schedulePost(post.id as number)} className="btn-neon px-3 py-1 rounded text-xs">OK</button>
+                    <button onClick={() => setScheduleId(null)} className="text-xs text-gray-500 hover:text-white px-2">✕</button>
+                  </div>
+                )}
+                {status === "failed" && !!post.errorMessage && (
+                  <p className="text-red-400 text-xs mt-1">{post.errorMessage as string}</p>
+                )}
+              </div>
+            );
+          })}
+          {!linkedinPosts.length && (
+            <p className="text-gray-600 text-xs text-center py-4">Aucun post LinkedIn généré. Utilisez le générateur ci-dessus.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Sponsor Pipeline Panel ----
+const PROSPECT_STATUSES = [
+  { value: "contacted", label: "Contacté", color: "#0066ff" },
+  { value: "meeting", label: "Réunion", color: "#cc00ff" },
+  { value: "positive", label: "Avancée positive", color: "#00ff9d" },
+  { value: "negative", label: "Avancée négative", color: "#ff6600" },
+  { value: "concluded", label: "Conclu", color: "#00ff9d" },
+  { value: "abandoned", label: "Abandonné", color: "#ff0066" },
+  { value: "paused", label: "En pause", color: "#888" },
+];
+
+function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<string, unknown>[]; onRefresh: () => void }) {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<Record<string, unknown>>({ status: "contacted" });
+  const [aiEmail, setAiEmail] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
+  const [aiEmailTarget, setAiEmailTarget] = useState<string | null>(null);
+
+  const generateFollowupEmail = async (p: Record<string, unknown>) => {
+    setAiEmailTarget(p.org as string);
+    const res = await fetch("/api/admin/ai/sponsor-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ org: p.org, contact: p.contact, package: p.package, status: p.status, notes: p.notes, mode: "followup" }),
+    });
+    if (res.ok) setAiEmail(await res.json() as { subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string });
+  };
+
+  const save = async () => {
+    await fetch("/api/admin/sponsor-prospects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    setShowForm(false); setForm({ status: "contacted" }); onRefresh();
+  };
+
+  const updateStatus = async (id: number, status: string) => {
+    await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    onRefresh();
+  };
+
+  const updateNotes = async (id: number, notes: string) => {
+    await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notes }) });
+  };
+
+  const del = async (id: number) => {
+    if (!confirm("Supprimer ce prospect ?")) return;
+    await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "DELETE" });
+    onRefresh();
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-black text-white">Pipeline Sponsors</h1>
+        <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter prospect</button>
+      </div>
+
+      {aiEmail && aiEmailTarget && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between mb-4">
+              <h3 className="text-white font-bold">Email de relance — {aiEmailTarget}</h3>
+              <button onClick={() => setAiEmail(null)} className="text-gray-500 hover:text-white">✕</button>
+            </div>
+            <div className="space-y-4">
+              {[
+                { lang: "FR", subject: aiEmail.subjectFr, body: aiEmail.bodyFr },
+                { lang: "EN", subject: aiEmail.subjectEn, body: aiEmail.bodyEn },
+              ].map(e => (
+                <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-bold text-gray-400">{e.lang}</span>
+                    <button onClick={() => navigator.clipboard.writeText(`${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>Copier</button>
+                  </div>
+                  <p className="text-white text-xs font-bold mb-2">Objet: {e.subject}</p>
+                  <p className="text-gray-400 text-xs whitespace-pre-wrap">{e.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {showForm && (
+        <div className="cyber-card rounded-xl p-5 mb-6 space-y-3">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[
+              { key: "org", label: "Organisation *" },
+              { key: "contact", label: "Contact" },
+              { key: "email", label: "Email" },
+              { key: "phone", label: "Téléphone" },
+              { key: "package", label: "Package / Tier" },
+            ].map(f => (
+              <div key={f.key}>
+                <label className="text-xs text-gray-500 block mb-1">{f.label}</label>
+                <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form[f.key] as string) || ""} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} />
+              </div>
+            ))}
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Statut</label>
+              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.status as string) || "contacted"} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
+                {PROSPECT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </div>
+            <div className="sm:col-span-2 lg:col-span-3">
+              <label className="text-xs text-gray-500 block mb-1">Notes</label>
+              <textarea rows={2} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.notes as string) || ""} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">Sauvegarder</button>
+            <button onClick={() => { setShowForm(false); setForm({ status: "contacted" }); }} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
+          </div>
+        </div>
+      )}
+      <div className="space-y-3">
+        {PROSPECT_STATUSES.map(st => {
+          const group = prospects.filter(p => p.status === st.value);
+          if (!group.length) return null;
+          return (
+            <div key={st.value} className="mb-4">
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-2" style={{ color: st.color }}>
+                <span className="w-2 h-2 rounded-full inline-block" style={{ background: st.color }} />
+                {st.label} ({group.length})
+              </h3>
+              <div className="space-y-2 pl-4">
+                {group.map(p => (
+                  <div key={p.id as number} className="cyber-card rounded-lg p-4" style={{ borderLeft: `3px solid ${st.color}40` }}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-bold text-sm">{p.org as string}</p>
+                        <div className="flex gap-3 text-xs text-gray-500 mt-0.5 flex-wrap">
+                          {!!(p.contact as string) && <span>{p.contact as string}</span>}
+                          {!!(p.email as string) && <span className="text-neon-green/60">{p.email as string}</span>}
+                          {!!(p.phone as string) && <span>{p.phone as string}</span>}
+                          {!!(p.package as string) && <span className="px-1.5 py-0.5 rounded" style={{ background: st.color + "20", color: st.color }}>{p.package as string}</span>}
+                        </div>
+                        {!!(p.notes as string) && (
+                          <textarea
+                            defaultValue={(p.notes as string) || ""}
+                            onBlur={e => updateNotes(p.id as number, e.target.value)}
+                            className="cyber-input w-full text-xs rounded p-2 mt-2 h-12 resize-none"
+                            placeholder="Notes..."
+                          />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={() => generateFollowupEmail(p)} className="text-xs px-2 py-1 rounded transition-all" style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}>✨ Email IA</button>
+                        <select
+                          className="cyber-input text-xs px-2 py-1 rounded"
+                          value={p.status as string}
+                          onChange={e => updateStatus(p.id as number, e.target.value)}
+                        >
+                          {PROSPECT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                        </select>
+                        <button onClick={() => del(p.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">Suppr.</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        {!prospects.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun prospect pour l&apos;instant</p>}
+      </div>
+    </div>
+  );
+}
+
+// ---- Budget Panel ----
+const BUDGET_COST_LABELS = [
+  "Hébergement services web", "Sponsoring pages LinkedIn/Twitter/Instagram", "Insertion Média papier",
+  "Communication Média TV/Radio", "Couverture TV/Radio", "Salle de conférence Hotel",
+  "Service conférence", "Hébergement parties prenantes clés", "Transports",
+  "Impressions", "Gadjets", "Sécurité", "Santé", "Animation DJ",
+];
+
+function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; onRefresh: () => void }) {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<Record<string, unknown>>({ category: "costs", planned: 0, actual: 0, status: "pending" });
+
+  const save = async () => {
+    await fetch("/api/admin/budget", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    setShowForm(false); setForm({ category: "costs", planned: 0, actual: 0, status: "pending" }); onRefresh();
+  };
+
+  const update = async (id: number, data: Record<string, unknown>) => {
+    await fetch(`/api/admin/budget/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    onRefresh();
+  };
+
+  const del = async (id: number) => {
+    if (!confirm("Supprimer ?")) return;
+    await fetch(`/api/admin/budget/${id}`, { method: "DELETE" });
+    onRefresh();
+  };
+
+  const seedCosts = async () => {
+    for (const label of BUDGET_COST_LABELS) {
+      await fetch("/api/admin/budget", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ category: "costs", label, planned: 0, actual: 0, status: "pending" }) });
+    }
+    onRefresh();
+  };
+
+  const revenues = items.filter(i => i.category === "revenue");
+  const costs = items.filter(i => i.category === "costs");
+  const totalPlannedRev = revenues.reduce((s, i) => s + ((i.planned as number) || 0), 0);
+  const totalActualRev = revenues.reduce((s, i) => s + ((i.actual as number) || 0), 0);
+  const totalPlannedCost = costs.reduce((s, i) => s + ((i.planned as number) || 0), 0);
+  const totalActualCost = costs.reduce((s, i) => s + ((i.actual as number) || 0), 0);
+
+  const renderTable = (rows: Record<string, unknown>[], title: string, color: string) => (
+    <div className="cyber-card rounded-xl p-5 mb-6">
+      <h3 className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color }}>{title}</h3>
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-gray-800 text-gray-500">
+            <th className="text-left py-2 px-2 font-normal">Libellé</th>
+            <th className="text-right py-2 px-2 font-normal">Prévu (€)</th>
+            <th className="text-right py-2 px-2 font-normal">Réel (€)</th>
+            <th className="text-left py-2 px-2 font-normal">Statut</th>
+            <th className="py-2 px-2" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.id as number} className="border-b border-gray-900 hover:bg-white/[0.01]">
+              <td className="py-2 px-2 text-white">{r.label as string}</td>
+              <td className="py-2 px-2 text-right">
+                <input
+                  type="number"
+                  className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
+                  defaultValue={(r.planned as number) || 0}
+                  onBlur={e => update(r.id as number, { planned: parseFloat(e.target.value) || 0 })}
+                />
+              </td>
+              <td className="py-2 px-2 text-right">
+                <input
+                  type="number"
+                  className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
+                  defaultValue={(r.actual as number) || 0}
+                  onBlur={e => update(r.id as number, { actual: parseFloat(e.target.value) || 0 })}
+                />
+              </td>
+              <td className="py-2 px-2">
+                <select
+                  className="cyber-input text-xs px-2 py-1 rounded"
+                  value={r.status as string}
+                  onChange={e => update(r.id as number, { status: e.target.value })}
+                >
+                  <option value="pending">En attente</option>
+                  <option value="paid">Payé</option>
+                  <option value="cancelled">Annulé</option>
+                </select>
+              </td>
+              <td className="py-2 px-2">
+                <button onClick={() => del(r.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {!rows.length && <p className="text-gray-600 text-xs py-4 text-center">Aucun élément</p>}
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-black text-white">Budget</h1>
+        <div className="flex gap-2">
+          <button onClick={seedCosts} className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">Pré-remplir dépenses</button>
+          <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter ligne</button>
+        </div>
+      </div>
+
+      {/* Summary */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        {[
+          { label: "Revenus prévus", value: totalPlannedRev, color: "#00ff9d" },
+          { label: "Revenus réels", value: totalActualRev, color: "#00ff9d" },
+          { label: "Dépenses prévues", value: totalPlannedCost, color: "#ff0066" },
+          { label: "Dépenses réelles", value: totalActualCost, color: "#ff0066" },
+        ].map(s => (
+          <div key={s.label} className="cyber-card rounded-xl p-4 text-center">
+            <div className="text-xl font-black font-mono" style={{ color: s.color }}>{s.value.toLocaleString("fr-FR")} €</div>
+            <div className="text-gray-500 text-xs mt-1">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {showForm && (
+        <div className="cyber-card rounded-xl p-5 mb-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Catégorie</label>
+              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.category as string) || "costs"} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
+                <option value="revenue">Revenus</option>
+                <option value="costs">Dépenses</option>
+              </select>
+            </div>
+            <div className="lg:col-span-2">
+              <label className="text-xs text-gray-500 block mb-1">Libellé</label>
+              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.label as string) || ""} onChange={e => setForm(p => ({ ...p, label: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Montant prévu (€)</label>
+              <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.planned as number) || 0} onChange={e => setForm(p => ({ ...p, planned: parseFloat(e.target.value) || 0 }))} />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-3">
+            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">Ajouter</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {renderTable(revenues, "Revenus", "#00ff9d")}
+      {renderTable(costs, "Dépenses", "#ff0066")}
+    </div>
+  );
+}
+
+// ---- Logistics Panel ----
+const LOGISTICS_SEED_CATEGORIES = [
+  { category: "Production", tasks: ["Production gadjets & impressions"] },
+  { category: "Coordination bénévoles", tasks: ["Briefing équipe bénévoles", "Attribution des rôles"] },
+  { category: "Plan salle", tasks: ["Validation plan salle", "Installation signalétique"] },
+  { category: "Vérification billets", tasks: ["Test scanner QR", "Formation opérateurs check-in"] },
+  { category: "Kit speakers", tasks: ["Préparation kit speakers", "Distribution badges speakers"] },
+  { category: "Animateur", tasks: ["Brief animateur"] },
+  { category: "Discours", tasks: ["Discours d'ouverture", "Discours de clôture"] },
+  { category: "Eau", tasks: ["Commande eau/boissons"] },
+  { category: "Internet", tasks: ["Test connexion salle", "WiFi invités opérationnel"] },
+  { category: "Tests techniques", tasks: ["Tests techniques salle", "Test son & vidéo", "Test retransmission"] },
+  { category: "Caméras", tasks: ["Installation caméras", "Test enregistrement"] },
+];
+
+function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]; onRefresh: () => void }) {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<Record<string, unknown>>({ done: false });
+
+  const save = async () => {
+    await fetch("/api/admin/logistics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    setShowForm(false); setForm({ done: false }); onRefresh();
+  };
+
+  const update = async (id: number, data: Record<string, unknown>) => {
+    await fetch(`/api/admin/logistics/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    onRefresh();
+  };
+
+  const del = async (id: number) => {
+    if (!confirm("Supprimer ?")) return;
+    await fetch(`/api/admin/logistics/${id}`, { method: "DELETE" });
+    onRefresh();
+  };
+
+  const seed = async () => {
+    for (const { category, tasks: ts } of LOGISTICS_SEED_CATEGORIES) {
+      for (let i = 0; i < ts.length; i++) {
+        await fetch("/api/admin/logistics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ category, title: ts[i], sortOrder: i }) });
+      }
+    }
+    onRefresh();
+  };
+
+  const totalDone = tasks.filter(t => t.done).length;
+  const total = tasks.length;
+  const pct = total ? Math.round((totalDone / total) * 100) : 0;
+
+  const byCategory: Record<string, Record<string, unknown>[]> = {};
+  for (const t of tasks) {
+    const cat = (t.category as string) || "Autre";
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(t);
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-black text-white">Logistique</h1>
+        <div className="flex gap-2">
+          {!tasks.length && <button onClick={seed} className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">Pré-remplir tâches</button>}
+          <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter tâche</button>
+        </div>
+      </div>
+
+      {total > 0 && (
+        <div className="cyber-card rounded-xl p-4 mb-6">
+          <div className="flex justify-between text-xs text-gray-500 mb-2">
+            <span>Progression globale</span>
+            <span className="text-neon-green font-bold">{totalDone}/{total} ({pct}%)</span>
+          </div>
+          <div className="h-3 bg-gray-900 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pct === 100 ? "#00ff9d" : "#0066ff" }} />
+          </div>
+        </div>
+      )}
+
+      {showForm && (
+        <div className="cyber-card rounded-xl p-5 mb-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Catégorie</label>
+              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.category as string) || ""} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} placeholder="ex: Technique" />
+            </div>
+            <div className="lg:col-span-2">
+              <label className="text-xs text-gray-500 block mb-1">Titre *</label>
+              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.title as string) || ""} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Responsable</label>
+              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.assignee as string) || ""} onChange={e => setForm(p => ({ ...p, assignee: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Échéance</label>
+              <input type="date" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.deadline as string) || ""} onChange={e => setForm(p => ({ ...p, deadline: e.target.value }))} />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-3">
+            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">Ajouter</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-6">
+        {Object.entries(byCategory).map(([cat, catTasks]) => {
+          const catDone = catTasks.filter(t => t.done).length;
+          return (
+            <div key={cat}>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-bold text-neon-green/70 uppercase tracking-widest">{cat}</h3>
+                <span className="text-xs text-gray-600">{catDone}/{catTasks.length}</span>
+              </div>
+              <div className="space-y-2">
+                {catTasks.map(t => (
+                  <div key={t.id as number} className="cyber-card rounded-lg p-3 flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={!!t.done}
+                      onChange={e => update(t.id as number, { done: e.target.checked })}
+                      className="w-4 h-4 accent-neon-green shrink-0"
+                    />
+                    <span className={`flex-1 text-sm transition-colors ${t.done ? "line-through text-gray-600" : "text-white"}`}>{t.title as string}</span>
+                    {!!(t.assignee as string) && <span className="text-xs text-gray-500 shrink-0">{t.assignee as string}</span>}
+                    {!!(t.deadline as string) && <span className="text-xs text-gray-600 shrink-0">{new Date(t.deadline as string).toLocaleDateString("fr-FR")}</span>}
+                    <button onClick={() => del(t.id as number)} className="text-red-400 text-xs hover:text-red-300 shrink-0">✗</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        {!tasks.length && <p className="text-gray-600 text-xs py-8 text-center">Aucune tâche — créez-en une ou utilisez le pré-remplissage</p>}
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsPanel({ data }: { data: Record<string, unknown> | null }) {
+  if (!data) return <p className="text-gray-600 text-xs py-8 text-center">Chargement...</p>;
+
+  const curve = data.registrationCurve as { date: string; count: number }[];
+  const byTicket = data.byTicket as Record<string, number>;
+  const topCountries = data.topCountries as { country: string; count: number }[];
+  const total = data.totalRegistrations as number;
+  const maxCount = Math.max(...curve.map(c => c.count), 1);
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-black text-white">Analytics</h1>
+
+      {/* KPI row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: "Inscriptions", value: data.totalRegistrations as number, color: "#00ff9d" },
+          { label: "Check-ins", value: data.checkedIn as number, color: "#0066ff" },
+          { label: "Taux CFP", value: `${data.cfpRate}%`, color: "#ff6600" },
+          { label: "Taux bénévoles", value: `${data.volRate}%`, color: "#cc00ff" },
+        ].map(k => (
+          <div key={k.label} className="cyber-card rounded-xl p-4 text-center">
+            <div className="text-2xl font-black font-mono" style={{ color: k.color, fontFamily: "'Share Tech Mono', monospace" }}>{k.value}</div>
+            <div className="text-gray-500 text-xs uppercase tracking-wider mt-1">{k.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Registration curve */}
+      <div className="cyber-card rounded-xl p-5">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Courbe d&apos;inscriptions</h2>
+        {curve.length === 0 ? (
+          <p className="text-gray-600 text-xs text-center py-4">Aucune donnée</p>
+        ) : (
+          <div className="flex items-end gap-1 h-32">
+            {curve.map(c => (
+              <div key={c.date} className="flex flex-col items-center flex-1 min-w-0 group" title={`${c.date}: ${c.count}`}>
+                <div
+                  className="w-full rounded-t transition-all"
+                  style={{ height: `${Math.round((c.count / maxCount) * 100)}%`, background: "#00ff9d", minHeight: 2, opacity: 0.8 }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex justify-between text-gray-700 text-xs mt-1">
+          <span>{curve[0]?.date || ""}</span>
+          <span>{total} total</span>
+          <span>{curve[curve.length - 1]?.date || ""}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* By ticket type */}
+        <div className="cyber-card rounded-xl p-5">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Par type de billet</h2>
+          <div className="space-y-2">
+            {Object.entries(byTicket).map(([type, count]) => (
+              <div key={type} className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 w-24 shrink-0">{type}</span>
+                <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full bg-neon-green/60" style={{ width: `${total > 0 ? Math.round((count / total) * 100) : 0}%` }} />
+                </div>
+                <span className="text-xs font-mono text-neon-green w-8 text-right">{count}</span>
+              </div>
+            ))}
+            {!Object.keys(byTicket).length && <p className="text-gray-600 text-xs">Aucune donnée</p>}
+          </div>
+        </div>
+
+        {/* Top countries */}
+        <div className="cyber-card rounded-xl p-5">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Top pays</h2>
+          <div className="space-y-2">
+            {topCountries.map(c => (
+              <div key={c.country} className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 w-24 shrink-0 truncate">{c.country}</span>
+                <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full bg-neon-blue/60" style={{ width: `${total > 0 ? Math.round((c.count / total) * 100) : 0}%` }} />
+                </div>
+                <span className="text-xs font-mono text-neon-blue w-8 text-right" style={{ color: "#0066ff" }}>{c.count}</span>
+              </div>
+            ))}
+            {!topCountries.length && <p className="text-gray-600 text-xs">Aucune donnée</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* CFP funnel */}
+      <div className="cyber-card rounded-xl p-5">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Funnel CFP</h2>
+        <div className="flex gap-6 items-center">
+          {[
+            { label: "Soumis", value: data.cfpTotal as number, color: "#888" },
+            { label: "Acceptés", value: data.cfpAccepted as number, color: "#00ff9d" },
+            { label: "Taux", value: `${data.cfpRate}%`, color: "#ff6600" },
+          ].map(f => (
+            <div key={f.label} className="text-center">
+              <div className="text-2xl font-black font-mono" style={{ color: f.color, fontFamily: "'Share Tech Mono', monospace" }}>{f.value}</div>
+              <div className="text-gray-500 text-xs mt-1">{f.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CertificatesPanel() {
+  const [sending, setSending] = useState<string | null>(null);
+  const [result, setResult] = useState<{ sent: number; failed: number } | null>(null);
+
+  const send = async (type: string) => {
+    setSending(type);
+    setResult(null);
+    const res = await fetch("/api/admin/certificates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type }),
+    });
+    if (res.ok) setResult(await res.json());
+    setSending(null);
+  };
+
+  return (
+    <div>
+      <h1 className="text-2xl font-black text-white mb-2">Certificats</h1>
+      <p className="text-gray-500 text-xs mb-6">Envoi des certificats par email après l&apos;événement</p>
+      {result && (
+        <div className="cyber-card rounded-xl p-4 mb-6 border-neon-green/30">
+          <span className="text-neon-green text-sm">✓ {result.sent} envoyés</span>
+          {result.failed > 0 && <span className="text-red-400 text-sm ml-3">✗ {result.failed} échecs</span>}
+        </div>
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="cyber-card rounded-xl p-6">
+          <h2 className="text-white font-bold mb-2">Certificat Participants</h2>
+          <p className="text-gray-500 text-xs mb-4">Envoyé à tous les participants ayant été check-in le jour J</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => send("participants")}
+              disabled={!!sending}
+              className="btn-neon px-4 py-2 rounded text-sm"
+            >
+              {sending === "participants" ? "Envoi..." : "Envoyer à tous"}
+            </button>
+            <a href="/api/admin/certificates" onClick={e => { e.preventDefault(); window.open("/api/admin/certificates?preview=participant", "_blank"); }}
+              className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white border border-gray-700 hover:border-gray-500 transition-colors">
+              Aperçu
+            </a>
+          </div>
+        </div>
+        <div className="cyber-card rounded-xl p-6">
+          <h2 className="text-white font-bold mb-2">Certificat Speakers</h2>
+          <p className="text-gray-500 text-xs mb-4">Envoyé à tous les speakers 2026 avec un talk assigné</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => send("speakers")}
+              disabled={!!sending}
+              className="btn-neon px-4 py-2 rounded text-sm"
+            >
+              {sending === "speakers" ? "Envoi..." : "Envoyer à tous"}
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="cyber-card rounded-xl p-5 mt-6">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">Aperçus</h2>
+        <div className="flex gap-3">
+          <a
+            href="#"
+            onClick={e => { e.preventDefault(); fetch("/api/admin/certificates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "preview-participant" }) }).then(r => r.text()).then(html => { const w = window.open(); w?.document.write(html); }); }}
+            className="text-xs text-neon-green hover:underline"
+          >
+            Voir aperçu participant →
+          </a>
+          <a
+            href="#"
+            onClick={e => { e.preventDefault(); fetch("/api/admin/certificates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "preview-speaker" }) }).then(r => r.text()).then(html => { const w = window.open(); w?.document.write(html); }); }}
+            className="text-xs text-neon-green hover:underline"
+          >
+            Voir aperçu speaker →
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [stats, setStats] = useState<Record<string, number>>({});
@@ -100,6 +1341,8 @@ export default function AdminDashboard() {
   const [form, setForm] = useState<Record<string, unknown>>({});
   const [editing, setEditing] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [cfpNotes, setCfpNotes] = useState<Record<number, string>>({});
+  const [onboarding, setOnboarding] = useState<Record<number, Record<string, boolean | string>>>({});
   const router = useRouter();
 
   const logout = async () => {
@@ -133,6 +1376,27 @@ export default function AdminDashboard() {
       } else if (t === "past-speakers") {
         const res = await fetch("/api/admin/past-speakers");
         if (res.ok) { const json = await res.json(); setData(d => ({ ...d, "past-speakers": json })); }
+      } else if (t === "onboarding") {
+        const res = await fetch("/api/admin/speakers");
+        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, speakers: json })); }
+      } else if (t === "communication") {
+        const res = await fetch("/api/admin/email-templates");
+        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, "email-templates": json })); }
+      } else if (t === "sponsor-pipeline") {
+        const res = await fetch("/api/admin/sponsor-prospects");
+        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, "sponsor-prospects": json })); }
+      } else if (t === "prospection") {
+        const res = await fetch("/api/admin/ai/prospect-leads");
+        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, prospection: json })); }
+      } else if (t === "budget") {
+        const res = await fetch("/api/admin/budget");
+        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, budget: json })); }
+      } else if (t === "logistics") {
+        const res = await fetch("/api/admin/logistics");
+        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, logistics: json })); }
+      } else if (t === "analytics") {
+        const res = await fetch("/api/admin/analytics");
+        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, analytics: [json] })); }
       } else if (["cfp", "volunteers", "registrations", "newsletter"].includes(t)) {
         const typeMap: Record<string, string> = { cfp: "cfp", volunteers: "volunteer", registrations: "registration", newsletter: "newsletter" };
         const res = await fetch(`/api/admin/submissions?type=${typeMap[t]}`);
@@ -167,18 +1431,58 @@ export default function AdminDashboard() {
 
   const cancelForm = () => { setShowForm(false); setForm({}); setEditing(null); };
 
+  const sendDecision = async (id: number, action: "accept" | "reject") => {
+    const notes = cfpNotes[id] || "";
+    await fetch("/api/admin/submissions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "cfp", id, action, notes }),
+    });
+    fetchData(tab);
+    fetchStats();
+  };
+
+  const loadOnboarding = async (speakerId: number) => {
+    const res = await fetch(`/api/admin/speakers/${speakerId}/onboarding`);
+    if (res.ok) {
+      const json = await res.json();
+      setOnboarding(prev => ({ ...prev, [speakerId]: json }));
+    }
+  };
+
+  const saveOnboarding = async (speakerId: number, updates: Record<string, boolean | string>) => {
+    const current = onboarding[speakerId] || {};
+    const merged = { ...current, ...updates };
+    setOnboarding(prev => ({ ...prev, [speakerId]: merged }));
+    await fetch(`/api/admin/speakers/${speakerId}/onboarding`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+  };
+
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: "dashboard", label: "Dashboard" },
     { id: "speakers", label: "Speakers", count: stats.speakers },
+    { id: "onboarding", label: "Onboarding Speakers" },
     { id: "sponsors", label: "Sponsors", count: stats.sponsors },
-    { id: "sessions", label: "Schedule" },
+    { id: "sessions", label: "Programme", count: stats.sessions },
+    { id: "workshops", label: "Workshops", count: stats.workshops },
     { id: "cfp", label: "CFP", count: stats.cfp },
     { id: "volunteers", label: "Bénévoles", count: stats.volunteers },
     { id: "registrations", label: "Inscriptions", count: stats.registrations },
-    { id: "newsletter", label: "Newsletter", count: stats.subscribers },
-    { id: "team", label: "Équipe" },
-    { id: "workshops", label: "Ateliers", count: stats.workshops },
-    { id: "past-speakers", label: "Anciens Intervenants", count: stats.pastSpeakers },
+    { id: "newsletter", label: "Newsletter", count: stats.newsletter },
+    { id: "team", label: "Équipe", count: stats.team },
+    { id: "past-speakers", label: "Anciens Speakers" },
+    { id: "users", label: "Utilisateurs Admin" },
+    { id: "communication", label: "Communication" },
+    { id: "sponsor-pipeline", label: "Pipeline Sponsors" },
+    { id: "prospection", label: "Prospection IA" },
+    { id: "budget", label: "Budget" },
+    { id: "logistics", label: "Logistique" },
+    { id: "analytics", label: "Analytics" },
+    { id: "certificates", label: "Certificats" },
+    { id: "export", label: "Export CSV" },
   ];
 
   // Group sessions by date
@@ -550,29 +1854,84 @@ export default function AdminDashboard() {
           {/* CFP */}
           {tab === "cfp" && (
             <div>
-              <h1 className="text-2xl font-black text-white mb-6">Propositions de Talks ({(data.cfp || []).length})</h1>
-              <div className="space-y-3">
+              <div className="flex items-center justify-between mb-4">
+                <h1 className="text-2xl font-black text-white">Propositions de Talks</h1>
+                <button
+                  onClick={async () => {
+                    await fetch("/api/admin/ai/score-cfp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scoreAll: true }) });
+                    fetchData(tab);
+                  }}
+                  className="text-xs px-3 py-2 rounded transition-all"
+                  style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}
+                >
+                  ✨ Analyser tout avec IA
+                </button>
+              </div>
+              {/* Stats bar */}
+              <div className="grid grid-cols-4 gap-3 mb-6">
+                {[
+                  { label: "Total", key: "cfp", color: "#888" },
+                  { label: "En attente", key: "cfpPending", color: "#ffaa00" },
+                  { label: "Acceptés", key: "cfpAccepted", color: "#00ff9d" },
+                  { label: "Refusés", key: "cfpRejected", color: "#ff0066" },
+                ].map(s => (
+                  <div key={s.key} className="cyber-card rounded-xl p-4 text-center">
+                    <div className="text-2xl font-black font-mono" style={{ color: s.color, fontFamily: "'Share Tech Mono', monospace" }}>
+                      {(stats as Record<string, number>)[s.key] ?? ((data.cfp || []) as Record<string, unknown>[]).filter((x) => s.key === "cfp" || x.status === (s.key === "cfpPending" ? "pending" : s.key === "cfpAccepted" ? "accepted" : "rejected")).length}
+                    </div>
+                    <div className="text-gray-500 text-xs uppercase tracking-wider mt-1">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-4">
                 {((data.cfp || []) as Record<string, unknown>[]).map(s => (
                   <div key={s.id as number} className="cyber-card rounded-xl p-5">
-                    <div className="flex items-start justify-between gap-4 mb-2">
+                    <div className="flex items-start justify-between gap-4 mb-3">
                       <div>
                         <p className="text-white font-bold">{s.name as string} <span className="text-gray-500 font-normal text-sm">— {s.email as string}</span></p>
                         <p className="text-neon-green text-sm mt-0.5">🎤 {s.talkTitle as string}</p>
                         {!!s.org && <p className="text-gray-500 text-xs">{s.org as string}{s.country ? ` · ${s.country}` : ""}</p>}
+                        {!!s.format && <span className="text-xs px-2 py-0.5 rounded bg-neon-green/10 text-neon-green/70 mr-2">{s.format as string}</span>}
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2">
                         <Badge status={s.status as string} />
-                        <select className="cyber-input text-xs px-2 py-1 rounded bg-transparent" value={s.status as string}
-                          onChange={e => updateStatus("cfp", s.id as number, e.target.value)}>
-                          <option value="pending" className="bg-dark-800">pending</option>
-                          <option value="accepted" className="bg-dark-800">accepted</option>
-                          <option value="rejected" className="bg-dark-800">rejected</option>
-                        </select>
+                        <AiScoreBadge score={s.aiScore as number | null} analysis={s.aiAnalysis as string | null} />
                       </div>
                     </div>
-                    {!!s.format && <span className="text-xs px-2 py-0.5 rounded bg-neon-green/10 text-neon-green/70 mr-2">{s.format as string}</span>}
-                    <p className="text-gray-400 text-xs mt-2 line-clamp-3">{s.abstract as string}</p>
-                    <p className="text-gray-600 text-xs mt-2">{new Date(s.createdAt as string).toLocaleDateString("fr-FR")}</p>
+                    <p className="text-gray-400 text-xs mb-3 line-clamp-3">{s.abstract as string}</p>
+                    {!!s.bio && <p className="text-gray-600 text-xs mb-3 italic line-clamp-2">{s.bio as string}</p>}
+                    <textarea
+                      placeholder="Notes comité (interne)..."
+                      value={cfpNotes[s.id as number] ?? ((s.notes as string) || "")}
+                      onChange={e => setCfpNotes(prev => ({ ...prev, [s.id as number]: e.target.value }))}
+                      className="cyber-input w-full text-xs rounded p-2 mb-3 h-16 resize-none"
+                    />
+                    <div className="flex items-center gap-2 justify-between">
+                      <span className="text-gray-600 text-xs">{new Date(s.createdAt as string).toLocaleDateString("fr-FR")}</span>
+                      {s.status === "pending" && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => sendDecision(s.id as number, "accept")}
+                            className="px-3 py-1.5 rounded text-xs font-bold transition-all"
+                            style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}
+                          >
+                            ✓ Accepter + Email
+                          </button>
+                          <button
+                            onClick={() => sendDecision(s.id as number, "reject")}
+                            className="px-3 py-1.5 rounded text-xs font-bold transition-all"
+                            style={{ background: "#ff006620", color: "#ff0066", border: "1px solid #ff006640" }}
+                          >
+                            ✗ Refuser + Email
+                          </button>
+                        </div>
+                      )}
+                      {s.status !== "pending" && (
+                        <span className="text-xs text-gray-600">
+                          Décision envoyée {s.decisionSentAt ? new Date(s.decisionSentAt as string).toLocaleDateString("fr-FR") : ""}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
                 {!data.cfp?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune soumission</p>}
@@ -587,7 +1946,7 @@ export default function AdminDashboard() {
               <div className="space-y-3">
                 {((data.volunteers || []) as Record<string, unknown>[]).map(v => (
                   <div key={v.id as number} className="cyber-card rounded-xl p-5">
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start justify-between gap-4 mb-3">
                       <div>
                         <p className="text-white font-bold">{v.name as string} <span className="text-gray-500 font-normal text-sm">— {v.email as string}</span></p>
                         {!!v.role && <p className="text-neon-green/70 text-sm">Rôle souhaité : {v.role as string}</p>}
@@ -604,6 +1963,50 @@ export default function AdminDashboard() {
                         </select>
                       </div>
                     </div>
+                    {v.status === "accepted" && (
+                      <div className="border-t border-gray-800 pt-3 mt-2">
+                        <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Affectation</p>
+                        <div className="flex gap-2 flex-wrap">
+                          <input
+                            type="text"
+                            placeholder="Rôle assigné"
+                            defaultValue={(v.assignedRole as string) || ""}
+                            className="cyber-input text-xs rounded px-2 py-1 flex-1 min-w-[120px]"
+                            onBlur={async (e) => {
+                              await fetch("/api/admin/submissions", {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ type: "volunteer-assign", id: v.id, assignedRole: e.target.value }),
+                              });
+                            }}
+                          />
+                          <input
+                            type="datetime-local"
+                            defaultValue={(v.shiftStart as string)?.slice(0, 16) || ""}
+                            className="cyber-input text-xs rounded px-2 py-1"
+                            onBlur={async (e) => {
+                              await fetch("/api/admin/submissions", {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ type: "volunteer-assign", id: v.id, shiftStart: e.target.value }),
+                              });
+                            }}
+                          />
+                          <input
+                            type="datetime-local"
+                            defaultValue={(v.shiftEnd as string)?.slice(0, 16) || ""}
+                            className="cyber-input text-xs rounded px-2 py-1"
+                            onBlur={async (e) => {
+                              await fetch("/api/admin/submissions", {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ type: "volunteer-assign", id: v.id, shiftEnd: e.target.value }),
+                              });
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
                     <p className="text-gray-600 text-xs mt-2">{new Date(v.createdAt as string).toLocaleDateString("fr-FR")}</p>
                   </div>
                 ))}
@@ -620,20 +2023,23 @@ export default function AdminDashboard() {
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-neon-green/10 text-gray-500 text-left">
-                      {["Nom", "Email", "Organisation", "Pays", "Ticket", "Statut", "Date"].map(h => (
+                      {["Nom", "Email", "Ticket", "Statut", "Check-in", "Date"].map(h => (
                         <th key={h} className="py-2 px-3 font-normal">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {((data.registrations || []) as Record<string, unknown>[]).map(r => (
-                      <tr key={r.id as number} className="border-b border-gray-800 hover:bg-white/[0.02] transition-colors">
-                        <td className="py-2 px-3 text-white">{r.fname as string} {r.lname as string}</td>
-                        <td className="py-2 px-3 text-gray-400">{r.email as string}</td>
-                        <td className="py-2 px-3 text-gray-500">{(r.org as string) || "—"}</td>
-                        <td className="py-2 px-3 text-gray-500">{(r.country as string) || "—"}</td>
+                      <tr key={r.id as number} className={`border-b border-gray-800 hover:bg-white/[0.02] transition-colors ${r.checkedInAt ? "bg-neon-green/[0.02]" : ""}`}>
+                        <td className="py-2 px-3 text-white">{r.fname as string} {r.lname as string}<br/><span className="text-gray-500">{r.email as string}</span></td>
+                        <td className="py-2 px-3 text-gray-500">{(r.org as string) || (r.country as string) || "—"}</td>
                         <td className="py-2 px-3"><span className="px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green/70">{r.ticketType as string}</span></td>
                         <td className="py-2 px-3"><Badge status={r.status as string} /></td>
+                        <td className="py-2 px-3">
+                          {r.checkedInAt
+                            ? <span className="text-neon-green text-xs">✓ {new Date(r.checkedInAt as string).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                            : <span className="text-gray-600 text-xs">—</span>}
+                        </td>
                         <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleDateString("fr-FR")}</td>
                       </tr>
                     ))}
@@ -933,6 +2339,171 @@ export default function AdminDashboard() {
                   {!data["past-speakers"]?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucun ancien intervenant — cliquez sur + Ajouter</p>}
                 </div>
               )}
+            </div>
+          )}
+
+          {tab === "onboarding" && (
+            <div>
+              <h1 className="text-2xl font-black text-white mb-2">Onboarding Speakers</h1>
+              <p className="text-gray-500 text-xs mb-6">Suivi des 9 étapes de préparation par speaker</p>
+              <div className="space-y-4">
+                {((data.speakers || []) as Record<string, unknown>[]).filter(s => s.edition === "2026").map(s => {
+                  const ob = onboarding[s.id as number] || {};
+                  const checkboxes: { key: string; label: string }[] = [
+                    { key: "selectionMailSent", label: "Mail de sélection envoyé" },
+                    { key: "modalitiesMailSent", label: "Mail des modalités envoyé" },
+                    { key: "timingMailSent", label: "Mail de timing envoyé" },
+                    { key: "bioReceived", label: "Bio reçue" },
+                    { key: "photoReceived", label: "Photo reçue" },
+                    { key: "slidesReceived", label: "Slides reçues" },
+                    { key: "transportArranged", label: "Transport arrangé" },
+                    { key: "accommodationDone", label: "Hébergement confirmé" },
+                    { key: "agreementSigned", label: "Entente conclue" },
+                  ];
+                  const doneCount = checkboxes.filter(c => ob[c.key]).length;
+                  const isReady = doneCount === checkboxes.length;
+                  return (
+                    <div key={s.id as number} className="cyber-card rounded-xl p-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar photoUrl={s.photoUrl as string} name={s.name as string} size={10} />
+                          <div>
+                            <p className="text-white font-bold text-sm">{s.name as string}</p>
+                            <p className="text-gray-500 text-xs">{s.talkTitle as string}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-xs text-gray-500">{doneCount}/9</div>
+                          <div className="w-24 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all" style={{ width: `${(doneCount/9)*100}%`, background: isReady ? "#00ff9d" : "#0066ff" }} />
+                          </div>
+                          {isReady && <span className="text-xs text-neon-green font-bold">✓ PRÊT</span>}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 mb-3">
+                        {checkboxes.map(c => (
+                          <label key={c.key} className="flex items-center gap-2 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={!!ob[c.key]}
+                              onChange={e => {
+                                if (!ob.id && !ob.speakerId) loadOnboarding(s.id as number);
+                                saveOnboarding(s.id as number, { [c.key]: e.target.checked });
+                              }}
+                              className="w-3 h-3 accent-neon-green"
+                            />
+                            <span className={`text-xs transition-colors ${ob[c.key] ? "text-neon-green" : "text-gray-500 group-hover:text-gray-300"}`}>{c.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <textarea
+                        placeholder="Notes internes..."
+                        value={(ob.notes as string) || ""}
+                        onChange={e => setOnboarding(prev => ({ ...prev, [s.id as number]: { ...prev[s.id as number], notes: e.target.value } }))}
+                        onBlur={e => saveOnboarding(s.id as number, { notes: e.target.value })}
+                        className="cyber-input w-full text-xs rounded p-2 h-12 resize-none"
+                      />
+                      <button
+                        onClick={async () => {
+                          const res = await fetch("/api/admin/ai/speaker-bio", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ name: s.name, bio: s.bio, talkTitle: s.talkTitle, talkAbstract: s.talkAbstract }),
+                          });
+                          if (res.ok) {
+                            const data2 = await res.json() as { bioFr: string; bioEn: string; teaserFr: string; teaserEn: string };
+                            alert(`Bio FR:\n${data2.bioFr}\n\nBio EN:\n${data2.bioEn}\n\nTeaser FR:\n${data2.teaserFr}\n\nTeaser EN:\n${data2.teaserEn}`);
+                          }
+                        }}
+                        className="text-xs px-3 py-1.5 rounded mt-2 transition-all"
+                        style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}
+                      >
+                        ✨ Reformuler bio avec IA
+                      </button>
+                    </div>
+                  );
+                })}
+                {!data.speakers?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucun speaker 2026</p>}
+              </div>
+            </div>
+          )}
+
+          {tab === "users" && (
+            <div>
+              <h1 className="text-2xl font-black text-white mb-6">Utilisateurs Admin</h1>
+              <AdminUsersPanel />
+            </div>
+          )}
+
+          {/* COMMUNICATION */}
+          {tab === "communication" && (
+            <CommunicationPanel
+              templates={(data["email-templates"] || []) as Record<string, unknown>[]}
+              onRefresh={() => fetchData("communication")}
+            />
+          )}
+
+          {/* SPONSOR PIPELINE */}
+          {tab === "sponsor-pipeline" && (
+            <SponsorPipelinePanel
+              prospects={(data["sponsor-prospects"] || []) as Record<string, unknown>[]}
+              onRefresh={() => fetchData("sponsor-pipeline")}
+            />
+          )}
+
+          {/* PROSPECTION IA */}
+          {tab === "prospection" && (
+            <ProspectionPanel leads={(data.prospection || []) as Record<string, unknown>[]} />
+          )}
+
+          {/* BUDGET */}
+          {tab === "budget" && (
+            <BudgetPanel
+              items={(data.budget || []) as Record<string, unknown>[]}
+              onRefresh={() => fetchData("budget")}
+            />
+          )}
+
+          {/* LOGISTICS */}
+          {tab === "logistics" && (
+            <LogisticsPanel
+              tasks={(data.logistics || []) as Record<string, unknown>[]}
+              onRefresh={() => fetchData("logistics")}
+            />
+          )}
+
+          {/* ANALYTICS */}
+          {tab === "analytics" && (
+            <AnalyticsPanel data={(data.analytics?.[0] as Record<string, unknown>) ?? null} />
+          )}
+
+          {/* CERTIFICATES */}
+          {tab === "certificates" && (
+            <CertificatesPanel />
+          )}
+
+          {/* EXPORT */}
+          {tab === "export" && (
+            <div>
+              <h1 className="text-2xl font-black text-white mb-6">Export CSV</h1>
+              <div className="grid sm:grid-cols-2 gap-4">
+                {[
+                  { type: "registrations", label: "Inscriptions CSV", color: "#ff0066", desc: "Tous les participants inscrits" },
+                  { type: "cfp", label: "CFP CSV", color: "#cc00ff", desc: "Toutes les propositions de talks" },
+                  { type: "volunteers", label: "Bénévoles CSV", color: "#ff6600", desc: "Candidatures bénévoles" },
+                  { type: "newsletter", label: "Newsletter CSV", color: "#ffaa00", desc: "Abonnés à la newsletter" },
+                ].map(item => (
+                  <a
+                    key={item.type}
+                    href={`/api/admin/export?type=${item.type}`}
+                    className="cyber-card rounded-xl p-6 block hover:opacity-90 transition-opacity"
+                    style={{ borderColor: item.color + "40" }}
+                  >
+                    <div className="text-lg font-bold mb-1" style={{ color: item.color }}>⬇ {item.label}</div>
+                    <div className="text-gray-500 text-xs">{item.desc}</div>
+                  </a>
+                ))}
+              </div>
             </div>
           )}
 

@@ -6,11 +6,15 @@ export async function GET() {
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const [cfp, volunteers, registrations, speakers, sponsors, subscribers, team, pastSpeakers, workshops] =
+  const [cfpTotal, cfpPending, cfpAccepted, cfpRejected, volunteers, registrations, checkedIn, speakers, sponsors, subscribers, team, pastSpeakers, workshops] =
     await Promise.all([
       prisma.cFPSubmission.count(),
+      prisma.cFPSubmission.count({ where: { status: "pending" } }),
+      prisma.cFPSubmission.count({ where: { status: "accepted" } }),
+      prisma.cFPSubmission.count({ where: { status: "rejected" } }),
       prisma.volunteerApplication.count(),
       prisma.registration.count(),
+      prisma.registration.count({ where: { checkedInAt: { not: null } } }),
       prisma.speaker.count(),
       prisma.sponsor.count(),
       prisma.newsletterSubscriber.count(),
@@ -18,5 +22,17 @@ export async function GET() {
       prisma.pastSpeaker.count(),
       prisma.workshop.count(),
     ]);
-  return NextResponse.json({ cfp, volunteers, registrations, speakers, sponsors, subscribers, team, pastSpeakers, workshops });
+  return NextResponse.json({
+    cfp: cfpTotal,
+    cfpBreakdown: { total: cfpTotal, pending: cfpPending, accepted: cfpAccepted, rejected: cfpRejected },
+    volunteers,
+    registrations,
+    checkedIn,
+    speakers,
+    sponsors,
+    subscribers,
+    team,
+    pastSpeakers,
+    workshops,
+  });
 }

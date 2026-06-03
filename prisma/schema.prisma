@@ -9,46 +9,56 @@ datasource db {
 }
 
 model CFPSubmission {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String
-  org       String?
-  country   String?
-  talkTitle String
-  format    String?
-  abstract  String   @db.Text
-  bio       String?  @db.Text
-  status    String   @default("pending") // pending | accepted | rejected
-  createdAt DateTime @default(now())
+  id             Int       @id @default(autoincrement())
+  name           String
+  email          String
+  org            String?
+  country        String?
+  talkTitle      String
+  format         String?
+  abstract       String    @db.Text
+  bio            String?   @db.Text
+  status         String    @default("pending") // pending | accepted | rejected
+  notes          String?   @db.Text
+  decisionSentAt DateTime?
+  aiScore        Float?
+  aiAnalysis     String?   @db.Text
+  createdAt      DateTime  @default(now())
 
   @@map("cfp_submissions")
 }
 
 model VolunteerApplication {
-  id         Int      @id @default(autoincrement())
-  name       String
-  email      String
-  phone      String?
-  city       String?
-  role       String?
-  experience String?  @db.Text
-  motivation String   @db.Text
-  status     String   @default("pending")
-  createdAt  DateTime @default(now())
+  id           Int       @id @default(autoincrement())
+  name         String
+  email        String
+  phone        String?
+  city         String?
+  role         String?
+  experience   String?   @db.Text
+  motivation   String    @db.Text
+  status       String    @default("pending")
+  assignedRole String?
+  shiftStart   DateTime?
+  shiftEnd     DateTime?
+  createdAt    DateTime  @default(now())
 
   @@map("volunteer_applications")
 }
 
 model Registration {
-  id         Int      @id @default(autoincrement())
-  fname      String
-  lname      String
-  email      String
-  org        String?
-  country    String?
-  ticketType String
-  status     String   @default("pending")
-  createdAt  DateTime @default(now())
+  id          Int       @id @default(autoincrement())
+  fname       String
+  lname       String
+  email       String
+  org         String?
+  country     String?
+  ticketType  String
+  status      String    @default("pending")
+  qrCode      String?
+  checkedInAt DateTime?
+  checkedInBy String?
+  createdAt   DateTime  @default(now())
 
   @@map("registrations")
 }
@@ -66,11 +76,12 @@ model Speaker {
   talkTitle    String?
   talkAbstract String?  @db.Text
   talkFormat   String?
-  isKeynote    Boolean  @default(false)
-  edition      String   @default("2026")
-  isVisible    Boolean  @default(true)
-  sortOrder    Int      @default(0)
-  createdAt    DateTime @default(now())
+  isKeynote    Boolean            @default(false)
+  edition      String             @default("2026")
+  isVisible    Boolean            @default(true)
+  sortOrder    Int                @default(0)
+  createdAt    DateTime           @default(now())
+  onboarding   SpeakerOnboarding?
 
   @@map("speakers")
 }
@@ -158,4 +169,158 @@ model NewsletterSubscriber {
   createdAt DateTime @default(now())
 
   @@map("newsletter_subscribers")
+}
+
+model AdminUser {
+  id           Int            @id @default(autoincrement())
+  name         String
+  email        String         @unique
+  passwordHash String
+  permissions  String         @db.Text // JSON: { cfp: "write", speakers: "read", ... }
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  sessions     AdminSession[]
+
+  @@map("admin_users")
+}
+
+model AdminSession {
+  id        Int       @id @default(autoincrement())
+  token     String    @unique
+  userId    Int
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  user      AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admin_sessions")
+}
+
+model SpeakerOnboarding {
+  id                 Int      @id @default(autoincrement())
+  speakerId          Int      @unique
+  selectionMailSent  Boolean  @default(false)
+  modalitiesMailSent Boolean  @default(false)
+  timingMailSent     Boolean  @default(false)
+  bioReceived        Boolean  @default(false)
+  photoReceived      Boolean  @default(false)
+  slidesReceived     Boolean  @default(false)
+  transportArranged  Boolean  @default(false)
+  accommodationDone  Boolean  @default(false)
+  agreementSigned    Boolean  @default(false)
+  notes              String?  @db.Text
+  updatedAt          DateTime @updatedAt
+  speaker            Speaker  @relation(fields: [speakerId], references: [id], onDelete: Cascade)
+
+  @@map("speaker_onboarding")
+}
+
+model TicketCapacity {
+  id           Int    @id @default(autoincrement())
+  ticketType   String @unique
+  maxCapacity  Int    @default(100)
+  alertPercent Int    @default(80)
+
+  @@map("ticket_capacities")
+}
+
+model EmailTemplate {
+  id          Int       @id @default(autoincrement())
+  name        String
+  subject     String
+  htmlBody    String    @db.LongText
+  segment     String    @default("all") // all | registered | cfp_accepted | volunteers | newsletter
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@map("email_templates")
+}
+
+model EmailLog {
+  id         Int      @id @default(autoincrement())
+  templateId Int?
+  recipient  String
+  subject    String
+  status     String   @default("sent") // sent | failed
+  sentAt     DateTime @default(now())
+
+  @@map("email_logs")
+}
+
+model SponsorProspect {
+  id        Int      @id @default(autoincrement())
+  org       String
+  contact   String?
+  email     String?
+  phone     String?
+  package   String?  // tier/package name
+  status    String   @default("contacted") // contacted | meeting | negative | positive | concluded | abandoned | paused
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("sponsor_prospects")
+}
+
+model BudgetItem {
+  id        Int      @id @default(autoincrement())
+  category  String   @default("costs") // revenue | costs
+  label     String
+  planned   Float    @default(0)
+  actual    Float    @default(0)
+  status    String   @default("pending") // pending | paid | cancelled
+  createdAt DateTime @default(now())
+
+  @@map("budget_items")
+}
+
+model LogisticsTask {
+  id        Int      @id @default(autoincrement())
+  category  String
+  title     String
+  assignee  String?
+  deadline  DateTime?
+  done      Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("logistics_tasks")
+}
+
+model SocialPost {
+  id             Int       @id @default(autoincrement())
+  brief          String    @db.Text
+  platform       String    // linkedin | twitter | instagram
+  lang           String    // fr | en
+  content        String    @db.Text
+  imageUrl       String?
+  scheduledAt    DateTime?
+  publishedAt    DateTime?
+  linkedinPostId String?
+  status         String    @default("draft") // draft | scheduled | published | failed
+  errorMessage   String?   @db.Text
+  createdAt      DateTime  @default(now())
+
+  @@map("social_posts")
+}
+
+model ProspectLead {
+  id                 Int      @id @default(autoincrement())
+  source             String   @default("manual") // apollo | google_places | manual
+  org                String
+  sector             String?
+  city               String?
+  website            String?
+  phone              String?
+  contactName        String?
+  contactTitle       String?
+  contactEmail       String?
+  contactLinkedin    String?
+  aiScore            Float?
+  aiScoreReason      String?  @db.Text
+  recommendedPackage String?
+  addedToPipeline    Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  @@map("prospect_leads")
 }

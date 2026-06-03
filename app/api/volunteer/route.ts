@@ -1,39 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { sendVolunteerConfirmation } from "@/lib/email";
+import { rateLimit, getIp } from "@/lib/rateLimit";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const VALID_ROLES = ["logistique", "communication", "technique", "accueil", "securite", "autre", "logistics", "communication", "technical", "welcome", "security", "other", ""];
 
 export async function POST(req: NextRequest) {
+  if (!rateLimit(`volunteer:${getIp(req)}`, 5, 60 * 60 * 1000)) {
+    return NextResponse.json({ error: "Trop de soumissions, réessayez plus tard." }, { status: 429 });
+  }
+
   try {
     const body = await req.json();
     const { name, email, phone, city, role, experience, motivation } = body;
 
     if (!name || !email || !motivation) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json({ error: "Champs requis manquants" }, { status: 400 });
+    }
+    if (!EMAIL_RE.test(email)) {
+      return NextResponse.json({ error: "Email invalide" }, { status: 400 });
+    }
+    if (name.length > 120) {
+      return NextResponse.json({ error: "Nom trop long" }, { status: 400 });
+    }
+    if (motivation.length > 3000) {
+      return NextResponse.json({ error: "Motivation trop longue (max 3000 caractères)" }, { status: 400 });
+    }
+    if (experience && experience.length > 3000) {
+      return NextResponse.json({ error: "Expérience trop longue (max 3000 caractères)" }, { status: 400 });
     }
 
     const application = await prisma.volunteerApplication.create({
-      data: { name, email, phone, city, role, experience, motivation },
+      data: {
+        name,
+        email,
+        phone: phone?.slice(0, 30),
+        city: city?.slice(0, 100),
+        role: role?.slice(0, 100),
+        experience,
+        motivation,
+      },
     });
 
-    sendVolunteerConfirmation(email, name).catch(e =>
-      console.error("[Volunteer email]", e),
-    );
+    sendVolunteerConfirmation(email, name).catch(e => console.error("[Volunteer email]", e));
 
     return NextResponse.json({ success: true, id: application.id }, { status: 201 });
   } catch (err) {
     console.error("[Volunteer]", err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
-  }
-}
-
-export async function GET() {
-  try {
-    const applications = await prisma.volunteerApplication.findMany({
-      orderBy: { createdAt: "desc" },
-    });
-    return NextResponse.json(applications);
-  } catch (err) {
-    console.error("[Volunteer GET]", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

@@ -9,7 +9,7 @@ const LOGISTICS_SEED = [
   { category: "Production", title: "Impression programme & signalétique", sortOrder: 4 },
   { category: "Coordination bénévoles", title: "Brief équipe bénévoles", sortOrder: 1 },
   { category: "Coordination bénévoles", title: "Attribution des postes", sortOrder: 2 },
-  { category: "Coordination bénévoles", title: "Test communication interne", sortOrder: 3 },
+  { category: "Coordination bénévoles", title: "Test walkie-talkies / communication interne", sortOrder: 3 },
   { category: "Salle & Scène", title: "Plan de salle validé", sortOrder: 1 },
   { category: "Salle & Scène", title: "Podium et scène installés", sortOrder: 2 },
   { category: "Salle & Scène", title: "Signalétique en place", sortOrder: 3 },
@@ -66,14 +66,14 @@ export async function POST(req: NextRequest) {
 
   if (type === "logistics") {
     const existing = await prisma.logisticsTask.count();
-    if (existing > 0) return NextResponse.json({ error: "Already seeded", count: existing }, { status: 409 });
+    if (existing > 0) return NextResponse.json({ error: "Logistics tasks already seeded", count: existing }, { status: 409 });
     await prisma.logisticsTask.createMany({ data: LOGISTICS_SEED });
     return NextResponse.json({ seeded: LOGISTICS_SEED.length });
   }
 
   if (type === "budget") {
     const existing = await prisma.budgetItem.count();
-    if (existing > 0) return NextResponse.json({ error: "Already seeded", count: existing }, { status: 409 });
+    if (existing > 0) return NextResponse.json({ error: "Budget items already seeded", count: existing }, { status: 409 });
     await prisma.budgetItem.createMany({ data: BUDGET_SEED });
     return NextResponse.json({ seeded: BUDGET_SEED.length });
   }

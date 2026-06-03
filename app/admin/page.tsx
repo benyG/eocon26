@@ -394,36 +394,141 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
 }
 
 // ---- Communication Panel ----
-function CommunicationPanel({ templates, onRefresh }: { templates: Record<string, unknown>[]; onRefresh: () => void }) {
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<Record<string, unknown>>({ segment: "all" });
-  const [editing, setEditing] = useState<number | null>(null);
-  const [sending, setSending] = useState<number | null>(null);
-  const [sendResult, setSendResult] = useState<string | null>(null);
-  const [socialBrief, setSocialBrief] = useState("");
-  const [generatingSocial, setGeneratingSocial] = useState(false);
-  const [socialPosts, setSocialPosts] = useState<Record<string, string> | null>(null);
+const CONTEXTS = [
+  { key: "cfp_open", label: "Ouverture CFP", brief: "Annonce de l'ouverture des soumissions CFP pour EOCON 2026. Inviter les experts cybersécurité à soumettre leurs propositions." },
+  { key: "speaker_announce", label: "Annonce speaker", brief: "Annonce d'un nouveau speaker confirmé pour EOCON 2026. Créer de l'enthousiasme." },
+  { key: "j30", label: "J-30", brief: "Compte à rebours J-30 avant EOCON 2026. Créer l'urgence pour les inscriptions." },
+  { key: "j7", label: "J-7", brief: "Compte à rebours J-7 avant EOCON 2026. Derniers rappels, programme complet disponible." },
+  { key: "j1", label: "J-1", brief: "La veille d'EOCON 2026. Rappels logistiques, excitation maximale." },
+  { key: "registrations_open", label: "Inscriptions ouvertes", brief: "Annonce de l'ouverture des inscriptions pour EOCON 2026. Mettre en avant les types de billets." },
+  { key: "cfp_results", label: "Résultats CFP", brief: "Annonce de la sélection des talks pour EOCON 2026. Féliciter les speakers sélectionnés." },
+  { key: "sponsors", label: "Sponsors", brief: "Mise en avant des sponsors d'EOCON 2026. Remercier et valoriser leur soutien." },
+  { key: "thanks", label: "Remerciements", brief: "Post-événement EOCON 2026. Remercier les participants, speakers et sponsors." },
+  { key: "other", label: "Autre", brief: "" },
+];
+
+function CommunicationPanel() {
+  const today = new Date();
+  const [currentMonth, setCurrentMonth] = useState(today.getMonth());
+  const [currentYear, setCurrentYear] = useState(today.getFullYear());
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [selectedContext, setSelectedContext] = useState(CONTEXTS[0]);
+  const [brief, setBrief] = useState(CONTEXTS[0].brief);
+  const [platforms, setPlatforms] = useState({ linkedin: true, twitter: false, instagram: false });
+  const [lang, setLang] = useState<"fr" | "en" | "both">("both");
+  const [generating, setGenerating] = useState(false);
+  const [generatedPosts, setGeneratedPosts] = useState<Record<string, string> | null>(null);
+  const [saving, setSaving] = useState(false);
   const [linkedinPosts, setLinkedinPosts] = useState<Record<string, unknown>[]>([]);
   const [publishing, setPublishing] = useState<number | null>(null);
   const [scheduleId, setScheduleId] = useState<number | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
+  // Email templates
+  const [templates, setTemplates] = useState<Record<string, unknown>[]>([]);
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [templateForm, setTemplateForm] = useState<Record<string, unknown>>({});
+  const [sending, setSending] = useState<number | null>(null);
 
   const loadLinkedinPosts = useCallback(async () => {
     const res = await fetch("/api/admin/ai/social-posts");
     if (res.ok) setLinkedinPosts(await res.json());
   }, []);
 
-  useEffect(() => { loadLinkedinPosts(); }, [loadLinkedinPosts]);
+  const loadTemplates = useCallback(async () => {
+    const res = await fetch("/api/admin/email-templates");
+    if (res.ok) setTemplates(await res.json());
+  }, []);
+
+  useEffect(() => { loadLinkedinPosts(); loadTemplates(); }, [loadLinkedinPosts, loadTemplates]);
+
+  // Calendar helpers
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
+  const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+
+  // Posts by date for calendar dots
+  const postsByDate: Record<string, number> = {};
+  linkedinPosts.forEach(p => {
+    const d = p.scheduledAt || p.publishedAt;
+    if (d) {
+      const key = new Date(d as string).toISOString().slice(0, 10);
+      postsByDate[key] = (postsByDate[key] || 0) + 1;
+    }
+  });
+
+  const handleDayClick = (day: number) => {
+    const date = new Date(currentYear, currentMonth, day);
+    setSelectedDay(date);
+    setGeneratedPosts(null);
+    setPanelOpen(true);
+    setScheduleDate(date.toISOString().slice(0, 10) + "T10:00");
+  };
+
+  const handleContextSelect = (ctx: typeof CONTEXTS[0]) => {
+    setSelectedContext(ctx);
+    setBrief(ctx.brief);
+    setGeneratedPosts(null);
+  };
+
+  const generatePosts = async () => {
+    if (!brief.trim()) return;
+    setGenerating(true);
+    const res = await fetch("/api/admin/ai/generate-posts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ brief }),
+    });
+    if (res.ok) setGeneratedPosts(await res.json());
+    setGenerating(false);
+  };
+
+  const savePosts = async () => {
+    if (!generatedPosts || !selectedDay) return;
+    setSaving(true);
+    const entries: { platform: string; lang: string; content: string }[] = [];
+    if (platforms.linkedin) {
+      if (lang !== "en") entries.push({ platform: "linkedin", lang: "fr", content: generatedPosts.linkedin_fr || "" });
+      if (lang !== "fr") entries.push({ platform: "linkedin", lang: "en", content: generatedPosts.linkedin_en || "" });
+    }
+    if (platforms.twitter) {
+      if (lang !== "en") entries.push({ platform: "twitter", lang: "fr", content: generatedPosts.twitter_fr || "" });
+      if (lang !== "fr") entries.push({ platform: "twitter", lang: "en", content: generatedPosts.twitter_en || "" });
+    }
+    if (platforms.instagram) {
+      if (lang !== "en") entries.push({ platform: "instagram", lang: "fr", content: generatedPosts.instagram_fr || "" });
+      if (lang !== "fr") entries.push({ platform: "instagram", lang: "en", content: generatedPosts.instagram_en || "" });
+    }
+    for (const entry of entries) {
+      const existing = linkedinPosts.find(p => p.platform === entry.platform && p.lang === entry.lang && p.content === entry.content);
+      if (!existing) {
+        const freshRes = await fetch("/api/admin/ai/social-posts");
+        if (freshRes.ok) {
+          const fresh = await freshRes.json() as Record<string, unknown>[];
+          const match = fresh.find(p => p.platform === entry.platform && p.lang === entry.lang && (p.status === "draft"));
+          if (match) {
+            await fetch("/api/admin/ai/publish-post", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: match.id, scheduledAt: scheduleDate }),
+            });
+          }
+        }
+      }
+    }
+    await loadLinkedinPosts();
+    setPanelOpen(false);
+    setGeneratedPosts(null);
+    setSaving(false);
+  };
 
   const publishNow = async (id: number) => {
     setPublishing(id);
-    const res = await fetch("/api/admin/ai/publish-post", {
+    await fetch("/api/admin/ai/publish-post", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
-    const data = await res.json() as Record<string, unknown>;
-    if (data.linkedinUrl) window.open(data.linkedinUrl as string, "_blank");
     await loadLinkedinPosts();
     setPublishing(null);
   };
@@ -440,254 +545,247 @@ function CommunicationPanel({ templates, onRefresh }: { templates: Record<string
     await loadLinkedinPosts();
   };
 
-  const generateSocial = async () => {
-    if (!socialBrief.trim()) return;
-    setGeneratingSocial(true);
-    const res = await fetch("/api/admin/ai/generate-posts", {
+  const sendTemplate = async (id: number) => {
+    setSending(id);
+    await fetch("/api/admin/email-templates/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brief: socialBrief }),
+      body: JSON.stringify({ templateId: id }),
     });
-    if (res.ok) setSocialPosts(await res.json() as Record<string, string>);
-    setGeneratingSocial(false);
-  };
-
-  const save = async () => {
-    const method = editing ? "PUT" : "POST";
-    const url = editing ? `/api/admin/email-templates/${editing}` : "/api/admin/email-templates";
-    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-    setShowForm(false); setEditing(null); setForm({ segment: "all" }); onRefresh();
-  };
-
-  const del = async (id: number) => {
-    if (!confirm("Supprimer ce template ?")) return;
-    await fetch(`/api/admin/email-templates/${id}`, { method: "DELETE" });
-    onRefresh();
-  };
-
-  const send = async (id: number) => {
-    if (!confirm("Envoyer cet email à tous les destinataires du segment ?")) return;
-    setSending(id); setSendResult(null);
-    const res = await fetch("/api/admin/email-templates/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ templateId: id }) });
-    const json = await res.json() as Record<string, unknown>;
     setSending(null);
-    setSendResult(res.ok ? `✓ Envoyé : ${json.sent} / ${json.total} (${json.failed} erreurs)` : `✗ Erreur : ${json.error}`);
-    onRefresh();
+    await loadTemplates();
   };
 
-  const seedTemplates = async () => {
-    const templates = [
-      { name: "J-30 — Save the Date", subject: "EOCON 2026 — Réservez la date !", segment: "newsletter", htmlBody: "<h1>EOCON 2026</h1><p>L'événement cybersécurité de l'année arrive dans 30 jours. Inscrivez-vous dès maintenant !</p>" },
-      { name: "J-7 — Rappel inscription", subject: "Plus que 7 jours — EOCON 2026", segment: "newsletter", htmlBody: "<h1>EOCON 2026 — J-7</h1><p>Plus que 7 jours ! Confirmez votre participation maintenant.</p>" },
-      { name: "J-1 — Infos pratiques", subject: "EOCON 2026 demain — Infos pratiques", segment: "registered", htmlBody: "<h1>À demain !</h1><p>Retrouvez toutes les informations pratiques pour EOCON 2026.</p>" },
-    ];
-    for (const t of templates) {
-      await fetch("/api/admin/email-templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) });
-    }
-    onRefresh();
+  const saveTemplate = async () => {
+    await fetch("/api/admin/email-templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(templateForm),
+    });
+    setShowTemplateForm(false);
+    setTemplateForm({});
+    await loadTemplates();
   };
 
-  const segmentLabel: Record<string, string> = { all: "Tous", registered: "Inscrits", cfp_accepted: "CFP acceptés", volunteers: "Bénévoles", newsletter: "Newsletter" };
+  const statusColors: Record<string, string> = { draft: "#888", scheduled: "#ffaa00", published: "#00ff9d", failed: "#ff0066" };
 
   return (
-    <div>
-      {/* Social post generator */}
-      <div className="cyber-card rounded-xl p-5 mb-6">
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#cc00ff" }}>✨ Générateur de posts réseaux sociaux</h3>
-        <textarea
-          value={socialBrief}
-          onChange={e => setSocialBrief(e.target.value)}
-          placeholder="Brief (ex: annonce ouverture des inscriptions, ton enthousiaste)..."
-          className="cyber-input w-full text-xs rounded p-3 mb-3 h-20 resize-none"
-        />
-        <button
-          onClick={generateSocial}
-          disabled={generatingSocial}
-          className="btn-neon px-4 py-2 rounded text-xs mb-4"
-        >
-          {generatingSocial ? "Génération..." : "✨ Générer 6 posts (FR+EN)"}
-        </button>
-        {socialPosts && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {(["linkedin", "twitter", "instagram"] as const).map(platform => (
-              <div key={platform} className="space-y-2">
-                <h4 className="text-xs text-gray-500 uppercase">{platform}</h4>
-                {(["fr", "en"] as const).map(lang => {
-                  const key = `${platform}_${lang}`;
-                  return (
-                    <div key={lang} className="border border-gray-800 rounded-lg p-3">
-                      <div className="flex justify-between mb-1">
-                        <span className="text-xs text-gray-600 uppercase">{lang}</span>
-                        <button onClick={() => navigator.clipboard.writeText(socialPosts[key] || "")} className="text-xs" style={{ color: "#00ff9d" }}>Copier</button>
-                      </div>
-                      <p className="text-gray-400 text-xs whitespace-pre-wrap line-clamp-6">{socialPosts[key]}</p>
-                    </div>
-                  );
-                })}
-              </div>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-black text-white">Communication</h1>
+
+      {/* Calendar + Panel */}
+      <div className="flex gap-4">
+        {/* Calendar */}
+        <div className="cyber-card rounded-xl p-5 flex-1 min-w-0">
+          {/* Month nav */}
+          <div className="flex items-center justify-between mb-4">
+            <button onClick={() => { if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y-1); } else setCurrentMonth(m => m-1); }} className="text-gray-500 hover:text-white px-2">←</button>
+            <span className="text-white font-bold text-sm">{monthNames[currentMonth]} {currentYear}</span>
+            <button onClick={() => { if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y+1); } else setCurrentMonth(m => m+1); }} className="text-gray-500 hover:text-white px-2">→</button>
+          </div>
+          {/* Day labels */}
+          <div className="grid grid-cols-7 gap-1 mb-1">
+            {["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"].map(d => (
+              <div key={d} className="text-center text-gray-600 text-xs py-1">{d}</div>
             ))}
+          </div>
+          {/* Day cells */}
+          <div className="grid grid-cols-7 gap-1">
+            {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`e${i}`} />)}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day = i + 1;
+              const dateKey = `${currentYear}-${String(currentMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+              const hasPost = postsByDate[dateKey] || 0;
+              const isToday = today.getDate() === day && today.getMonth() === currentMonth && today.getFullYear() === currentYear;
+              const isSelected = selectedDay?.getDate() === day && selectedDay?.getMonth() === currentMonth && selectedDay?.getFullYear() === currentYear;
+              return (
+                <button
+                  key={day}
+                  onClick={() => handleDayClick(day)}
+                  className={`relative aspect-square rounded-lg text-xs flex flex-col items-center justify-center transition-all ${
+                    isSelected ? "bg-neon-green/20 text-neon-green border border-neon-green/50" :
+                    isToday ? "bg-white/10 text-white border border-white/20" :
+                    "text-gray-500 hover:bg-white/[0.05] hover:text-gray-300"
+                  }`}
+                >
+                  <span>{day}</span>
+                  {hasPost > 0 && (
+                    <div className="flex gap-0.5 mt-0.5">
+                      {Array.from({ length: Math.min(hasPost, 3) }).map((_, di) => (
+                        <div key={di} className="w-1 h-1 rounded-full" style={{ background: "#0066ff" }} />
+                      ))}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-gray-700 text-xs mt-3 text-center">Cliquez sur un jour pour planifier un post</p>
+        </div>
+
+        {/* Side panel */}
+        {panelOpen && selectedDay && (
+          <div className="cyber-card rounded-xl p-5 w-96 shrink-0 overflow-y-auto max-h-[600px]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-bold text-sm">
+                {selectedDay.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+              </h3>
+              <button onClick={() => setPanelOpen(false)} className="text-gray-500 hover:text-white">✕</button>
+            </div>
+
+            {/* Context chips */}
+            <div className="mb-3">
+              <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Contexte</p>
+              <div className="flex flex-wrap gap-1.5">
+                {CONTEXTS.map(ctx => (
+                  <button
+                    key={ctx.key}
+                    onClick={() => handleContextSelect(ctx)}
+                    className={`text-xs px-2 py-1 rounded transition-all ${selectedContext.key === ctx.key ? "bg-neon-green/20 text-neon-green border border-neon-green/40" : "text-gray-500 border border-gray-800 hover:border-gray-600"}`}
+                  >
+                    {ctx.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Platforms */}
+            <div className="mb-3">
+              <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Plateformes</p>
+              <div className="flex gap-3">
+                {(["linkedin", "twitter", "instagram"] as const).map(p => (
+                  <label key={p} className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" checked={platforms[p]} onChange={e => setPlatforms(prev => ({ ...prev, [p]: e.target.checked }))} className="accent-neon-green w-3 h-3" />
+                    <span className="text-xs text-gray-400 capitalize">{p}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Language */}
+            <div className="mb-3">
+              <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Langue</p>
+              <div className="flex gap-2">
+                {(["fr", "en", "both"] as const).map(l => (
+                  <button key={l} onClick={() => setLang(l)} className={`text-xs px-3 py-1 rounded transition-all ${lang === l ? "bg-neon-green/20 text-neon-green border border-neon-green/40" : "text-gray-500 border border-gray-800"}`}>
+                    {l === "both" ? "FR+EN" : l.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Brief */}
+            <div className="mb-3">
+              <p className="text-xs text-gray-500 mb-1 uppercase tracking-wider">Brief</p>
+              <textarea value={brief} onChange={e => setBrief(e.target.value)} className="cyber-input w-full text-xs rounded p-2 h-20 resize-none" placeholder="Décrivez le contenu du post..." />
+            </div>
+
+            <button onClick={generatePosts} disabled={generating || !brief.trim()} className="btn-neon w-full py-2 rounded text-xs mb-4">
+              {generating ? "Génération en cours..." : "✨ Générer avec IA"}
+            </button>
+
+            {/* Generated posts preview */}
+            {generatedPosts && (
+              <div className="space-y-2 mb-4">
+                <p className="text-xs text-gray-500 uppercase tracking-wider">Posts générés</p>
+                {(["linkedin", "twitter", "instagram"] as const).filter(p => platforms[p]).map(platform => (
+                  <div key={platform} className="border border-gray-800 rounded-lg p-3">
+                    <p className="text-xs text-gray-500 capitalize mb-1">{platform}</p>
+                    <p className="text-gray-400 text-xs line-clamp-3">
+                      {lang !== "en" ? generatedPosts[`${platform}_fr`] : generatedPosts[`${platform}_en`]}
+                    </p>
+                  </div>
+                ))}
+                <button onClick={savePosts} disabled={saving} className="w-full py-2 rounded text-xs transition-all" style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}>
+                  {saving ? "Enregistrement..." : "💾 Enregistrer & Planifier"}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-black text-white">Communication Email</h1>
-        <div className="flex gap-2">
-          <button onClick={seedTemplates} className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">+ Templates J-30/J-7/J-1</button>
-          <button onClick={() => { setForm({ segment: "all" }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">+ Nouveau template</button>
-        </div>
-      </div>
-      {sendResult && (
-        <div className="mb-4 p-3 rounded text-xs" style={{ background: sendResult.startsWith("✓") ? "#00ff9d15" : "#ff006615", color: sendResult.startsWith("✓") ? "#00ff9d" : "#ff0066", border: `1px solid ${sendResult.startsWith("✓") ? "#00ff9d40" : "#ff006640"}` }}>
-          {sendResult}
-        </div>
-      )}
-      {showForm && (
-        <div className="cyber-card rounded-xl p-5 mb-6 space-y-3">
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Nom du template</label>
-              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.name as string) || ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Segment</label>
-              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.segment as string) || "all"} onChange={e => setForm(f => ({ ...f, segment: e.target.value }))}>
-                {Object.entries(segmentLabel).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            </div>
-            <div className="sm:col-span-2">
-              <label className="text-xs text-gray-500 block mb-1">Sujet</label>
-              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.subject as string) || ""} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="text-xs text-gray-500 block mb-1">Corps HTML</label>
-              <textarea rows={8} className="cyber-input w-full px-3 py-2 rounded text-xs resize-y font-mono" value={(form.htmlBody as string) || ""} onChange={e => setForm(f => ({ ...f, htmlBody: e.target.value }))} />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">Sauvegarder</button>
-            <button onClick={() => { setShowForm(false); setForm({ segment: "all" }); setEditing(null); }} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
-          </div>
-        </div>
-      )}
-      <div className="space-y-3">
-        {templates.map(t => (
-          <div key={t.id as number} className="cyber-card rounded-xl p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-white font-bold text-sm">{t.name as string}</p>
-                <p className="text-gray-400 text-xs mt-0.5">{t.subject as string}</p>
-                <div className="flex gap-2 mt-1">
-                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "#0066ff20", color: "#0066ff" }}>{segmentLabel[t.segment as string] || (t.segment as string)}</span>
-                  {t.sentAt ? (
-                    <span className="text-xs px-2 py-0.5 rounded" style={{ background: "#00ff9d20", color: "#00ff9d" }}>Envoyé le {new Date(t.sentAt as string).toLocaleDateString("fr-FR")}</span>
-                  ) : (
-                    <span className="text-xs px-2 py-0.5 rounded" style={{ background: "#ffffff10", color: "#888" }}>Brouillon</span>
+      {/* Scheduled/published posts list */}
+      <div className="cyber-card rounded-xl p-5">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#0066ff" }}>Posts planifiés & publiés</h3>
+        {linkedinPosts.length === 0 && <p className="text-gray-600 text-xs text-center py-4">Aucun post. Cliquez sur un jour du calendrier pour créer.</p>}
+        <div className="space-y-2">
+          {linkedinPosts.map(post => {
+            const color = statusColors[post.status as string] || "#888";
+            return (
+              <div key={post.id as number} className="border border-gray-800 rounded-lg p-3 flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={{ background: color + "20", color }}>{post.status as string}</span>
+                    <span className="text-xs text-gray-600 capitalize">{post.platform as string} · {post.lang as string}</span>
+                    {!!post.scheduledAt && <span className="text-xs text-gray-600">📅 {new Date(post.scheduledAt as string).toLocaleDateString("fr-FR")}</span>}
+                  </div>
+                  <p className="text-gray-400 text-xs line-clamp-2">{post.content as string}</p>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  {post.status === "draft" && (
+                    <>
+                      <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
+                        {publishing === (post.id as number) ? "..." : "▶"}
+                      </button>
+                      <button onClick={() => { setScheduleId(post.id as number); setScheduleDate(""); }} className="text-xs px-2 py-1 rounded" style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0030" }}>🕐</button>
+                    </>
+                  )}
+                  {post.status === "published" && !!post.linkedinPostId && (
+                    <a href={`https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`} target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded" style={{ color: "#00ff9d" }}>↗</a>
+                  )}
+                  {scheduleId === (post.id as number) && (
+                    <div className="flex gap-1 items-center">
+                      <input type="datetime-local" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="cyber-input text-xs rounded px-1 py-0.5 w-36" />
+                      <button onClick={() => schedulePost(post.id as number)} className="btn-neon text-xs px-2 py-1 rounded">OK</button>
+                      <button onClick={() => setScheduleId(null)} className="text-gray-500 text-xs">✕</button>
+                    </div>
                   )}
                 </div>
               </div>
-              <div className="flex gap-2 shrink-0">
-                <button
-                  onClick={() => send(t.id as number)}
-                  disabled={sending === (t.id as number)}
-                  className="text-xs px-3 py-1.5 rounded transition-colors"
-                  style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}
-                >
-                  {sending === (t.id as number) ? "Envoi..." : "Envoyer"}
-                </button>
-                <button onClick={() => { setForm({ ...t }); setEditing(t.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">Éditer</button>
-                <button onClick={() => del(t.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">Suppr.</button>
-              </div>
-            </div>
-          </div>
-        ))}
-        {!templates.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun template — créez-en un ou utilisez les templates pré-configurés</p>}
-      </div>
-
-      {/* LinkedIn calendar */}
-      <div className="cyber-card rounded-xl p-5 mt-6">
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#0066ff" }}>
-          📅 Calendrier LinkedIn
-        </h3>
-        <div className="space-y-3">
-          {linkedinPosts.map(post => {
-            const statusColors: Record<string, string> = {
-              draft: "#888",
-              scheduled: "#ffaa00",
-              published: "#00ff9d",
-              failed: "#ff0066",
-            };
-            const status = post.status as string;
-            const color = statusColors[status] || "#888";
-            return (
-              <div key={post.id as number} className="border border-gray-800 rounded-lg p-4">
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: color + "20", color, fontFamily: "'Share Tech Mono', monospace" }}>
-                      {status}
-                    </span>
-                    <span className="text-xs text-gray-600">{post.lang as string}</span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {status === "draft" && (
-                      <>
-                        <button
-                          onClick={() => publishNow(post.id as number)}
-                          disabled={publishing === (post.id as number)}
-                          className="text-xs px-2 py-1 rounded transition-all"
-                          style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}
-                        >
-                          {publishing === (post.id as number) ? "..." : "▶ Publier"}
-                        </button>
-                        <button
-                          onClick={() => setScheduleId(post.id as number)}
-                          className="text-xs px-2 py-1 rounded transition-all"
-                          style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0040" }}
-                        >
-                          🕐 Planifier
-                        </button>
-                      </>
-                    )}
-                    {status === "scheduled" && (
-                      <span className="text-xs text-gray-500">
-                        📅 {post.scheduledAt ? new Date(post.scheduledAt as string).toLocaleString("fr-FR") : ""}
-                      </span>
-                    )}
-                    {status === "published" && !!post.linkedinPostId && (
-                      <a
-                        href={`https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs"
-                        style={{ color: "#00ff9d" }}
-                      >
-                        Voir →
-                      </a>
-                    )}
-                  </div>
-                </div>
-                <p className="text-gray-400 text-xs line-clamp-3 whitespace-pre-wrap">{post.content as string}</p>
-                {scheduleId === (post.id as number) && (
-                  <div className="flex gap-2 mt-2">
-                    <input
-                      type="datetime-local"
-                      value={scheduleDate}
-                      onChange={e => setScheduleDate(e.target.value)}
-                      className="cyber-input text-xs rounded px-2 py-1 flex-1"
-                    />
-                    <button onClick={() => schedulePost(post.id as number)} className="btn-neon px-3 py-1 rounded text-xs">OK</button>
-                    <button onClick={() => setScheduleId(null)} className="text-xs text-gray-500 hover:text-white px-2">✕</button>
-                  </div>
-                )}
-                {status === "failed" && !!post.errorMessage && (
-                  <p className="text-red-400 text-xs mt-1">{post.errorMessage as string}</p>
-                )}
-              </div>
             );
           })}
-          {!linkedinPosts.length && (
-            <p className="text-gray-600 text-xs text-center py-4">Aucun post LinkedIn généré. Utilisez le générateur ci-dessus.</p>
-          )}
+        </div>
+      </div>
+
+      {/* Email templates */}
+      <div className="cyber-card rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Templates Email</h3>
+          <button onClick={() => setShowTemplateForm(!showTemplateForm)} className="btn-neon px-3 py-1.5 rounded text-xs">+ Template</button>
+        </div>
+        {showTemplateForm && (
+          <div className="border border-gray-800 rounded-lg p-4 mb-4 space-y-2">
+            <input placeholder="Nom du template" className="cyber-input w-full text-xs rounded px-3 py-2" value={(templateForm.name as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, name: e.target.value }))} />
+            <input placeholder="Objet email" className="cyber-input w-full text-xs rounded px-3 py-2" value={(templateForm.subject as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, subject: e.target.value }))} />
+            <select className="cyber-input w-full text-xs rounded px-3 py-2" value={(templateForm.segment as string) || "all"} onChange={e => setTemplateForm(f => ({ ...f, segment: e.target.value }))}>
+              <option value="all">Tous</option>
+              <option value="registered">Inscrits</option>
+              <option value="cfp_accepted">Speakers acceptés</option>
+              <option value="volunteers">Bénévoles acceptés</option>
+              <option value="newsletter">Newsletter</option>
+            </select>
+            <textarea placeholder="Corps HTML de l'email" className="cyber-input w-full text-xs rounded px-3 py-2 h-24 resize-none" value={(templateForm.htmlBody as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, htmlBody: e.target.value }))} />
+            <div className="flex gap-2">
+              <button onClick={saveTemplate} className="btn-neon px-3 py-1.5 rounded text-xs">Enregistrer</button>
+              <button onClick={() => setShowTemplateForm(false)} className="text-gray-500 text-xs hover:text-white px-2">Annuler</button>
+            </div>
+          </div>
+        )}
+        <div className="space-y-2">
+          {templates.map(t => (
+            <div key={t.id as number} className="border border-gray-800 rounded-lg p-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-white text-xs font-bold">{t.name as string}</p>
+                <p className="text-gray-500 text-xs">{t.subject as string} · <span className="text-gray-600">{t.segment as string}</span></p>
+                {!!t.sentAt && <p className="text-gray-700 text-xs">Envoyé le {new Date(t.sentAt as string).toLocaleDateString("fr-FR")}</p>}
+              </div>
+              <button onClick={() => sendTemplate(t.id as number)} disabled={sending === (t.id as number)} className="text-xs px-3 py-1.5 rounded shrink-0" style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d30" }}>
+                {sending === (t.id as number) ? "Envoi..." : "▶ Envoyer"}
+              </button>
+            </div>
+          ))}
+          {!templates.length && <p className="text-gray-700 text-xs text-center py-3">Aucun template. Créez-en un.</p>}
         </div>
       </div>
     </div>
@@ -1008,6 +1106,20 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
         </div>
       )}
 
+      {!items.length && (
+        <div className="text-center py-8">
+          <p className="text-gray-600 text-xs mb-3">Aucun élément. Initialisez avec le budget standard EOCON.</p>
+          <button
+            onClick={async () => {
+              const res = await fetch("/api/admin/seed", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "budget" }) });
+              if (res.ok) onRefresh();
+            }}
+            className="btn-neon px-4 py-2 rounded text-xs"
+          >
+            🌱 Initialiser budget EOCON
+          </button>
+        </div>
+      )}
       {renderTable(revenues, "Revenus", "#00ff9d")}
       {renderTable(costs, "Dépenses", "#ff0066")}
     </div>
@@ -1146,7 +1258,20 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
             </div>
           );
         })}
-        {!tasks.length && <p className="text-gray-600 text-xs py-8 text-center">Aucune tâche — créez-en une ou utilisez le pré-remplissage</p>}
+        {!tasks.length && (
+          <div className="text-center py-8">
+            <p className="text-gray-600 text-xs mb-3">Aucune tâche. Initialisez avec les tâches standard.</p>
+            <button
+              onClick={async () => {
+                const res = await fetch("/api/admin/seed", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "logistics" }) });
+                if (res.ok) onRefresh();
+              }}
+              className="btn-neon px-4 py-2 rounded text-xs"
+            >
+              🌱 Initialiser tâches logistiques
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1392,7 +1517,7 @@ export default function AdminDashboard() {
         if (res.ok) { const json = await res.json(); setData(d => ({ ...d, "email-templates": json })); }
       } else if (t === "sponsor-pipeline") {
         const res = await fetch("/api/admin/sponsor-prospects");
-        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, "sponsor-prospects": json })); }
+        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, "sponsor-pipeline": json })); }
       } else if (t === "prospection") {
         const res = await fetch("/api/admin/ai/prospect-leads");
         if (res.ok) { const json = await res.json(); setData(d => ({ ...d, prospection: json })); }
@@ -2491,16 +2616,13 @@ export default function AdminDashboard() {
 
           {/* COMMUNICATION */}
           {tab === "communication" && (
-            <CommunicationPanel
-              templates={(data["email-templates"] || []) as Record<string, unknown>[]}
-              onRefresh={() => fetchData("communication")}
-            />
+            <CommunicationPanel />
           )}
 
           {/* SPONSOR PIPELINE */}
           {tab === "sponsor-pipeline" && (
             <SponsorPipelinePanel
-              prospects={(data["sponsor-prospects"] || []) as Record<string, unknown>[]}
+              prospects={(data["sponsor-pipeline"] || []) as Record<string, unknown>[]}
               onRefresh={() => fetchData("sponsor-pipeline")}
             />
           )}

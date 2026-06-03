@@ -217,7 +217,7 @@ function AiScoreBadge({ score, analysis }: { score: number | null; analysis: str
   );
 }
 
-function ProspectionPanel({ leads }: { leads: Record<string, unknown>[] }) {
+function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>[]; onRefresh: () => void }) {
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [apolloKeywords, setApolloKeywords] = useState("cybersecurity,technology,finance");
@@ -232,7 +232,7 @@ function ProspectionPanel({ leads }: { leads: Record<string, unknown>[] }) {
       body: JSON.stringify({ keywords: apolloKeywords.split(",").map(k => k.trim()) }),
     });
     setLoading(false);
-    window.location.reload();
+    onRefresh();
   };
 
   const searchPlaces = async () => {
@@ -244,7 +244,7 @@ function ProspectionPanel({ leads }: { leads: Record<string, unknown>[] }) {
       body: JSON.stringify({ query }),
     });
     setLoading(false);
-    window.location.reload();
+    onRefresh();
   };
 
   const generateEmail = async (lead: Record<string, unknown>) => {
@@ -273,7 +273,7 @@ function ProspectionPanel({ leads }: { leads: Record<string, unknown>[] }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, addedToPipeline: true }),
     });
-    window.location.reload();
+    onRefresh();
   };
 
   const scoreColor = (s: number | null) => s === null ? "#888" : s >= 7 ? "#00ff9d" : s >= 5 ? "#ffaa00" : "#ff0066";
@@ -361,6 +361,14 @@ function ProspectionPanel({ leads }: { leads: Record<string, unknown>[] }) {
                 {!!lead.contactName && <p className="text-xs mt-1" style={{ color: "#00ff9d" }}>👤 {lead.contactName as string}{lead.contactTitle ? ` — ${lead.contactTitle}` : ""}</p>}
                 {!!lead.contactEmail && <p className="text-gray-400 text-xs">{lead.contactEmail as string}</p>}
                 {!!lead.aiScoreReason && <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>}
+                {!!lead.website && (
+                  <a href={lead.website as string} target="_blank" rel="noreferrer" className="text-xs mt-1 block" style={{ color: "#0066ff" }}>
+                    🌐 {lead.website as string}
+                  </a>
+                )}
+                {!lead.contactEmail && lead.source === "google_places" && (
+                  <p className="text-gray-700 text-xs mt-1 italic">Email non disponible — voir le site web</p>
+                )}
               </div>
               <div className="flex flex-col gap-2 shrink-0">
                 {!lead.addedToPipeline ? (
@@ -901,8 +909,8 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
         <thead>
           <tr className="border-b border-gray-800 text-gray-500">
             <th className="text-left py-2 px-2 font-normal">Libellé</th>
-            <th className="text-right py-2 px-2 font-normal">Prévu (€)</th>
-            <th className="text-right py-2 px-2 font-normal">Réel (€)</th>
+            <th className="text-right py-2 px-2 font-normal">Prévu (FCFA)</th>
+            <th className="text-right py-2 px-2 font-normal">Réel (FCFA)</th>
             <th className="text-left py-2 px-2 font-normal">Statut</th>
             <th className="py-2 px-2" />
           </tr>
@@ -968,7 +976,7 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
           { label: "Dépenses réelles", value: totalActualCost, color: "#ff0066" },
         ].map(s => (
           <div key={s.label} className="cyber-card rounded-xl p-4 text-center">
-            <div className="text-xl font-black font-mono" style={{ color: s.color }}>{s.value.toLocaleString("fr-FR")} €</div>
+            <div className="text-xl font-black font-mono" style={{ color: s.color }}>{s.value.toLocaleString("fr-FR")} FCFA</div>
             <div className="text-gray-500 text-xs mt-1">{s.label}</div>
           </div>
         ))}
@@ -989,7 +997,7 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
               <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.label as string) || ""} onChange={e => setForm(p => ({ ...p, label: e.target.value }))} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Montant prévu (€)</label>
+              <label className="text-xs text-gray-500 block mb-1">Montant prévu (FCFA)</label>
               <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.planned as number) || 0} onChange={e => setForm(p => ({ ...p, planned: parseFloat(e.target.value) || 0 }))} />
             </div>
           </div>
@@ -1461,28 +1469,64 @@ export default function AdminDashboard() {
     });
   };
 
-  const tabs: { id: Tab; label: string; count?: number }[] = [
-    { id: "dashboard", label: "Dashboard" },
-    { id: "speakers", label: "Speakers", count: stats.speakers },
-    { id: "onboarding", label: "Onboarding Speakers" },
-    { id: "sponsors", label: "Sponsors", count: stats.sponsors },
-    { id: "sessions", label: "Programme", count: stats.sessions },
-    { id: "workshops", label: "Workshops", count: stats.workshops },
-    { id: "cfp", label: "CFP", count: stats.cfp },
-    { id: "volunteers", label: "Bénévoles", count: stats.volunteers },
-    { id: "registrations", label: "Inscriptions", count: stats.registrations },
-    { id: "newsletter", label: "Newsletter", count: stats.newsletter },
-    { id: "team", label: "Équipe", count: stats.team },
-    { id: "past-speakers", label: "Anciens Speakers" },
-    { id: "users", label: "Utilisateurs Admin" },
-    { id: "communication", label: "Communication" },
-    { id: "sponsor-pipeline", label: "Pipeline Sponsors" },
-    { id: "prospection", label: "Prospection IA" },
-    { id: "budget", label: "Budget" },
-    { id: "logistics", label: "Logistique" },
-    { id: "analytics", label: "Analytics" },
-    { id: "certificates", label: "Certificats" },
-    { id: "export", label: "Export CSV" },
+  type TabGroup = {
+    label: string;
+    icon: string;
+    tabs: { id: Tab; label: string; count?: number }[];
+  };
+
+  const tabGroups: TabGroup[] = [
+    {
+      label: "Vue générale",
+      icon: "◈",
+      tabs: [
+        { id: "dashboard", label: "Dashboard" },
+        { id: "analytics", label: "Analytics" },
+      ],
+    },
+    {
+      label: "Contenu & Programme",
+      icon: "◆",
+      tabs: [
+        { id: "speakers", label: "Speakers", count: stats.speakers },
+        { id: "onboarding", label: "Onboarding" },
+        { id: "sessions", label: "Programme", count: stats.sessions },
+        { id: "workshops", label: "Workshops", count: stats.workshops },
+        { id: "past-speakers", label: "Anciens Speakers" },
+      ],
+    },
+    {
+      label: "Participants",
+      icon: "◉",
+      tabs: [
+        { id: "cfp", label: "CFP", count: stats.cfp },
+        { id: "registrations", label: "Inscriptions", count: stats.registrations },
+        { id: "volunteers", label: "Bénévoles", count: stats.volunteers },
+        { id: "newsletter", label: "Newsletter", count: stats.newsletter },
+      ],
+    },
+    {
+      label: "Sponsors & Budget",
+      icon: "◇",
+      tabs: [
+        { id: "sponsors", label: "Sponsors", count: stats.sponsors },
+        { id: "sponsor-pipeline", label: "Pipeline" },
+        { id: "prospection", label: "Prospection IA" },
+        { id: "budget", label: "Budget" },
+      ],
+    },
+    {
+      label: "Opérations",
+      icon: "◎",
+      tabs: [
+        { id: "communication", label: "Communication" },
+        { id: "logistics", label: "Logistique" },
+        { id: "team", label: "Équipe", count: stats.team },
+        { id: "certificates", label: "Certificats" },
+        { id: "export", label: "Export CSV" },
+        { id: "users", label: "Utilisateurs" },
+      ],
+    },
   ];
 
   // Group sessions by date
@@ -1515,16 +1559,26 @@ export default function AdminDashboard() {
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-52 min-h-screen border-r border-neon-green/10 bg-black/40 p-4 space-y-1 shrink-0">
-          {tabs.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`w-full text-left px-3 py-2 rounded text-xs transition-all flex items-center justify-between ${tab === t.id ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 hover:text-gray-300"}`}
-            >
-              <span>{t.label}</span>
-              {t.count !== undefined && <span className="text-neon-green/60 text-xs">{t.count}</span>}
-            </button>
+        <aside className="w-56 min-h-screen border-r border-neon-green/10 bg-black/40 p-3 shrink-0 overflow-y-auto">
+          {tabGroups.map(group => (
+            <div key={group.label} className="mb-4">
+              <div className="flex items-center gap-1.5 px-2 py-1 mb-1">
+                <span className="text-neon-green/40 text-xs">{group.icon}</span>
+                <span className="text-gray-600 text-xs uppercase tracking-widest font-bold">{group.label}</span>
+              </div>
+              {group.tabs.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`w-full text-left px-3 py-1.5 rounded text-xs transition-all flex items-center justify-between mb-0.5 ${tab === t.id ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 hover:text-gray-300 hover:bg-white/[0.02]"}`}
+                >
+                  <span>{t.label}</span>
+                  {t.count !== undefined && t.count > 0 && (
+                    <span className="text-neon-green/50 text-xs font-mono">{t.count}</span>
+                  )}
+                </button>
+              ))}
+            </div>
           ))}
         </aside>
 
@@ -2453,7 +2507,10 @@ export default function AdminDashboard() {
 
           {/* PROSPECTION IA */}
           {tab === "prospection" && (
-            <ProspectionPanel leads={(data.prospection || []) as Record<string, unknown>[]} />
+            <ProspectionPanel
+              leads={(data.prospection || []) as Record<string, unknown>[]}
+              onRefresh={() => fetchData("prospection")}
+            />
           )}
 
           {/* BUDGET */}

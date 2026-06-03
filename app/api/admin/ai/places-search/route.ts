@@ -41,7 +41,7 @@ Packages: PLATINUM, GOLD, SILVER, BRONZE
 JSON uniquement: {"score": <0-10>, "reason": "<1 phrase>", "package": "<PLATINUM|GOLD|SILVER|BRONZE>", "sector": "<secteur déduit>"}`;
 
       const r = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
         messages: [{ role: "user", content: scorePrompt }],
         temperature: 0.3,
         max_tokens: 150,

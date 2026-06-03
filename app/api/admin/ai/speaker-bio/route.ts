@@ -38,7 +38,7 @@ Réponds en JSON uniquement, sans markdown :
 }`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
     messages: [{ role: "user", content: prompt }],
     temperature: 0.6,
     max_tokens: 800,

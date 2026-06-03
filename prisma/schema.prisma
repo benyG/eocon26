@@ -107,6 +107,21 @@ model ConferenceSession {
   @@map("sessions")
 }
 
+model Workshop {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String   @db.Text
+  level       String   // beginner | intermediate | advanced
+  duration    String   @default("3h")
+  maxSeats    Int?
+  instructor  String?
+  isVisible   Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@map("workshops")
+}
+
 model TeamMember {
   id        Int      @id @default(autoincrement())
   name      String

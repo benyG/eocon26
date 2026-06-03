@@ -1,25 +1,58 @@
 "use client";
+import { useEffect, useState } from "react";
 import { Translations } from "@/lib/i18n";
 
+interface Workshop {
+  id: number;
+  title: string;
+  description: string;
+  level: string;
+  duration: string;
+  maxSeats: number | null;
+  instructor: string | null;
+}
+
 const levelColors: Record<string, string> = {
-  Beginner: "#00ff9d",
-  Débutant: "#00ff9d",
-  Intermediate: "#ffaa00",
-  Intermédiaire: "#ffaa00",
-  Advanced: "#ff0066",
-  Avancé: "#ff0066",
+  beginner: "#00ff9d", debutant: "#00ff9d",
+  intermediate: "#ffaa00", intermediaire: "#ffaa00",
+  advanced: "#ff0066", avance: "#ff0066",
 };
 
 const levelIcons: Record<string, string> = {
-  Beginner: "▮▯▯",
-  Débutant: "▮▯▯",
-  Intermediate: "▮▮▯",
-  Intermédiaire: "▮▮▯",
-  Advanced: "▮▮▮",
-  Avancé: "▮▮▮",
+  beginner: "▮▯▯", debutant: "▮▯▯",
+  intermediate: "▮▮▯", intermediaire: "▮▮▯",
+  advanced: "▮▮▮", avance: "▮▮▮",
 };
 
-export default function Workshops({ t, onOpenModal }: { t: Translations; onOpenModal: (m: string) => void }) {
+const levelLabels: Record<string, { fr: string; en: string }> = {
+  beginner:     { fr: "Débutant",     en: "Beginner" },
+  intermediate: { fr: "Intermédiaire", en: "Intermediate" },
+  advanced:     { fr: "Avancé",       en: "Advanced" },
+};
+
+export default function Workshops({ t, onOpenModal, lang }: { t: Translations; onOpenModal: (m: string) => void; lang?: "fr" | "en" }) {
+  const [workshops, setWorkshops] = useState<Workshop[]>([]);
+  const [useFallback, setUseFallback] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/workshops").then(r => r.json()).then(d => {
+      if (Array.isArray(d) && d.length > 0) setWorkshops(d);
+      else setUseFallback(true);
+    }).catch(() => setUseFallback(true));
+  }, []);
+
+  const items = useFallback
+    ? (t.workshops.items as { title: string; desc: string; level: string; duration: string }[]).map((w, i) => ({
+        id: i,
+        title: w.title,
+        description: w.desc,
+        level: w.level.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""),
+        duration: w.duration,
+        maxSeats: null,
+        instructor: null,
+      }))
+    : workshops.map(w => ({ ...w, level: w.level.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "") }));
+
   return (
     <section id="workshops" className="py-24 px-4 relative">
       <div className="max-w-6xl mx-auto">
@@ -34,18 +67,21 @@ export default function Workshops({ t, onOpenModal }: { t: Translations; onOpenM
         </div>
 
         <div className="grid sm:grid-cols-2 gap-6">
-          {t.workshops.items.map((w, i) => {
+          {items.map((w) => {
             const color = levelColors[w.level] || "#00ff9d";
             const icon = levelIcons[w.level] || "▮▯▯";
+            const levelLabel = levelLabels[w.level]?.[lang ?? "fr"] ?? w.level;
             return (
-              <div key={i} className="cyber-card rounded-xl p-6 group">
+              <div key={w.id} className="cyber-card rounded-xl p-6 group">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <h3 className="text-white font-bold text-lg mb-1">{w.title}</h3>
-                    <p className="text-gray-500 text-sm">{w.desc}</p>
+                    <p className="text-gray-500 text-sm">{w.description}</p>
                   </div>
-                  <div className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl ml-4 shrink-0"
-                    style={{ background: color + "15", border: `1px solid ${color}30` }}>
+                  <div
+                    className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl ml-4 shrink-0"
+                    style={{ background: color + "15", border: `1px solid ${color}30` }}
+                  >
                     🛠
                   </div>
                 </div>
@@ -55,7 +91,7 @@ export default function Workshops({ t, onOpenModal }: { t: Translations; onOpenM
                       {t.workshops.level}:
                     </span>
                     <span className="text-xs font-mono font-bold" style={{ color, fontFamily: "'Share Tech Mono', monospace" }}>
-                      {icon} {w.level}
+                      {icon} {levelLabel}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -66,24 +102,25 @@ export default function Workshops({ t, onOpenModal }: { t: Translations; onOpenM
                       ⏱ {w.duration}
                     </span>
                   </div>
+                  {w.maxSeats && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-600 text-xs font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                        👥 {w.maxSeats} places
+                      </span>
+                    </div>
+                  )}
                 </div>
+                {w.instructor && (
+                  <p className="text-neon-green/50 text-xs mb-3 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                    🎓 {w.instructor}
+                  </p>
+                )}
                 <button
                   onClick={() => onOpenModal("register")}
                   className="w-full py-2 rounded text-xs font-mono uppercase tracking-wider transition-all"
-                  style={{
-                    background: "transparent",
-                    border: `1px solid ${color}40`,
-                    color,
-                    fontFamily: "'Share Tech Mono', monospace",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.target as HTMLButtonElement).style.background = color + "20";
-                    (e.target as HTMLButtonElement).style.borderColor = color;
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.target as HTMLButtonElement).style.background = "transparent";
-                    (e.target as HTMLButtonElement).style.borderColor = color + "40";
-                  }}
+                  style={{ background: "transparent", border: `1px solid ${color}40`, color, fontFamily: "'Share Tech Mono', monospace" }}
+                  onMouseEnter={e => { (e.target as HTMLButtonElement).style.background = color + "20"; (e.target as HTMLButtonElement).style.borderColor = color; }}
+                  onMouseLeave={e => { (e.target as HTMLButtonElement).style.background = "transparent"; (e.target as HTMLButtonElement).style.borderColor = color + "40"; }}
                 >
                   {t.workshops.register}
                 </button>

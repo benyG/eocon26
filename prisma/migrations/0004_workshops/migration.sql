@@ -1,0 +1,13 @@
+CREATE TABLE `workshops` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `title` VARCHAR(191) NOT NULL,
+  `description` TEXT NOT NULL,
+  `level` VARCHAR(191) NOT NULL,
+  `duration` VARCHAR(191) NOT NULL DEFAULT '3h',
+  `maxSeats` INT NULL,
+  `instructor` VARCHAR(191) NULL,
+  `isVisible` BOOLEAN NOT NULL DEFAULT TRUE,
+  `sortOrder` INT NOT NULL DEFAULT 0,
+  `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

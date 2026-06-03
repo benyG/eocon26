@@ -6,7 +6,7 @@ export async function GET() {
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const [cfp, volunteers, registrations, speakers, sponsors, subscribers, team, pastSpeakers] =
+  const [cfp, volunteers, registrations, speakers, sponsors, subscribers, team, pastSpeakers, workshops] =
     await Promise.all([
       prisma.cFPSubmission.count(),
       prisma.volunteerApplication.count(),
@@ -16,6 +16,7 @@ export async function GET() {
       prisma.newsletterSubscriber.count(),
       prisma.teamMember.count(),
       prisma.pastSpeaker.count(),
+      prisma.workshop.count(),
     ]);
-  return NextResponse.json({ cfp, volunteers, registrations, speakers, sponsors, subscribers, team, pastSpeakers });
+  return NextResponse.json({ cfp, volunteers, registrations, speakers, sponsors, subscribers, team, pastSpeakers, workshops });
 }

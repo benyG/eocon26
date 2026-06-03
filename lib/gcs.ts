@@ -20,6 +20,9 @@ export async function uploadToGCS(
   const bucket = getStorage().bucket(BUCKET);
   const file = bucket.file(filename);
   await file.save(buffer, { contentType, resumable: false });
-  await file.makePublic();
+  // Do NOT call makePublic() — incompatible with uniform bucket-level access.
+  // Make the bucket publicly readable once via GCS IAM:
+  //   gcloud storage buckets add-iam-policy-binding gs://BUCKET \
+  //     --member=allUsers --role=roles/storage.objectViewer
   return `https://storage.googleapis.com/${BUCKET}/${filename}`;
 }

@@ -35,7 +35,7 @@ export default function Home() {
       <Speakers t={t} onOpenModal={openModal} />
       <Schedule t={t} lang={lang} />
       <CTF t={t} onOpenModal={openModal} />
-      <Workshops t={t} onOpenModal={openModal} />
+      <Workshops t={t} onOpenModal={openModal} lang={lang} />
       <Testimonials t={t} />
       <CFPSection t={t} />
       <Volunteer t={t} />

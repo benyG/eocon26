@@ -645,7 +645,7 @@ function CommunicationPanel({ templates, onRefresh }: { templates: Record<string
                         📅 {post.scheduledAt ? new Date(post.scheduledAt as string).toLocaleString("fr-FR") : ""}
                       </span>
                     )}
-                    {status === "published" && post.linkedinPostId && (
+                    {status === "published" && !!post.linkedinPostId && (
                       <a
                         href={`https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`}
                         target="_blank"
@@ -671,7 +671,7 @@ function CommunicationPanel({ templates, onRefresh }: { templates: Record<string
                     <button onClick={() => setScheduleId(null)} className="text-xs text-gray-500 hover:text-white px-2">✕</button>
                   </div>
                 )}
-                {status === "failed" && post.errorMessage && (
+                {status === "failed" && !!post.errorMessage && (
                   <p className="text-red-400 text-xs mt-1">{post.errorMessage as string}</p>
                 )}
               </div>

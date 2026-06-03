@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-type Tab = "dashboard" | "speakers" | "sponsors" | "sessions" | "workshops" | "cfp" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "onboarding" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "analytics" | "certificates" | "export";
+type Tab = "dashboard" | "speakers" | "sponsors" | "sessions" | "workshops" | "cfp" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "onboarding" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "analytics" | "certificates" | "export" | "prospection";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -200,6 +200,191 @@ function AdminUsersPanel() {
   );
 }
 
+function AiScoreBadge({ score, analysis }: { score: number | null; analysis: string | null }) {
+  if (score === null) return null;
+  const color = score >= 7 ? "#00ff9d" : score >= 5 ? "#ffaa00" : "#ff0066";
+  let parsed: { summary?: string; recommendation?: string } = {};
+  try { parsed = JSON.parse(analysis || "{}"); } catch { /* ignore */ }
+  return (
+    <div className="flex items-center gap-1" title={parsed.summary || ""}>
+      <span className="text-xs px-2 py-0.5 rounded font-mono font-bold" style={{ background: color + "20", color, fontFamily: "'Share Tech Mono', monospace" }}>
+        IA {score.toFixed(1)}/10
+      </span>
+      {parsed.recommendation && (
+        <span className="text-xs text-gray-600">{parsed.recommendation}</span>
+      )}
+    </div>
+  );
+}
+
+function ProspectionPanel({ leads }: { leads: Record<string, unknown>[] }) {
+  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
+  const [apolloKeywords, setApolloKeywords] = useState("cybersecurity,technology,finance");
+  const [genEmail, setGenEmail] = useState<{ fr: string; en: string; subjectFr: string; subjectEn: string } | null>(null);
+  const [emailTarget, setEmailTarget] = useState<Record<string, unknown> | null>(null);
+
+  const searchApollo = async () => {
+    setLoading(true);
+    await fetch("/api/admin/ai/apollo-search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keywords: apolloKeywords.split(",").map(k => k.trim()) }),
+    });
+    setLoading(false);
+    window.location.reload();
+  };
+
+  const searchPlaces = async () => {
+    if (!query.trim()) return;
+    setLoading(true);
+    await fetch("/api/admin/ai/places-search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+    setLoading(false);
+    window.location.reload();
+  };
+
+  const generateEmail = async (lead: Record<string, unknown>) => {
+    setEmailTarget(lead);
+    const res = await fetch("/api/admin/ai/sponsor-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        org: lead.org,
+        contact: lead.contactName,
+        contactTitle: lead.contactTitle,
+        package: lead.recommendedPackage,
+        sector: lead.sector,
+        mode: "prospect",
+      }),
+    });
+    if (res.ok) {
+      const d = await res.json() as { subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string };
+      setGenEmail({ fr: d.bodyFr, en: d.bodyEn, subjectFr: d.subjectFr, subjectEn: d.subjectEn });
+    }
+  };
+
+  const addToPipeline = async (id: number) => {
+    await fetch("/api/admin/ai/prospect-leads", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, addedToPipeline: true }),
+    });
+    window.location.reload();
+  };
+
+  const scoreColor = (s: number | null) => s === null ? "#888" : s >= 7 ? "#00ff9d" : s >= 5 ? "#ffaa00" : "#ff0066";
+
+  return (
+    <div>
+      <h1 className="text-2xl font-black text-white mb-2">Prospection IA</h1>
+      <p className="text-gray-500 text-xs mb-6">Identification automatique de sponsors potentiels via Apollo.io + Google Places</p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="cyber-card rounded-xl p-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#00ff9d" }}>Apollo.io — Grandes entreprises</h3>
+          <label className="text-xs text-gray-500 block mb-1">Mots-clés secteurs</label>
+          <input
+            value={apolloKeywords}
+            onChange={e => setApolloKeywords(e.target.value)}
+            className="cyber-input w-full text-xs rounded px-3 py-2 mb-3"
+            placeholder="cybersecurity,technology,finance"
+          />
+          <button onClick={searchApollo} disabled={loading} className="btn-neon px-4 py-2 rounded text-xs w-full">
+            {loading ? "Recherche..." : "🔍 Rechercher via Apollo"}
+          </button>
+        </div>
+        <div className="cyber-card rounded-xl p-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#0066ff" }}>Google Places — PME locales</h3>
+          <label className="text-xs text-gray-500 block mb-1">Recherche (ex: entreprise tech Douala)</label>
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            className="cyber-input w-full text-xs rounded px-3 py-2 mb-3"
+            placeholder="banque Douala, tech Cameroun..."
+          />
+          <button onClick={searchPlaces} disabled={loading} className="btn-neon px-4 py-2 rounded text-xs w-full">
+            {loading ? "Recherche..." : "🔍 Rechercher via Google Places"}
+          </button>
+        </div>
+      </div>
+
+      {genEmail && emailTarget && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between mb-4">
+              <h3 className="text-white font-bold">Email généré — {emailTarget.org as string}</h3>
+              <button onClick={() => setGenEmail(null)} className="text-gray-500 hover:text-white">✕</button>
+            </div>
+            <div className="space-y-4">
+              {[
+                { lang: "FR", subject: genEmail.subjectFr, body: genEmail.fr },
+                { lang: "EN", subject: genEmail.subjectEn, body: genEmail.en },
+              ].map(e => (
+                <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-bold text-gray-400">{e.lang}</span>
+                    <button onClick={() => navigator.clipboard.writeText(`${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>Copier</button>
+                  </div>
+                  <p className="text-white text-xs font-bold mb-2">Objet: {e.subject}</p>
+                  <p className="text-gray-400 text-xs whitespace-pre-wrap">{e.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {leads.map(lead => (
+          <div key={lead.id as number} className={`cyber-card rounded-xl p-5 ${lead.addedToPipeline ? "opacity-50" : ""}`}>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.source === "apollo" ? "#0066ff20" : "#cc00ff20", color: lead.source === "apollo" ? "#0066ff" : "#cc00ff", fontFamily: "'Share Tech Mono', monospace" }}>
+                    {lead.source as string}
+                  </span>
+                  {lead.aiScore !== null && lead.aiScore !== undefined && (
+                    <span className="text-xs px-2 py-0.5 rounded font-mono font-bold" style={{ background: scoreColor(lead.aiScore as number) + "20", color: scoreColor(lead.aiScore as number), fontFamily: "'Share Tech Mono', monospace" }}>
+                      {(lead.aiScore as number).toFixed(1)}/10
+                    </span>
+                  )}
+                  {!!lead.recommendedPackage && (
+                    <span className="text-xs text-gray-500">{lead.recommendedPackage as string}</span>
+                  )}
+                </div>
+                <p className="text-white font-bold">{lead.org as string}</p>
+                {!!lead.sector && <p className="text-gray-500 text-xs">{lead.sector as string}{lead.city ? ` · ${lead.city}` : ""}</p>}
+                {!!lead.contactName && <p className="text-xs mt-1" style={{ color: "#00ff9d" }}>👤 {lead.contactName as string}{lead.contactTitle ? ` — ${lead.contactTitle}` : ""}</p>}
+                {!!lead.contactEmail && <p className="text-gray-400 text-xs">{lead.contactEmail as string}</p>}
+                {!!lead.aiScoreReason && <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>}
+              </div>
+              <div className="flex flex-col gap-2 shrink-0">
+                {!lead.addedToPipeline ? (
+                  <>
+                    <button onClick={() => generateEmail(lead)} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}>
+                      ✉ Email IA
+                    </button>
+                    <button onClick={() => addToPipeline(lead.id as number)} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}>
+                      + Pipeline
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-xs text-gray-600">✓ En pipeline</span>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+        {!leads.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun prospect trouvé. Lancez une recherche.</p>}
+      </div>
+    </div>
+  );
+}
+
 // ---- Communication Panel ----
 function CommunicationPanel({ templates, onRefresh }: { templates: Record<string, unknown>[]; onRefresh: () => void }) {
   const [showForm, setShowForm] = useState(false);
@@ -207,6 +392,21 @@ function CommunicationPanel({ templates, onRefresh }: { templates: Record<string
   const [editing, setEditing] = useState<number | null>(null);
   const [sending, setSending] = useState<number | null>(null);
   const [sendResult, setSendResult] = useState<string | null>(null);
+  const [socialBrief, setSocialBrief] = useState("");
+  const [generatingSocial, setGeneratingSocial] = useState(false);
+  const [socialPosts, setSocialPosts] = useState<Record<string, string> | null>(null);
+
+  const generateSocial = async () => {
+    if (!socialBrief.trim()) return;
+    setGeneratingSocial(true);
+    const res = await fetch("/api/admin/ai/generate-posts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ brief: socialBrief }),
+    });
+    if (res.ok) setSocialPosts(await res.json() as Record<string, string>);
+    setGeneratingSocial(false);
+  };
 
   const save = async () => {
     const method = editing ? "PUT" : "POST";
@@ -247,6 +447,45 @@ function CommunicationPanel({ templates, onRefresh }: { templates: Record<string
 
   return (
     <div>
+      {/* Social post generator */}
+      <div className="cyber-card rounded-xl p-5 mb-6">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#cc00ff" }}>✨ Générateur de posts réseaux sociaux</h3>
+        <textarea
+          value={socialBrief}
+          onChange={e => setSocialBrief(e.target.value)}
+          placeholder="Brief (ex: annonce ouverture des inscriptions, ton enthousiaste)..."
+          className="cyber-input w-full text-xs rounded p-3 mb-3 h-20 resize-none"
+        />
+        <button
+          onClick={generateSocial}
+          disabled={generatingSocial}
+          className="btn-neon px-4 py-2 rounded text-xs mb-4"
+        >
+          {generatingSocial ? "Génération..." : "✨ Générer 6 posts (FR+EN)"}
+        </button>
+        {socialPosts && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {(["linkedin", "twitter", "instagram"] as const).map(platform => (
+              <div key={platform} className="space-y-2">
+                <h4 className="text-xs text-gray-500 uppercase">{platform}</h4>
+                {(["fr", "en"] as const).map(lang => {
+                  const key = `${platform}_${lang}`;
+                  return (
+                    <div key={lang} className="border border-gray-800 rounded-lg p-3">
+                      <div className="flex justify-between mb-1">
+                        <span className="text-xs text-gray-600 uppercase">{lang}</span>
+                        <button onClick={() => navigator.clipboard.writeText(socialPosts[key] || "")} className="text-xs" style={{ color: "#00ff9d" }}>Copier</button>
+                      </div>
+                      <p className="text-gray-400 text-xs whitespace-pre-wrap line-clamp-6">{socialPosts[key]}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-black text-white">Communication Email</h1>
         <div className="flex gap-2">
@@ -338,6 +577,18 @@ const PROSPECT_STATUSES = [
 function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<string, unknown>[]; onRefresh: () => void }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ status: "contacted" });
+  const [aiEmail, setAiEmail] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
+  const [aiEmailTarget, setAiEmailTarget] = useState<string | null>(null);
+
+  const generateFollowupEmail = async (p: Record<string, unknown>) => {
+    setAiEmailTarget(p.org as string);
+    const res = await fetch("/api/admin/ai/sponsor-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ org: p.org, contact: p.contact, package: p.package, status: p.status, notes: p.notes, mode: "followup" }),
+    });
+    if (res.ok) setAiEmail(await res.json() as { subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string });
+  };
 
   const save = async () => {
     await fetch("/api/admin/sponsor-prospects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
@@ -365,6 +616,32 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
         <h1 className="text-2xl font-black text-white">Pipeline Sponsors</h1>
         <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter prospect</button>
       </div>
+
+      {aiEmail && aiEmailTarget && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between mb-4">
+              <h3 className="text-white font-bold">Email de relance — {aiEmailTarget}</h3>
+              <button onClick={() => setAiEmail(null)} className="text-gray-500 hover:text-white">✕</button>
+            </div>
+            <div className="space-y-4">
+              {[
+                { lang: "FR", subject: aiEmail.subjectFr, body: aiEmail.bodyFr },
+                { lang: "EN", subject: aiEmail.subjectEn, body: aiEmail.bodyEn },
+              ].map(e => (
+                <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-bold text-gray-400">{e.lang}</span>
+                    <button onClick={() => navigator.clipboard.writeText(`${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>Copier</button>
+                  </div>
+                  <p className="text-white text-xs font-bold mb-2">Objet: {e.subject}</p>
+                  <p className="text-gray-400 text-xs whitespace-pre-wrap">{e.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       {showForm && (
         <div className="cyber-card rounded-xl p-5 mb-6 space-y-3">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -429,6 +706,7 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
                         )}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={() => generateFollowupEmail(p)} className="text-xs px-2 py-1 rounded transition-all" style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}>✨ Email IA</button>
                         <select
                           className="cyber-input text-xs px-2 py-1 rounded"
                           value={p.status as string}
@@ -984,6 +1262,9 @@ export default function AdminDashboard() {
       } else if (t === "sponsor-pipeline") {
         const res = await fetch("/api/admin/sponsor-prospects");
         if (res.ok) { const json = await res.json(); setData(d => ({ ...d, "sponsor-prospects": json })); }
+      } else if (t === "prospection") {
+        const res = await fetch("/api/admin/ai/prospect-leads");
+        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, prospection: json })); }
       } else if (t === "budget") {
         const res = await fetch("/api/admin/budget");
         if (res.ok) { const json = await res.json(); setData(d => ({ ...d, budget: json })); }
@@ -1073,6 +1354,7 @@ export default function AdminDashboard() {
     { id: "users", label: "Utilisateurs Admin" },
     { id: "communication", label: "Communication" },
     { id: "sponsor-pipeline", label: "Pipeline Sponsors" },
+    { id: "prospection", label: "Prospection IA" },
     { id: "budget", label: "Budget" },
     { id: "logistics", label: "Logistique" },
     { id: "analytics", label: "Analytics" },
@@ -1449,7 +1731,19 @@ export default function AdminDashboard() {
           {/* CFP */}
           {tab === "cfp" && (
             <div>
-              <h1 className="text-2xl font-black text-white mb-4">Propositions de Talks</h1>
+              <div className="flex items-center justify-between mb-4">
+                <h1 className="text-2xl font-black text-white">Propositions de Talks</h1>
+                <button
+                  onClick={async () => {
+                    await fetch("/api/admin/ai/score-cfp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scoreAll: true }) });
+                    fetchData(tab);
+                  }}
+                  className="text-xs px-3 py-2 rounded transition-all"
+                  style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}
+                >
+                  ✨ Analyser tout avec IA
+                </button>
+              </div>
               {/* Stats bar */}
               <div className="grid grid-cols-4 gap-3 mb-6">
                 {[
@@ -1476,7 +1770,10 @@ export default function AdminDashboard() {
                         {!!s.org && <p className="text-gray-500 text-xs">{s.org as string}{s.country ? ` · ${s.country}` : ""}</p>}
                         {!!s.format && <span className="text-xs px-2 py-0.5 rounded bg-neon-green/10 text-neon-green/70 mr-2">{s.format as string}</span>}
                       </div>
-                      <Badge status={s.status as string} />
+                      <div className="flex items-center gap-2">
+                        <Badge status={s.status as string} />
+                        <AiScoreBadge score={s.aiScore as number | null} analysis={s.aiAnalysis as string | null} />
+                      </div>
                     </div>
                     <p className="text-gray-400 text-xs mb-3 line-clamp-3">{s.abstract as string}</p>
                     {!!s.bio && <p className="text-gray-600 text-xs mb-3 italic line-clamp-2">{s.bio as string}</p>}
@@ -1983,6 +2280,23 @@ export default function AdminDashboard() {
                         onBlur={e => saveOnboarding(s.id as number, { notes: e.target.value })}
                         className="cyber-input w-full text-xs rounded p-2 h-12 resize-none"
                       />
+                      <button
+                        onClick={async () => {
+                          const res = await fetch("/api/admin/ai/speaker-bio", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ name: s.name, bio: s.bio, talkTitle: s.talkTitle, talkAbstract: s.talkAbstract }),
+                          });
+                          if (res.ok) {
+                            const data2 = await res.json() as { bioFr: string; bioEn: string; teaserFr: string; teaserEn: string };
+                            alert(`Bio FR:\n${data2.bioFr}\n\nBio EN:\n${data2.bioEn}\n\nTeaser FR:\n${data2.teaserFr}\n\nTeaser EN:\n${data2.teaserEn}`);
+                          }
+                        }}
+                        className="text-xs px-3 py-1.5 rounded mt-2 transition-all"
+                        style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}
+                      >
+                        ✨ Reformuler bio avec IA
+                      </button>
                     </div>
                   );
                 })}
@@ -2012,6 +2326,11 @@ export default function AdminDashboard() {
               prospects={(data["sponsor-prospects"] || []) as Record<string, unknown>[]}
               onRefresh={() => fetchData("sponsor-pipeline")}
             />
+          )}
+
+          {/* PROSPECTION IA */}
+          {tab === "prospection" && (
+            <ProspectionPanel leads={(data.prospection || []) as Record<string, unknown>[]} />
           )}
 
           {/* BUDGET */}

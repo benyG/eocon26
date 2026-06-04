@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
-import { getOpenAI, EOCON_CONTEXT } from "@/lib/openai";
+import { getOpenAI, getEoconContext } from "@/lib/openai";
+import { getCtaForContentType, getEventSettings } from "@/lib/settings";
 
 interface PostsResult {
   linkedin_fr: string;
@@ -22,17 +23,21 @@ export async function POST(req: NextRequest) {
     contextSection = `\nContexte spécifique : ${contextType} — ${JSON.stringify(contextItem)}`;
   }
 
+  const [eoconCtx, settings] = await Promise.all([getEoconContext(), getEventSettings()]);
+  const cta = getCtaForContentType(contextType || "custom", settings);
+  const ctaSection = cta ? `\nCTA à inclure dans chaque post : "${cta.text}" → ${cta.url}` : "";
+
   const openai = getOpenAI();
-  const prompt = `${EOCON_CONTEXT}${contextSection}
+  const prompt = `${eoconCtx}${contextSection}${ctaSection}
 
 Tu es community manager expert pour EOCON 2026. À partir du brief suivant, génère des posts optimisés pour chaque réseau social.
 
 Brief: ${brief}
 
 Règles importantes:
-- LinkedIn: professionnel, storytelling, 200-300 mots, émojis pertinents, call-to-action clair, hashtags en fin (#EOCON2026 #Cybersécurité #Afrique #Douala)
-- Twitter/X: percutant, 260 caractères max strict, 2-3 hashtags max
-- Instagram: visuel et engageant, 150 mots max, 8-10 hashtags variés en fin
+- LinkedIn: professionnel, storytelling, 200-300 mots, émojis pertinents, inclure le CTA avec le lien exact fourni, hashtags en fin (#EOCON2026 #Cybersécurité #Afrique #Douala)
+- Twitter/X: percutant, 260 caractères max strict, inclure le lien CTA, 2-3 hashtags max
+- Instagram: visuel et engageant, 150 mots max, inclure le lien CTA, 8-10 hashtags variés en fin
 
 Réponds en JSON uniquement, sans markdown :
 {

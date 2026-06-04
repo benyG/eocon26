@@ -349,6 +349,8 @@ model SocialPost {
   status         String    @default("draft") // draft | scheduled | published | failed
   errorMessage   String?   @db.Text
   createdAt      DateTime  @default(now())
+  contentType    String?   // speaker_announcement | speaker_reminder | session | inscription | cfp | ctf | custom
+  speakerId      Int?      // optional link to speaker (for auto-posts)
 
   @@map("social_posts")
 }
@@ -372,6 +374,14 @@ model ProspectLead {
   createdAt          DateTime @default(now())
 
   @@map("prospect_leads")
+}
+
+model EventSetting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+
+  @@map("event_settings")
 }
 
 model SponsorPackage {

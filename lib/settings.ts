@@ -1,0 +1,31 @@
+import { prisma } from "@/lib/db";
+
+let _cache: Record<string, string> | null = null;
+let _cacheTime = 0;
+
+export async function getEventSettings(): Promise<Record<string, string>> {
+  // Cache for 60 seconds
+  if (_cache && Date.now() - _cacheTime < 60_000) return _cache;
+  const settings = await prisma.eventSetting.findMany();
+  const map: Record<string, string> = {};
+  settings.forEach(s => { map[s.key] = s.value; });
+  _cache = map;
+  _cacheTime = Date.now();
+  return map;
+}
+
+export function getCtaForContentType(type: string, settings: Record<string, string>): { text: string; url: string } | null {
+  const base = settings.site_base_url || "https://eyesopensecurity.com";
+  const ctaMap: Record<string, { text: string; url: string }> = {
+    speaker: { text: "Voir le programme →", url: settings.url_programme || `${base}/#programme` },
+    session: { text: "Voir le programme →", url: settings.url_programme || `${base}/#programme` },
+    workshop: { text: "S'inscrire maintenant →", url: settings.url_inscription || `${base}/#inscription` },
+    inscriptions: { text: "S'inscrire à EOCON 2026 →", url: settings.url_inscription || `${base}/#inscription` },
+    cfp: { text: "Soumettre mon talk →", url: settings.url_cfp || `${base}/#cfp` },
+    ctf: { text: "Rejoindre l'EOCTF →", url: settings.url_ctf || `${base}/#ctf` },
+    countdown: { text: "S'inscrire →", url: settings.url_inscription || `${base}/#inscription` },
+    sponsor: { text: "Devenir partenaire →", url: `${base}/#sponsors` },
+    custom: null as unknown as { text: string; url: string },
+  };
+  return ctaMap[type] || null;
+}

@@ -109,6 +109,45 @@ export async function PATCH(req: NextRequest) {
       where: { id: cfp.speakerId },
       data: { onboardingStatus: "completed" },
     });
+
+    // Auto-schedule speaker announcement posts
+    const speaker = await prisma.speaker.findUnique({ where: { id: cfp.speakerId } });
+    if (speaker) {
+      const announcementDate = new Date();
+      announcementDate.setDate(announcementDate.getDate() + 1);
+      announcementDate.setHours(10, 0, 0, 0);
+
+      const linkedinContent = `🎤 [EOCON 2026 · Speaker Annonce]\n\nNous avons le plaisir d'accueillir ${speaker.name}${speaker.title ? `, ${speaker.title}` : ""}${speaker.company ? ` @ ${speaker.company}` : ""}${speaker.country ? ` (${speaker.country})` : ""} !\n\n📋 Talk : "${speaker.talkTitle}"\n\n📅 28 novembre 2026 · Hotel Onomo, Douala\n🎫 Inscriptions : https://eyesopensecurity.com/#inscription\n\n#EOCON2026 #Cybersécurité #Afrique #EyesOpen`;
+
+      const twitterContent = `🎤 Speaker EOCON 2026 !\n\n${speaker.name}${speaker.company ? ` (@${speaker.company})` : ""} présentera : "${speaker.talkTitle?.slice(0, 60)}..."\n\n📅 28 nov 2026 · Douala\n🔗 eyesopensecurity.com\n\n#EOCON2026 #Cybersécurité`.slice(0, 280);
+
+      await prisma.socialPost.createMany({
+        data: [
+          {
+            brief: `Annonce speaker confirmé: ${speaker.name}`,
+            platform: "linkedin",
+            lang: "fr",
+            content: linkedinContent,
+            imageUrl: speaker.photoUrl || null,
+            scheduledAt: announcementDate,
+            status: "scheduled",
+            contentType: "speaker_announcement",
+            speakerId: speaker.id,
+          },
+          {
+            brief: `Annonce speaker confirmé: ${speaker.name}`,
+            platform: "twitter",
+            lang: "fr",
+            content: twitterContent,
+            imageUrl: speaker.photoUrl || null,
+            scheduledAt: new Date(announcementDate.getTime() + 30 * 60_000), // +30min offset
+            status: "scheduled",
+            contentType: "speaker_announcement",
+            speakerId: speaker.id,
+          },
+        ],
+      });
+    }
   }
 
   // --- Transition: rejected ---

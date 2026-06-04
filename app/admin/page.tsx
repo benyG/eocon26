@@ -5,7 +5,7 @@ import { ADMIN_PROFILES } from "@/lib/adminProfiles";
 import PipelineKanban from "@/components/admin/PipelineKanban";
 import AdminProfilesPanel from "@/components/admin/AdminProfilesPanel";
 
-type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages";
+type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -618,6 +618,7 @@ function CommunicationPanel() {
   const [selectedItem, setSelectedItem] = useState<Record<string, unknown> | null>(null);
   const [postImage, setPostImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [eventSettings, setEventSettings] = useState<Record<string, string>>({});
 
   const generateBriefFromContext = (type: string, item: Record<string, unknown> | null, data: typeof contextData): string => {
     if (!data) return "";
@@ -664,7 +665,10 @@ function CommunicationPanel() {
     if (res.ok) setContextData(await res.json());
   }, []);
 
-  useEffect(() => { loadLinkedinPosts(); loadTemplates(); loadContext(); }, [loadLinkedinPosts, loadTemplates, loadContext]);
+  useEffect(() => {
+    loadLinkedinPosts(); loadTemplates(); loadContext();
+    fetch("/api/admin/settings").then(r => r.json()).then(setEventSettings).catch(() => {});
+  }, [loadLinkedinPosts, loadTemplates, loadContext]);
 
   // Calendar helpers
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -963,6 +967,8 @@ function CommunicationPanel() {
                     const newBrief = generateBriefFromContext(contextType, item, contextData);
                     setBrief(newBrief);
                     setGeneratedPosts(null);
+                    // Auto-fill speaker photo
+                    if (contextType === "speaker" && item?.photoUrl) setPostImage(item.photoUrl as string);
                   }}
                 >
                   <option value="">-- Choisir --</option>
@@ -982,11 +988,19 @@ function CommunicationPanel() {
               </div>
             )}
 
+            {/* Event info banner */}
+            {Object.keys(eventSettings).length > 0 && (
+              <div className="mb-3 p-2 rounded-lg border border-gray-800 flex items-center gap-3">
+                <span className="text-neon-green text-xs">📅</span>
+                <span className="text-xs text-gray-300">{eventSettings.event_date_display_fr || "28 novembre 2026"} · {eventSettings.event_venue || "Hotel Onomo"}, {eventSettings.event_city || "Douala"}</span>
+              </div>
+            )}
+
             {/* Countdown info */}
             {contextType === "countdown" && contextData && (
               <div className="mb-3 p-2 rounded-lg border border-gray-800">
                 <p className="text-xs text-neon-green font-mono">J-{contextData.daysUntil} jusqu'à EOCON 2026</p>
-                <p className="text-gray-600 text-xs">28 novembre 2026</p>
+                <p className="text-gray-600 text-xs">{eventSettings.event_date_display_fr || "28 novembre 2026"} · {eventSettings.event_venue || "Hotel Onomo"}, {eventSettings.event_city || "Douala"}</p>
               </div>
             )}
 
@@ -1022,6 +1036,32 @@ function CommunicationPanel() {
                 ))}
               </div>
             </div>
+
+            {/* CTA for this content type */}
+            {contextType !== "custom" && (() => {
+              const ctaMap: Record<string, { text: string; urlKey: string }> = {
+                inscriptions: { text: "S'inscrire à EOCON 2026 →", urlKey: "url_inscription" },
+                cfp: { text: "Soumettre mon talk →", urlKey: "url_cfp" },
+                ctf: { text: "Rejoindre l'EOCTF →", urlKey: "url_ctf" },
+                speaker: { text: "Voir le programme →", urlKey: "url_programme" },
+                session: { text: "Voir le programme →", urlKey: "url_programme" },
+                workshop: { text: "S'inscrire →", urlKey: "url_inscription" },
+                countdown: { text: "S'inscrire →", urlKey: "url_inscription" },
+                sponsor: { text: "Devenir partenaire →", urlKey: "site_base_url" },
+              };
+              const cta = ctaMap[contextType];
+              if (!cta) return null;
+              const url = eventSettings[cta.urlKey] || "";
+              return (
+                <div className="mb-3 p-2 rounded-lg flex items-center gap-3" style={{ background: "#00ff9d0a", border: "1px solid #00ff9d22" }}>
+                  <span className="text-xs text-gray-500">CTA</span>
+                  <div className="flex-1">
+                    <span className="text-xs font-bold text-neon-green">{cta.text}</span>
+                    {url && <span className="text-xs text-gray-500 ml-2 font-mono">{url}</span>}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Brief */}
             <div className="mb-3">
@@ -2330,6 +2370,123 @@ function SponsorPackagesPanel() {
   );
 }
 
+// ---- Event Settings Panel ----
+const SETTINGS_FIELDS = [
+  { key: "event_date", label: "Date (ISO)", type: "date", group: "Événement" },
+  { key: "event_date_display_fr", label: "Date affichée (FR)", type: "text", group: "Événement" },
+  { key: "event_date_display_en", label: "Date affichée (EN)", type: "text", group: "Événement" },
+  { key: "event_time_start", label: "Heure d'ouverture", type: "time", group: "Événement" },
+  { key: "event_edition", label: "Édition (numéro)", type: "text", group: "Événement" },
+  { key: "event_venue", label: "Lieu (nom)", type: "text", group: "Lieu" },
+  { key: "event_city", label: "Ville", type: "text", group: "Lieu" },
+  { key: "event_country", label: "Pays", type: "text", group: "Lieu" },
+  { key: "event_address", label: "Adresse complète", type: "text", group: "Lieu" },
+  { key: "site_base_url", label: "URL de base du site", type: "url", group: "Liens" },
+  { key: "url_inscription", label: "Lien → Inscription", type: "url", group: "Liens" },
+  { key: "url_cfp", label: "Lien → CFP", type: "url", group: "Liens" },
+  { key: "url_benevoles", label: "Lien → Bénévoles", type: "url", group: "Liens" },
+  { key: "url_programme", label: "Lien → Programme", type: "url", group: "Liens" },
+  { key: "url_ctf", label: "Lien → CTF", type: "url", group: "Liens" },
+] as const;
+
+function EventSettingsPanel() {
+  const [settings, setSettings] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/settings").then(r => r.json()).then(setSettings);
+  }, []);
+
+  const handleChange = (key: string, value: string) => {
+    setSettings(s => ({ ...s, [key]: value }));
+    setSaved(false);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    await fetch("/api/admin/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(settings),
+    });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+  };
+
+  const groups = Array.from(new Set(SETTINGS_FIELDS.map(f => f.group)));
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black text-white">⚙ Paramètres Événement</h1>
+          <p className="text-gray-500 text-xs mt-1">Date, lieu et URLs utilisés sur tout le site et dans les communications</p>
+        </div>
+        <button
+          onClick={save}
+          disabled={saving}
+          style={{ background: "#00ff9d", color: "#000", border: "none", borderRadius: "6px", padding: "10px 20px", fontWeight: "bold", cursor: "pointer", fontSize: "13px" }}
+        >
+          {saving ? "Sauvegarde…" : saved ? "✓ Sauvegardé" : "Enregistrer"}
+        </button>
+      </div>
+
+      <div className="space-y-6">
+        {groups.map(group => (
+          <div key={group} className="cyber-card rounded-xl p-5">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">{group}</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {SETTINGS_FIELDS.filter(f => f.group === group).map(field => (
+                <div key={field.key}>
+                  <label className="block text-xs text-gray-500 mb-1">{field.label}</label>
+                  <input
+                    type={field.type}
+                    value={settings[field.key] || ""}
+                    onChange={e => handleChange(field.key, e.target.value)}
+                    className="cyber-input w-full px-3 py-2 rounded text-sm text-white"
+                    style={{ fontFamily: "'Share Tech Mono', monospace" }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Preview */}
+      <div className="cyber-card rounded-xl p-5 mt-6">
+        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Aperçu — CTAs par type de contenu</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {[
+            { type: "inscriptions", icon: "🎟", label: "Inscriptions" },
+            { type: "cfp", icon: "📝", label: "CFP" },
+            { type: "ctf", icon: "🏆", label: "CTF" },
+            { type: "speaker", icon: "🎤", label: "Speaker/Session" },
+            { type: "countdown", icon: "⏱", label: "Compte à rebours" },
+            { type: "sponsor", icon: "🏢", label: "Sponsor" },
+          ].map(({ type, icon, label }) => {
+            const urlKey = type === "inscriptions" || type === "countdown" ? "url_inscription"
+              : type === "cfp" ? "url_cfp"
+              : type === "ctf" ? "url_ctf"
+              : type === "sponsor" ? "site_base_url"
+              : "url_programme";
+            return (
+              <div key={type} className="rounded p-2" style={{ background: "#111", border: "1px solid #1a1a2e" }}>
+                <div className="text-xs text-gray-400 mb-1">{icon} {label}</div>
+                <div className="text-xs font-mono text-neon-green truncate" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                  {settings[urlKey] || "—"}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>("dashboard");
@@ -2518,6 +2675,7 @@ export default function AdminDashboard() {
         { id: "export", label: "Export CSV" },
         { id: "users", label: "Utilisateurs" },
         { id: "profiles", label: "Profils & Droits" },
+        { id: "settings", label: "⚙ Paramètres Événement" },
       ],
     },
   ];
@@ -3112,6 +3270,7 @@ export default function AdminDashboard() {
 
           {tab === "users" && <AdminUsersPanel />}
           {tab === "profiles" && <AdminProfilesPanel />}
+          {tab === "settings" && <EventSettingsPanel />}
 
           {/* COMMUNICATION */}
           {tab === "communication" && (

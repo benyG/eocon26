@@ -6,9 +6,8 @@ export async function GET() {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   return NextResponse.json(
     await prisma.socialPost.findMany({
-      where: { platform: "linkedin" },
       orderBy: { createdAt: "desc" },
-      take: 50,
+      take: 100,
     })
   );
 }

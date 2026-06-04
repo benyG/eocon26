@@ -611,6 +611,8 @@ function CommunicationPanel() {
     daysUntil: number;
   } | null>(null);
   const [selectedItem, setSelectedItem] = useState<Record<string, unknown> | null>(null);
+  const [postImage, setPostImage] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const generateBriefFromContext = (type: string, item: Record<string, unknown> | null, data: typeof contextData): string => {
     if (!data) return "";
@@ -674,13 +676,26 @@ function CommunicationPanel() {
     }
   });
 
+  const uploadImage = async (file: File) => {
+    setUploadingImage(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("folder", "socials");
+    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    if (res.ok) {
+      const { url } = await res.json() as { url: string };
+      setPostImage(url);
+    }
+    setUploadingImage(false);
+  };
+
   const handleDayClick = (day: number) => {
     const date = new Date(currentYear, currentMonth, day);
     setSelectedDay(date);
     setGeneratedPosts(null);
     setPanelOpen(true);
+    setPostImage(null);
     setScheduleDate(date.toISOString().slice(0, 10) + "T10:00");
-    // Auto-generate brief based on current context
     const newBrief = generateBriefFromContext(contextType, selectedItem, contextData);
     setBrief(newBrief);
   };
@@ -714,17 +729,33 @@ function CommunicationPanel() {
       if (lang !== "fr") entries.push({ platform: "instagram", lang: "en", content: generatedPosts.instagram_en || "" });
     }
     for (const entry of entries) {
-      const existing = linkedinPosts.find(p => p.platform === entry.platform && p.lang === entry.lang && p.content === entry.content);
-      if (!existing) {
+      // Save post via generate-posts then PATCH with imageUrl + scheduledAt
+      const saveRes = await fetch("/api/admin/ai/generate-posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brief: entry.content,
+          contextType,
+          contextItem: selectedItem,
+          platform: entry.platform,
+          lang: entry.lang,
+          saveOnly: true,
+          content: entry.content,
+          imageUrl: postImage || undefined,
+          scheduledAt: scheduleDate || undefined,
+        }),
+      });
+      if (!saveRes.ok) {
+        // Fallback: create via social-posts PATCH on existing draft
         const freshRes = await fetch("/api/admin/ai/social-posts");
         if (freshRes.ok) {
           const fresh = await freshRes.json() as Record<string, unknown>[];
-          const match = fresh.find(p => p.platform === entry.platform && p.lang === entry.lang && (p.status === "draft"));
+          const match = fresh.find(p => p.platform === entry.platform && p.lang === entry.lang && p.status === "draft");
           if (match) {
-            await fetch("/api/admin/ai/publish-post", {
-              method: "POST",
+            await fetch("/api/admin/ai/social-posts", {
+              method: "PATCH",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id: match.id, scheduledAt: scheduleDate }),
+              body: JSON.stringify({ id: match.id, content: entry.content, imageUrl: postImage || undefined, scheduledAt: scheduleDate || undefined }),
             });
           }
         }
@@ -970,6 +1001,32 @@ function CommunicationPanel() {
               <textarea value={brief} onChange={e => setBrief(e.target.value)} className="cyber-input w-full text-xs rounded p-2 h-20 resize-none" placeholder="Décrivez le contenu du post..." />
             </div>
 
+            {/* Image attachment */}
+            <div className="mb-3">
+              <p className="text-xs text-gray-500 mb-1 uppercase tracking-wider">Image (optionnel)</p>
+              {postImage ? (
+                <div className="relative rounded-lg overflow-hidden border border-gray-700">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={postImage} alt="Post" className="w-full h-28 object-cover" />
+                  <button
+                    onClick={() => setPostImage(null)}
+                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white text-xs flex items-center justify-center"
+                  >✕</button>
+                </div>
+              ) : (
+                <label className="flex items-center gap-2 cursor-pointer border border-dashed border-gray-700 rounded-lg px-3 py-2 hover:border-gray-500 transition-colors">
+                  <span className="text-gray-600 text-xs">{uploadingImage ? "Upload en cours..." : "📎 Ajouter une image (jpg, png, webp)"}</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(f); e.target.value = ""; }}
+                    disabled={uploadingImage}
+                  />
+                </label>
+              )}
+            </div>
+
             <button onClick={generatePosts} disabled={generating || !brief.trim()} className="btn-neon w-full py-2 rounded text-xs mb-4">
               {generating ? "Génération en cours..." : "✨ Générer avec IA"}
             </button>
@@ -1011,6 +1068,10 @@ function CommunicationPanel() {
                     {!!post.scheduledAt && <span className="text-xs text-gray-600">📅 {new Date(post.scheduledAt as string).toLocaleDateString("fr-FR")}</span>}
                   </div>
                   <p className="text-gray-400 text-xs line-clamp-2">{post.content as string}</p>
+                  {!!post.imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={post.imageUrl as string} alt="" className="mt-1 h-12 w-20 object-cover rounded" />
+                  )}
                 </div>
                 <div className="flex gap-1 shrink-0">
                   {post.status === "draft" && (

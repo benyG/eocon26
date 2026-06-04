@@ -6,23 +6,64 @@ export default function CTF({ t, onOpenModal }: { t: Translations; onOpenModal: 
 
   return (
     <section id="ctf" className="py-24 px-4 relative bg-dark-800/50 overflow-hidden">
+      <style>{`
+        @keyframes ctf-glitch {
+          0%, 95%, 100% { clip-path: none; transform: none; }
+          96% { clip-path: inset(20% 0 50% 0); transform: translateX(-4px); }
+          97% { clip-path: inset(60% 0 10% 0); transform: translateX(4px); }
+          98% { clip-path: inset(40% 0 30% 0); transform: translateX(-2px); }
+          99% { clip-path: inset(10% 0 70% 0); transform: translateX(2px); }
+        }
+        @keyframes ctf-glitch2 {
+          0%, 92%, 100% { clip-path: none; transform: none; opacity: 0; }
+          93% { clip-path: inset(30% 0 40% 0); transform: translateX(6px); opacity: 0.7; }
+          94% { clip-path: inset(70% 0 5% 0); transform: translateX(-6px); opacity: 0.7; }
+          95% { opacity: 0; }
+        }
+        .ctf-glitch-wrap { position: relative; display: inline-block; }
+        .ctf-glitch-wrap::before {
+          content: attr(data-text);
+          position: absolute; inset: 0;
+          background: linear-gradient(90deg, #00ff9d, #0066ff, #fff);
+          -webkit-background-clip: text; background-clip: text; color: transparent;
+          animation: ctf-glitch 4s infinite;
+          pointer-events: none;
+        }
+        .ctf-glitch-wrap::after {
+          content: attr(data-text);
+          position: absolute; inset: 0;
+          color: #ff0066;
+          animation: ctf-glitch2 4s infinite;
+          pointer-events: none;
+        }
+      `}</style>
+
       {/* BG decoration */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-neon-pink/5 rounded-full blur-3xl" />
+        <div className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl" style={{ background: "rgba(0,255,157,0.05)" }} />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-neon-blue/5 rounded-full blur-3xl" />
       </div>
 
       <div className="max-w-6xl mx-auto relative">
         <div className="text-center mb-16">
-          <p className="text-neon-pink text-xs font-mono uppercase tracking-widest mb-3" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+          <p className="text-xs font-mono uppercase tracking-widest mb-3" style={{ color: "#00ff9d", fontFamily: "'Share Tech Mono', monospace" }}>
             &gt; ./launch_ctf.sh
           </p>
           <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
-            <span style={{ color: "#ff0066" }}>Eyes</span>
-            <span style={{ color: "#0066ff" }}>Open</span>
-            <span className="text-white">CTF</span>
+            <span
+              className="ctf-glitch-wrap"
+              data-text="EyesOpenCTF"
+              style={{
+                background: "linear-gradient(90deg, #00ff9d, #0066ff, #fff)",
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                color: "transparent",
+              }}
+            >
+              EyesOpenCTF
+            </span>
           </h2>
-          <div className="section-line mx-auto mb-6" style={{ background: "linear-gradient(90deg, #ff0066, transparent)" }} />
+          <div className="section-line mx-auto mb-6" style={{ background: "linear-gradient(90deg, #00ff9d, transparent)" }} />
           <p className="text-gray-400 text-lg max-w-2xl mx-auto">{t.ctf.description}</p>
         </div>
 
@@ -37,9 +78,9 @@ export default function CTF({ t, onOpenModal }: { t: Translations; onOpenModal: 
                 { val: t.ctf.points, icon: "⚡" },
                 { val: t.ctf.teams, icon: "👥" },
               ].map((s) => (
-                <div key={s.val} className="cyber-card rounded-xl p-4 text-center" style={{ borderColor: "rgba(255,0,102,0.2)" }}>
+                <div key={s.val} className="cyber-card rounded-xl p-4 text-center" style={{ borderColor: "rgba(0,255,157,0.2)" }}>
                   <div className="text-2xl mb-1">{s.icon}</div>
-                  <div className="text-neon-pink font-bold text-sm font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                  <div className="font-bold text-sm font-mono" style={{ color: "#00ff9d", fontFamily: "'Share Tech Mono', monospace" }}>
                     {s.val}
                   </div>
                 </div>
@@ -47,14 +88,14 @@ export default function CTF({ t, onOpenModal }: { t: Translations; onOpenModal: 
             </div>
 
             {/* Disciplines */}
-            <div className="cyber-card rounded-xl p-6" style={{ borderColor: "rgba(255,0,102,0.15)" }}>
-              <h3 className="text-neon-pink font-mono text-sm uppercase tracking-wider mb-4" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+            <div className="cyber-card rounded-xl p-6" style={{ borderColor: "rgba(0,255,157,0.15)" }}>
+              <h3 className="font-mono text-sm uppercase tracking-wider mb-4" style={{ color: "#00ff9d", fontFamily: "'Share Tech Mono', monospace" }}>
                 &gt; Disciplines
               </h3>
               <div className="grid grid-cols-2 gap-2">
                 {t.ctf.disc_list.map((d, i) => (
                   <div key={d} className="flex items-center gap-2 text-sm text-gray-400">
-                    <span className="text-neon-pink/60 font-mono text-xs" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                    <span className="font-mono text-xs" style={{ color: "rgba(0,255,157,0.5)", fontFamily: "'Share Tech Mono', monospace" }}>
                       [{String(i + 1).padStart(2, "0")}]
                     </span>
                     {d}
@@ -68,17 +109,17 @@ export default function CTF({ t, onOpenModal }: { t: Translations; onOpenModal: 
               className="w-full py-4 rounded font-mono font-bold uppercase tracking-wider text-sm transition-all"
               style={{
                 background: "transparent",
-                border: "2px solid #ff0066",
-                color: "#ff0066",
+                border: "2px solid #00ff9d",
+                color: "#00ff9d",
                 fontFamily: "'Share Tech Mono', monospace",
               }}
               onMouseEnter={(e) => {
-                (e.target as HTMLButtonElement).style.background = "#ff0066";
+                (e.target as HTMLButtonElement).style.background = "#00ff9d";
                 (e.target as HTMLButtonElement).style.color = "#000";
               }}
               onMouseLeave={(e) => {
                 (e.target as HTMLButtonElement).style.background = "transparent";
-                (e.target as HTMLButtonElement).style.color = "#ff0066";
+                (e.target as HTMLButtonElement).style.color = "#00ff9d";
               }}
             >
               {t.ctf.cta}
@@ -94,9 +135,9 @@ export default function CTF({ t, onOpenModal }: { t: Translations; onOpenModal: 
                   <div
                     className="w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 transition-all group-hover:scale-110"
                     style={{
-                      background: "rgba(255,0,102,0.1)",
-                      border: "1px solid rgba(255,0,102,0.3)",
-                      color: "#ff0066",
+                      background: "rgba(0,255,157,0.1)",
+                      border: "1px solid rgba(0,255,157,0.3)",
+                      color: "#00ff9d",
                       fontFamily: "'Share Tech Mono', monospace",
                     }}
                   >

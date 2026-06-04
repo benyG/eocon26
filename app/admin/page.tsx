@@ -103,6 +103,76 @@ function PhotoUploadField({
   );
 }
 
+interface MfaSetupState {
+  userId: number;
+  userName: string;
+  qrDataUrl: string;
+  secret: string;
+  totpCode: string;
+  verified: boolean;
+  loading: boolean;
+  error: string;
+}
+
+function MfaSetupModal({ setup, onClose, onSuccess }: { setup: MfaSetupState; onClose: () => void; onSuccess: () => void }) {
+  const [code, setCode] = useState("");
+  const [err, setErr] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const verify = async () => {
+    setVerifying(true);
+    setErr("");
+    const res = await fetch("/api/admin/mfa/setup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: setup.userId, totp: code }),
+    });
+    const json = await res.json();
+    if (res.ok) { setDone(true); onSuccess(); }
+    else setErr(json.error || "Erreur");
+    setVerifying(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+      <div className="cyber-card rounded-xl p-6 max-w-sm w-full">
+        <h3 className="text-white font-bold mb-2">🔐 Activer MFA — {setup.userName}</h3>
+        {done ? (
+          <>
+            <p className="text-neon-green text-sm mb-4">✓ MFA activé avec succès !</p>
+            <button onClick={onClose} className="btn-neon w-full py-2 rounded text-sm">Fermer</button>
+          </>
+        ) : (
+          <>
+            <p className="text-gray-400 text-xs mb-3">Scannez ce QR code avec Google Authenticator ou une app TOTP compatible.</p>
+            <div className="flex justify-center mb-3">
+              <img src={setup.qrDataUrl} alt="QR Code MFA" className="w-48 h-48" />
+            </div>
+            <p className="text-gray-600 text-xs text-center mb-4 font-mono break-all" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{setup.secret}</p>
+            <label className="text-xs text-gray-500 block mb-1">Code de vérification (6 chiffres)</label>
+            <input
+              className="cyber-input w-full px-3 py-2 rounded text-sm mb-3 font-mono"
+              style={{ fontFamily: "'Share Tech Mono', monospace" }}
+              value={code}
+              onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="123456"
+              maxLength={6}
+            />
+            {err && <p className="text-red-400 text-xs mb-2">{err}</p>}
+            <div className="flex gap-2">
+              <button onClick={verify} disabled={verifying || code.length !== 6} className="btn-neon flex-1 py-2 rounded text-sm">
+                {verifying ? "Vérification..." : "Vérifier et activer"}
+              </button>
+              <button onClick={onClose} className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white transition-colors">Annuler</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AdminUsersPanel() {
   const { t } = useAdminT();
   const [users, setUsers] = useState<Record<string, unknown>[]>([]);
@@ -110,6 +180,7 @@ function AdminUsersPanel() {
   const [form, setForm] = useState<Record<string, unknown>>({ profileId: "coordinateur_cfp" });
   const [created, setCreated] = useState<{ name: string; email: string; tempPassword: string } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [mfaSetup, setMfaSetup] = useState<MfaSetupState | null>(null);
 
   const loadUsers = useCallback(async () => {
     const res = await fetch("/api/admin/users");
@@ -147,6 +218,34 @@ function AdminUsersPanel() {
     setUsers(prev => prev.map(u => u.id === id ? { ...u, isActive } : u));
   };
 
+  const startMfaSetup = async (u: Record<string, unknown>) => {
+    const res = await fetch(`/api/admin/mfa/setup?userId=${u.id}`);
+    if (!res.ok) { alert("Erreur lors de la génération du QR code"); return; }
+    const json = await res.json() as { qrDataUrl: string; secret: string };
+    setMfaSetup({
+      userId: u.id as number,
+      userName: u.name as string,
+      qrDataUrl: json.qrDataUrl,
+      secret: json.secret,
+      totpCode: "",
+      verified: false,
+      loading: false,
+      error: "",
+    });
+  };
+
+  const disableMfa = async (id: number) => {
+    if (!confirm("Désactiver le MFA pour cet utilisateur ?")) return;
+    const res = await fetch("/api/admin/mfa/setup", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: id }),
+    });
+    if (res.ok) {
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, mfaEnabled: false } : u));
+    }
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -156,6 +255,16 @@ function AdminUsersPanel() {
         </div>
         <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-sm">{t.newUser}</button>
       </div>
+
+      {mfaSetup && (
+        <MfaSetupModal
+          setup={mfaSetup}
+          onClose={() => setMfaSetup(null)}
+          onSuccess={() => {
+            setUsers(prev => prev.map(u => u.id === mfaSetup.userId ? { ...u, mfaEnabled: true } : u));
+          }}
+        />
+      )}
 
       {created && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
@@ -255,18 +364,30 @@ function AdminUsersPanel() {
                     <p className="text-gray-500 text-xs">{u.email as string}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-3 shrink-0 flex-wrap justify-end">
                   {profile && (
                     <span className="text-xs px-2 py-0.5 rounded" style={{ background: profile.color + "20", color: profile.color }}>
                       {profile.name}
                     </span>
                   )}
+                  <span className={`text-xs px-2 py-0.5 rounded ${u.mfaEnabled ? "bg-purple-900/30 text-purple-400" : "bg-gray-800 text-gray-600"}`}>
+                    🔐 MFA {u.mfaEnabled ? "ON" : "OFF"}
+                  </span>
                   <span className={`text-xs px-2 py-0.5 rounded ${u.isActive ? "bg-neon-green/10 text-neon-green" : "bg-gray-800 text-gray-600"}`}>
                     {u.isActive ? "Actif" : "Inactif"}
                   </span>
                   <button onClick={() => toggleActive(u.id as number, !(u.isActive as boolean))} className="text-xs text-gray-600 hover:text-white transition-colors">
                     {u.isActive ? "Désactiver" : "Activer"}
                   </button>
+                  {u.mfaEnabled ? (
+                    <button onClick={() => disableMfa(u.id as number)} className="text-xs text-red-500 hover:text-red-400 transition-colors">
+                      Désactiver MFA
+                    </button>
+                  ) : (
+                    <button onClick={() => startMfaSetup(u)} className="text-xs text-purple-400 hover:text-purple-300 transition-colors">
+                      Activer MFA
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -2866,6 +2987,26 @@ function EventSettingsPanel() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Security */}
+      <div className="cyber-card rounded-xl p-5 mt-6">
+        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">🔐 Sécurité</h3>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-white text-sm font-bold mb-1">Forcer le MFA pour tous les utilisateurs admin</p>
+            <p className="text-gray-500 text-xs">Les utilisateurs sans MFA seront bloqués à la connexion jusqu&apos;à l&apos;enrollment.</p>
+          </div>
+          <button
+            onClick={() => {
+              const next = settings.mfa_required === "true" ? "false" : "true";
+              handleChange("mfa_required", next);
+            }}
+            className={`shrink-0 px-4 py-2 rounded text-sm font-bold transition-all ${settings.mfa_required === "true" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"}`}
+          >
+            {settings.mfa_required === "true" ? "✓ Activé" : "Désactivé"}
+          </button>
+        </div>
       </div>
 
       {/* Preview */}

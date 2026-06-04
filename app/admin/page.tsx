@@ -1331,13 +1331,13 @@ function CommunicationPanel() {
         )}
 
         <div className="space-y-2">
-          {templates.length === 0 && (
+          {templates.filter(t => !t.slug).length === 0 && (
             <div className="text-center py-8">
-              <p className="text-gray-600 text-xs mb-3">Aucun template. Seedez les templates EOCON 2026 ou créez-en un.</p>
+              <p className="text-gray-600 text-xs mb-3">Aucun template campagne. Seedez les templates EOCON 2026 ou créez-en un.</p>
               <button onClick={seedTemplates} className="text-xs px-4 py-2 rounded" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>⚡ Seeder les 7 templates EOCON</button>
             </div>
           )}
-          {templates.map(t => (
+          {templates.filter(t => !t.slug).map(t => (
             <div key={t.id as number} className="border border-gray-800 rounded-lg p-3">
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex-1 min-w-0">
@@ -1373,7 +1373,7 @@ function CommunicationPanel() {
               </div>
             </div>
           ))}
-          {!templates.length && <p className="text-gray-700 text-xs text-center py-3">Aucun template. Créez-en un.</p>}
+          {!templates.filter(t => !t.slug).length && <p className="text-gray-700 text-xs text-center py-3">Aucun template campagne. Créez-en un.</p>}
         </div>
       </div>
     </div>

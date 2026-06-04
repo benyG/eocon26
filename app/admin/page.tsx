@@ -5,7 +5,7 @@ import { ADMIN_PROFILES } from "@/lib/adminProfiles";
 import PipelineKanban from "@/components/admin/PipelineKanban";
 import AdminProfilesPanel from "@/components/admin/AdminProfilesPanel";
 
-type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings";
+type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "sessions" | "audit";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -2683,6 +2683,277 @@ function EventSettingsPanel() {
 }
 
 
+function SessionsPanel() {
+  const [sessions, setSessions] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [seeding, setSeeding] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState<Record<string, unknown>>({});
+  const [saving, setSaving] = useState(false);
+
+  const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
+
+  const load = async () => {
+    setLoading(true);
+    const r = await fetch("/api/admin/sessions");
+    if (r.ok) setSessions(await r.json());
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const seed = async () => {
+    if (!confirm("Initialiser le programme avec les sessions standard ? (Annulé si des sessions existent déjà)")) return;
+    setSeeding(true);
+    const r = await fetch("/api/admin/sessions/seed", { method: "POST" });
+    const j = await r.json();
+    if (!r.ok) alert(j.error || "Erreur");
+    else { alert(`${j.seeded} sessions créées.`); load(); }
+    setSeeding(false);
+  };
+
+  const startEdit = (s: Record<string, unknown> | null) => {
+    setEditingId(s ? Number(s.id) : null);
+    setForm(s ? { ...s } : { time: "09:00", title: "", type: "talk", sortOrder: 100, isVisible: true });
+    setShowForm(true);
+  };
+
+  const closeForm = () => { setShowForm(false); setEditingId(null); };
+
+  const save = async () => {
+    setSaving(true);
+    const url = editingId ? `/api/admin/sessions/${editingId}` : "/api/admin/sessions";
+    const method = editingId ? "PUT" : "POST";
+    const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    if (r.ok) { closeForm(); load(); }
+    setSaving(false);
+  };
+
+  const del = async (id: number) => {
+    if (!confirm("Supprimer cette session ?")) return;
+    await fetch(`/api/admin/sessions/${id}`, { method: "DELETE" });
+    load();
+  };
+
+  const typeColor: Record<string, string> = {
+    keynote: "#00ff9d", talk: "#0066ff", workshop: "#ff6600", panel: "#cc00ff", break: "#444", logistics: "#888",
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-black text-white">Programme / Sessions</h1>
+        <div className="flex gap-2">
+          <button onClick={seed} disabled={seeding} className="text-xs px-3 py-1.5 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-all disabled:opacity-50">
+            {seeding ? "…" : "⚡ Initialiser standard"}
+          </button>
+          <button onClick={() => startEdit(null)} className="text-xs px-3 py-1.5 rounded bg-neon-green/10 text-neon-green border border-neon-green/30 hover:bg-neon-green/20 transition-all">
+            + Nouvelle session
+          </button>
+        </div>
+      </div>
+
+      {/* Edit/create form */}
+      {showForm && (
+        <div className="cyber-card rounded-xl p-5 mb-6 border border-neon-green/20">
+          <h2 className="text-sm font-bold text-neon-green mb-4">{editingId ? "Modifier la session" : "Nouvelle session"}</h2>
+          <div className="grid sm:grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Titre</label>
+              <input className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.title || "")} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Type</label>
+              <select className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.type || "talk")} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+                {SESSION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Date (YYYY-MM-DD)</label>
+              <input type="date" className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.date || "")} onChange={e => setForm(f => ({ ...f, date: e.target.value || null }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Heure début</label>
+              <input type="time" className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.time || "")} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Heure fin</label>
+              <input type="time" className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.endTime || "")} onChange={e => setForm(f => ({ ...f, endTime: e.target.value || null }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Salle</label>
+              <input className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.room || "")} onChange={e => setForm(f => ({ ...f, room: e.target.value || null }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Nom du speaker</label>
+              <input className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.speakerName || "")} onChange={e => setForm(f => ({ ...f, speakerName: e.target.value || null }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Ordre d'affichage</label>
+              <input type="number" className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={Number(form.sortOrder ?? 100)} onChange={e => setForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))} />
+            </div>
+          </div>
+          <div className="mb-3">
+            <label className="text-xs text-gray-500 block mb-1">Description</label>
+            <textarea rows={2} className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none resize-none"
+              value={String(form.description || "")} onChange={e => setForm(f => ({ ...f, description: e.target.value || null }))} />
+          </div>
+          <div className="flex items-center gap-3 mb-4">
+            <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+              <input type="checkbox" checked={Boolean(form.isVisible)} onChange={e => setForm(f => ({ ...f, isVisible: e.target.checked }))} />
+              Visible sur le site
+            </label>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={save} disabled={saving} className="text-xs px-4 py-2 rounded bg-neon-green/20 text-neon-green border border-neon-green/30 hover:bg-neon-green/30 transition-all disabled:opacity-50">
+              {saving ? "…" : "Enregistrer"}
+            </button>
+            <button onClick={closeForm} className="text-xs px-4 py-2 rounded border border-gray-800 text-gray-500 hover:text-gray-300 transition-all">
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="text-gray-600 text-sm font-mono">Chargement…</p>
+      ) : sessions.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-gray-600 text-sm font-mono mb-4">// Aucune session — cliquez sur ⚡ Initialiser standard pour commencer</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {sessions.map(s => {
+            const color = typeColor[String(s.type)] || "#888";
+            return (
+              <div key={String(s.id)} className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/[0.05] hover:border-neon-green/20 transition-all">
+                <span className="w-14 shrink-0 text-right text-xs font-mono" style={{ color: color + "aa" }}>{String(s.time)}</span>
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                <span className="flex-1 text-sm text-white">{String(s.title)}</span>
+                {s.speakerName && <span className="text-xs text-gray-500">{String(s.speakerName)}</span>}
+                <span className="text-xs px-1.5 py-0.5 rounded shrink-0" style={{ color, background: color + "20" }}>{String(s.type)}</span>
+                {!s.isVisible && <span className="text-xs text-gray-600 shrink-0">masqué</span>}
+                <button onClick={() => startEdit(s)} className="text-xs text-gray-500 hover:text-neon-green transition-colors shrink-0">✎</button>
+                <button onClick={() => del(Number(s.id))} className="text-xs text-gray-600 hover:text-red-400 transition-colors shrink-0">✕</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AuditPanel() {
+  const [logs, setLogs] = useState<Record<string, unknown>[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [resource, setResource] = useState("");
+  const [action, setAction] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [purging, setPurging] = useState(false);
+
+  const RESOURCES = ["", "cfp", "registration", "volunteer", "speaker", "session", "user", "speaker_onboarding"];
+  const ACTIONS = ["", "CREATE", "UPDATE", "DELETE", "VALIDATE", "REJECT", "ACCEPT", "LOGIN"];
+
+  const load = async (p: number, res: string, act: string) => {
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(p) });
+    if (res) params.set("resource", res);
+    if (act) params.set("action", act);
+    const r = await fetch(`/api/admin/audit?${params}`);
+    if (r.ok) {
+      const j = await r.json();
+      setLogs(j.logs);
+      setTotal(j.total);
+      setPage(j.page);
+      setPages(j.pages);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(page, resource, action); }, [page, resource, action]);
+
+  const purge = async () => {
+    if (!confirm("Supprimer définitivement les entrées de plus de 60 jours ?")) return;
+    setPurging(true);
+    const r = await fetch("/api/admin/audit", { method: "DELETE" });
+    if (r.ok) { const j = await r.json(); alert(`${j.deleted} entrée(s) supprimée(s).`); load(1, resource, action); }
+    setPurging(false);
+  };
+
+  const actionColor: Record<string, string> = {
+    CREATE: "#00ff9d", UPDATE: "#0066ff", DELETE: "#ff0066",
+    VALIDATE: "#00ff9d", ACCEPT: "#00ff9d", REJECT: "#ff6600", LOGIN: "#ffaa00",
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black text-white">Journal d'Audit</h1>
+          <p className="text-xs text-gray-600 mt-1 font-mono">Conservation 60 jours · {total} entrée(s)</p>
+        </div>
+        <button onClick={purge} disabled={purging} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-50">
+          {purging ? "…" : "🗑 Purger anciens"}
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-3 mb-5">
+        <select className="bg-black/40 border border-gray-800 rounded px-3 py-1.5 text-sm text-white focus:border-neon-green/50 outline-none"
+          value={resource} onChange={e => { setResource(e.target.value); setPage(1); }}>
+          {RESOURCES.map(r => <option key={r} value={r}>{r || "— Toutes ressources"}</option>)}
+        </select>
+        <select className="bg-black/40 border border-gray-800 rounded px-3 py-1.5 text-sm text-white focus:border-neon-green/50 outline-none"
+          value={action} onChange={e => { setAction(e.target.value); setPage(1); }}>
+          {ACTIONS.map(a => <option key={a} value={a}>{a || "— Toutes actions"}</option>)}
+        </select>
+      </div>
+
+      {loading ? (
+        <p className="text-gray-600 text-sm font-mono">Chargement…</p>
+      ) : logs.length === 0 ? (
+        <p className="text-gray-600 text-sm font-mono">// Aucune entrée</p>
+      ) : (
+        <>
+          <div className="space-y-1 mb-4">
+            {logs.map(log => {
+              const actColor = actionColor[String(log.action)] || "#888";
+              return (
+                <div key={String(log.id)} className="flex items-start gap-3 p-3 rounded bg-white/[0.02] border border-white/[0.04] text-xs font-mono">
+                  <span className="text-gray-600 shrink-0 w-32">{new Date(String(log.createdAt)).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</span>
+                  <span className="px-1.5 py-0.5 rounded shrink-0" style={{ color: actColor, background: actColor + "20" }}>{String(log.action)}</span>
+                  <span className="text-gray-400 shrink-0">{String(log.resource)}{log.resourceId ? `#${log.resourceId}` : ""}</span>
+                  <span className="text-gray-600 shrink-0">{String(log.ip || "")}</span>
+                  {log.details && <span className="text-gray-700 truncate">{JSON.stringify(log.details)}</span>}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center gap-2 justify-center">
+            <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="text-xs px-3 py-1 rounded border border-gray-800 text-gray-500 hover:text-gray-300 disabled:opacity-30 transition-all">←</button>
+            <span className="text-xs text-gray-600 font-mono">page {page} / {pages}</span>
+            <button disabled={page >= pages} onClick={() => setPage(p => p + 1)} className="text-xs px-3 py-1 rounded border border-gray-800 text-gray-500 hover:text-gray-300 disabled:opacity-30 transition-all">→</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [stats, setStats] = useState<Record<string, number>>({});
@@ -2823,6 +3094,7 @@ export default function AdminDashboard() {
       icon: "◆",
       tabs: [
         { id: "pipeline", label: "Pipeline CFP→Programme", count: stats.cfp },
+        { id: "sessions", label: "Programme / Sessions" },
         { id: "past-speakers", label: "Anciens Speakers" },
       ],
     },
@@ -2870,6 +3142,7 @@ export default function AdminDashboard() {
         { id: "export", label: "Export CSV" },
         { id: "users", label: "Utilisateurs" },
         { id: "profiles", label: "Profils & Droits" },
+        { id: "audit", label: "Journal d'Audit" },
         { id: "settings", label: "⚙ Paramètres Événement" },
       ],
     },
@@ -3543,6 +3816,12 @@ export default function AdminDashboard() {
           {tab === "certificates" && (
             <CertificatesPanel />
           )}
+
+          {/* SESSIONS / PROGRAMME */}
+          {tab === "sessions" && <SessionsPanel />}
+
+          {/* AUDIT LOG — super_admin only */}
+          {tab === "audit" && <AuditPanel />}
 
           {/* EXPORT */}
           {tab === "export" && (

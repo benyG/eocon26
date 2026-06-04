@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createHash, randomBytes } from "crypto";
+import { logAction } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +24,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     data,
     select: { id: true, name: true, email: true, permissions: true, isActive: true, createdAt: true },
   });
+  logAction(req, "UPDATE", "user", id, { isActive });
   return NextResponse.json(user);
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const id = parseInt(params.id);
   await prisma.adminUser.delete({ where: { id } });
+  logAction(req, "DELETE", "user", id);
   return NextResponse.json({ success: true });
 }

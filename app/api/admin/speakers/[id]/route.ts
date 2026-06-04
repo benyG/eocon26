@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { logAction } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -8,11 +9,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const data = await req.json();
   const speaker = await prisma.speaker.update({ where: { id: Number(params.id) }, data });
+  logAction(req, "UPDATE", "speaker", params.id, { name: speaker.name });
   return NextResponse.json(speaker);
 }
 
 export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   await prisma.speaker.delete({ where: { id: Number(params.id) } });
+  logAction(_, "DELETE", "speaker", params.id);
   return NextResponse.json({ success: true });
 }

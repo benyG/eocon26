@@ -408,3 +408,18 @@ model SponsorPackage {
 
   @@map("sponsor_packages")
 }
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  actor      String   @default("admin") // email or "admin" for shared-token sessions
+  ip         String?  @db.VarChar(45)
+  action     String   @db.VarChar(50)  // CREATE | UPDATE | DELETE | LOGIN | VALIDATE | REJECT | ...
+  resource   String   @db.VarChar(50)  // session | speaker | registration | volunteer | cfp | user | ...
+  resourceId String?  @db.VarChar(50)
+  details    Json?                      // arbitrary payload for context
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([resource])
+  @@map("audit_logs")
+}

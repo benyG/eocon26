@@ -1083,7 +1083,12 @@ function CommunicationPanel() {
                     </>
                   )}
                   {post.status === "published" && !!post.linkedinPostId && (
-                    <a href={`https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`} target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded" style={{ color: "#00ff9d" }}>↗</a>
+                    <a
+                      href={post.platform === "twitter"
+                        ? `https://x.com/i/web/status/${post.linkedinPostId as string}`
+                        : `https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`}
+                      target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded" style={{ color: "#00ff9d" }}
+                    >↗</a>
                   )}
                   {scheduleId === (post.id as number) && (
                     <div className="flex gap-1 items-center">

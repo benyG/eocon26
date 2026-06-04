@@ -26,7 +26,7 @@ export async function sendBadgeEmail(opts: {
 
   const badgeColors: Record<BadgeType, string> = {
     participant: "#00ff9d",
-    speaker: "#ff0066",
+    speaker: "#cc0000",
     volunteer: "#ff6600",
     ctf_competitor: "#00ccff",
     ctf_winner: "#ffd700",

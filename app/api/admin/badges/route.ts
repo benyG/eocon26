@@ -59,6 +59,11 @@ export async function POST(req: NextRequest) {
 
   // Bulk issue badges for all checked-in participants
   if (action === "bulk-participants") {
+    // Load ticket type names from DB to display proper label (not the slug)
+    const ticketTypes = await prisma.ticketType.findMany({ select: { slug: true, nameEn: true } });
+    const ticketNameMap: Record<string, string> = {};
+    for (const tt of ticketTypes) ticketNameMap[tt.slug] = tt.nameEn;
+
     const regs = await prisma.registration.findMany({ where: { checkedInAt: { not: null } } });
     let issued = 0;
     for (const r of regs) {
@@ -66,10 +71,12 @@ export async function POST(req: NextRequest) {
         where: { recipientEmail: r.email, badgeType: "participant" },
       });
       if (existing) continue;
+      // Use the DB ticket name (e.g. "Standard Pass") instead of the slug (e.g. "standard")
+      const subtypeLabel = ticketNameMap[r.ticketType] || r.ticketType;
       const entry = await prisma.badgeCredential.create({
-        data: { badgeType: "participant", subtype: r.ticketType, recipientName: `${r.fname} ${r.lname}`, recipientEmail: r.email, credentialJson: "{}" },
+        data: { badgeType: "participant", subtype: subtypeLabel, recipientName: `${r.fname} ${r.lname}`, recipientEmail: r.email, credentialJson: "{}" },
       });
-      const credObj = generateBadgeCredential(entry.uuid, "participant", `${r.fname} ${r.lname}`, r.email, r.ticketType);
+      const credObj = generateBadgeCredential(entry.uuid, "participant", `${r.fname} ${r.lname}`, r.email, subtypeLabel);
       await prisma.badgeCredential.update({ where: { id: entry.id }, data: { credentialJson: signCredential(credObj) } });
       issued++;
     }

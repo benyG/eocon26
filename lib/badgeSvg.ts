@@ -2,7 +2,7 @@ export type BadgeType = "participant" | "speaker" | "volunteer" | "ctf_competito
 
 const BADGE_COLORS: Record<BadgeType, { primary: string; secondary: string; glow: string }> = {
   participant:    { primary: "#00ff9d", secondary: "#00cc7d", glow: "#00ff9d40" },
-  speaker:        { primary: "#ff0066", secondary: "#cc0052", glow: "#ff006640" },
+  speaker:        { primary: "#cc0000", secondary: "#990000", glow: "#cc000040" },
   volunteer:      { primary: "#ff6600", secondary: "#cc5200", glow: "#ff660040" },
   ctf_competitor: { primary: "#00ccff", secondary: "#0099cc", glow: "#00ccff40" },
   ctf_winner:     { primary: "#ffd700", secondary: "#ccaa00", glow: "#ffd70060" },

@@ -22,7 +22,7 @@ export default async function VerifyPage({ params }: { params: { uuid: string } 
   const isValid = !isRevoked && verifyCredential(badge.credentialJson);
   const cred = JSON.parse(badge.credentialJson);
   const badgeColors: Record<string, string> = {
-    participant: "#00ff9d", speaker: "#ff0066", volunteer: "#ff6600",
+    participant: "#00ff9d", speaker: "#cc0000", volunteer: "#ff6600",
     ctf_competitor: "#00ccff", ctf_winner: "#ffd700", organizer: "#cc00ff",
   };
   const color = badgeColors[badge.badgeType] || "#00ff9d";

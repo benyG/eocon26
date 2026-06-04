@@ -18,12 +18,17 @@ model CFPSubmission {
   format         String?
   abstract       String    @db.Text
   bio            String?   @db.Text
-  status         String    @default("pending") // pending | accepted | rejected
+  // Pipeline: submitted | reviewing | accepted | rejected | onboarding | confirmed | scheduled
+  status         String    @default("pending")
+  pipelineStage  String    @default("submitted")
   notes          String?   @db.Text
   decisionSentAt DateTime?
   aiScore        Float?
   aiAnalysis     String?   @db.Text
   createdAt      DateTime  @default(now())
+  // Link to Speaker created on acceptance
+  speakerId      Int?      @unique
+  speaker        Speaker?  @relation(fields: [speakerId], references: [id])
 
   @@map("cfp_submissions")
 }
@@ -64,24 +69,27 @@ model Registration {
 }
 
 model Speaker {
-  id           Int      @id @default(autoincrement())
-  name         String
-  title        String
-  company      String?
-  country      String?
-  bio          String   @db.Text
-  photoUrl     String?
-  linkedin     String?
-  twitter      String?
-  talkTitle    String?
-  talkAbstract String?  @db.Text
-  talkFormat   String?
-  isKeynote    Boolean            @default(false)
-  edition      String             @default("2026")
-  isVisible    Boolean            @default(true)
-  sortOrder    Int                @default(0)
-  createdAt    DateTime           @default(now())
-  onboarding   SpeakerOnboarding?
+  id              Int      @id @default(autoincrement())
+  name            String
+  title           String
+  company         String?
+  country         String?
+  bio             String   @db.Text
+  photoUrl        String?
+  linkedin        String?
+  twitter         String?
+  talkTitle       String?
+  talkAbstract    String?  @db.Text
+  talkFormat      String?
+  isKeynote       Boolean            @default(false)
+  edition         String             @default("2026")
+  isVisible       Boolean            @default(true)
+  sortOrder       Int                @default(0)
+  // Onboarding tracking
+  onboardingStatus String?  @default("pending") // pending | sent | completed
+  createdAt       DateTime           @default(now())
+  onboarding      SpeakerOnboarding?
+  cfpSubmission   CFPSubmission?
 
   @@map("speakers")
 }
@@ -107,6 +115,7 @@ model ConferenceSession {
   title        String
   type         String    // keynote | talk | workshop | panel | break | logistics
   speakerName  String?
+  speakerId    Int?      // FK to Speaker (optional — non-speaker sessions like breaks)
   room         String?
   description  String?   @db.Text
   sortOrder    Int       @default(0)

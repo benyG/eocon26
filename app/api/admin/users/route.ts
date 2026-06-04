@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createHash, randomBytes } from "crypto";
-import { ADMIN_PROFILES } from "@/lib/adminProfiles";
 import { Resend } from "resend";
 
 function hashPassword(password: string): string {
@@ -46,11 +45,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Cet email est déjà utilisé" }, { status: 409 });
   }
 
-  // Resolve permissions from profile or custom
+  // Resolve permissions from DB profile or custom
   let resolvedPermissions = permissions || {};
   if (profileId) {
-    const profile = ADMIN_PROFILES.find(p => p.id === profileId);
-    if (profile) resolvedPermissions = profile.permissions;
+    const dbProfile = await prisma.adminProfile.findUnique({ where: { id: Number(profileId) } });
+    if (dbProfile) {
+      try { resolvedPermissions = JSON.parse(dbProfile.permissions); } catch { /* use custom */ }
+    }
   }
 
   const tempPassword = generateTempPassword();

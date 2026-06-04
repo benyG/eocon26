@@ -18,12 +18,17 @@ model CFPSubmission {
   format         String?
   abstract       String    @db.Text
   bio            String?   @db.Text
-  status         String    @default("pending") // pending | accepted | rejected
+  // Pipeline: submitted | reviewing | accepted | rejected | onboarding | confirmed | scheduled
+  status         String    @default("pending")
+  pipelineStage  String    @default("submitted")
   notes          String?   @db.Text
   decisionSentAt DateTime?
   aiScore        Float?
   aiAnalysis     String?   @db.Text
   createdAt      DateTime  @default(now())
+  // Link to Speaker created on acceptance
+  speakerId      Int?      @unique
+  speaker        Speaker?  @relation(fields: [speakerId], references: [id])
 
   @@map("cfp_submissions")
 }
@@ -64,24 +69,28 @@ model Registration {
 }
 
 model Speaker {
-  id           Int      @id @default(autoincrement())
-  name         String
-  title        String
-  company      String?
-  country      String?
-  bio          String   @db.Text
-  photoUrl     String?
-  linkedin     String?
-  twitter      String?
-  talkTitle    String?
-  talkAbstract String?  @db.Text
-  talkFormat   String?
-  isKeynote    Boolean            @default(false)
-  edition      String             @default("2026")
-  isVisible    Boolean            @default(true)
-  sortOrder    Int                @default(0)
-  createdAt    DateTime           @default(now())
-  onboarding   SpeakerOnboarding?
+  id              Int      @id @default(autoincrement())
+  name            String
+  title           String
+  company         String?
+  country         String?
+  bio             String   @db.Text
+  photoUrl        String?
+  visualUrl       String?  // Infographist-produced visual for social posts (distinct from profile photo)
+  linkedin        String?
+  twitter         String?
+  talkTitle       String?
+  talkAbstract    String?  @db.Text
+  talkFormat      String?
+  isKeynote       Boolean            @default(false)
+  edition         String             @default("2026")
+  isVisible       Boolean            @default(true)
+  sortOrder       Int                @default(0)
+  // Onboarding tracking
+  onboardingStatus String?  @default("pending") // pending | sent | completed
+  createdAt       DateTime           @default(now())
+  onboarding      SpeakerOnboarding?
+  cfpSubmission   CFPSubmission?
 
   @@map("speakers")
 }
@@ -107,6 +116,7 @@ model ConferenceSession {
   title        String
   type         String    // keynote | talk | workshop | panel | break | logistics
   speakerName  String?
+  speakerId    Int?      // FK to Speaker (optional — non-speaker sessions like breaks)
   room         String?
   description  String?   @db.Text
   sortOrder    Int       @default(0)
@@ -171,6 +181,21 @@ model NewsletterSubscriber {
   @@map("newsletter_subscribers")
 }
 
+model AdminProfile {
+  id          Int       @id @default(autoincrement())
+  slug        String    @unique // e.g. "super_admin"
+  name        String
+  description String    @default("")
+  color       String    @default("#888888")
+  permissions String    @db.Text // JSON AdminPermissions
+  isSystem    Boolean   @default(false) // system profiles can't be deleted
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  users       AdminUser[]
+
+  @@map("admin_profiles")
+}
+
 model AdminUser {
   id           Int            @id @default(autoincrement())
   name         String
@@ -178,7 +203,8 @@ model AdminUser {
   passwordHash String
   permissions  String         @db.Text // JSON: { cfp: "write", speakers: "read", ... }
   isActive     Boolean        @default(true)
-  profileId    String?
+  profileId    Int?
+  profile      AdminProfile?  @relation(fields: [profileId], references: [id], onDelete: SetNull)
   createdAt    DateTime       @default(now())
   sessions     AdminSession[]
 
@@ -222,6 +248,29 @@ model TicketCapacity {
   alertPercent Int    @default(80)
 
   @@map("ticket_capacities")
+}
+
+model TicketType {
+  id              Int      @id @default(autoincrement())
+  slug            String   @unique // "standard", "student", "vip"
+  nameFr          String
+  nameEn          String
+  priceFr         Int      @default(0) // price in XAF
+  priceEn         Int      @default(0) // price in USD
+  perksFr         String   @db.Text  // JSON string[]
+  perksEn         String   @db.Text  // JSON string[]
+  earlyBirdPriceFr Int?
+  earlyBirdPriceEn Int?
+  earlyBirdUntil  DateTime?
+  color           String   @default("#00ff9d")
+  isFeatured      Boolean  @default(false)
+  isVisible       Boolean  @default(true)
+  maxCapacity     Int      @default(200)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("ticket_types")
 }
 
 model EmailTemplate {
@@ -301,6 +350,8 @@ model SocialPost {
   status         String    @default("draft") // draft | scheduled | published | failed
   errorMessage   String?   @db.Text
   createdAt      DateTime  @default(now())
+  contentType    String?   // speaker_announcement | speaker_reminder | session | inscription | cfp | ctf | custom
+  speakerId      Int?      // optional link to speaker (for auto-posts)
 
   @@map("social_posts")
 }
@@ -324,6 +375,14 @@ model ProspectLead {
   createdAt          DateTime @default(now())
 
   @@map("prospect_leads")
+}
+
+model EventSetting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+
+  @@map("event_settings")
 }
 
 model SponsorPackage {

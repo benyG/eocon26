@@ -291,6 +291,24 @@ body {
   color: rgba(255,255,255,0.2);
 }
 
+/* Ensure select/combobox options are readable (dark bg, white text, black on option) */
+select.cyber-input option,
+select option {
+  background: #0a0a0f;
+  color: #e0e0e0;
+}
+
+/* Admin inline selects should have black text on white bg for OS-native dropdowns */
+.admin-select {
+  color: #000 !important;
+  background: #fff !important;
+}
+
+.admin-select option {
+  color: #000;
+  background: #fff;
+}
+
 /* Particle dots */
 @keyframes particleDrift {
   0% { transform: translateY(0) translateX(0); opacity: 0; }

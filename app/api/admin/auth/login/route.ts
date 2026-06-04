@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { rateLimit, getIp } from "@/lib/rateLimit";
+import { signMfaPending } from "@/lib/mfaToken";
 
 export const dynamic = "force-dynamic";
 
@@ -12,31 +13,6 @@ function verifyPassword(hash: string, password: string): boolean {
   const b = Buffer.from(stored, "hex");
   if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);
-}
-
-function signMfaPending(userId: number): string {
-  const payload = `${userId}:${Date.now()}`;
-  const sig = createHmac("sha256", process.env.ADMIN_SECRET || "fallback")
-    .update(payload).digest("hex");
-  return Buffer.from(`${payload}:${sig}`).toString("base64");
-}
-
-export function verifyMfaPending(token: string): number | null {
-  try {
-    const decoded = Buffer.from(token, "base64").toString("utf-8");
-    const parts = decoded.split(":");
-    if (parts.length !== 3) return null;
-    const [userId, timestamp, sig] = parts;
-    // Token valid for 5 minutes
-    if (Date.now() - parseInt(timestamp) > 5 * 60 * 1000) return null;
-    const payload = `${userId}:${timestamp}`;
-    const expected = createHmac("sha256", process.env.ADMIN_SECRET || "fallback")
-      .update(payload).digest("hex");
-    const a = Buffer.from(sig, "hex");
-    const b = Buffer.from(expected, "hex");
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-    return parseInt(userId);
-  } catch { return null; }
 }
 
 export async function POST(req: NextRequest) {

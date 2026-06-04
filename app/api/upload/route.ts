@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { uploadToGCS } from "@/lib/gcs";
 import { isAdminAuthenticated } from "@/lib/adminAuth";

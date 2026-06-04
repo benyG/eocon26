@@ -7,6 +7,8 @@ RUN npm ci --omit=dev
 # ── Stage 2: builder ─────────────────────────────────────────
 FROM node:20-alpine AS builder
 WORKDIR /app
+# OpenSSL 3 required by Prisma engine at build time (next build static prerender)
+RUN apk add --no-cache openssl
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .

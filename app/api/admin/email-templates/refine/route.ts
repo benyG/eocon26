@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
-import OpenAI from "openai";
+import { getOpenAI } from "@/lib/openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -39,6 +39,7 @@ Réponds en JSON :
   "changes": "description courte des améliorations"
 }`;
 
+  const openai = getOpenAI();
   const completion = await openai.chat.completions.create({
     model,
     messages: [{ role: "user", content: prompt }],
@@ -52,7 +53,6 @@ Réponds en JSON :
     changes: string;
   };
 
-  // Update the template
   const updated = await prisma.emailTemplate.update({
     where: { id: templateId },
     data: { subject: result.subject, htmlBody: result.htmlBody },

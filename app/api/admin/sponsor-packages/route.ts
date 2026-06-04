@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
 
+export const dynamic = "force-dynamic";
+
 const DEFAULT_PACKAGES = [
   {
     tier: "PLATINUM",

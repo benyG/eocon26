@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
 
+export const dynamic = "force-dynamic";
+
 const DEFAULT_TYPES = [
   { ticketType: "standard", maxCapacity: 200, alertPercent: 80 },
   { ticketType: "student", maxCapacity: 50, alertPercent: 80 },

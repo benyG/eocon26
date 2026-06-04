@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { signToken } from "@/lib/adminAuth";
 import { rateLimit, getIp } from "@/lib/rateLimit";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   // 10 attempts per IP per 15 minutes
   const ip = getIp(req);

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
 import { getOpenAI, EOCON_CONTEXT } from "@/lib/openai";
 
+export const dynamic = "force-dynamic";
+
 interface EmailResult {
   subjectFr: string;
   bodyFr: string;

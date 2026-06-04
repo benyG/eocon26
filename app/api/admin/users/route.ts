@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { createHash, randomBytes } from "crypto";
 import { Resend } from "resend";
 
+export const dynamic = "force-dynamic";
+
 function hashPassword(password: string): string {
   const salt = randomBytes(16).toString("hex");
   const hash = createHash("sha256").update(password + salt).digest("hex");

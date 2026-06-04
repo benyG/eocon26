@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
 
+export const dynamic = "force-dynamic";
+
 const LOGISTICS_SEED = [
   { category: "Production", title: "Commande gadjets & goodies", sortOrder: 1 },
   { category: "Production", title: "Impression roll-up et banners", sortOrder: 2 },

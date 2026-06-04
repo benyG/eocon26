@@ -4,6 +4,8 @@ import { isAdminAuthenticated } from "@/lib/adminAuth";
 import { sendCFPDecision } from "@/lib/email";
 import { getEventSettings } from "@/lib/settings";
 
+export const dynamic = "force-dynamic";
+
 // Valid pipeline stages in order
 const STAGES = ["submitted", "reviewing", "accepted", "onboarding", "confirmed", "scheduled"] as const;
 type Stage = (typeof STAGES)[number];

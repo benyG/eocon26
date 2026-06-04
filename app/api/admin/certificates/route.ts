@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
 import { Resend } from "resend";
 
+export const dynamic = "force-dynamic";
+
 function getFrom(): string {
   return process.env.EMAIL_FROM || "EOCON 2026 <noreply@eyesopensecurity.com>";
 }

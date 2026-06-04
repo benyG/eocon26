@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
 import { getOpenAI, EOCON_CONTEXT } from "@/lib/openai";
 
+export const dynamic = "force-dynamic";
+
 interface CFPScore {
   relevance: number;
   technical: number;

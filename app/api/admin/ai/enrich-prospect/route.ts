@@ -3,6 +3,8 @@ import { isAdminAuthenticated } from "@/lib/adminAuth";
 import { getOpenAI, EOCON_CONTEXT } from "@/lib/openai";
 import { enrichOrganization } from "@/lib/apollo";
 
+export const dynamic = "force-dynamic";
+
 interface EnrichResult {
   known: boolean;
   sector?: string;

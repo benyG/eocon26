@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verify } from "otplib";
 import { createHmac } from "crypto";
-import { verifyMfaPending } from "../login/route";
+import { verifyMfaPending } from "@/lib/mfaToken";
 
 export const dynamic = "force-dynamic";
 

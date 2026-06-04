@@ -18,6 +18,7 @@ interface TicketTypeData {
   earlyBirdUntil: string | null;
   color: string;
   isFeatured: boolean;
+  ctfAccess: boolean;
   maxCapacity: number;
   sold: number;
   available: number;
@@ -67,15 +68,9 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
   };
 
   const formatPrice = (ticket: TicketTypeData) => {
-    if (lang === "fr") {
-      const price = ticket.activePriceFr;
-      if (price === 0) return lang === "fr" ? "Gratuit" : "Free";
-      return `${price.toLocaleString("fr-FR")} XAF`;
-    } else {
-      const price = ticket.activePriceEn;
-      if (price === 0) return "Free";
-      return `$${price} USD`;
-    }
+    const price = ticket.activePriceFr;
+    if (price === 0) return lang === "fr" ? "Gratuit" : "Free";
+    return `${price.toLocaleString("fr-FR")} XAF`;
   };
 
   const getName = (t: TicketTypeData) => lang === "fr" ? t.nameFr : t.nameEn;
@@ -181,6 +176,14 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                             </li>
                           ))}
                         </ul>
+                        {ticket.ctfAccess && (
+                          <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "#00ccff15", border: "1px solid #00ccff40" }}>
+                            <span className="text-sm">⚡</span>
+                            <span className="text-xs font-bold" style={{ color: "#00ccff", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "1px" }}>
+                              CTF ACCESS
+                            </span>
+                          </div>
+                        )}
                         {!sold_out && (
                           <div
                             className="mt-4 w-full py-2 rounded text-xs font-mono text-center font-bold uppercase"

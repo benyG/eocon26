@@ -65,7 +65,7 @@ export default function Home() {
       <About t={tWithSettings} />
       <Speakers t={tWithSettings} onOpenModal={openModal} />
       <Schedule t={tWithSettings} lang={lang} />
-      <CTF t={tWithSettings} onOpenModal={openModal} />
+      <CTF t={tWithSettings} onOpenModal={openModal} ctfSettings={{ tagline: eventSettings.ctf_tagline, prizeMain: eventSettings.ctf_prize_main, prizeDetails: eventSettings.ctf_prize_details }} />
       <Workshops t={tWithSettings} onOpenModal={openModal} lang={lang} />
       <Testimonials t={tWithSettings} />
       <CFPSection t={tWithSettings} />
@@ -76,6 +76,23 @@ export default function Home() {
       <Footer t={tWithSettings} eventSettings={eventSettings} />
 
       {modal === "register" && <RegisterModal t={tWithSettings} onClose={closeModal} lang={lang} />}
+      {modal === "cfp" && (
+        <div className="modal-backdrop" onClick={closeModal}>
+          <div
+            className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl"
+            style={{ background: "#0a0a0f", border: "1px solid rgba(0,255,157,0.2)" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-neon-green/10">
+              <h2 className="text-lg font-black text-white">{t.cfp.title}</h2>
+              <button onClick={closeModal} className="text-gray-500 hover:text-neon-green transition-colors text-2xl leading-none">×</button>
+            </div>
+            <div className="px-2 pb-4">
+              <CFPSection t={tWithSettings} />
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

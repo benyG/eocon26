@@ -32,7 +32,7 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
   const [step, setStep] = useState<"tiers" | "form">("tiers");
   const [selectedTier, setSelectedTier] = useState("");
   const [selectedTicket, setSelectedTicket] = useState<TicketTypeData | null>(null);
-  const [formData, setFormData] = useState({ fname: "", lname: "", email: "", org: "", country: "" });
+  const [formData, setFormData] = useState({ fname: "", lname: "", email: "", org: "", country: "", lang_expression: "fr" });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -233,6 +233,13 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                     <input className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder={t.register.form.country}
                       value={formData.country} onChange={e => setFormData({ ...formData, country: e.target.value })} />
                   </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.register.form.lang_expression}</label>
+                  <select className="cyber-input w-full px-3 py-2 rounded text-sm bg-transparent" value={formData.lang_expression} onChange={e => setFormData({ ...formData, lang_expression: e.target.value })}>
+                    <option value="fr" className="bg-dark-800">Français</option>
+                    <option value="en" className="bg-dark-800">English</option>
+                  </select>
                 </div>
                 <div className="p-3 rounded border" style={{ background: (selectedTicket?.color || "#00ff9d") + "08", borderColor: (selectedTicket?.color || "#00ff9d") + "22" }}>
                   <p className="text-xs text-gray-500 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>

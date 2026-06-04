@@ -4,7 +4,7 @@ import { Translations } from "@/lib/i18n";
 
 export default function Volunteer({ t }: { t: Translations }) {
   const [formData, setFormData] = useState({
-    name: "", email: "", phone: "", city: "", role: "", experience: "", motivation: ""
+    name: "", email: "", phone: "", city: "", role: "", experience: "", motivation: "", lang_expression: "fr"
   });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -134,6 +134,13 @@ export default function Volunteer({ t }: { t: Translations }) {
                   <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.volunteer.form.motivation} *</label>
                   <textarea required rows={3} className="cyber-input w-full px-3 py-2 rounded text-sm resize-none" placeholder={t.volunteer.form.motivation}
                     value={formData.motivation} onChange={e => setFormData({ ...formData, motivation: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.volunteer.form.lang_expression}</label>
+                  <select className="cyber-input w-full px-3 py-2 rounded text-sm bg-transparent" value={formData.lang_expression} onChange={e => setFormData({ ...formData, lang_expression: e.target.value })}>
+                    <option value="fr" className="bg-dark-800">Français</option>
+                    <option value="en" className="bg-dark-800">English</option>
+                  </select>
                 </div>
                 {error && <p className="text-red-400 text-xs font-mono">{error}</p>}
                 <button type="submit" disabled={loading} className="w-full btn-neon-solid py-3 rounded text-sm border-2 border-neon-green disabled:opacity-50">

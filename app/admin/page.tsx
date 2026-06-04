@@ -2292,9 +2292,134 @@ function CertificatesPanel() {
   );
 }
 
+interface SponsorPkg {
+  id: number; tier: string; nameFr: string; nameEn: string; price: number;
+  maxSponsors: number; sortOrder: number; highlightColor: string;
+  perksFr: string; perksEn: string; isVisible: boolean;
+}
+
+function SponsorPackageEditor({ pkg, onSave, onDelete }: { pkg: SponsorPkg; onSave: (data: Partial<SponsorPkg>) => Promise<void>; onDelete: () => Promise<void> }) {
+  const [draft, setDraft] = useState<SponsorPkg>({ ...pkg });
+  const [perksFr, setPerksFr] = useState<string[]>(() => { try { return JSON.parse(pkg.perksFr || "[]"); } catch { return []; } });
+  const [perksEn, setPerksEn] = useState<string[]>(() => { try { return JSON.parse(pkg.perksEn || "[]"); } catch { return []; } });
+  const [saving, setSaving] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const color = draft.highlightColor || "#888";
+
+  const save = async () => {
+    setSaving(true);
+    await onSave({ ...draft, perksFr: JSON.stringify(perksFr), perksEn: JSON.stringify(perksEn) });
+    setSaving(false);
+  };
+
+  const updatePerk = (list: string[], setList: (v: string[]) => void, i: number, val: string) => {
+    const next = [...list]; next[i] = val; setList(next);
+  };
+  const removePerk = (list: string[], setList: (v: string[]) => void, i: number) => {
+    setList(list.filter((_, j) => j !== i));
+  };
+
+  return (
+    <div className="cyber-card rounded-xl overflow-hidden" style={{ borderColor: color + "40" }}>
+      {/* Header row */}
+      <div className="flex items-center gap-3 p-4 cursor-pointer" onClick={() => setExpanded(e => !e)}>
+        <span className="text-base font-black font-mono" style={{ color }}>{draft.tier}</span>
+        <span className="text-white font-bold text-sm flex-1">{draft.nameFr} / <span className="text-gray-500">{draft.nameEn}</span></span>
+        <span className="text-neon-green font-mono text-sm">{draft.price > 0 ? `${draft.price.toLocaleString("fr-FR")} FCFA` : "Partenariat"}</span>
+        <span className={`text-xs px-2 py-0.5 rounded ${draft.isVisible ? "text-neon-green bg-neon-green/10" : "text-gray-600 bg-gray-800"}`}>{draft.isVisible ? "Visible" : "Masqué"}</span>
+        <span className="text-gray-500 text-xs ml-2">{expanded ? "▲" : "▼"}</span>
+      </div>
+
+      {expanded && (
+        <div className="px-4 pb-4 space-y-4 border-t border-white/5 pt-4">
+          {/* Tier + colors */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Identifiant (tier)</label>
+              <input className="cyber-input w-full px-2 py-1.5 rounded text-sm" value={draft.tier} onChange={e => setDraft(d => ({ ...d, tier: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Couleur</label>
+              <div className="flex gap-2 items-center">
+                <input type="color" className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" value={draft.highlightColor} onChange={e => setDraft(d => ({ ...d, highlightColor: e.target.value }))} />
+                <input className="cyber-input flex-1 px-2 py-1.5 rounded text-sm font-mono" value={draft.highlightColor} onChange={e => setDraft(d => ({ ...d, highlightColor: e.target.value }))} />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Max sponsors</label>
+              <input type="number" min={0} className="cyber-input w-full px-2 py-1.5 rounded text-sm" value={draft.maxSponsors} onChange={e => setDraft(d => ({ ...d, maxSponsors: parseInt(e.target.value) || 0 }))} />
+            </div>
+          </div>
+
+          {/* Names + price */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Nom FR</label>
+              <input className="cyber-input w-full px-2 py-1.5 rounded text-sm" value={draft.nameFr} onChange={e => setDraft(d => ({ ...d, nameFr: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Name EN</label>
+              <input className="cyber-input w-full px-2 py-1.5 rounded text-sm" value={draft.nameEn} onChange={e => setDraft(d => ({ ...d, nameEn: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Prix FCFA (0 = partenariat)</label>
+              <input type="number" min={0} step={50000} className="cyber-input w-full px-2 py-1.5 rounded text-sm" value={draft.price} onChange={e => setDraft(d => ({ ...d, price: parseInt(e.target.value) || 0 }))} />
+            </div>
+          </div>
+
+          {/* Perks FR + EN */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-500 uppercase">Avantages FR</p>
+                <button onClick={() => setPerksFr(p => [...p, ""])} className="text-xs text-neon-green hover:text-neon-green/70">+ Ajouter</button>
+              </div>
+              <div className="space-y-1">
+                {perksFr.map((p, i) => (
+                  <div key={i} className="flex gap-1">
+                    <input className="cyber-input flex-1 px-2 py-1 rounded text-xs" value={p} onChange={e => updatePerk(perksFr, setPerksFr, i, e.target.value)} />
+                    <button onClick={() => removePerk(perksFr, setPerksFr, i)} className="text-red-500/60 hover:text-red-400 text-xs px-1">✕</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-500 uppercase">Perks EN</p>
+                <button onClick={() => setPerksEn(p => [...p, ""])} className="text-xs text-neon-green hover:text-neon-green/70">+ Add</button>
+              </div>
+              <div className="space-y-1">
+                {perksEn.map((p, i) => (
+                  <div key={i} className="flex gap-1">
+                    <input className="cyber-input flex-1 px-2 py-1 rounded text-xs" value={p} onChange={e => updatePerk(perksEn, setPerksEn, i, e.target.value)} />
+                    <button onClick={() => removePerk(perksEn, setPerksEn, i)} className="text-red-500/60 hover:text-red-400 text-xs px-1">✕</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-between pt-2">
+            <button onClick={() => onSave({ isVisible: !draft.isVisible }).then(() => setDraft(d => ({ ...d, isVisible: !d.isVisible })))} className={`text-xs px-3 py-1.5 rounded border ${draft.isVisible ? "border-neon-green/30 text-neon-green" : "border-gray-700 text-gray-500"}`}>
+              {draft.isVisible ? "Visible ✓" : "Masqué"}
+            </button>
+            <div className="flex gap-2">
+              <button onClick={() => { if (confirm("Supprimer ce package ?")) onDelete(); }} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10">Supprimer</button>
+              <button onClick={save} disabled={saving} className="btn-neon px-4 py-1.5 rounded text-xs">{saving ? "..." : "Enregistrer"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SponsorPackagesPanel() {
-  const [packages, setPackages] = useState<Record<string, unknown>[]>([]);
+  const [packages, setPackages] = useState<SponsorPkg[]>([]);
   const [loading, setLoading] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [newTier, setNewTier] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2310,9 +2435,23 @@ function SponsorPackagesPanel() {
     load();
   };
 
-  const toggleVisible = async (id: number, isVisible: boolean) => {
-    await fetch(`/api/admin/sponsor-packages/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isVisible }) });
+  const savePackage = async (id: number, data: Partial<SponsorPkg>) => {
+    await fetch(`/api/admin/sponsor-packages/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
     load();
+  };
+
+  const deletePackage = async (id: number) => {
+    await fetch(`/api/admin/sponsor-packages/${id}`, { method: "DELETE" });
+    load();
+  };
+
+  const createPackage = async () => {
+    if (!newTier.trim()) return;
+    await fetch("/api/admin/sponsor-packages", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tier: newTier.toUpperCase(), nameFr: newTier, nameEn: newTier, price: 0, maxSponsors: 5, sortOrder: packages.length + 1, highlightColor: "#888888", perksFr: "[]", perksEn: "[]", perks: "[]", isVisible: true }),
+    });
+    setNewTier(""); setAdding(false); load();
   };
 
   return (
@@ -2320,48 +2459,36 @@ function SponsorPackagesPanel() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black text-white">Packages de Sponsoring</h1>
-          <p className="text-gray-500 text-xs mt-1">Ces packages sont affichés sur le site web et utilisés dans la prospection IA</p>
+          <p className="text-gray-500 text-xs mt-1">Cliquez sur un package pour le modifier. Les données sont stockées en base.</p>
         </div>
-        {!packages.length && !loading && (
-          <button onClick={seed} className="btn-neon px-4 py-2 rounded text-sm">🌱 Initialiser packages standard</button>
-        )}
+        <div className="flex gap-2">
+          {!packages.length && !loading && (
+            <button onClick={seed} className="btn-neon px-4 py-2 rounded text-sm">🌱 Initialiser packages standard</button>
+          )}
+          <button onClick={() => setAdding(a => !a)} className="btn-neon px-4 py-2 rounded text-sm">+ Nouveau package</button>
+        </div>
       </div>
-      <div className="space-y-4">
-        {packages.map(pkg => {
-          const perksFr = JSON.parse((pkg.perksFr as string) || "[]") as string[];
-          const perksEn = JSON.parse((pkg.perksEn as string) || "[]") as string[];
-          return (
-            <div key={pkg.id as number} className={`cyber-card rounded-xl p-5 ${!pkg.isVisible ? "opacity-50" : ""}`} style={{ borderColor: ((pkg.highlightColor as string) || "#333") + "40" }}>
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <div>
-                  <div className="flex items-center gap-3 mb-1">
-                    <span className="text-lg font-black" style={{ color: (pkg.highlightColor as string) || "#888" }}>{pkg.tier as string}</span>
-                    <span className="text-xl font-black font-mono text-white">{(pkg.price as number) > 0 ? `${(pkg.price as number).toLocaleString("fr-FR")} FCFA` : "Partenariat"}</span>
-                    {!!(pkg.maxSponsors as number) && <span className="text-xs text-gray-600">max {pkg.maxSponsors as number} sponsors</span>}
-                  </div>
-                  <p className="text-gray-400 text-sm">{pkg.nameFr as string} / <span className="text-gray-600">{pkg.nameEn as string}</span></p>
-                </div>
-                <button onClick={() => toggleVisible(pkg.id as number, !(pkg.isVisible as boolean))} className={`text-xs px-3 py-1 rounded shrink-0 ${pkg.isVisible ? "text-neon-green bg-neon-green/10" : "text-gray-600 bg-gray-800"}`}>
-                  {pkg.isVisible ? "Visible" : "Masqué"}
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-gray-500 mb-2 uppercase">Avantages FR</p>
-                  <ul className="space-y-1">
-                    {perksFr.map((p, i) => <li key={i} className="text-gray-400 text-xs flex gap-2"><span style={{ color: (pkg.highlightColor as string) || "#888" }}>✓</span>{p}</li>)}
-                  </ul>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-2 uppercase">Perks EN</p>
-                  <ul className="space-y-1">
-                    {perksEn.map((p, i) => <li key={i} className="text-gray-400 text-xs flex gap-2"><span style={{ color: (pkg.highlightColor as string) || "#888" }}>✓</span>{p}</li>)}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+
+      {adding && (
+        <div className="cyber-card rounded-xl p-4 mb-4 flex gap-3 items-end">
+          <div className="flex-1">
+            <label className="text-xs text-gray-500 mb-1 block">Identifiant du nouveau package (ex: STARTUP)</label>
+            <input autoFocus className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="STARTUP" value={newTier} onChange={e => setNewTier(e.target.value)} onKeyDown={e => e.key === "Enter" && createPackage()} />
+          </div>
+          <button onClick={createPackage} className="btn-neon px-4 py-2 rounded text-sm">Créer</button>
+          <button onClick={() => setAdding(false)} className="text-gray-500 text-sm px-2">Annuler</button>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {packages.map(pkg => (
+          <SponsorPackageEditor
+            key={pkg.id}
+            pkg={pkg}
+            onSave={(data) => savePackage(pkg.id, data)}
+            onDelete={() => deletePackage(pkg.id)}
+          />
+        ))}
         {!packages.length && !loading && (
           <p className="text-gray-600 text-xs py-8 text-center">Aucun package configuré.</p>
         )}

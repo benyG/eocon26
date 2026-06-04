@@ -67,6 +67,8 @@ model Registration {
   qrCode         String?
   checkedInAt    DateTime?
   checkedInBy    String?
+  linkedin       String?
+  whatsapp       String?
   createdAt      DateTime  @default(now())
 
   @@map("registrations")

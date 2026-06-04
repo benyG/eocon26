@@ -1757,90 +1757,213 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
   );
 }
 
+interface TicketTypeRow {
+  id: number; slug: string; nameFr: string; nameEn: string;
+  priceFr: number; priceEn: number; perksFr: string; perksEn: string;
+  earlyBirdPriceFr: number | null; earlyBirdPriceEn: number | null;
+  earlyBirdUntil: string | null; color: string; isFeatured: boolean;
+  isVisible: boolean; maxCapacity: number; sortOrder: number; sold: number;
+}
+
 function TicketsPanel() {
-  const [tickets, setTickets] = useState<Record<string, unknown>[]>([]);
+  const [tickets, setTickets] = useState<TicketTypeRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<Record<string, unknown>>({});
+  const [editForm, setEditForm] = useState<Partial<TicketTypeRow> & { perksFrArr?: string[]; perksEnArr?: string[] }>({});
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/admin/tickets");
+    const res = await fetch("/api/admin/ticket-types");
     if (res.ok) setTickets(await res.json());
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const seed = async () => {
-    await fetch("/api/admin/tickets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ seed: true }) });
-    load();
+  const startEdit = (t: TicketTypeRow) => {
+    setEditId(t.id);
+    setEditForm({
+      ...t,
+      perksFrArr: (() => { try { return JSON.parse(t.perksFr); } catch { return []; } })(),
+      perksEnArr: (() => { try { return JSON.parse(t.perksEn); } catch { return []; } })(),
+    });
   };
 
   const save = async (id: number) => {
-    await fetch(`/api/admin/tickets/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editForm) });
+    const payload = {
+      ...editForm,
+      perksFr: editForm.perksFrArr,
+      perksEn: editForm.perksEnArr,
+    };
+    await fetch(`/api/admin/ticket-types/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     setEditId(null);
     load();
   };
 
   const del = async (id: number) => {
     if (!confirm("Supprimer ce type de billet ?")) return;
-    await fetch(`/api/admin/tickets/${id}`, { method: "DELETE" });
+    await fetch(`/api/admin/ticket-types/${id}`, { method: "DELETE" });
     load();
+  };
+
+  const toggleVisible = async (t: TicketTypeRow) => {
+    await fetch(`/api/admin/ticket-types/${t.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isVisible: !t.isVisible }) });
+    load();
+  };
+
+  const addPerk = (lang: "fr" | "en") => {
+    if (lang === "fr") setEditForm(f => ({ ...f, perksFrArr: [...(f.perksFrArr || []), ""] }));
+    else setEditForm(f => ({ ...f, perksEnArr: [...(f.perksEnArr || []), ""] }));
+  };
+
+  const updatePerk = (lang: "fr" | "en", i: number, val: string) => {
+    if (lang === "fr") setEditForm(f => { const arr = [...(f.perksFrArr || [])]; arr[i] = val; return { ...f, perksFrArr: arr }; });
+    else setEditForm(f => { const arr = [...(f.perksEnArr || [])]; arr[i] = val; return { ...f, perksEnArr: arr }; });
+  };
+
+  const removePerk = (lang: "fr" | "en", i: number) => {
+    if (lang === "fr") setEditForm(f => { const arr = [...(f.perksFrArr || [])]; arr.splice(i, 1); return { ...f, perksFrArr: arr }; });
+    else setEditForm(f => { const arr = [...(f.perksEnArr || [])]; arr.splice(i, 1); return { ...f, perksEnArr: arr }; });
   };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-white">Types de billets</h1>
-          <p className="text-gray-500 text-xs mt-1">Capacités maximales et alertes par type de billet</p>
+          <h1 className="text-2xl font-black text-white">Billets & Tarifs</h1>
+          <p className="text-gray-500 text-xs mt-1">Gérez les types de billets affichés sur le portail d&apos;inscription</p>
         </div>
-        {!tickets.length && !loading && (
-          <button onClick={seed} className="btn-neon px-4 py-2 rounded text-sm">🌱 Initialiser types standard</button>
-        )}
       </div>
-      <div className="space-y-3">
+      <div className="space-y-4">
         {tickets.map(t => {
-          const sold = t.sold as number;
-          const max = t.maxCapacity as number;
+          const sold = t.sold || 0;
+          const max = t.maxCapacity;
           const pct = max > 0 ? Math.round((sold / max) * 100) : 0;
-          const alert = pct >= (t.alertPercent as number);
-          const isEditing = editId === (t.id as number);
+          const isEditing = editId === t.id;
           return (
-            <div key={t.id as number} className="cyber-card rounded-xl p-5">
+            <div key={t.id} className="cyber-card rounded-xl p-5" style={{ borderLeft: `3px solid ${t.color}` }}>
               {isEditing ? (
-                <div className="flex items-center gap-3 flex-wrap">
-                  <input value={(editForm.ticketType as string) || ""} onChange={e => setEditForm(f => ({ ...f, ticketType: e.target.value }))} className="cyber-input text-sm rounded px-3 py-1.5 w-36" placeholder="Type" />
-                  <div className="flex items-center gap-1">
-                    <label className="text-xs text-gray-500">Capacité max</label>
-                    <input type="number" value={(editForm.maxCapacity as number) || 0} onChange={e => setEditForm(f => ({ ...f, maxCapacity: parseInt(e.target.value) }))} className="cyber-input text-sm rounded px-3 py-1.5 w-24" />
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Nom FR</label>
+                      <input value={editForm.nameFr || ""} onChange={e => setEditForm(f => ({ ...f, nameFr: e.target.value }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Nom EN</label>
+                      <input value={editForm.nameEn || ""} onChange={e => setEditForm(f => ({ ...f, nameEn: e.target.value }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Prix (XAF)</label>
+                      <input type="number" value={editForm.priceFr ?? 0} onChange={e => setEditForm(f => ({ ...f, priceFr: parseInt(e.target.value) }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Prix (USD)</label>
+                      <input type="number" value={editForm.priceEn ?? 0} onChange={e => setEditForm(f => ({ ...f, priceEn: parseInt(e.target.value) }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <label className="text-xs text-gray-500">Alerte %</label>
-                    <input type="number" value={(editForm.alertPercent as number) || 80} onChange={e => setEditForm(f => ({ ...f, alertPercent: parseInt(e.target.value) }))} className="cyber-input text-sm rounded px-3 py-1.5 w-20" />
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Early Bird XAF</label>
+                      <input type="number" value={editForm.earlyBirdPriceFr ?? ""} onChange={e => setEditForm(f => ({ ...f, earlyBirdPriceFr: e.target.value ? parseInt(e.target.value) : null }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" placeholder="0 = aucun" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Early Bird USD</label>
+                      <input type="number" value={editForm.earlyBirdPriceEn ?? ""} onChange={e => setEditForm(f => ({ ...f, earlyBirdPriceEn: e.target.value ? parseInt(e.target.value) : null }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" placeholder="0 = aucun" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Early Bird jusqu&apos;au</label>
+                      <input type="date" value={editForm.earlyBirdUntil ? editForm.earlyBirdUntil.slice(0, 10) : ""} onChange={e => setEditForm(f => ({ ...f, earlyBirdUntil: e.target.value || null }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Capacité max</label>
+                      <input type="number" value={editForm.maxCapacity ?? 200} onChange={e => setEditForm(f => ({ ...f, maxCapacity: parseInt(e.target.value) }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
+                    </div>
                   </div>
-                  <button onClick={() => save(t.id as number)} className="btn-neon px-3 py-1.5 rounded text-xs">Enregistrer</button>
-                  <button onClick={() => setEditId(null)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs text-gray-500">Avantages FR</label>
+                        <button onClick={() => addPerk("fr")} className="text-xs text-neon-green">+ Ajouter</button>
+                      </div>
+                      {(editForm.perksFrArr || []).map((p, i) => (
+                        <div key={i} className="flex gap-1 mb-1">
+                          <input value={p} onChange={e => updatePerk("fr", i, e.target.value)} className="cyber-input text-xs rounded px-2 py-1 flex-1" />
+                          <button onClick={() => removePerk("fr", i)} className="text-red-600 text-xs px-1">×</button>
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs text-gray-500">Avantages EN</label>
+                        <button onClick={() => addPerk("en")} className="text-xs text-neon-green">+ Add</button>
+                      </div>
+                      {(editForm.perksEnArr || []).map((p, i) => (
+                        <div key={i} className="flex gap-1 mb-1">
+                          <input value={p} onChange={e => updatePerk("en", i, e.target.value)} className="cyber-input text-xs rounded px-2 py-1 flex-1" />
+                          <button onClick={() => removePerk("en", i)} className="text-red-600 text-xs px-1">×</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-500">Couleur</label>
+                      <input type="color" value={editForm.color || "#00ff9d"} onChange={e => setEditForm(f => ({ ...f, color: e.target.value }))} style={{ width: "32px", height: "24px", border: "none", borderRadius: "4px", cursor: "pointer" }} />
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                      <input type="checkbox" checked={!!editForm.isFeatured} onChange={e => setEditForm(f => ({ ...f, isFeatured: e.target.checked }))} />
+                      Recommandé
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                      <input type="checkbox" checked={!!editForm.isVisible} onChange={e => setEditForm(f => ({ ...f, isVisible: e.target.checked }))} />
+                      Visible sur le portail
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-500">Ordre</label>
+                      <input type="number" value={editForm.sortOrder ?? 0} onChange={e => setEditForm(f => ({ ...f, sortOrder: parseInt(e.target.value) }))} className="cyber-input text-xs rounded px-2 py-1 w-16" />
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => save(t.id)} className="btn-neon px-4 py-2 rounded text-xs">Enregistrer</button>
+                    <button onClick={() => setEditId(null)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
+                  </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-white font-bold capitalize">{t.ticketType as string}</span>
-                      {alert && <span className="text-xs px-2 py-0.5 rounded" style={{ background: "#ff006620", color: "#ff0066" }}>⚠ Alerte capacité</span>}
-                    </div>
+                <div>
+                  <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, background: alert ? "#ff0066" : "#00ff9d" }} />
+                      <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: t.color, flexShrink: 0 }} />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-bold">{t.nameFr} / {t.nameEn}</span>
+                          {t.isFeatured && <span className="text-xs px-2 py-0.5 rounded" style={{ background: t.color + "20", color: t.color }}>★ Recommandé</span>}
+                          {!t.isVisible && <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-500">Masqué</span>}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-0.5 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                          <span style={{ color: t.color }}>{t.priceFr.toLocaleString("fr-FR")} XAF</span>
+                          <span className="text-gray-600 mx-2">/</span>
+                          <span style={{ color: t.color }}>${t.priceEn} USD</span>
+                          {t.earlyBirdPriceFr && <span className="text-yellow-400 ml-2">⚡ Early Bird: {t.earlyBirdPriceFr.toLocaleString()} XAF</span>}
+                        </div>
                       </div>
-                      <span className="text-xs font-mono shrink-0" style={{ color: alert ? "#ff0066" : "#00ff9d", fontFamily: "'Share Tech Mono', monospace" }}>{sold} / {max}</span>
-                      <span className="text-xs text-gray-600">{pct}%</span>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button onClick={() => toggleVisible(t)} className="text-xs text-gray-500 hover:text-white transition-colors">{t.isVisible ? "Masquer" : "Afficher"}</button>
+                      <button onClick={() => startEdit(t)} className="text-xs text-gray-500 hover:text-white transition-colors">Modifier</button>
+                      <button onClick={() => del(t.id)} className="text-xs text-red-800 hover:text-red-400 transition-colors">Supprimer</button>
                     </div>
                   </div>
-                  <div className="flex gap-2 shrink-0">
-                    <button onClick={() => { setEditId(t.id as number); setEditForm({ ticketType: t.ticketType, maxCapacity: t.maxCapacity, alertPercent: t.alertPercent }); }} className="text-xs text-gray-500 hover:text-white transition-colors">Modifier</button>
-                    <button onClick={() => del(t.id as number)} className="text-xs text-red-800 hover:text-red-400 transition-colors">Supprimer</button>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, background: pct > 90 ? "#ff4444" : t.color }} />
+                    </div>
+                    <span className="text-xs font-mono shrink-0" style={{ color: t.color, fontFamily: "'Share Tech Mono', monospace" }}>{sold} / {max} vendus</span>
+                  </div>
+                  <div className="flex gap-1 flex-wrap">
+                    {(() => { try { return JSON.parse(t.perksFr) as string[]; } catch { return []; } })().map((p: string) => (
+                      <span key={p} className="text-xs px-2 py-0.5 rounded" style={{ background: t.color + "15", color: t.color + "cc" }}>✓ {p}</span>
+                    ))}
                   </div>
                 </div>
               )}
@@ -1848,7 +1971,7 @@ function TicketsPanel() {
           );
         })}
         {!tickets.length && !loading && (
-          <p className="text-gray-600 text-xs py-8 text-center">Aucun type de billet configuré. Cliquez sur &ldquo;Initialiser&rdquo; pour ajouter les types standard.</p>
+          <p className="text-gray-600 text-xs py-8 text-center">Les types de billets sont auto-seedés au démarrage (Student, Standard, VIP).</p>
         )}
       </div>
     </div>

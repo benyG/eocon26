@@ -249,6 +249,29 @@ model TicketCapacity {
   @@map("ticket_capacities")
 }
 
+model TicketType {
+  id              Int      @id @default(autoincrement())
+  slug            String   @unique // "standard", "student", "vip"
+  nameFr          String
+  nameEn          String
+  priceFr         Int      @default(0) // price in XAF
+  priceEn         Int      @default(0) // price in USD
+  perksFr         String   @db.Text  // JSON string[]
+  perksEn         String   @db.Text  // JSON string[]
+  earlyBirdPriceFr Int?
+  earlyBirdPriceEn Int?
+  earlyBirdUntil  DateTime?
+  color           String   @default("#00ff9d")
+  isFeatured      Boolean  @default(false)
+  isVisible       Boolean  @default(true)
+  maxCapacity     Int      @default(200)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("ticket_types")
+}
+
 model EmailTemplate {
   id          Int       @id @default(autoincrement())
   name        String

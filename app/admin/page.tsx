@@ -1,8 +1,9 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { ADMIN_PROFILES } from "@/lib/adminProfiles";
 
-type Tab = "dashboard" | "speakers" | "sponsors" | "sessions" | "workshops" | "cfp" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "onboarding" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "analytics" | "certificates" | "export" | "prospection";
+type Tab = "dashboard" | "speakers" | "sponsors" | "sessions" | "workshops" | "cfp" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "onboarding" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -93,28 +94,40 @@ function PhotoUploadField({
 }
 
 function AdminUsersPanel() {
-  const SECTIONS = ["cfp", "speakers", "sponsors", "sessions", "volunteers", "registrations", "newsletter", "team"];
   const [users, setUsers] = useState<Record<string, unknown>[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<Record<string, unknown>>({ permissions: {} });
+  const [form, setForm] = useState<Record<string, unknown>>({ profileId: "coordinateur_cfp" });
+  const [created, setCreated] = useState<{ name: string; email: string; tempPassword: string } | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/admin/users").then(r => r.json()).then(setUsers);
+  const loadUsers = useCallback(async () => {
+    const res = await fetch("/api/admin/users");
+    if (res.ok) setUsers(await res.json());
   }, []);
 
-  const save = async () => {
-    await fetch("/api/admin/users", {
+  useEffect(() => { loadUsers(); }, [loadUsers]);
+
+  const selectedProfile = ADMIN_PROFILES.find(p => p.id === (form.profileId as string));
+
+  const saveUser = async () => {
+    if (!form.name || !form.email) return;
+    setLoading(true);
+    const res = await fetch("/api/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
-    const res = await fetch("/api/admin/users");
-    setUsers(await res.json());
-    setShowForm(false);
-    setForm({ permissions: {} });
+    if (res.ok) {
+      const d = await res.json() as { name: string; email: string; tempPassword: string };
+      setCreated({ name: d.name, email: d.email, tempPassword: d.tempPassword });
+      setShowForm(false);
+      setForm({ profileId: "coordinateur_cfp" });
+      await loadUsers();
+    }
+    setLoading(false);
   };
 
-  const toggle = async (id: number, isActive: boolean) => {
+  const toggleActive = async (id: number, isActive: boolean) => {
     await fetch(`/api/admin/users/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -125,76 +138,130 @@ function AdminUsersPanel() {
 
   return (
     <div>
-      <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-sm mb-4">+ Nouvel utilisateur</button>
-      {showForm && (
-        <div className="cyber-card rounded-xl p-5 mb-6 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Nom</label>
-              <input className="cyber-input w-full text-sm rounded px-3 py-2" value={(form.name as string) || ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black text-white">Utilisateurs Admin</h1>
+          <p className="text-gray-500 text-xs mt-1">Les utilisateurs reçoivent leurs identifiants par email à la création.</p>
+        </div>
+        <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-sm">+ Nouvel utilisateur</button>
+      </div>
+
+      {created && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="cyber-card rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-white font-bold mb-4">✅ Utilisateur créé</h3>
+            <p className="text-gray-400 text-sm mb-4">Un email a été envoyé à <strong className="text-white">{created.email}</strong> avec les identifiants.</p>
+            <div className="bg-black/50 border border-neon-green/30 rounded-lg p-4 mb-4">
+              <p className="text-xs text-gray-500 mb-1">Mot de passe temporaire</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xl font-black font-mono" style={{ color: "#00ff9d", fontFamily: "'Share Tech Mono', monospace" }}>{created.tempPassword}</span>
+                <button onClick={() => navigator.clipboard.writeText(created.tempPassword)} className="text-xs text-gray-500 hover:text-white transition-colors px-2">Copier</button>
+              </div>
             </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Email</label>
-              <input type="email" className="cyber-input w-full text-sm rounded px-3 py-2" value={(form.email as string) || ""} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Mot de passe</label>
-            <input type="password" className="cyber-input w-full text-sm rounded px-3 py-2" value={(form.password as string) || ""} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-2">Permissions (read / write / none)</label>
-            <div className="grid grid-cols-4 gap-2">
-              {SECTIONS.map(s => (
-                <div key={s}>
-                  <p className="text-xs text-gray-400 mb-1 capitalize">{s}</p>
-                  <select className="cyber-input w-full text-xs rounded px-2 py-1"
-                    value={((form.permissions as Record<string, string>)[s]) || "none"}
-                    onChange={e => setForm(f => ({ ...f, permissions: { ...(f.permissions as Record<string, string>), [s]: e.target.value } }))}>
-                    <option value="none">Aucun</option>
-                    <option value="read">Lecture</option>
-                    <option value="write">Écriture</option>
-                  </select>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={save} className="btn-neon px-4 py-2 rounded text-sm">Créer</button>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white">Annuler</button>
+            <button onClick={() => setCreated(null)} className="btn-neon w-full py-2 rounded text-sm">Fermer</button>
           </div>
         </div>
       )}
-      <div className="space-y-2">
-        {users.map(u => {
-          const perms = JSON.parse((u.permissions as string) || "{}") as Record<string, string>;
-          return (
-            <div key={u.id as number} className="cyber-card rounded-xl p-4 flex items-center justify-between gap-4">
-              <div>
-                <p className="text-white text-sm font-bold">{u.name as string}</p>
-                <p className="text-gray-500 text-xs">{u.email as string}</p>
-                <div className="flex gap-1 mt-1 flex-wrap">
-                  {Object.entries(perms).filter(([, v]) => v !== "none").map(([k, v]) => (
-                    <span key={k} className="text-xs px-1.5 py-0.5 rounded" style={{ background: v === "write" ? "#00ff9d20" : "#0066ff20", color: v === "write" ? "#00ff9d" : "#0066ff" }}>
-                      {k}:{v}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <span className={`text-xs px-2 py-0.5 rounded ${u.isActive ? "text-neon-green bg-neon-green/10" : "text-gray-600 bg-gray-800"}`}>
-                  {u.isActive ? "Actif" : "Inactif"}
-                </span>
+
+      {showForm && (
+        <div className="cyber-card rounded-xl p-6 mb-6">
+          <h3 className="text-white font-bold mb-4 text-sm">Nouveau compte administrateur</h3>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Nom complet</label>
+              <input className="cyber-input w-full text-sm rounded px-3 py-2" placeholder="Jean Mbarga" value={(form.name as string) || ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Email</label>
+              <input type="email" className="cyber-input w-full text-sm rounded px-3 py-2" placeholder="jean@eyesopensecurity.com" value={(form.email as string) || ""} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            </div>
+          </div>
+          <div className="mb-4">
+            <label className="text-xs text-gray-500 block mb-2">Profil de rôle</label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {ADMIN_PROFILES.map(profile => (
                 <button
-                  onClick={() => toggle(u.id as number, !(u.isActive as boolean))}
-                  className="text-xs text-gray-500 hover:text-white transition-colors"
+                  key={profile.id}
+                  onClick={() => setForm(f => ({ ...f, profileId: profile.id }))}
+                  className={`p-3 rounded-lg border text-left transition-all ${form.profileId === profile.id ? "border-opacity-60" : "border-gray-800 hover:border-gray-600"}`}
+                  style={form.profileId === profile.id ? { borderColor: profile.color, background: profile.color + "15" } : {}}
                 >
-                  {u.isActive ? "Désactiver" : "Activer"}
+                  <p className="text-xs font-bold" style={{ color: form.profileId === profile.id ? profile.color : "#888" }}>{profile.name}</p>
+                  <p className="text-gray-600 text-xs mt-0.5">{profile.description}</p>
                 </button>
+              ))}
+            </div>
+          </div>
+          {selectedProfile && (
+            <div className="mb-4 p-3 rounded-lg border border-gray-800">
+              <p className="text-xs text-gray-500 mb-2">Accès inclus</p>
+              <div className="flex flex-wrap gap-1">
+                {Object.entries(selectedProfile.permissions).map(([k, v]) => (
+                  <span key={k} className="text-xs px-2 py-0.5 rounded" style={{ background: v === "write" ? "#00ff9d15" : "#0066ff15", color: v === "write" ? "#00ff9d" : "#0066ff" }}>
+                    {k}: {v}
+                  </span>
+                ))}
               </div>
             </div>
-          );
-        })}
+          )}
+          <div className="flex gap-2">
+            <button onClick={saveUser} disabled={loading || !form.name || !form.email} className="btn-neon px-4 py-2 rounded text-sm">
+              {loading ? "Création..." : "Créer et envoyer les identifiants"}
+            </button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white transition-colors">Annuler</button>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-6">
+        <h3 className="text-xs text-gray-500 uppercase tracking-widest mb-3">Profils disponibles</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {ADMIN_PROFILES.map(profile => (
+            <div key={profile.id} className="cyber-card rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-2 h-2 rounded-full" style={{ background: profile.color }} />
+                <span className="text-white text-xs font-bold">{profile.name}</span>
+              </div>
+              <p className="text-gray-600 text-xs">{profile.description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-xs text-gray-500 uppercase tracking-widest mb-3">Comptes existants ({users.length})</h3>
+        <div className="space-y-2">
+          {users.map(u => {
+            const profile = ADMIN_PROFILES.find(p => p.id === (u.profileId as string));
+            return (
+              <div key={u.id as number} className="cyber-card rounded-xl p-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: (profile?.color || "#888") + "20", color: profile?.color || "#888" }}>
+                    {(u.name as string).slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-white text-sm font-bold">{u.name as string}</p>
+                    <p className="text-gray-500 text-xs">{u.email as string}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  {profile && (
+                    <span className="text-xs px-2 py-0.5 rounded" style={{ background: profile.color + "20", color: profile.color }}>
+                      {profile.name}
+                    </span>
+                  )}
+                  <span className={`text-xs px-2 py-0.5 rounded ${u.isActive ? "bg-neon-green/10 text-neon-green" : "bg-gray-800 text-gray-600"}`}>
+                    {u.isActive ? "Actif" : "Inactif"}
+                  </span>
+                  <button onClick={() => toggleActive(u.id as number, !(u.isActive as boolean))} className="text-xs text-gray-600 hover:text-white transition-colors">
+                    {u.isActive ? "Désactiver" : "Activer"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          {!users.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun utilisateur créé</p>}
+        </div>
       </div>
     </div>
   );
@@ -217,38 +284,49 @@ function AiScoreBadge({ score, analysis }: { score: number | null; analysis: str
   );
 }
 
-function ProspectionPanel({ leads }: { leads: Record<string, unknown>[] }) {
-  const [loading, setLoading] = useState(false);
-  const [query, setQuery] = useState("");
-  const [apolloKeywords, setApolloKeywords] = useState("cybersecurity,technology,finance");
-  const [genEmail, setGenEmail] = useState<{ fr: string; en: string; subjectFr: string; subjectEn: string } | null>(null);
+function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>[]; onRefresh: () => void }) {
+  const [searchTab, setSearchTab] = useState<"apollo" | "places">("apollo");
+  const [apolloKeywords, setApolloKeywords] = useState("cybersecurity,technology,telecom,finance");
+  const [placesQuery, setPlacesQuery] = useState("");
+  const [searching, setSearching] = useState(false);
   const [emailTarget, setEmailTarget] = useState<Record<string, unknown> | null>(null);
+  const [emailResult, setEmailResult] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
+  const [generatingEmail, setGeneratingEmail] = useState(false);
+  const [packages, setPackages] = useState<Record<string, unknown>[]>([]);
+  const [filter, setFilter] = useState<"all" | "pending" | "added">("all");
 
-  const searchApollo = async () => {
-    setLoading(true);
+  useEffect(() => {
+    fetch("/api/admin/sponsor-packages").then(r => r.json()).then(setPackages).catch(() => {});
+  }, []);
+
+  const runApolloSearch = async () => {
+    setSearching(true);
     await fetch("/api/admin/ai/apollo-search", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ keywords: apolloKeywords.split(",").map(k => k.trim()) }),
+      body: JSON.stringify({ keywords: apolloKeywords.split(",").map(k => k.trim()).filter(Boolean) }),
     });
-    setLoading(false);
-    window.location.reload();
+    await onRefresh();
+    setSearching(false);
   };
 
-  const searchPlaces = async () => {
-    if (!query.trim()) return;
-    setLoading(true);
+  const runPlacesSearch = async () => {
+    if (!placesQuery.trim()) return;
+    setSearching(true);
     await fetch("/api/admin/ai/places-search", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query: placesQuery }),
     });
-    setLoading(false);
-    window.location.reload();
+    await onRefresh();
+    setSearching(false);
   };
 
   const generateEmail = async (lead: Record<string, unknown>) => {
     setEmailTarget(lead);
+    setEmailResult(null);
+    setGeneratingEmail(true);
+    const pkg = packages.find(p => p.tier === lead.recommendedPackage);
     const res = await fetch("/api/admin/ai/sponsor-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -257,165 +335,414 @@ function ProspectionPanel({ leads }: { leads: Record<string, unknown>[] }) {
         contact: lead.contactName,
         contactTitle: lead.contactTitle,
         package: lead.recommendedPackage,
+        packagePrice: pkg ? `${(pkg.price as number).toLocaleString("fr-FR")} FCFA` : undefined,
         sector: lead.sector,
         mode: "prospect",
       }),
     });
-    if (res.ok) {
-      const d = await res.json() as { subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string };
-      setGenEmail({ fr: d.bodyFr, en: d.bodyEn, subjectFr: d.subjectFr, subjectEn: d.subjectEn });
-    }
+    if (res.ok) setEmailResult(await res.json());
+    setGeneratingEmail(false);
   };
 
-  const addToPipeline = async (id: number) => {
+  const addToPipeline = async (lead: Record<string, unknown>) => {
     await fetch("/api/admin/ai/prospect-leads", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, addedToPipeline: true }),
+      body: JSON.stringify({ id: lead.id, addedToPipeline: true }),
     });
-    window.location.reload();
+    onRefresh();
   };
 
-  const scoreColor = (s: number | null) => s === null ? "#888" : s >= 7 ? "#00ff9d" : s >= 5 ? "#ffaa00" : "#ff0066";
+  const scoreColor = (s: number | null | undefined) => {
+    if (s === null || s === undefined) return "#555";
+    return s >= 7 ? "#00ff9d" : s >= 5 ? "#ffaa00" : "#ff0066";
+  };
+
+  const seen = new Set<string>();
+  const deduped = leads.filter(l => {
+    const key = (l.org as string).toLowerCase().trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const filtered = deduped.filter(l => {
+    if (filter === "pending") return !l.addedToPipeline;
+    if (filter === "added") return !!l.addedToPipeline;
+    return true;
+  });
+
+  const pending = deduped.filter(l => !l.addedToPipeline).length;
+  const added = deduped.filter(l => !!l.addedToPipeline).length;
 
   return (
     <div>
-      <h1 className="text-2xl font-black text-white mb-2">Prospection IA</h1>
-      <p className="text-gray-500 text-xs mb-6">Identification automatique de sponsors potentiels via Apollo.io + Google Places</p>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div className="cyber-card rounded-xl p-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#00ff9d" }}>Apollo.io — Grandes entreprises</h3>
-          <label className="text-xs text-gray-500 block mb-1">Mots-clés secteurs</label>
-          <input
-            value={apolloKeywords}
-            onChange={e => setApolloKeywords(e.target.value)}
-            className="cyber-input w-full text-xs rounded px-3 py-2 mb-3"
-            placeholder="cybersecurity,technology,finance"
-          />
-          <button onClick={searchApollo} disabled={loading} className="btn-neon px-4 py-2 rounded text-xs w-full">
-            {loading ? "Recherche..." : "🔍 Rechercher via Apollo"}
-          </button>
-        </div>
-        <div className="cyber-card rounded-xl p-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#0066ff" }}>Google Places — PME locales</h3>
-          <label className="text-xs text-gray-500 block mb-1">Recherche (ex: entreprise tech Douala)</label>
-          <input
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            className="cyber-input w-full text-xs rounded px-3 py-2 mb-3"
-            placeholder="banque Douala, tech Cameroun..."
-          />
-          <button onClick={searchPlaces} disabled={loading} className="btn-neon px-4 py-2 rounded text-xs w-full">
-            {loading ? "Recherche..." : "🔍 Rechercher via Google Places"}
-          </button>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-black text-white">Prospection Sponsors IA</h1>
+        <p className="text-gray-500 text-xs mt-1">Workflow : Recherche → Leads → Scoring IA → Email personnalisé → Pipeline</p>
       </div>
 
-      {genEmail && emailTarget && (
+      {emailTarget && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="flex justify-between mb-4">
-              <h3 className="text-white font-bold">Email généré — {emailTarget.org as string}</h3>
-              <button onClick={() => setGenEmail(null)} className="text-gray-500 hover:text-white">✕</button>
+          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-white font-bold">{emailTarget.org as string}</h3>
+                <p className="text-gray-500 text-xs">{emailTarget.sector as string} · Package recommandé : <span style={{ color: "#00ff9d" }}>{(emailTarget.recommendedPackage as string) || "—"}</span></p>
+              </div>
+              <button onClick={() => { setEmailTarget(null); setEmailResult(null); }} className="text-gray-500 hover:text-white text-xl">✕</button>
             </div>
-            <div className="space-y-4">
-              {[
-                { lang: "FR", subject: genEmail.subjectFr, body: genEmail.fr },
-                { lang: "EN", subject: genEmail.subjectEn, body: genEmail.en },
-              ].map(e => (
-                <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-bold text-gray-400">{e.lang}</span>
-                    <button onClick={() => navigator.clipboard.writeText(`${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>Copier</button>
+            {generatingEmail && <p className="text-gray-500 text-xs text-center py-8">Génération de l&apos;email personnalisé...</p>}
+            {emailResult && (
+              <div className="space-y-4">
+                {[
+                  { lang: "Français", subject: emailResult.subjectFr, body: emailResult.bodyFr },
+                  { lang: "English", subject: emailResult.subjectEn, body: emailResult.bodyEn },
+                ].map(e => (
+                  <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold text-gray-400 uppercase">{e.lang}</span>
+                      <button onClick={() => navigator.clipboard.writeText(`Objet : ${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>Copier</button>
+                    </div>
+                    <p className="text-white text-xs font-bold mb-2">Objet : {e.subject}</p>
+                    <p className="text-gray-400 text-xs whitespace-pre-wrap leading-relaxed">{e.body}</p>
                   </div>
-                  <p className="text-white text-xs font-bold mb-2">Objet: {e.subject}</p>
-                  <p className="text-gray-400 text-xs whitespace-pre-wrap">{e.body}</p>
-                </div>
-              ))}
-            </div>
+                ))}
+                <button
+                  onClick={() => addToPipeline(emailTarget)}
+                  className="w-full py-2 rounded text-sm font-bold transition-all"
+                  style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}
+                >
+                  + Ajouter au pipeline sponsors
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      <div className="space-y-3">
-        {leads.map(lead => (
-          <div key={lead.id as number} className={`cyber-card rounded-xl p-5 ${lead.addedToPipeline ? "opacity-50" : ""}`}>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.source === "apollo" ? "#0066ff20" : "#cc00ff20", color: lead.source === "apollo" ? "#0066ff" : "#cc00ff", fontFamily: "'Share Tech Mono', monospace" }}>
-                    {lead.source as string}
-                  </span>
-                  {lead.aiScore !== null && lead.aiScore !== undefined && (
-                    <span className="text-xs px-2 py-0.5 rounded font-mono font-bold" style={{ background: scoreColor(lead.aiScore as number) + "20", color: scoreColor(lead.aiScore as number), fontFamily: "'Share Tech Mono', monospace" }}>
-                      {(lead.aiScore as number).toFixed(1)}/10
+      <div className="cyber-card rounded-xl p-5 mb-5">
+        <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#00ff9d" }}>
+          Étape 1 — Recherche de prospects
+        </h2>
+        <div className="flex gap-2 mb-4">
+          {(["apollo", "places"] as const).map(t => (
+            <button key={t} onClick={() => setSearchTab(t)} className={`text-xs px-4 py-2 rounded transition-all ${searchTab === t ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 border border-gray-800"}`}>
+              {t === "apollo" ? "🌍 Apollo.io — Grandes entreprises" : "📍 Google Places — PME locales"}
+            </button>
+          ))}
+        </div>
+        {searchTab === "apollo" ? (
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="text-xs text-gray-500 block mb-1">Secteurs / mots-clés (séparés par virgules)</label>
+              <input value={apolloKeywords} onChange={e => setApolloKeywords(e.target.value)} className="cyber-input w-full text-xs rounded px-3 py-2" placeholder="cybersecurity,technology,telecom,finance,banking" />
+            </div>
+            <button onClick={runApolloSearch} disabled={searching} className="btn-neon px-5 py-2 rounded text-xs self-end shrink-0">
+              {searching ? "Recherche..." : "🔍 Lancer"}
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="text-xs text-gray-500 block mb-1">Recherche (ex: entreprise tech Douala, banque Cameroun)</label>
+              <input value={placesQuery} onChange={e => setPlacesQuery(e.target.value)} className="cyber-input w-full text-xs rounded px-3 py-2" placeholder="banque Douala, opérateur télécom Cameroun..." onKeyDown={e => e.key === "Enter" && runPlacesSearch()} />
+            </div>
+            <button onClick={runPlacesSearch} disabled={searching || !placesQuery.trim()} className="btn-neon px-5 py-2 rounded text-xs self-end shrink-0">
+              {searching ? "Recherche..." : "🔍 Lancer"}
+            </button>
+          </div>
+        )}
+        <p className="text-gray-700 text-xs mt-2">
+          Apollo.io couvre les entreprises de +50 employés en Afrique · Google Places couvre les PME locales de Douala
+        </p>
+      </div>
+
+      <div className="cyber-card rounded-xl p-5 mb-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xs font-bold uppercase tracking-widest" style={{ color: "#0066ff" }}>
+            Étapes 2 &amp; 3 — Leads ({deduped.length}) · Scoring IA
+          </h2>
+          <div className="flex gap-2">
+            {(["all", "pending", "added"] as const).map(f => (
+              <button key={f} onClick={() => setFilter(f)} className={`text-xs px-3 py-1 rounded transition-all ${filter === f ? "bg-white/10 text-white" : "text-gray-600 hover:text-gray-400"}`}>
+                {f === "all" ? `Tous (${deduped.length})` : f === "pending" ? `À traiter (${pending})` : `En pipeline (${added})`}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {filtered.length === 0 && (
+          <p className="text-gray-600 text-xs py-8 text-center">
+            {deduped.length === 0 ? "Aucun prospect. Lancez une recherche ci-dessus." : "Aucun prospect dans ce filtre."}
+          </p>
+        )}
+
+        <div className="space-y-3">
+          {filtered.sort((a, b) => ((b.aiScore as number) || 0) - ((a.aiScore as number) || 0)).map(lead => (
+            <div key={lead.id as number} className={`border rounded-xl p-4 transition-all ${lead.addedToPipeline ? "border-gray-800 opacity-60" : "border-gray-700 hover:border-gray-500"}`}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: lead.source === "apollo" ? "#0066ff15" : "#cc00ff15", color: lead.source === "apollo" ? "#0066ff" : "#cc00ff" }}>
+                      {lead.source as string}
                     </span>
+                    {lead.aiScore !== null && lead.aiScore !== undefined && (
+                      <span className="text-xs px-2 py-0.5 rounded font-mono font-bold" style={{ background: scoreColor(lead.aiScore as number) + "20", color: scoreColor(lead.aiScore as number) }}>
+                        Score {(lead.aiScore as number).toFixed(1)}/10
+                      </span>
+                    )}
+                    {!!(lead.recommendedPackage as string) && (
+                      <span className="text-xs px-2 py-0.5 rounded border" style={{ borderColor: "#ffaa0040", color: "#ffaa00" }}>
+                        {lead.recommendedPackage as string}
+                      </span>
+                    )}
+                    {!!lead.addedToPipeline && <span className="text-xs text-neon-green">✓ En pipeline</span>}
+                  </div>
+                  <p className="text-white font-bold text-sm">{lead.org as string}</p>
+                  {(!!lead.sector || !!lead.city) && (
+                    <p className="text-gray-500 text-xs mt-0.5">{lead.sector as string}{lead.city ? ` · ${lead.city}` : ""}</p>
                   )}
-                  {!!lead.recommendedPackage && (
-                    <span className="text-xs text-gray-500">{lead.recommendedPackage as string}</span>
+                  {!!lead.contactName && (
+                    <p className="text-xs mt-1" style={{ color: "#00ff9d" }}>
+                      👤 {lead.contactName as string}{lead.contactTitle ? ` — ${lead.contactTitle}` : ""}
+                    </p>
+                  )}
+                  {!!lead.contactEmail && (
+                    <p className="text-gray-400 text-xs">✉ {lead.contactEmail as string}</p>
+                  )}
+                  {!!lead.website && (
+                    <a href={lead.website as string} target="_blank" rel="noreferrer" className="text-xs hover:underline block mt-0.5" style={{ color: "#0066ff" }}>
+                      🌐 {lead.website as string}
+                    </a>
+                  )}
+                  {!lead.contactEmail && lead.source === "google_places" && (
+                    <p className="text-gray-700 text-xs mt-0.5 italic">Email non disponible via Google Places — consulter le site web</p>
+                  )}
+                  {!!lead.aiScoreReason && (
+                    <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>
                   )}
                 </div>
-                <p className="text-white font-bold">{lead.org as string}</p>
-                {!!lead.sector && <p className="text-gray-500 text-xs">{lead.sector as string}{lead.city ? ` · ${lead.city}` : ""}</p>}
-                {!!lead.contactName && <p className="text-xs mt-1" style={{ color: "#00ff9d" }}>👤 {lead.contactName as string}{lead.contactTitle ? ` — ${lead.contactTitle}` : ""}</p>}
-                {!!lead.contactEmail && <p className="text-gray-400 text-xs">{lead.contactEmail as string}</p>}
-                {!!lead.aiScoreReason && <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>}
-              </div>
-              <div className="flex flex-col gap-2 shrink-0">
-                {!lead.addedToPipeline ? (
-                  <>
-                    <button onClick={() => generateEmail(lead)} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}>
-                      ✉ Email IA
+                {!lead.addedToPipeline && (
+                  <div className="flex flex-col gap-2 shrink-0">
+                    <button
+                      onClick={() => generateEmail(lead)}
+                      className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
+                      style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}
+                    >
+                      ✉ Générer email
                     </button>
-                    <button onClick={() => addToPipeline(lead.id as number)} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}>
+                    <button
+                      onClick={() => addToPipeline(lead)}
+                      className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
+                      style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}
+                    >
                       + Pipeline
                     </button>
-                  </>
-                ) : (
-                  <span className="text-xs text-gray-600">✓ En pipeline</span>
+                  </div>
                 )}
               </div>
             </div>
-          </div>
-        ))}
-        {!leads.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun prospect trouvé. Lancez une recherche.</p>}
+          ))}
+        </div>
       </div>
+
+      {packages.length > 0 && (
+        <div className="cyber-card rounded-xl p-5">
+          <h2 className="text-xs font-bold uppercase tracking-widest mb-4 text-gray-500">Packages de sponsoring disponibles</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {packages.map(pkg => {
+              const perks = JSON.parse((pkg.perksFr as string) || "[]") as string[];
+              return (
+                <div key={pkg.id as number} className="border border-gray-800 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold" style={{ color: (pkg.highlightColor as string) || "#888" }}>{pkg.tier as string}</span>
+                    <span className="text-xs font-mono text-white">{(pkg.price as number) > 0 ? `${(pkg.price as number).toLocaleString("fr-FR")} FCFA` : "Échange"}</span>
+                  </div>
+                  <p className="text-gray-500 text-xs mb-2">{pkg.nameFr as string}</p>
+                  <ul className="space-y-0.5">
+                    {perks.slice(0, 3).map((p, i) => (
+                      <li key={i} className="text-gray-600 text-xs flex gap-1"><span style={{ color: (pkg.highlightColor as string) || "#888" }}>·</span>{p}</li>
+                    ))}
+                    {perks.length > 3 && <li className="text-gray-700 text-xs">+{perks.length - 3} avantages...</li>}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
+
 // ---- Communication Panel ----
-function CommunicationPanel({ templates, onRefresh }: { templates: Record<string, unknown>[]; onRefresh: () => void }) {
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<Record<string, unknown>>({ segment: "all" });
-  const [editing, setEditing] = useState<number | null>(null);
-  const [sending, setSending] = useState<number | null>(null);
-  const [sendResult, setSendResult] = useState<string | null>(null);
-  const [socialBrief, setSocialBrief] = useState("");
-  const [generatingSocial, setGeneratingSocial] = useState(false);
-  const [socialPosts, setSocialPosts] = useState<Record<string, string> | null>(null);
+
+function CommunicationPanel() {
+  const today = new Date();
+  const [currentMonth, setCurrentMonth] = useState(today.getMonth());
+  const [currentYear, setCurrentYear] = useState(today.getFullYear());
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [brief, setBrief] = useState("");
+  const [platforms, setPlatforms] = useState({ linkedin: true, twitter: false, instagram: false });
+  const [lang, setLang] = useState<"fr" | "en" | "both">("both");
+  const [generating, setGenerating] = useState(false);
+  const [generatedPosts, setGeneratedPosts] = useState<Record<string, string> | null>(null);
+  const [saving, setSaving] = useState(false);
   const [linkedinPosts, setLinkedinPosts] = useState<Record<string, unknown>[]>([]);
   const [publishing, setPublishing] = useState<number | null>(null);
   const [scheduleId, setScheduleId] = useState<number | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
+  // Email templates
+  const [templates, setTemplates] = useState<Record<string, unknown>[]>([]);
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [templateForm, setTemplateForm] = useState<Record<string, unknown>>({});
+  const [sending, setSending] = useState<number | null>(null);
+  // Dynamic context
+  const [contextType, setContextType] = useState<"speaker" | "session" | "workshop" | "sponsor" | "countdown" | "cfp" | "inscriptions" | "ctf" | "custom">("speaker");
+  const [contextData, setContextData] = useState<{
+    speakers: Record<string, unknown>[];
+    sessions: Record<string, unknown>[];
+    workshops: Record<string, unknown>[];
+    sponsors: Record<string, unknown>[];
+    registrationCount: number;
+    daysUntil: number;
+  } | null>(null);
+  const [selectedItem, setSelectedItem] = useState<Record<string, unknown> | null>(null);
+
+  const generateBriefFromContext = (type: string, item: Record<string, unknown> | null, data: typeof contextData): string => {
+    if (!data) return "";
+    switch (type) {
+      case "speaker":
+        if (!item) return "";
+        return `Annonce de la conférence de ${item.name as string}, ${item.title as string}${item.company ? ` chez ${item.company}` : ""}${item.country ? ` (${item.country})` : ""}. Talk : "${item.talkTitle || "à confirmer"}". ${item.isKeynote ? "Keynote speaker de l'événement. " : ""}Créer de l'enthousiasme et mettre en avant son expertise pour EOCON 2026.`;
+      case "session":
+        if (!item) return "";
+        return `Mise en avant de la session "${item.title as string}"${item.speakerName ? ` par ${item.speakerName}` : ""}${item.date ? ` le ${item.date}` : ""}${item.time ? ` à ${item.time}` : ""}. ${item.description ? `Contexte : ${(item.description as string).slice(0, 150)}...` : ""}`;
+      case "workshop":
+        if (!item) return "";
+        return `Annonce du workshop "${item.title as string}"${item.instructor ? ` animé par ${item.instructor}` : ""}, niveau ${item.level as string}, durée ${item.duration as string}. ${(item.description as string).slice(0, 150)}... Inviter les participants à s'inscrire.`;
+      case "sponsor":
+        if (!item) return "";
+        return `Mise en avant et remerciement de ${item.name as string}, partenaire ${item.tier as string} d'EOCON 2026. Valoriser leur soutien et leur engagement pour la cybersécurité en Afrique.`;
+      case "countdown":
+        return `Compte à rebours EOCON 2026 : J-${data.daysUntil} ! Créer l'urgence et l'excitation. ${data.daysUntil <= 7 ? "Derniers rappels pratiques (lieu, programme)." : data.daysUntil <= 30 ? "Rappeler les points clés de l'événement." : "Présenter les highlights du programme à venir."}`;
+      case "cfp":
+        return "Annonce liée au Call for Papers (CFP) d'EOCON 2026. Préciser s'il s'agit de l'ouverture, d'un rappel de deadline, ou de l'annonce des résultats de sélection.";
+      case "inscriptions":
+        return `Les inscriptions pour EOCON 2026 sont ouvertes ! ${data.registrationCount > 0 ? `Déjà ${data.registrationCount} participants inscrits. ` : ""}Inviter à s'inscrire, mettre en avant les types de billets disponibles (Standard, Student, VIP, Early Bird).`;
+      case "ctf":
+        return "Annonce du CTF (Capture The Flag) EOCON 2026 — EOCTF. Présenter le challenge cybersécurité, inviter les participants à s'inscrire à la compétition, mettre en avant les lots et le niveau attendu.";
+      case "custom":
+        return "";
+      default:
+        return "";
+    }
+  };
 
   const loadLinkedinPosts = useCallback(async () => {
     const res = await fetch("/api/admin/ai/social-posts");
     if (res.ok) setLinkedinPosts(await res.json());
   }, []);
 
-  useEffect(() => { loadLinkedinPosts(); }, [loadLinkedinPosts]);
+  const loadTemplates = useCallback(async () => {
+    const res = await fetch("/api/admin/email-templates");
+    if (res.ok) setTemplates(await res.json());
+  }, []);
+
+  const loadContext = useCallback(async () => {
+    const res = await fetch("/api/admin/communication-context");
+    if (res.ok) setContextData(await res.json());
+  }, []);
+
+  useEffect(() => { loadLinkedinPosts(); loadTemplates(); loadContext(); }, [loadLinkedinPosts, loadTemplates, loadContext]);
+
+  // Calendar helpers
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
+  const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+
+  // Posts by date for calendar dots
+  const postsByDate: Record<string, number> = {};
+  linkedinPosts.forEach(p => {
+    const d = p.scheduledAt || p.publishedAt;
+    if (d) {
+      const key = new Date(d as string).toISOString().slice(0, 10);
+      postsByDate[key] = (postsByDate[key] || 0) + 1;
+    }
+  });
+
+  const handleDayClick = (day: number) => {
+    const date = new Date(currentYear, currentMonth, day);
+    setSelectedDay(date);
+    setGeneratedPosts(null);
+    setPanelOpen(true);
+    setScheduleDate(date.toISOString().slice(0, 10) + "T10:00");
+    // Auto-generate brief based on current context
+    const newBrief = generateBriefFromContext(contextType, selectedItem, contextData);
+    setBrief(newBrief);
+  };
+
+  const generatePosts = async () => {
+    if (!brief.trim()) return;
+    setGenerating(true);
+    const res = await fetch("/api/admin/ai/generate-posts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ brief, contextType, contextItem: selectedItem }),
+    });
+    if (res.ok) setGeneratedPosts(await res.json());
+    setGenerating(false);
+  };
+
+  const savePosts = async () => {
+    if (!generatedPosts || !selectedDay) return;
+    setSaving(true);
+    const entries: { platform: string; lang: string; content: string }[] = [];
+    if (platforms.linkedin) {
+      if (lang !== "en") entries.push({ platform: "linkedin", lang: "fr", content: generatedPosts.linkedin_fr || "" });
+      if (lang !== "fr") entries.push({ platform: "linkedin", lang: "en", content: generatedPosts.linkedin_en || "" });
+    }
+    if (platforms.twitter) {
+      if (lang !== "en") entries.push({ platform: "twitter", lang: "fr", content: generatedPosts.twitter_fr || "" });
+      if (lang !== "fr") entries.push({ platform: "twitter", lang: "en", content: generatedPosts.twitter_en || "" });
+    }
+    if (platforms.instagram) {
+      if (lang !== "en") entries.push({ platform: "instagram", lang: "fr", content: generatedPosts.instagram_fr || "" });
+      if (lang !== "fr") entries.push({ platform: "instagram", lang: "en", content: generatedPosts.instagram_en || "" });
+    }
+    for (const entry of entries) {
+      const existing = linkedinPosts.find(p => p.platform === entry.platform && p.lang === entry.lang && p.content === entry.content);
+      if (!existing) {
+        const freshRes = await fetch("/api/admin/ai/social-posts");
+        if (freshRes.ok) {
+          const fresh = await freshRes.json() as Record<string, unknown>[];
+          const match = fresh.find(p => p.platform === entry.platform && p.lang === entry.lang && (p.status === "draft"));
+          if (match) {
+            await fetch("/api/admin/ai/publish-post", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: match.id, scheduledAt: scheduleDate }),
+            });
+          }
+        }
+      }
+    }
+    await loadLinkedinPosts();
+    setPanelOpen(false);
+    setGeneratedPosts(null);
+    setSaving(false);
+  };
 
   const publishNow = async (id: number) => {
     setPublishing(id);
-    const res = await fetch("/api/admin/ai/publish-post", {
+    await fetch("/api/admin/ai/publish-post", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
-    const data = await res.json() as Record<string, unknown>;
-    if (data.linkedinUrl) window.open(data.linkedinUrl as string, "_blank");
     await loadLinkedinPosts();
     setPublishing(null);
   };
@@ -432,254 +759,323 @@ function CommunicationPanel({ templates, onRefresh }: { templates: Record<string
     await loadLinkedinPosts();
   };
 
-  const generateSocial = async () => {
-    if (!socialBrief.trim()) return;
-    setGeneratingSocial(true);
-    const res = await fetch("/api/admin/ai/generate-posts", {
+  const sendTemplate = async (id: number) => {
+    setSending(id);
+    await fetch("/api/admin/email-templates/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brief: socialBrief }),
+      body: JSON.stringify({ templateId: id }),
     });
-    if (res.ok) setSocialPosts(await res.json() as Record<string, string>);
-    setGeneratingSocial(false);
-  };
-
-  const save = async () => {
-    const method = editing ? "PUT" : "POST";
-    const url = editing ? `/api/admin/email-templates/${editing}` : "/api/admin/email-templates";
-    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-    setShowForm(false); setEditing(null); setForm({ segment: "all" }); onRefresh();
-  };
-
-  const del = async (id: number) => {
-    if (!confirm("Supprimer ce template ?")) return;
-    await fetch(`/api/admin/email-templates/${id}`, { method: "DELETE" });
-    onRefresh();
-  };
-
-  const send = async (id: number) => {
-    if (!confirm("Envoyer cet email à tous les destinataires du segment ?")) return;
-    setSending(id); setSendResult(null);
-    const res = await fetch("/api/admin/email-templates/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ templateId: id }) });
-    const json = await res.json() as Record<string, unknown>;
     setSending(null);
-    setSendResult(res.ok ? `✓ Envoyé : ${json.sent} / ${json.total} (${json.failed} erreurs)` : `✗ Erreur : ${json.error}`);
-    onRefresh();
+    await loadTemplates();
   };
 
-  const seedTemplates = async () => {
-    const templates = [
-      { name: "J-30 — Save the Date", subject: "EOCON 2026 — Réservez la date !", segment: "newsletter", htmlBody: "<h1>EOCON 2026</h1><p>L'événement cybersécurité de l'année arrive dans 30 jours. Inscrivez-vous dès maintenant !</p>" },
-      { name: "J-7 — Rappel inscription", subject: "Plus que 7 jours — EOCON 2026", segment: "newsletter", htmlBody: "<h1>EOCON 2026 — J-7</h1><p>Plus que 7 jours ! Confirmez votre participation maintenant.</p>" },
-      { name: "J-1 — Infos pratiques", subject: "EOCON 2026 demain — Infos pratiques", segment: "registered", htmlBody: "<h1>À demain !</h1><p>Retrouvez toutes les informations pratiques pour EOCON 2026.</p>" },
-    ];
-    for (const t of templates) {
-      await fetch("/api/admin/email-templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) });
-    }
-    onRefresh();
+  const saveTemplate = async () => {
+    await fetch("/api/admin/email-templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(templateForm),
+    });
+    setShowTemplateForm(false);
+    setTemplateForm({});
+    await loadTemplates();
   };
 
-  const segmentLabel: Record<string, string> = { all: "Tous", registered: "Inscrits", cfp_accepted: "CFP acceptés", volunteers: "Bénévoles", newsletter: "Newsletter" };
+  const statusColors: Record<string, string> = { draft: "#888", scheduled: "#ffaa00", published: "#00ff9d", failed: "#ff0066" };
 
   return (
-    <div>
-      {/* Social post generator */}
-      <div className="cyber-card rounded-xl p-5 mb-6">
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#cc00ff" }}>✨ Générateur de posts réseaux sociaux</h3>
-        <textarea
-          value={socialBrief}
-          onChange={e => setSocialBrief(e.target.value)}
-          placeholder="Brief (ex: annonce ouverture des inscriptions, ton enthousiaste)..."
-          className="cyber-input w-full text-xs rounded p-3 mb-3 h-20 resize-none"
-        />
-        <button
-          onClick={generateSocial}
-          disabled={generatingSocial}
-          className="btn-neon px-4 py-2 rounded text-xs mb-4"
-        >
-          {generatingSocial ? "Génération..." : "✨ Générer 6 posts (FR+EN)"}
-        </button>
-        {socialPosts && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {(["linkedin", "twitter", "instagram"] as const).map(platform => (
-              <div key={platform} className="space-y-2">
-                <h4 className="text-xs text-gray-500 uppercase">{platform}</h4>
-                {(["fr", "en"] as const).map(lang => {
-                  const key = `${platform}_${lang}`;
-                  return (
-                    <div key={lang} className="border border-gray-800 rounded-lg p-3">
-                      <div className="flex justify-between mb-1">
-                        <span className="text-xs text-gray-600 uppercase">{lang}</span>
-                        <button onClick={() => navigator.clipboard.writeText(socialPosts[key] || "")} className="text-xs" style={{ color: "#00ff9d" }}>Copier</button>
-                      </div>
-                      <p className="text-gray-400 text-xs whitespace-pre-wrap line-clamp-6">{socialPosts[key]}</p>
-                    </div>
-                  );
-                })}
-              </div>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-black text-white">Communication</h1>
+
+      {/* Calendar + Panel */}
+      <div className="flex gap-4">
+        {/* Calendar */}
+        <div className="cyber-card rounded-xl p-5 flex-1 min-w-0">
+          {/* Month nav */}
+          <div className="flex items-center justify-between mb-4">
+            <button onClick={() => { if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y-1); } else setCurrentMonth(m => m-1); }} className="text-gray-500 hover:text-white px-2">←</button>
+            <span className="text-white font-bold text-sm">{monthNames[currentMonth]} {currentYear}</span>
+            <button onClick={() => { if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y+1); } else setCurrentMonth(m => m+1); }} className="text-gray-500 hover:text-white px-2">→</button>
+          </div>
+          {/* Day labels */}
+          <div className="grid grid-cols-7 gap-1 mb-1">
+            {["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"].map(d => (
+              <div key={d} className="text-center text-gray-600 text-xs py-1">{d}</div>
             ))}
+          </div>
+          {/* Day cells */}
+          <div className="grid grid-cols-7 gap-1">
+            {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`e${i}`} />)}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day = i + 1;
+              const dateKey = `${currentYear}-${String(currentMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+              const hasPost = postsByDate[dateKey] || 0;
+              const isToday = today.getDate() === day && today.getMonth() === currentMonth && today.getFullYear() === currentYear;
+              const isSelected = selectedDay?.getDate() === day && selectedDay?.getMonth() === currentMonth && selectedDay?.getFullYear() === currentYear;
+              return (
+                <button
+                  key={day}
+                  onClick={() => handleDayClick(day)}
+                  className={`relative aspect-square rounded-lg text-xs flex flex-col items-center justify-center transition-all ${
+                    isSelected ? "bg-neon-green/20 text-neon-green border border-neon-green/50" :
+                    isToday ? "bg-white/10 text-white border border-white/20" :
+                    "text-gray-500 hover:bg-white/[0.05] hover:text-gray-300"
+                  }`}
+                >
+                  <span>{day}</span>
+                  {hasPost > 0 && (
+                    <div className="flex gap-0.5 mt-0.5">
+                      {Array.from({ length: Math.min(hasPost, 3) }).map((_, di) => (
+                        <div key={di} className="w-1 h-1 rounded-full" style={{ background: "#0066ff" }} />
+                      ))}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-gray-700 text-xs mt-3 text-center">Cliquez sur un jour pour planifier un post</p>
+        </div>
+
+        {/* Side panel */}
+        {panelOpen && selectedDay && (
+          <div className="cyber-card rounded-xl p-5 w-96 shrink-0 overflow-y-auto max-h-[600px]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-bold text-sm">
+                {selectedDay.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+              </h3>
+              <button onClick={() => setPanelOpen(false)} className="text-gray-500 hover:text-white">✕</button>
+            </div>
+
+            {/* Context type selector */}
+            <div className="mb-3">
+              <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Type de contenu</p>
+              <div className="grid grid-cols-3 gap-1">
+                {([
+                  { key: "speaker", icon: "🎤", label: "Speaker" },
+                  { key: "session", icon: "📋", label: "Session" },
+                  { key: "workshop", icon: "🛠", label: "Workshop" },
+                  { key: "sponsor", icon: "🏢", label: "Sponsor" },
+                  { key: "countdown", icon: "⏱", label: "Compte à rebours" },
+                  { key: "cfp", icon: "📝", label: "CFP" },
+                  { key: "inscriptions", icon: "🎟", label: "Inscriptions" },
+                  { key: "ctf", icon: "🏆", label: "CTF" },
+                  { key: "custom", icon: "✏️", label: "Personnalisé" },
+                ] as const).map(ctx => (
+                  <button
+                    key={ctx.key}
+                    onClick={() => {
+                      setContextType(ctx.key);
+                      setSelectedItem(null);
+                      const newBrief = generateBriefFromContext(ctx.key, null, contextData);
+                      setBrief(newBrief);
+                      setGeneratedPosts(null);
+                    }}
+                    className={`p-2 rounded-lg border text-left transition-all ${contextType === ctx.key ? "border-neon-green/50 bg-neon-green/10" : "border-gray-800 hover:border-gray-600"}`}
+                  >
+                    <span className="text-sm block">{ctx.icon}</span>
+                    <span className={`text-xs ${contextType === ctx.key ? "text-neon-green" : "text-gray-500"}`}>{ctx.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Item selector (for speaker/session/workshop/sponsor) */}
+            {contextData && ["speaker", "session", "workshop", "sponsor"].includes(contextType) && (
+              <div className="mb-3">
+                <p className="text-xs text-gray-500 mb-1 uppercase tracking-wider">
+                  {contextType === "speaker" ? "Sélectionner un speaker" :
+                   contextType === "session" ? "Sélectionner une session" :
+                   contextType === "workshop" ? "Sélectionner un workshop" :
+                   "Sélectionner un sponsor"}
+                </p>
+                <select
+                  className="cyber-input w-full text-xs rounded px-3 py-2"
+                  value={(selectedItem?.id as number) || ""}
+                  onChange={e => {
+                    const id = parseInt(e.target.value);
+                    let items: Record<string, unknown>[] = [];
+                    if (contextType === "speaker") items = contextData.speakers;
+                    else if (contextType === "session") items = contextData.sessions;
+                    else if (contextType === "workshop") items = contextData.workshops;
+                    else if (contextType === "sponsor") items = contextData.sponsors;
+                    const item = items.find(i => i.id === id) || null;
+                    setSelectedItem(item);
+                    const newBrief = generateBriefFromContext(contextType, item, contextData);
+                    setBrief(newBrief);
+                    setGeneratedPosts(null);
+                  }}
+                >
+                  <option value="">-- Choisir --</option>
+                  {(contextType === "speaker" ? contextData.speakers :
+                    contextType === "session" ? contextData.sessions :
+                    contextType === "workshop" ? contextData.workshops :
+                    contextData.sponsors
+                  ).map(item => (
+                    <option key={item.id as number} value={item.id as number}>
+                      {contextType === "speaker" ? `${item.name as string} — ${(item.talkTitle as string) || "Talk à confirmer"}` :
+                       contextType === "session" ? `${item.title as string}${item.speakerName ? ` (${item.speakerName as string})` : ""}` :
+                       contextType === "workshop" ? `${item.title as string} — ${item.level as string}` :
+                       `${item.name as string} (${item.tier as string})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Countdown info */}
+            {contextType === "countdown" && contextData && (
+              <div className="mb-3 p-2 rounded-lg border border-gray-800">
+                <p className="text-xs text-neon-green font-mono">J-{contextData.daysUntil} jusqu'à EOCON 2026</p>
+                <p className="text-gray-600 text-xs">28 novembre 2026</p>
+              </div>
+            )}
+
+            {/* Inscriptions stats */}
+            {contextType === "inscriptions" && contextData && (
+              <div className="mb-3 p-2 rounded-lg border border-gray-800">
+                <p className="text-xs text-white font-mono">{contextData.registrationCount} inscrits</p>
+                <p className="text-gray-600 text-xs">au {new Date().toLocaleDateString("fr-FR")}</p>
+              </div>
+            )}
+
+            {/* Platforms */}
+            <div className="mb-3">
+              <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Plateformes</p>
+              <div className="flex gap-3">
+                {(["linkedin", "twitter", "instagram"] as const).map(p => (
+                  <label key={p} className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" checked={platforms[p]} onChange={e => setPlatforms(prev => ({ ...prev, [p]: e.target.checked }))} className="accent-neon-green w-3 h-3" />
+                    <span className="text-xs text-gray-400 capitalize">{p}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Language */}
+            <div className="mb-3">
+              <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Langue</p>
+              <div className="flex gap-2">
+                {(["fr", "en", "both"] as const).map(l => (
+                  <button key={l} onClick={() => setLang(l)} className={`text-xs px-3 py-1 rounded transition-all ${lang === l ? "bg-neon-green/20 text-neon-green border border-neon-green/40" : "text-gray-500 border border-gray-800"}`}>
+                    {l === "both" ? "FR+EN" : l.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Brief */}
+            <div className="mb-3">
+              <p className="text-xs text-gray-500 mb-1 uppercase tracking-wider">Brief</p>
+              <textarea value={brief} onChange={e => setBrief(e.target.value)} className="cyber-input w-full text-xs rounded p-2 h-20 resize-none" placeholder="Décrivez le contenu du post..." />
+            </div>
+
+            <button onClick={generatePosts} disabled={generating || !brief.trim()} className="btn-neon w-full py-2 rounded text-xs mb-4">
+              {generating ? "Génération en cours..." : "✨ Générer avec IA"}
+            </button>
+
+            {/* Generated posts preview */}
+            {generatedPosts && (
+              <div className="space-y-2 mb-4">
+                <p className="text-xs text-gray-500 uppercase tracking-wider">Posts générés</p>
+                {(["linkedin", "twitter", "instagram"] as const).filter(p => platforms[p]).map(platform => (
+                  <div key={platform} className="border border-gray-800 rounded-lg p-3">
+                    <p className="text-xs text-gray-500 capitalize mb-1">{platform}</p>
+                    <p className="text-gray-400 text-xs line-clamp-3">
+                      {lang !== "en" ? generatedPosts[`${platform}_fr`] : generatedPosts[`${platform}_en`]}
+                    </p>
+                  </div>
+                ))}
+                <button onClick={savePosts} disabled={saving} className="w-full py-2 rounded text-xs transition-all" style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}>
+                  {saving ? "Enregistrement..." : "💾 Enregistrer & Planifier"}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-black text-white">Communication Email</h1>
-        <div className="flex gap-2">
-          <button onClick={seedTemplates} className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">+ Templates J-30/J-7/J-1</button>
-          <button onClick={() => { setForm({ segment: "all" }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">+ Nouveau template</button>
-        </div>
-      </div>
-      {sendResult && (
-        <div className="mb-4 p-3 rounded text-xs" style={{ background: sendResult.startsWith("✓") ? "#00ff9d15" : "#ff006615", color: sendResult.startsWith("✓") ? "#00ff9d" : "#ff0066", border: `1px solid ${sendResult.startsWith("✓") ? "#00ff9d40" : "#ff006640"}` }}>
-          {sendResult}
-        </div>
-      )}
-      {showForm && (
-        <div className="cyber-card rounded-xl p-5 mb-6 space-y-3">
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Nom du template</label>
-              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.name as string) || ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Segment</label>
-              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.segment as string) || "all"} onChange={e => setForm(f => ({ ...f, segment: e.target.value }))}>
-                {Object.entries(segmentLabel).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            </div>
-            <div className="sm:col-span-2">
-              <label className="text-xs text-gray-500 block mb-1">Sujet</label>
-              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.subject as string) || ""} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="text-xs text-gray-500 block mb-1">Corps HTML</label>
-              <textarea rows={8} className="cyber-input w-full px-3 py-2 rounded text-xs resize-y font-mono" value={(form.htmlBody as string) || ""} onChange={e => setForm(f => ({ ...f, htmlBody: e.target.value }))} />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">Sauvegarder</button>
-            <button onClick={() => { setShowForm(false); setForm({ segment: "all" }); setEditing(null); }} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
-          </div>
-        </div>
-      )}
-      <div className="space-y-3">
-        {templates.map(t => (
-          <div key={t.id as number} className="cyber-card rounded-xl p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-white font-bold text-sm">{t.name as string}</p>
-                <p className="text-gray-400 text-xs mt-0.5">{t.subject as string}</p>
-                <div className="flex gap-2 mt-1">
-                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "#0066ff20", color: "#0066ff" }}>{segmentLabel[t.segment as string] || (t.segment as string)}</span>
-                  {t.sentAt ? (
-                    <span className="text-xs px-2 py-0.5 rounded" style={{ background: "#00ff9d20", color: "#00ff9d" }}>Envoyé le {new Date(t.sentAt as string).toLocaleDateString("fr-FR")}</span>
-                  ) : (
-                    <span className="text-xs px-2 py-0.5 rounded" style={{ background: "#ffffff10", color: "#888" }}>Brouillon</span>
+      {/* Scheduled/published posts list */}
+      <div className="cyber-card rounded-xl p-5">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#0066ff" }}>Posts planifiés & publiés</h3>
+        {linkedinPosts.length === 0 && <p className="text-gray-600 text-xs text-center py-4">Aucun post. Cliquez sur un jour du calendrier pour créer.</p>}
+        <div className="space-y-2">
+          {linkedinPosts.map(post => {
+            const color = statusColors[post.status as string] || "#888";
+            return (
+              <div key={post.id as number} className="border border-gray-800 rounded-lg p-3 flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={{ background: color + "20", color }}>{post.status as string}</span>
+                    <span className="text-xs text-gray-600 capitalize">{post.platform as string} · {post.lang as string}</span>
+                    {!!post.scheduledAt && <span className="text-xs text-gray-600">📅 {new Date(post.scheduledAt as string).toLocaleDateString("fr-FR")}</span>}
+                  </div>
+                  <p className="text-gray-400 text-xs line-clamp-2">{post.content as string}</p>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  {post.status === "draft" && (
+                    <>
+                      <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
+                        {publishing === (post.id as number) ? "..." : "▶"}
+                      </button>
+                      <button onClick={() => { setScheduleId(post.id as number); setScheduleDate(""); }} className="text-xs px-2 py-1 rounded" style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0030" }}>🕐</button>
+                    </>
+                  )}
+                  {post.status === "published" && !!post.linkedinPostId && (
+                    <a href={`https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`} target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded" style={{ color: "#00ff9d" }}>↗</a>
+                  )}
+                  {scheduleId === (post.id as number) && (
+                    <div className="flex gap-1 items-center">
+                      <input type="datetime-local" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="cyber-input text-xs rounded px-1 py-0.5 w-36" />
+                      <button onClick={() => schedulePost(post.id as number)} className="btn-neon text-xs px-2 py-1 rounded">OK</button>
+                      <button onClick={() => setScheduleId(null)} className="text-gray-500 text-xs">✕</button>
+                    </div>
                   )}
                 </div>
               </div>
-              <div className="flex gap-2 shrink-0">
-                <button
-                  onClick={() => send(t.id as number)}
-                  disabled={sending === (t.id as number)}
-                  className="text-xs px-3 py-1.5 rounded transition-colors"
-                  style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}
-                >
-                  {sending === (t.id as number) ? "Envoi..." : "Envoyer"}
-                </button>
-                <button onClick={() => { setForm({ ...t }); setEditing(t.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">Éditer</button>
-                <button onClick={() => del(t.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">Suppr.</button>
-              </div>
-            </div>
-          </div>
-        ))}
-        {!templates.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun template — créez-en un ou utilisez les templates pré-configurés</p>}
-      </div>
-
-      {/* LinkedIn calendar */}
-      <div className="cyber-card rounded-xl p-5 mt-6">
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#0066ff" }}>
-          📅 Calendrier LinkedIn
-        </h3>
-        <div className="space-y-3">
-          {linkedinPosts.map(post => {
-            const statusColors: Record<string, string> = {
-              draft: "#888",
-              scheduled: "#ffaa00",
-              published: "#00ff9d",
-              failed: "#ff0066",
-            };
-            const status = post.status as string;
-            const color = statusColors[status] || "#888";
-            return (
-              <div key={post.id as number} className="border border-gray-800 rounded-lg p-4">
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: color + "20", color, fontFamily: "'Share Tech Mono', monospace" }}>
-                      {status}
-                    </span>
-                    <span className="text-xs text-gray-600">{post.lang as string}</span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {status === "draft" && (
-                      <>
-                        <button
-                          onClick={() => publishNow(post.id as number)}
-                          disabled={publishing === (post.id as number)}
-                          className="text-xs px-2 py-1 rounded transition-all"
-                          style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}
-                        >
-                          {publishing === (post.id as number) ? "..." : "▶ Publier"}
-                        </button>
-                        <button
-                          onClick={() => setScheduleId(post.id as number)}
-                          className="text-xs px-2 py-1 rounded transition-all"
-                          style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0040" }}
-                        >
-                          🕐 Planifier
-                        </button>
-                      </>
-                    )}
-                    {status === "scheduled" && (
-                      <span className="text-xs text-gray-500">
-                        📅 {post.scheduledAt ? new Date(post.scheduledAt as string).toLocaleString("fr-FR") : ""}
-                      </span>
-                    )}
-                    {status === "published" && !!post.linkedinPostId && (
-                      <a
-                        href={`https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs"
-                        style={{ color: "#00ff9d" }}
-                      >
-                        Voir →
-                      </a>
-                    )}
-                  </div>
-                </div>
-                <p className="text-gray-400 text-xs line-clamp-3 whitespace-pre-wrap">{post.content as string}</p>
-                {scheduleId === (post.id as number) && (
-                  <div className="flex gap-2 mt-2">
-                    <input
-                      type="datetime-local"
-                      value={scheduleDate}
-                      onChange={e => setScheduleDate(e.target.value)}
-                      className="cyber-input text-xs rounded px-2 py-1 flex-1"
-                    />
-                    <button onClick={() => schedulePost(post.id as number)} className="btn-neon px-3 py-1 rounded text-xs">OK</button>
-                    <button onClick={() => setScheduleId(null)} className="text-xs text-gray-500 hover:text-white px-2">✕</button>
-                  </div>
-                )}
-                {status === "failed" && !!post.errorMessage && (
-                  <p className="text-red-400 text-xs mt-1">{post.errorMessage as string}</p>
-                )}
-              </div>
             );
           })}
-          {!linkedinPosts.length && (
-            <p className="text-gray-600 text-xs text-center py-4">Aucun post LinkedIn généré. Utilisez le générateur ci-dessus.</p>
-          )}
+        </div>
+      </div>
+
+      {/* Email templates */}
+      <div className="cyber-card rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Templates Email</h3>
+          <button onClick={() => setShowTemplateForm(!showTemplateForm)} className="btn-neon px-3 py-1.5 rounded text-xs">+ Template</button>
+        </div>
+        {showTemplateForm && (
+          <div className="border border-gray-800 rounded-lg p-4 mb-4 space-y-2">
+            <input placeholder="Nom du template" className="cyber-input w-full text-xs rounded px-3 py-2" value={(templateForm.name as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, name: e.target.value }))} />
+            <input placeholder="Objet email" className="cyber-input w-full text-xs rounded px-3 py-2" value={(templateForm.subject as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, subject: e.target.value }))} />
+            <select className="cyber-input w-full text-xs rounded px-3 py-2" value={(templateForm.segment as string) || "all"} onChange={e => setTemplateForm(f => ({ ...f, segment: e.target.value }))}>
+              <option value="all">Tous</option>
+              <option value="registered">Inscrits</option>
+              <option value="cfp_accepted">Speakers acceptés</option>
+              <option value="volunteers">Bénévoles acceptés</option>
+              <option value="newsletter">Newsletter</option>
+            </select>
+            <textarea placeholder="Corps HTML de l'email" className="cyber-input w-full text-xs rounded px-3 py-2 h-24 resize-none" value={(templateForm.htmlBody as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, htmlBody: e.target.value }))} />
+            <div className="flex gap-2">
+              <button onClick={saveTemplate} className="btn-neon px-3 py-1.5 rounded text-xs">Enregistrer</button>
+              <button onClick={() => setShowTemplateForm(false)} className="text-gray-500 text-xs hover:text-white px-2">Annuler</button>
+            </div>
+          </div>
+        )}
+        <div className="space-y-2">
+          {templates.map(t => (
+            <div key={t.id as number} className="border border-gray-800 rounded-lg p-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-white text-xs font-bold">{t.name as string}</p>
+                <p className="text-gray-500 text-xs">{t.subject as string} · <span className="text-gray-600">{t.segment as string}</span></p>
+                {!!t.sentAt && <p className="text-gray-700 text-xs">Envoyé le {new Date(t.sentAt as string).toLocaleDateString("fr-FR")}</p>}
+              </div>
+              <button onClick={() => sendTemplate(t.id as number)} disabled={sending === (t.id as number)} className="text-xs px-3 py-1.5 rounded shrink-0" style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d30" }}>
+                {sending === (t.id as number) ? "Envoi..." : "▶ Envoyer"}
+              </button>
+            </div>
+          ))}
+          {!templates.length && <p className="text-gray-700 text-xs text-center py-3">Aucun template. Créez-en un.</p>}
         </div>
       </div>
     </div>
@@ -901,8 +1297,8 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
         <thead>
           <tr className="border-b border-gray-800 text-gray-500">
             <th className="text-left py-2 px-2 font-normal">Libellé</th>
-            <th className="text-right py-2 px-2 font-normal">Prévu (€)</th>
-            <th className="text-right py-2 px-2 font-normal">Réel (€)</th>
+            <th className="text-right py-2 px-2 font-normal">Prévu (FCFA)</th>
+            <th className="text-right py-2 px-2 font-normal">Réel (FCFA)</th>
             <th className="text-left py-2 px-2 font-normal">Statut</th>
             <th className="py-2 px-2" />
           </tr>
@@ -968,7 +1364,7 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
           { label: "Dépenses réelles", value: totalActualCost, color: "#ff0066" },
         ].map(s => (
           <div key={s.label} className="cyber-card rounded-xl p-4 text-center">
-            <div className="text-xl font-black font-mono" style={{ color: s.color }}>{s.value.toLocaleString("fr-FR")} €</div>
+            <div className="text-xl font-black font-mono" style={{ color: s.color }}>{s.value.toLocaleString("fr-FR")} FCFA</div>
             <div className="text-gray-500 text-xs mt-1">{s.label}</div>
           </div>
         ))}
@@ -989,7 +1385,7 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
               <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.label as string) || ""} onChange={e => setForm(p => ({ ...p, label: e.target.value }))} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Montant prévu (€)</label>
+              <label className="text-xs text-gray-500 block mb-1">Montant prévu (FCFA)</label>
               <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.planned as number) || 0} onChange={e => setForm(p => ({ ...p, planned: parseFloat(e.target.value) || 0 }))} />
             </div>
           </div>
@@ -1000,6 +1396,20 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
         </div>
       )}
 
+      {!items.length && (
+        <div className="text-center py-8">
+          <p className="text-gray-600 text-xs mb-3">Aucun élément. Initialisez avec le budget standard EOCON.</p>
+          <button
+            onClick={async () => {
+              const res = await fetch("/api/admin/seed", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "budget" }) });
+              if (res.ok) onRefresh();
+            }}
+            className="btn-neon px-4 py-2 rounded text-xs"
+          >
+            🌱 Initialiser budget EOCON
+          </button>
+        </div>
+      )}
       {renderTable(revenues, "Revenus", "#00ff9d")}
       {renderTable(costs, "Dépenses", "#ff0066")}
     </div>
@@ -1138,7 +1548,118 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
             </div>
           );
         })}
-        {!tasks.length && <p className="text-gray-600 text-xs py-8 text-center">Aucune tâche — créez-en une ou utilisez le pré-remplissage</p>}
+        {!tasks.length && (
+          <div className="text-center py-8">
+            <p className="text-gray-600 text-xs mb-3">Aucune tâche. Initialisez avec les tâches standard.</p>
+            <button
+              onClick={async () => {
+                const res = await fetch("/api/admin/seed", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "logistics" }) });
+                if (res.ok) onRefresh();
+              }}
+              className="btn-neon px-4 py-2 rounded text-xs"
+            >
+              🌱 Initialiser tâches logistiques
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TicketsPanel() {
+  const [tickets, setTickets] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<Record<string, unknown>>({});
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch("/api/admin/tickets");
+    if (res.ok) setTickets(await res.json());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const seed = async () => {
+    await fetch("/api/admin/tickets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ seed: true }) });
+    load();
+  };
+
+  const save = async (id: number) => {
+    await fetch(`/api/admin/tickets/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editForm) });
+    setEditId(null);
+    load();
+  };
+
+  const del = async (id: number) => {
+    if (!confirm("Supprimer ce type de billet ?")) return;
+    await fetch(`/api/admin/tickets/${id}`, { method: "DELETE" });
+    load();
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black text-white">Types de billets</h1>
+          <p className="text-gray-500 text-xs mt-1">Capacités maximales et alertes par type de billet</p>
+        </div>
+        {!tickets.length && !loading && (
+          <button onClick={seed} className="btn-neon px-4 py-2 rounded text-sm">🌱 Initialiser types standard</button>
+        )}
+      </div>
+      <div className="space-y-3">
+        {tickets.map(t => {
+          const sold = t.sold as number;
+          const max = t.maxCapacity as number;
+          const pct = max > 0 ? Math.round((sold / max) * 100) : 0;
+          const alert = pct >= (t.alertPercent as number);
+          const isEditing = editId === (t.id as number);
+          return (
+            <div key={t.id as number} className="cyber-card rounded-xl p-5">
+              {isEditing ? (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <input value={(editForm.ticketType as string) || ""} onChange={e => setEditForm(f => ({ ...f, ticketType: e.target.value }))} className="cyber-input text-sm rounded px-3 py-1.5 w-36" placeholder="Type" />
+                  <div className="flex items-center gap-1">
+                    <label className="text-xs text-gray-500">Capacité max</label>
+                    <input type="number" value={(editForm.maxCapacity as number) || 0} onChange={e => setEditForm(f => ({ ...f, maxCapacity: parseInt(e.target.value) }))} className="cyber-input text-sm rounded px-3 py-1.5 w-24" />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <label className="text-xs text-gray-500">Alerte %</label>
+                    <input type="number" value={(editForm.alertPercent as number) || 80} onChange={e => setEditForm(f => ({ ...f, alertPercent: parseInt(e.target.value) }))} className="cyber-input text-sm rounded px-3 py-1.5 w-20" />
+                  </div>
+                  <button onClick={() => save(t.id as number)} className="btn-neon px-3 py-1.5 rounded text-xs">Enregistrer</button>
+                  <button onClick={() => setEditId(null)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-white font-bold capitalize">{t.ticketType as string}</span>
+                      {alert && <span className="text-xs px-2 py-0.5 rounded" style={{ background: "#ff006620", color: "#ff0066" }}>⚠ Alerte capacité</span>}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, background: alert ? "#ff0066" : "#00ff9d" }} />
+                      </div>
+                      <span className="text-xs font-mono shrink-0" style={{ color: alert ? "#ff0066" : "#00ff9d", fontFamily: "'Share Tech Mono', monospace" }}>{sold} / {max}</span>
+                      <span className="text-xs text-gray-600">{pct}%</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button onClick={() => { setEditId(t.id as number); setEditForm({ ticketType: t.ticketType, maxCapacity: t.maxCapacity, alertPercent: t.alertPercent }); }} className="text-xs text-gray-500 hover:text-white transition-colors">Modifier</button>
+                    <button onClick={() => del(t.id as number)} className="text-xs text-red-800 hover:text-red-400 transition-colors">Supprimer</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {!tickets.length && !loading && (
+          <p className="text-gray-600 text-xs py-8 text-center">Aucun type de billet configuré. Cliquez sur &ldquo;Initialiser&rdquo; pour ajouter les types standard.</p>
+        )}
       </div>
     </div>
   );
@@ -1333,6 +1854,85 @@ function CertificatesPanel() {
   );
 }
 
+function SponsorPackagesPanel() {
+  const [packages, setPackages] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch("/api/admin/sponsor-packages");
+    if (res.ok) setPackages(await res.json());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const seed = async () => {
+    await fetch("/api/admin/sponsor-packages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ seed: true }) });
+    load();
+  };
+
+  const toggleVisible = async (id: number, isVisible: boolean) => {
+    await fetch(`/api/admin/sponsor-packages/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isVisible }) });
+    load();
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black text-white">Packages de Sponsoring</h1>
+          <p className="text-gray-500 text-xs mt-1">Ces packages sont affichés sur le site web et utilisés dans la prospection IA</p>
+        </div>
+        {!packages.length && !loading && (
+          <button onClick={seed} className="btn-neon px-4 py-2 rounded text-sm">🌱 Initialiser packages standard</button>
+        )}
+      </div>
+      <div className="space-y-4">
+        {packages.map(pkg => {
+          const perksFr = JSON.parse((pkg.perksFr as string) || "[]") as string[];
+          const perksEn = JSON.parse((pkg.perksEn as string) || "[]") as string[];
+          return (
+            <div key={pkg.id as number} className={`cyber-card rounded-xl p-5 ${!pkg.isVisible ? "opacity-50" : ""}`} style={{ borderColor: ((pkg.highlightColor as string) || "#333") + "40" }}>
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="text-lg font-black" style={{ color: (pkg.highlightColor as string) || "#888" }}>{pkg.tier as string}</span>
+                    <span className="text-xl font-black font-mono text-white">{(pkg.price as number) > 0 ? `${(pkg.price as number).toLocaleString("fr-FR")} FCFA` : "Partenariat"}</span>
+                    {!!(pkg.maxSponsors as number) && <span className="text-xs text-gray-600">max {pkg.maxSponsors as number} sponsors</span>}
+                  </div>
+                  <p className="text-gray-400 text-sm">{pkg.nameFr as string} / <span className="text-gray-600">{pkg.nameEn as string}</span></p>
+                </div>
+                <button onClick={() => toggleVisible(pkg.id as number, !(pkg.isVisible as boolean))} className={`text-xs px-3 py-1 rounded shrink-0 ${pkg.isVisible ? "text-neon-green bg-neon-green/10" : "text-gray-600 bg-gray-800"}`}>
+                  {pkg.isVisible ? "Visible" : "Masqué"}
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500 mb-2 uppercase">Avantages FR</p>
+                  <ul className="space-y-1">
+                    {perksFr.map((p, i) => <li key={i} className="text-gray-400 text-xs flex gap-2"><span style={{ color: (pkg.highlightColor as string) || "#888" }}>✓</span>{p}</li>)}
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-2 uppercase">Perks EN</p>
+                  <ul className="space-y-1">
+                    {perksEn.map((p, i) => <li key={i} className="text-gray-400 text-xs flex gap-2"><span style={{ color: (pkg.highlightColor as string) || "#888" }}>✓</span>{p}</li>)}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {!packages.length && !loading && (
+          <p className="text-gray-600 text-xs py-8 text-center">Aucun package configuré.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [stats, setStats] = useState<Record<string, number>>({});
@@ -1384,7 +1984,9 @@ export default function AdminDashboard() {
         if (res.ok) { const json = await res.json(); setData(d => ({ ...d, "email-templates": json })); }
       } else if (t === "sponsor-pipeline") {
         const res = await fetch("/api/admin/sponsor-prospects");
-        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, "sponsor-prospects": json })); }
+        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, "sponsor-pipeline": json })); }
+      } else if (t === "sponsor-packages") {
+        // SponsorPackagesPanel fetches its own data internally
       } else if (t === "prospection") {
         const res = await fetch("/api/admin/ai/prospect-leads");
         if (res.ok) { const json = await res.json(); setData(d => ({ ...d, prospection: json })); }
@@ -1394,7 +1996,7 @@ export default function AdminDashboard() {
       } else if (t === "logistics") {
         const res = await fetch("/api/admin/logistics");
         if (res.ok) { const json = await res.json(); setData(d => ({ ...d, logistics: json })); }
-      } else if (t === "analytics") {
+      } else if (t === "dashboard") {
         const res = await fetch("/api/admin/analytics");
         if (res.ok) { const json = await res.json(); setData(d => ({ ...d, analytics: [json] })); }
       } else if (["cfp", "volunteers", "registrations", "newsletter"].includes(t)) {
@@ -1408,6 +2010,7 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
+  useEffect(() => { fetchData("dashboard"); }, [fetchData]);
   useEffect(() => { if (tab !== "dashboard") fetchData(tab); }, [tab, fetchData]);
 
   const save = async (endpoint: string) => {
@@ -1461,28 +2064,65 @@ export default function AdminDashboard() {
     });
   };
 
-  const tabs: { id: Tab; label: string; count?: number }[] = [
-    { id: "dashboard", label: "Dashboard" },
-    { id: "speakers", label: "Speakers", count: stats.speakers },
-    { id: "onboarding", label: "Onboarding Speakers" },
-    { id: "sponsors", label: "Sponsors", count: stats.sponsors },
-    { id: "sessions", label: "Programme", count: stats.sessions },
-    { id: "workshops", label: "Workshops", count: stats.workshops },
-    { id: "cfp", label: "CFP", count: stats.cfp },
-    { id: "volunteers", label: "Bénévoles", count: stats.volunteers },
-    { id: "registrations", label: "Inscriptions", count: stats.registrations },
-    { id: "newsletter", label: "Newsletter", count: stats.newsletter },
-    { id: "team", label: "Équipe", count: stats.team },
-    { id: "past-speakers", label: "Anciens Speakers" },
-    { id: "users", label: "Utilisateurs Admin" },
-    { id: "communication", label: "Communication" },
-    { id: "sponsor-pipeline", label: "Pipeline Sponsors" },
-    { id: "prospection", label: "Prospection IA" },
-    { id: "budget", label: "Budget" },
-    { id: "logistics", label: "Logistique" },
-    { id: "analytics", label: "Analytics" },
-    { id: "certificates", label: "Certificats" },
-    { id: "export", label: "Export CSV" },
+  type TabGroup = {
+    label: string;
+    icon: string;
+    tabs: { id: Tab; label: string; count?: number }[];
+  };
+
+  const tabGroups: TabGroup[] = [
+    {
+      label: "Vue générale",
+      icon: "◈",
+      tabs: [
+        { id: "dashboard", label: "Dashboard" },
+      ],
+    },
+    {
+      label: "Contenu & Programme",
+      icon: "◆",
+      tabs: [
+        { id: "speakers", label: "Speakers", count: stats.speakers },
+        { id: "onboarding", label: "Onboarding" },
+        { id: "sessions", label: "Programme", count: stats.sessions },
+        { id: "workshops", label: "Workshops", count: stats.workshops },
+        { id: "past-speakers", label: "Anciens Speakers" },
+      ],
+    },
+    {
+      label: "Participants",
+      icon: "◉",
+      tabs: [
+        { id: "cfp", label: "CFP", count: stats.cfp },
+        { id: "registrations", label: "Inscriptions", count: stats.registrations },
+        { id: "volunteers", label: "Bénévoles", count: stats.volunteers },
+        { id: "newsletter", label: "Newsletter", count: stats.newsletter },
+        { id: "tickets", label: "Billets & Capacités" },
+      ],
+    },
+    {
+      label: "Sponsors & Budget",
+      icon: "◇",
+      tabs: [
+        { id: "sponsors", label: "Sponsors", count: stats.sponsors },
+        { id: "sponsor-packages", label: "Packages Sponsoring" },
+        { id: "sponsor-pipeline", label: "Pipeline" },
+        { id: "prospection", label: "Prospection IA" },
+        { id: "budget", label: "Budget" },
+      ],
+    },
+    {
+      label: "Opérations",
+      icon: "◎",
+      tabs: [
+        { id: "communication", label: "Communication" },
+        { id: "logistics", label: "Logistique" },
+        { id: "team", label: "Équipe", count: stats.team },
+        { id: "certificates", label: "Certificats" },
+        { id: "export", label: "Export CSV" },
+        { id: "users", label: "Utilisateurs" },
+      ],
+    },
   ];
 
   // Group sessions by date
@@ -1515,16 +2155,26 @@ export default function AdminDashboard() {
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-52 min-h-screen border-r border-neon-green/10 bg-black/40 p-4 space-y-1 shrink-0">
-          {tabs.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`w-full text-left px-3 py-2 rounded text-xs transition-all flex items-center justify-between ${tab === t.id ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 hover:text-gray-300"}`}
-            >
-              <span>{t.label}</span>
-              {t.count !== undefined && <span className="text-neon-green/60 text-xs">{t.count}</span>}
-            </button>
+        <aside className="w-56 min-h-screen border-r border-neon-green/10 bg-black/40 p-3 shrink-0 overflow-y-auto">
+          {tabGroups.map(group => (
+            <div key={group.label} className="mb-4">
+              <div className="flex items-center gap-1.5 px-2 py-1 mb-1">
+                <span className="text-neon-green/40 text-xs">{group.icon}</span>
+                <span className="text-gray-600 text-xs uppercase tracking-widest font-bold">{group.label}</span>
+              </div>
+              {group.tabs.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`w-full text-left px-3 py-1.5 rounded text-xs transition-all flex items-center justify-between mb-0.5 ${tab === t.id ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 hover:text-gray-300 hover:bg-white/[0.02]"}`}
+                >
+                  <span>{t.label}</span>
+                  {t.count !== undefined && t.count > 0 && (
+                    <span className="text-neon-green/50 text-xs font-mono">{t.count}</span>
+                  )}
+                </button>
+              ))}
+            </div>
           ))}
         </aside>
 
@@ -1535,7 +2185,8 @@ export default function AdminDashboard() {
           {tab === "dashboard" && (
             <div>
               <h1 className="text-2xl font-black text-white mb-6">Dashboard</h1>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-8">
+              {/* Stat cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6">
                 <StatCard label="Speakers" value={stats.speakers || 0} />
                 <StatCard label="Sponsors" value={stats.sponsors || 0} color="#ffd700" />
                 <StatCard label="Sessions" value={stats.sessions || 0} color="#0066ff" />
@@ -1544,8 +2195,103 @@ export default function AdminDashboard() {
                 <StatCard label="Inscriptions" value={stats.registrations || 0} color="#ff0066" />
                 <StatCard label="Newsletter" value={stats.subscribers || 0} color="#ffaa00" />
                 <StatCard label="Équipe" value={stats.team || 0} color="#00ccff" />
-                <StatCard label="Anciens intervenants" value={stats.pastSpeakers || 0} color="#aa88ff" />
               </div>
+              {/* Analytics section inlined */}
+              {(data.analytics?.[0] as Record<string, unknown> | undefined) && (() => {
+                const ad = data.analytics![0] as Record<string, unknown>;
+                const curve = (ad.registrationCurve as { date: string; count: number }[]) || [];
+                const byTicket = (ad.byTicket as Record<string, number>) || {};
+                const topCountries = (ad.topCountries as { country: string; count: number }[]) || [];
+                const totalRegs = (ad.totalRegistrations as number) || 0;
+                const maxCount = Math.max(...curve.map(c => c.count), 1);
+                return (
+                  <>
+                    {/* CFP breakdown + check-in */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                      {[
+                        { label: "CFP Total", value: ad.cfpTotal as number, color: "#888" },
+                        { label: "CFP Acceptés", value: ad.cfpAccepted as number, color: "#00ff9d" },
+                        { label: "Taux CFP", value: `${ad.cfpRate}%`, color: "#ff6600" },
+                        { label: "Check-ins", value: ad.checkedIn as number, color: "#0066ff" },
+                      ].map(k => (
+                        <div key={k.label} className="cyber-card rounded-xl p-4 text-center">
+                          <div className="text-2xl font-black font-mono" style={{ color: k.color, fontFamily: "'Share Tech Mono', monospace" }}>{k.value ?? 0}</div>
+                          <div className="text-gray-500 text-xs uppercase tracking-wider mt-1">{k.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Registration curve */}
+                    {curve.length > 0 && (
+                      <div className="cyber-card rounded-xl p-5 mb-6">
+                        <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Courbe d&apos;inscriptions</h2>
+                        <div className="flex items-end gap-1 h-32">
+                          {curve.map(c => (
+                            <div key={c.date} className="flex flex-col items-center flex-1 min-w-0" title={`${c.date}: ${c.count}`}>
+                              <div className="w-full rounded-t transition-all" style={{ height: `${Math.round((c.count / maxCount) * 100)}%`, background: "#00ff9d", minHeight: 2, opacity: 0.8 }} />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex justify-between text-gray-700 text-xs mt-1">
+                          <span>{curve[0]?.date || ""}</span>
+                          <span>{totalRegs} total</span>
+                          <span>{curve[curve.length - 1]?.date || ""}</span>
+                        </div>
+                      </div>
+                    )}
+                    {/* Ticket breakdown + top countries */}
+                    {(Object.keys(byTicket).length > 0 || topCountries.length > 0) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div className="cyber-card rounded-xl p-5">
+                          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Par type de billet</h2>
+                          <div className="space-y-2">
+                            {Object.entries(byTicket).map(([type, count]) => (
+                              <div key={type} className="flex items-center gap-2">
+                                <span className="text-xs text-gray-400 w-24 shrink-0">{type}</span>
+                                <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full bg-neon-green/60" style={{ width: `${totalRegs > 0 ? Math.round((count / totalRegs) * 100) : 0}%` }} />
+                                </div>
+                                <span className="text-xs font-mono text-neon-green w-8 text-right">{count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="cyber-card rounded-xl p-5">
+                          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Top pays</h2>
+                          <div className="space-y-2">
+                            {topCountries.map(c => (
+                              <div key={c.country} className="flex items-center gap-2">
+                                <span className="text-xs text-gray-400 w-24 shrink-0 truncate">{c.country}</span>
+                                <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full" style={{ width: `${totalRegs > 0 ? Math.round((c.count / totalRegs) * 100) : 0}%`, background: "#0066ff" }} />
+                                </div>
+                                <span className="text-xs font-mono w-8 text-right" style={{ color: "#0066ff" }}>{c.count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {/* CFP funnel + volunteer rates */}
+                    <div className="cyber-card rounded-xl p-5 mb-6">
+                      <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Funnel CFP &amp; Bénévoles</h2>
+                      <div className="flex gap-8 items-center flex-wrap">
+                        {[
+                          { label: "CFP Soumis", value: ad.cfpTotal as number, color: "#888" },
+                          { label: "CFP Acceptés", value: ad.cfpAccepted as number, color: "#00ff9d" },
+                          { label: "Taux CFP", value: `${ad.cfpRate}%`, color: "#ff6600" },
+                          { label: "Taux Bénévoles", value: `${ad.volRate}%`, color: "#cc00ff" },
+                        ].map(f => (
+                          <div key={f.label} className="text-center">
+                            <div className="text-2xl font-black font-mono" style={{ color: f.color, fontFamily: "'Share Tech Mono', monospace" }}>{f.value ?? 0}</div>
+                            <div className="text-gray-500 text-xs mt-1">{f.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+              {/* Quick action cards */}
               <div className="grid sm:grid-cols-2 gap-4">
                 {[
                   { tab: "speakers", label: "Gérer les Speakers", desc: "Ajouter, éditer et ordonner les intervenants 2026" },
@@ -2018,7 +2764,12 @@ export default function AdminDashboard() {
           {/* REGISTRATIONS */}
           {tab === "registrations" && (
             <div>
-              <h1 className="text-2xl font-black text-white mb-6">Inscriptions ({(data.registrations || []).length})</h1>
+              <div className="flex items-center justify-between mb-6">
+                <h1 className="text-2xl font-black text-white">Inscriptions ({(data.registrations || []).length})</h1>
+                <a href="/admin/checkin" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">
+                  📱 Ouvrir Check-in J-Day →
+                </a>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
@@ -2428,32 +3179,32 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {tab === "users" && (
-            <div>
-              <h1 className="text-2xl font-black text-white mb-6">Utilisateurs Admin</h1>
-              <AdminUsersPanel />
-            </div>
-          )}
+          {tab === "users" && <AdminUsersPanel />}
 
           {/* COMMUNICATION */}
           {tab === "communication" && (
-            <CommunicationPanel
-              templates={(data["email-templates"] || []) as Record<string, unknown>[]}
-              onRefresh={() => fetchData("communication")}
-            />
+            <CommunicationPanel />
           )}
 
           {/* SPONSOR PIPELINE */}
           {tab === "sponsor-pipeline" && (
             <SponsorPipelinePanel
-              prospects={(data["sponsor-prospects"] || []) as Record<string, unknown>[]}
+              prospects={(data["sponsor-pipeline"] || []) as Record<string, unknown>[]}
               onRefresh={() => fetchData("sponsor-pipeline")}
             />
           )}
 
+          {/* SPONSOR PACKAGES */}
+          {tab === "sponsor-packages" && (
+            <SponsorPackagesPanel />
+          )}
+
           {/* PROSPECTION IA */}
           {tab === "prospection" && (
-            <ProspectionPanel leads={(data.prospection || []) as Record<string, unknown>[]} />
+            <ProspectionPanel
+              leads={(data.prospection || []) as Record<string, unknown>[]}
+              onRefresh={() => fetchData("prospection")}
+            />
           )}
 
           {/* BUDGET */}
@@ -2472,10 +3223,8 @@ export default function AdminDashboard() {
             />
           )}
 
-          {/* ANALYTICS */}
-          {tab === "analytics" && (
-            <AnalyticsPanel data={(data.analytics?.[0] as Record<string, unknown>) ?? null} />
-          )}
+          {/* TICKETS */}
+          {tab === "tickets" && <TicketsPanel />}
 
           {/* CERTIFICATES */}
           {tab === "certificates" && (

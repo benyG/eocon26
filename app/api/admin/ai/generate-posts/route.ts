@@ -14,28 +14,38 @@ interface PostsResult {
 
 export async function POST(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { brief } = await req.json();
+  const { brief, contextType, contextItem } = await req.json() as { brief: string; contextType?: string; contextItem?: Record<string, unknown> };
   if (!brief) return NextResponse.json({ error: "Missing brief" }, { status: 400 });
 
-  const openai = getOpenAI();
-  const prompt = `${EOCON_CONTEXT}
+  let contextSection = "";
+  if (contextType && contextItem) {
+    contextSection = `\nContexte spécifique : ${contextType} — ${JSON.stringify(contextItem)}`;
+  }
 
-Tu es community manager pour EOCON 2026. À partir du brief suivant, génère des posts pour les réseaux sociaux.
+  const openai = getOpenAI();
+  const prompt = `${EOCON_CONTEXT}${contextSection}
+
+Tu es community manager expert pour EOCON 2026. À partir du brief suivant, génère des posts optimisés pour chaque réseau social.
 
 Brief: ${brief}
 
-Génère en JSON uniquement, sans markdown :
+Règles importantes:
+- LinkedIn: professionnel, storytelling, 200-300 mots, émojis pertinents, call-to-action clair, hashtags en fin (#EOCON2026 #Cybersécurité #Afrique #Douala)
+- Twitter/X: percutant, 260 caractères max strict, 2-3 hashtags max
+- Instagram: visuel et engageant, 150 mots max, 8-10 hashtags variés en fin
+
+Réponds en JSON uniquement, sans markdown :
 {
-  "linkedin_fr": "<post LinkedIn en français, 300 mots max, professionnel et engageant, inclure des emojis pertinents>",
-  "linkedin_en": "<même post en anglais>",
-  "twitter_fr": "<post Twitter/X en français, 280 caractères max strict>",
-  "twitter_en": "<même post en anglais, 280 caractères max strict>",
-  "instagram_fr": "<post Instagram en français, engageant, 5 hashtags pertinents à la fin>",
-  "instagram_en": "<même post en anglais>"
+  "linkedin_fr": "...",
+  "linkedin_en": "...",
+  "twitter_fr": "...",
+  "twitter_en": "...",
+  "instagram_fr": "...",
+  "instagram_en": "..."
 }`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o",
+    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
     messages: [{ role: "user", content: prompt }],
     temperature: 0.7,
     max_tokens: 1500,

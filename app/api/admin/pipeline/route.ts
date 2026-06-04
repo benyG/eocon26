@@ -121,17 +121,13 @@ export async function PATCH(req: NextRequest) {
       const urlInscription = settings.url_inscription || "https://eyesopensecurity.com/#inscription";
       const urlProgramme = settings.url_programme || "https://eyesopensecurity.com/#programme";
 
-      // Check how many announcements are already scheduled to stagger time
-      const existingCount = await prisma.socialPost.count({
-        where: { contentType: "speaker_announcement", status: "scheduled" },
-      });
+      // Find the next free 90-min posting slot on a rolling basis.
+      // Slots: 09:00, 10:30, 12:00, 13:30, 15:00, 16:30 each day (Mon–Sat).
+      // We look at already-scheduled posts day by day until we find a free slot.
+      const SLOT_MINUTES = [9*60, 10*60+30, 12*60, 13*60+30, 15*60, 16*60+30]; // minutes from midnight
+      const TOLERANCE_MS = 20 * 60_000; // two posts within 20 min count as "same slot"
 
-      const announcementDate = new Date();
-      announcementDate.setDate(announcementDate.getDate() + 1);
-      // Stagger: 10:00, 11:30, 13:00, 14:30, 16:00, … (90-min slots)
-      const hourOffset = (existingCount % 6) * 90;
-      announcementDate.setHours(10, hourOffset % 60, 0, 0);
-      if (hourOffset >= 60) announcementDate.setHours(10 + Math.floor(hourOffset / 60), hourOffset % 60, 0, 0);
+      const announcementDate = await nextFreeAnnouncementSlot(SLOT_MINUTES, TOLERANCE_MS);
 
       const imageUrl = speaker.visualUrl || speaker.photoUrl || null;
 
@@ -158,6 +154,7 @@ export async function PATCH(req: NextRequest) {
             lang: "fr",
             content: twitterContent,
             imageUrl,
+            // Twitter 30 min after LinkedIn on the same slot
             scheduledAt: new Date(announcementDate.getTime() + 30 * 60_000),
             status: "scheduled",
             contentType: "speaker_announcement",
@@ -204,4 +201,46 @@ export async function DELETE(req: NextRequest) {
   );
 
   return NextResponse.json(updated);
+}
+
+/**
+ * Finds the next free posting slot for speaker announcements.
+ * Scans days starting from tomorrow, checking each predefined slot.
+ * A slot is "taken" if any scheduled post falls within toleranceMs of it.
+ * Skips Sunday (0). Gives up after 60 days (returns best effort).
+ */
+async function nextFreeAnnouncementSlot(slotMinutes: number[], toleranceMs: number): Promise<Date> {
+  // Fetch all future scheduled announcement posts
+  const future = await prisma.socialPost.findMany({
+    where: {
+      status: "scheduled",
+      scheduledAt: { gte: new Date() },
+    },
+    select: { scheduledAt: true },
+  });
+  const takenMs = future.map(p => p.scheduledAt!.getTime());
+
+  const candidate = new Date();
+  candidate.setSeconds(0, 0);
+
+  for (let day = 1; day <= 60; day++) {
+    candidate.setDate(new Date().getDate() + day);
+    // Skip Sunday
+    if (candidate.getDay() === 0) continue;
+
+    for (const minutes of slotMinutes) {
+      const slotDate = new Date(candidate);
+      slotDate.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+
+      // Check if any taken post is within tolerance of this slot
+      const collision = takenMs.some(t => Math.abs(t - slotDate.getTime()) < toleranceMs);
+      if (!collision) return slotDate;
+    }
+  }
+
+  // Fallback: tomorrow 10:00
+  const fallback = new Date();
+  fallback.setDate(fallback.getDate() + 1);
+  fallback.setHours(10, 0, 0, 0);
+  return fallback;
 }

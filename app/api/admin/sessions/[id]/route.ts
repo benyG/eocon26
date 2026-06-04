@@ -64,12 +64,30 @@ async function syncReminderPost(speakerId: number, date: string, sessionTime: st
   const sessionDate = new Date(`${date}T${sessionTime ?? "09:00"}:00`);
   if (isNaN(sessionDate.getTime())) return;
 
-  const reminderDate = new Date(sessionDate);
+  let reminderDate = new Date(sessionDate);
   reminderDate.setDate(reminderDate.getDate() - 1);
-  // Keep the same hour/minute as the session so staggering is natural
+  // Same hour as session — natural spread across the day
 
   // Don't schedule in the past
   if (reminderDate <= new Date()) return;
+
+  // Resolve collision: if another reminder (different speaker) is already at this
+  // exact minute, shift by +15 min until the slot is free (max 8 shifts = +2h)
+  for (let shift = 0; shift < 8; shift++) {
+    const collision = await prisma.socialPost.findFirst({
+      where: {
+        contentType: "speaker_reminder",
+        status: { in: ["scheduled", "draft"] },
+        speakerId: { not: speakerId }, // other speakers
+        scheduledAt: {
+          gte: new Date(reminderDate.getTime() - 5 * 60_000),
+          lte: new Date(reminderDate.getTime() + 5 * 60_000),
+        },
+      },
+    });
+    if (!collision) break;
+    reminderDate = new Date(reminderDate.getTime() + 15 * 60_000);
+  }
 
   const settings = await getEventSettings().catch(() => ({} as Record<string, string>));
   const venue = settings.event_venue || "Hotel Onomo";

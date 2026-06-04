@@ -70,7 +70,7 @@ export default function Home() {
       <Testimonials t={tWithSettings} />
       <CFPSection t={tWithSettings} />
       <Volunteer t={tWithSettings} />
-      <Sponsors t={tWithSettings} />
+      <Sponsors t={tWithSettings} lang={lang} />
       <Team t={tWithSettings} />
       <Venue t={tWithSettings} eventSettings={eventSettings} />
       <Footer t={tWithSettings} eventSettings={eventSettings} />

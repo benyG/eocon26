@@ -347,10 +347,25 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
   };
 
   const addToPipeline = async (lead: Record<string, unknown>) => {
+    // Mark lead as added
     await fetch("/api/admin/ai/prospect-leads", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: lead.id, addedToPipeline: true }),
+    });
+    // Create prospect entry with status "prospect"
+    await fetch("/api/admin/sponsor-prospects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        org: lead.org,
+        contact: lead.contactName || null,
+        email: lead.contactEmail || null,
+        phone: lead.phone || null,
+        package: lead.recommendedPackage || null,
+        notes: lead.aiScoreReason || null,
+        status: "prospect",
+      }),
     });
     onRefresh();
   };
@@ -1382,13 +1397,15 @@ function CommunicationPanel() {
 
 // ---- Sponsor Pipeline Panel ----
 const PROSPECT_STATUSES = [
+  { value: "demande", label: "Demande", color: "#ffaa00" },
+  { value: "prospect", label: "Prospect", color: "#888" },
   { value: "contacted", label: "Contacté", color: "#0066ff" },
   { value: "meeting", label: "Réunion", color: "#cc00ff" },
   { value: "positive", label: "Avancée positive", color: "#00ff9d" },
   { value: "negative", label: "Avancée négative", color: "#ff6600" },
-  { value: "concluded", label: "Conclu", color: "#00ff9d" },
+  { value: "concluded", label: "Conclu", color: "#00e066" },
   { value: "abandoned", label: "Abandonné", color: "#ff0066" },
-  { value: "paused", label: "En pause", color: "#888" },
+  { value: "paused", label: "En pause", color: "#555" },
 ];
 
 function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<string, unknown>[]; onRefresh: () => void }) {

@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { fname, lname, email, org, country, ticketType, lang_expression } = body;
+    const { fname, lname, email, org, country, ticketType, lang_expression, linkedin, whatsapp } = body;
 
     if (!fname || !lname || !email || !ticketType) {
       return NextResponse.json({ error: "Champs requis manquants" }, { status: 400 });
@@ -43,6 +43,8 @@ export async function POST(req: NextRequest) {
         ticketType,
         langExpression: lang_expression || "fr",
         ticketRef: rawRef,
+        linkedin: linkedin?.slice(0, 191) || null,
+        whatsapp: whatsapp?.slice(0, 191) || null,
       },
     });
 

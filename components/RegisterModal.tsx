@@ -32,7 +32,7 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
   const [step, setStep] = useState<"tiers" | "form">("tiers");
   const [selectedTier, setSelectedTier] = useState("");
   const [selectedTicket, setSelectedTicket] = useState<TicketTypeData | null>(null);
-  const [formData, setFormData] = useState({ fname: "", lname: "", email: "", org: "", country: "", lang_expression: "fr" });
+  const [formData, setFormData] = useState({ fname: "", lname: "", email: "", org: "", country: "", lang_expression: "fr", linkedin: "", whatsapp: "" });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -241,6 +241,30 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                     <option value="en" className="bg-dark-800">English</option>
                   </select>
                 </div>
+                {/* Optional networking fields */}
+                <div className="p-4 rounded border border-dashed" style={{ borderColor: "#00ccff33", background: "#00ccff05" }}>
+                  <p className="text-xs font-mono text-gray-500 mb-3" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                    🔗 Profil réseau — <span className="text-gray-600">optionnel</span>
+                  </p>
+                  <p className="text-xs text-gray-600 mb-3">
+                    {lang === "fr"
+                      ? "Ces informations génèrent un QR code de networking sur votre badge d'entrée, permettant aux autres participants de vous contacter facilement."
+                      : "This generates a networking QR code on your entry badge so other attendees can connect with you easily."}
+                  </p>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>LinkedIn (URL ou username)</label>
+                      <input className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="https://linkedin.com/in/votre-profil"
+                        value={formData.linkedin} onChange={e => setFormData({ ...formData, linkedin: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>WhatsApp (avec indicatif pays)</label>
+                      <input className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="+237 6XX XXX XXX"
+                        value={formData.whatsapp} onChange={e => setFormData({ ...formData, whatsapp: e.target.value })} />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="p-3 rounded border" style={{ background: (selectedTicket?.color || "#00ff9d") + "08", borderColor: (selectedTicket?.color || "#00ff9d") + "22" }}>
                   <p className="text-xs text-gray-500 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
                     Billet sélectionné : <span style={{ color: selectedTicket?.color || "#00ff9d", fontWeight: "bold" }}>

@@ -1,0 +1,4 @@
+ALTER TABLE `admin_users`
+  ADD COLUMN `mfaSecret` TEXT NULL,
+  ADD COLUMN `mfaEnabled` TINYINT(1) NOT NULL DEFAULT 0,
+  ADD COLUMN `mfaEnrolledAt` DATETIME(3) NULL;

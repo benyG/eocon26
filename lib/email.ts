@@ -104,9 +104,46 @@ export async function sendRegistrationPending(
 export async function sendRegistrationTicket(
   to: string, fname: string, lname: string, ticketType: string, registrationId: number, ticketRef: string,
 ) {
+  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com";
+  const connectUrl = `${baseUrl}/connect/${ticketRef}`;
+
   const qrString = generateQrPayload(registrationId);
-  const qrDataUrl = await QRCode.toDataURL(qrString, { width: 200, margin: 2, color: { dark: "#000000", light: "#ffffff" } });
-  const qrImg = `<img src="${qrDataUrl}" alt="QR Code d'accès" style="width:180px;height:180px;border:4px solid #00ff9d;border-radius:8px" />`;
+  const accessQrDataUrl = await QRCode.toDataURL(qrString, { width: 200, margin: 2, color: { dark: "#000000", light: "#ffffff" } });
+  const connectQrDataUrl = await QRCode.toDataURL(connectUrl, { width: 256, margin: 2, color: { dark: "#000000", light: "#ffffff" } });
+
+  const qrImg = `<img src="${accessQrDataUrl}" alt="QR Code d'accès" style="width:180px;height:180px;border:4px solid #00ff9d;border-radius:8px" />`;
+
+  // Badge coupon: ID-1 size = 85.6×54mm → at 96dpi ≈ 323×204px, we use 324×204 as CSS dimensions
+  // Printed at 96dpi on A4, the browser will scale this to exact badge size
+  const badgeCoupon = `
+<div style="page-break-before:always;">
+  <p style="font-family:monospace;font-size:11px;color:#666;margin:0 0 8px;text-align:center;">
+    ✂ Imprimez cette page, découpez le long des pointillés et glissez dans votre porte-badge.
+  </p>
+  <div style="display:inline-block;position:relative;width:324px;border:2px dashed #aaa;padding:0;">
+    <div style="width:324px;height:204px;background:#0a0a0f;font-family:'Share Tech Mono',monospace,sans-serif;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:space-between;padding:0 20px;box-sizing:border-box;">
+      <!-- Left: branding -->
+      <div style="text-align:center;flex:0 0 auto;">
+        <div style="font-size:9px;letter-spacing:3px;color:#00ff9d;margin-bottom:4px;">EOCON</div>
+        <div style="font-size:22px;font-weight:900;color:#ffffff;letter-spacing:2px;line-height:1;">2026</div>
+        <div style="width:40px;height:1px;background:#00ff9d;margin:6px auto;"></div>
+        <div style="font-size:7px;color:#555;letter-spacing:2px;">EYESOPEN</div>
+        <div style="font-size:7px;color:#555;letter-spacing:1px;">SECURITY</div>
+      </div>
+      <!-- Center: name + ticket -->
+      <div style="flex:1;padding:0 16px;text-align:center;">
+        <div style="font-size:13px;color:#ffffff;font-family:Georgia,serif;font-weight:bold;margin-bottom:4px;">${esc(fname)} ${esc(lname)}</div>
+        <div style="font-size:8px;letter-spacing:2px;color:#00ff9d;text-transform:uppercase;">${esc(ticketType)}</div>
+        <div style="font-size:7px;color:#333;margin-top:6px;letter-spacing:1px;">${ticketRef}</div>
+      </div>
+      <!-- Right: QR code -->
+      <div style="flex:0 0 auto;text-align:center;">
+        <img src="${connectQrDataUrl}" width="100" height="100" alt="QR réseau" style="display:block;" />
+        <div style="font-size:6px;color:#444;margin-top:3px;letter-spacing:1px;">NETWORKING</div>
+      </div>
+    </div>
+  </div>
+</div>`;
 
   const vars = { fname: esc(fname), lname: esc(lname), ticketType: esc(ticketType), ticketRef, qr_code_img: qrImg };
   await sendWithTemplate(
@@ -122,6 +159,14 @@ export async function sendRegistrationTicket(
       </div>
       <p>📍 Hotel Onomo, Douala, Cameroun</p>
       <hr style="border-color:#222;margin:24px 0"/>
+      <div style="background:#111827;border:1px solid #00ccff33;border-radius:8px;padding:20px;margin-bottom:24px;">
+        <p style="color:#00ccff;font-size:12px;letter-spacing:2px;margin:0 0 8px;">🪪 COUPURE BADGE D'ENTRÉE</p>
+        <p style="color:#888;font-size:12px;margin:0 0 12px;line-height:1.6;">
+          <strong style="color:#fff;">Imprimez et apportez cette coupure</strong> à l'accueil le jour de l'événement.
+          Elle sera insérée dans votre porte-badge. Le QR code permet aux autres participants de vous retrouver en réseau.
+        </p>
+        ${badgeCoupon}
+      </div>
       <p style="color:#555;font-size:12px">#EOCON #EOCTF</p>
     </div>`,
   );

@@ -41,7 +41,24 @@ export default function Schedule({ t, lang }: { t: Translations; lang: "en" | "f
 
   const items = sessions.length > 0
     ? sessions.map(s => ({ time: s.time, title: s.speakerName ? `${s.title} — ${s.speakerName}` : s.title, type: s.type }))
-    : t.schedule.items;
+    : [];
+
+  if (loaded && items.length === 0) {
+    return (
+      <section id="schedule" className="py-24 px-4 relative">
+        <div className="max-w-4xl mx-auto text-center">
+          <p className="text-neon-green text-xs font-mono uppercase tracking-widest mb-3" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+            &gt; CAT PROGRAM.TXT
+          </p>
+          <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">{t.schedule.title}</h2>
+          <div className="section-line mx-auto mb-6" />
+          <p className="text-gray-600 text-sm font-mono mt-8" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+            // Programme en cours de construction — revenez bientôt
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section id="schedule" className="py-24 px-4 relative">

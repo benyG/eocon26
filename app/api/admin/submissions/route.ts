@@ -4,6 +4,7 @@ import { isAdminAuthenticated } from "@/lib/adminAuth";
 import { sendCFPDecision, sendRegistrationTicket, sendVolunteerAccepted } from "@/lib/email";
 import { generateQrPayload } from "@/lib/qr";
 import { formatTicketRef } from "@/lib/ticketRef";
+import { logAction } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,9 @@ export async function PATCH(req: NextRequest) {
     if (assignedRole !== undefined) updateData.assignedRole = assignedRole;
     if (shiftStart !== undefined) updateData.shiftStart = shiftStart ? new Date(shiftStart) : null;
     if (shiftEnd !== undefined) updateData.shiftEnd = shiftEnd ? new Date(shiftEnd) : null;
-    return NextResponse.json(await prisma.volunteerApplication.update({ where: { id }, data: updateData }));
+    const updated = await prisma.volunteerApplication.update({ where: { id }, data: updateData });
+    logAction(req, "UPDATE", "volunteer", id, { assignedRole, shiftStart, shiftEnd });
+    return NextResponse.json(updated);
   }
 
   // Enhanced CFP accept/reject with email
@@ -46,6 +49,7 @@ export async function PATCH(req: NextRequest) {
       where: { id },
       data: { status: decision, notes: notes ?? undefined, decisionSentAt: new Date() },
     });
+    logAction(req, decision === "accepted" ? "ACCEPT" : "REJECT", "cfp", id, { email: submission.email });
     sendCFPDecision(submission.email, submission.name, submission.talkTitle, decision).catch(e =>
       console.error("[CFP decision email]", e),
     );
@@ -53,7 +57,9 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (type === "cfp") {
-    return NextResponse.json(await prisma.cFPSubmission.update({ where: { id }, data: { status, notes: notes ?? undefined } }));
+    const updated = await prisma.cFPSubmission.update({ where: { id }, data: { status, notes: notes ?? undefined } });
+    logAction(req, "UPDATE", "cfp", id, { status });
+    return NextResponse.json(updated);
   }
   // Validate registration: set status validated + generate QR + send ticket email
   if (type === "registration" && action === "validate") {
@@ -64,6 +70,7 @@ export async function PATCH(req: NextRequest) {
       where: { id },
       data: { status: "validated", qrCode },
     });
+    logAction(req, "VALIDATE", "registration", id, { email: reg.email, ticketType: reg.ticketType });
     const ticketRef = formatTicketRef(reg.ticketRef || String(reg.id).padStart(5, "0"));
     sendRegistrationTicket(reg.email, reg.fname, reg.lname, reg.ticketType, reg.id, ticketRef).catch(e =>
       console.error("[Registration ticket email]", e),
@@ -72,12 +79,15 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (type === "registration") {
-    return NextResponse.json(await prisma.registration.update({ where: { id }, data: { status } }));
+    const updated = await prisma.registration.update({ where: { id }, data: { status } });
+    logAction(req, "UPDATE", "registration", id, { status });
+    return NextResponse.json(updated);
   }
 
   if (type === "volunteer") {
     const vol = await prisma.volunteerApplication.findUnique({ where: { id } });
     const updated = await prisma.volunteerApplication.update({ where: { id }, data: { status } });
+    logAction(req, "UPDATE", "volunteer", id, { status });
     if (status === "accepted" && vol) {
       sendVolunteerAccepted(vol.email, vol.name, vol.assignedRole || "À confirmer").catch(e =>
         console.error("[Volunteer accepted email]", e),

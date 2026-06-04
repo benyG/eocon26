@@ -1,11 +1,19 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_PROFILES } from "@/lib/adminProfiles";
 import PipelineKanban from "@/components/admin/PipelineKanban";
 import AdminProfilesPanel from "@/components/admin/AdminProfilesPanel";
+import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
 
-type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings";
+const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; setLang: (l: AdminLang) => void }>({
+  lang: "fr",
+  t: adminI18n.fr,
+  setLang: () => {},
+});
+const useAdminT = () => useContext(AdminLangContext);
+
+type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "sessions" | "audit";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -96,6 +104,7 @@ function PhotoUploadField({
 }
 
 function AdminUsersPanel() {
+  const { t } = useAdminT();
   const [users, setUsers] = useState<Record<string, unknown>[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ profileId: "coordinateur_cfp" });
@@ -142,10 +151,10 @@ function AdminUsersPanel() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-white">Utilisateurs Admin</h1>
-          <p className="text-gray-500 text-xs mt-1">Les utilisateurs reçoivent leurs identifiants par email à la création.</p>
+          <h1 className="text-2xl font-black text-white">{t.usersTitle}</h1>
+          <p className="text-gray-500 text-xs mt-1">{t.receiveCredentials}</p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-sm">+ Nouvel utilisateur</button>
+        <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-sm">{t.newUser}</button>
       </div>
 
       {created && (
@@ -347,10 +356,25 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
   };
 
   const addToPipeline = async (lead: Record<string, unknown>) => {
+    // Mark lead as added
     await fetch("/api/admin/ai/prospect-leads", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: lead.id, addedToPipeline: true }),
+    });
+    // Create prospect entry with status "prospect"
+    await fetch("/api/admin/sponsor-prospects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        org: lead.org,
+        contact: lead.contactName || null,
+        email: lead.contactEmail || null,
+        phone: lead.phone || null,
+        package: lead.recommendedPackage || null,
+        notes: lead.aiScoreReason || null,
+        status: "prospect",
+      }),
     });
     onRefresh();
   };
@@ -1382,43 +1406,56 @@ function CommunicationPanel() {
 
 // ---- Sponsor Pipeline Panel ----
 const PROSPECT_STATUSES = [
-  { value: "contacted", label: "Contacté", color: "#0066ff" },
-  { value: "meeting", label: "Réunion", color: "#cc00ff" },
-  { value: "positive", label: "Avancée positive", color: "#00ff9d" },
-  { value: "negative", label: "Avancée négative", color: "#ff6600" },
-  { value: "concluded", label: "Conclu", color: "#00ff9d" },
-  { value: "abandoned", label: "Abandonné", color: "#ff0066" },
-  { value: "paused", label: "En pause", color: "#888" },
+  { value: "demande", fr: "Demande", en: "Request", label: "Demande", color: "#ffaa00" },
+  { value: "prospect", fr: "Prospect", en: "Prospect", label: "Prospect", color: "#888" },
+  { value: "contacted", fr: "Contacté", en: "Contacted", label: "Contacté", color: "#0066ff" },
+  { value: "meeting", fr: "Réunion", en: "Meeting", label: "Réunion", color: "#cc00ff" },
+  { value: "positive", fr: "Avancée positive", en: "Positive progress", label: "Avancée positive", color: "#00ff9d" },
+  { value: "negative", fr: "Avancée négative", en: "Negative progress", label: "Avancée négative", color: "#ff6600" },
+  { value: "concluded", fr: "Conclu", en: "Concluded", label: "Conclu", color: "#00e066" },
+  { value: "abandoned", fr: "Abandonné", en: "Abandoned", label: "Abandonné", color: "#ff0066" },
+  { value: "paused", fr: "En pause", en: "Paused", label: "En pause", color: "#555" },
 ];
 
 function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<string, unknown>[]; onRefresh: () => void }) {
+  const { t, lang } = useAdminT();
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<Record<string, unknown>>({ status: "contacted" });
+  const [form, setForm] = useState<Record<string, unknown>>({ status: "prospect" });
   const [aiEmail, setAiEmail] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
-  const [aiEmailTarget, setAiEmailTarget] = useState<string | null>(null);
+  const [aiEmailTarget, setAiEmailTarget] = useState<{ org: string; id: number } | null>(null);
+  const [generatingFor, setGeneratingFor] = useState<number | null>(null);
 
   const generateFollowupEmail = async (p: Record<string, unknown>) => {
-    setAiEmailTarget(p.org as string);
+    setGeneratingFor(p.id as number);
+    setAiEmailTarget({ org: p.org as string, id: p.id as number });
     const res = await fetch("/api/admin/ai/sponsor-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ org: p.org, contact: p.contact, package: p.package, status: p.status, notes: p.notes, mode: "followup" }),
     });
-    if (res.ok) setAiEmail(await res.json() as { subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string });
+    if (res.ok) setAiEmail(await res.json());
+    setGeneratingFor(null);
+  };
+
+  const markContacted = async (id: number) => {
+    await fetch(`/api/admin/sponsor-prospects/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "contacted" }),
+    });
+    setAiEmail(null);
+    setAiEmailTarget(null);
+    onRefresh();
   };
 
   const save = async () => {
     await fetch("/api/admin/sponsor-prospects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-    setShowForm(false); setForm({ status: "contacted" }); onRefresh();
+    setShowForm(false); setForm({ status: "prospect" }); onRefresh();
   };
 
   const updateStatus = async (id: number, status: string) => {
     await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
     onRefresh();
-  };
-
-  const updateNotes = async (id: number, notes: string) => {
-    await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notes }) });
   };
 
   const del = async (id: number) => {
@@ -1430,16 +1467,17 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-black text-white">Pipeline Sponsors</h1>
-        <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter prospect</button>
+        <h1 className="text-2xl font-black text-white">{t.pipelineTitle}</h1>
+        <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">{t.addProspect}</button>
       </div>
 
+      {/* AI Email Modal */}
       {aiEmail && aiEmailTarget && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between mb-4">
-              <h3 className="text-white font-bold">Email de relance — {aiEmailTarget}</h3>
-              <button onClick={() => setAiEmail(null)} className="text-gray-500 hover:text-white">✕</button>
+              <h3 className="text-white font-bold">Email — {aiEmailTarget.org}</h3>
+              <button onClick={() => { setAiEmail(null); setAiEmailTarget(null); }} className="text-gray-500 hover:text-white">✕</button>
             </div>
             <div className="space-y-4">
               {[
@@ -1456,18 +1494,28 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
                 </div>
               ))}
             </div>
+            <div className="mt-4 pt-4 border-t border-gray-800">
+              <button
+                onClick={() => markContacted(aiEmailTarget.id)}
+                className="w-full text-xs px-4 py-2 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-all"
+              >
+                {t.markContacted}
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* Add form */}
       {showForm && (
         <div className="cyber-card rounded-xl p-5 mb-6 space-y-3">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {[
-              { key: "org", label: "Organisation *" },
-              { key: "contact", label: "Contact" },
-              { key: "email", label: "Email" },
-              { key: "phone", label: "Téléphone" },
-              { key: "package", label: "Package / Tier" },
+              { key: "org", label: t.org + " *" },
+              { key: "contact", label: t.contact },
+              { key: "email", label: t.email },
+              { key: "phone", label: t.phone },
+              { key: "package", label: t.package },
             ].map(f => (
               <div key={f.key}>
                 <label className="text-xs text-gray-500 block mb-1">{f.label}</label>
@@ -1475,73 +1523,85 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
               </div>
             ))}
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Statut</label>
-              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.status as string) || "contacted"} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
-                {PROSPECT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              <label className="text-xs text-gray-500 block mb-1">{t.status}</label>
+              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.status as string) || "prospect"} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
+                {PROSPECT_STATUSES.map(s => <option key={s.value} value={s.value}>{lang === "en" ? s.en : s.fr}</option>)}
               </select>
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
-              <label className="text-xs text-gray-500 block mb-1">Notes</label>
+              <label className="text-xs text-gray-500 block mb-1">{t.notes}</label>
               <textarea rows={2} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.notes as string) || ""} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} />
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">Sauvegarder</button>
-            <button onClick={() => { setShowForm(false); setForm({ status: "contacted" }); }} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
+            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">{t.save}</button>
+            <button onClick={() => { setShowForm(false); setForm({ status: "prospect" }); }} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">{t.cancel}</button>
           </div>
         </div>
       )}
-      <div className="space-y-3">
-        {PROSPECT_STATUSES.map(st => {
-          const group = prospects.filter(p => p.status === st.value);
-          if (!group.length) return null;
-          return (
-            <div key={st.value} className="mb-4">
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-2" style={{ color: st.color }}>
-                <span className="w-2 h-2 rounded-full inline-block" style={{ background: st.color }} />
-                {st.label} ({group.length})
-              </h3>
-              <div className="space-y-2 pl-4">
-                {group.map(p => (
-                  <div key={p.id as number} className="cyber-card rounded-lg p-4" style={{ borderLeft: `3px solid ${st.color}40` }}>
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-bold text-sm">{p.org as string}</p>
-                        <div className="flex gap-3 text-xs text-gray-500 mt-0.5 flex-wrap">
-                          {!!(p.contact as string) && <span>{p.contact as string}</span>}
-                          {!!(p.email as string) && <span className="text-neon-green/60">{p.email as string}</span>}
-                          {!!(p.phone as string) && <span>{p.phone as string}</span>}
-                          {!!(p.package as string) && <span className="px-1.5 py-0.5 rounded" style={{ background: st.color + "20", color: st.color }}>{p.package as string}</span>}
-                        </div>
-                        {!!(p.notes as string) && (
-                          <textarea
-                            defaultValue={(p.notes as string) || ""}
-                            onBlur={e => updateNotes(p.id as number, e.target.value)}
-                            className="cyber-input w-full text-xs rounded p-2 mt-2 h-12 resize-none"
-                            placeholder="Notes..."
-                          />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => generateFollowupEmail(p)} className="text-xs px-2 py-1 rounded transition-all" style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}>✨ Email IA</button>
+
+      {/* Kanban Board */}
+      <div className="overflow-x-auto pb-4">
+        <div className="flex gap-4 min-w-max">
+          {PROSPECT_STATUSES.map(st => {
+            const group = prospects.filter(p => p.status === st.value);
+            return (
+              <div key={st.value} className="w-64 shrink-0">
+                <div className="flex items-center gap-2 mb-3 px-1">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: st.color }} />
+                  <span className="text-xs font-bold uppercase tracking-wider" style={{ color: st.color }}>{lang === "en" ? st.en : st.fr}</span>
+                  <span className="ml-auto text-xs text-gray-700 font-mono">{group.length}</span>
+                </div>
+                <div className="space-y-2 min-h-[100px]">
+                  {group.map(p => (
+                    <div
+                      key={p.id as number}
+                      className="cyber-card rounded-lg p-3 text-xs"
+                      style={{ borderLeft: `3px solid ${st.color}40` }}
+                    >
+                      <p className="text-white font-bold text-sm mb-1 truncate">{p.org as string}</p>
+                      {(p.contact as string) && <p className="text-gray-500 truncate">{p.contact as string}</p>}
+                      {(p.email as string) && <p className="text-neon-green/60 truncate">{p.email as string}</p>}
+                      {(p.package as string) && (
+                        <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-xs" style={{ background: st.color + "20", color: st.color }}>
+                          {p.package as string}
+                        </span>
+                      )}
+                      {(p.notes as string) && (
+                        <p className="text-gray-600 text-xs mt-1 truncate" title={p.notes as string}>{p.notes as string}</p>
+                      )}
+                      <div className="flex items-center gap-1 mt-2 flex-wrap">
+                        <button
+                          onClick={() => generateFollowupEmail(p)}
+                          disabled={generatingFor === (p.id as number)}
+                          className="text-xs px-1.5 py-0.5 rounded transition-all disabled:opacity-50"
+                          style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}
+                        >
+                          {generatingFor === (p.id as number) ? "…" : "✨"}
+                        </button>
                         <select
-                          className="cyber-input text-xs px-2 py-1 rounded"
+                          className="cyber-input text-xs px-1 py-0.5 rounded flex-1 min-w-0"
                           value={p.status as string}
                           onChange={e => updateStatus(p.id as number, e.target.value)}
                         >
-                          {PROSPECT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                          {PROSPECT_STATUSES.map(s => <option key={s.value} value={s.value}>{lang === "en" ? s.en : s.fr}</option>)}
                         </select>
-                        <button onClick={() => del(p.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">Suppr.</button>
+                        <button onClick={() => del(p.id as number)} className="text-xs text-red-500 hover:text-red-400 px-1">✕</button>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                  {group.length === 0 && (
+                    <div className="border border-dashed border-gray-800 rounded-lg h-16 flex items-center justify-center">
+                      <span className="text-gray-800 text-xs">vide</span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-        {!prospects.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun prospect pour l&apos;instant</p>}
+            );
+          })}
+        </div>
       </div>
+      {!prospects.length && <p className="text-gray-600 text-xs py-4 text-center">Aucun prospect pour l&apos;instant</p>}
     </div>
   );
 }
@@ -2683,6 +2743,279 @@ function EventSettingsPanel() {
 }
 
 
+function SessionsPanel() {
+  const { t } = useAdminT();
+  const [sessions, setSessions] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [seeding, setSeeding] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState<Record<string, unknown>>({});
+  const [saving, setSaving] = useState(false);
+
+  const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
+
+  const load = async () => {
+    setLoading(true);
+    const r = await fetch("/api/admin/sessions");
+    if (r.ok) setSessions(await r.json());
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const seed = async () => {
+    if (!confirm("Initialiser le programme avec les sessions standard ? (Annulé si des sessions existent déjà)")) return;
+    setSeeding(true);
+    const r = await fetch("/api/admin/sessions/seed", { method: "POST" });
+    const j = await r.json();
+    if (!r.ok) alert(j.error || "Erreur");
+    else { alert(`${j.seeded} sessions créées.`); load(); }
+    setSeeding(false);
+  };
+
+  const startEdit = (s: Record<string, unknown> | null) => {
+    setEditingId(s ? Number(s.id) : null);
+    setForm(s ? { ...s } : { time: "09:00", title: "", type: "talk", sortOrder: 100, isVisible: true });
+    setShowForm(true);
+  };
+
+  const closeForm = () => { setShowForm(false); setEditingId(null); };
+
+  const save = async () => {
+    setSaving(true);
+    const url = editingId ? `/api/admin/sessions/${editingId}` : "/api/admin/sessions";
+    const method = editingId ? "PUT" : "POST";
+    const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    if (r.ok) { closeForm(); load(); }
+    setSaving(false);
+  };
+
+  const del = async (id: number) => {
+    if (!confirm("Supprimer cette session ?")) return;
+    await fetch(`/api/admin/sessions/${id}`, { method: "DELETE" });
+    load();
+  };
+
+  const typeColor: Record<string, string> = {
+    keynote: "#00ff9d", talk: "#0066ff", workshop: "#ff6600", panel: "#cc00ff", break: "#444", logistics: "#888",
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-black text-white">{t.sessionsTitle}</h1>
+        <div className="flex gap-2">
+          <button onClick={seed} disabled={seeding} className="text-xs px-3 py-1.5 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-all disabled:opacity-50">
+            {seeding ? "…" : t.initStandard}
+          </button>
+          <button onClick={() => startEdit(null)} className="text-xs px-3 py-1.5 rounded bg-neon-green/10 text-neon-green border border-neon-green/30 hover:bg-neon-green/20 transition-all">
+            + {t.newSession}
+          </button>
+        </div>
+      </div>
+
+      {/* Edit/create form */}
+      {showForm && (
+        <div className="cyber-card rounded-xl p-5 mb-6 border border-neon-green/20">
+          <h2 className="text-sm font-bold text-neon-green mb-4">{editingId ? t.editSession : t.newSession}</h2>
+          <div className="grid sm:grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">{t.sessionTitle}</label>
+              <input className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.title || "")} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">{t.type}</label>
+              <select className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.type || "talk")} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+                {SESSION_TYPES.map(st => <option key={st} value={st}>{st}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">{t.date}</label>
+              <input type="date" className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.date || "")} onChange={e => setForm(f => ({ ...f, date: e.target.value || null }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">{t.startTime}</label>
+              <input type="time" className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.time || "")} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">{t.endTime}</label>
+              <input type="time" className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.endTime || "")} onChange={e => setForm(f => ({ ...f, endTime: e.target.value || null }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">{t.room}</label>
+              <input className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.room || "")} onChange={e => setForm(f => ({ ...f, room: e.target.value || null }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">{t.speakerName}</label>
+              <input className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.speakerName || "")} onChange={e => setForm(f => ({ ...f, speakerName: e.target.value || null }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">{t.sortOrder}</label>
+              <input type="number" className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={Number(form.sortOrder ?? 100)} onChange={e => setForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))} />
+            </div>
+          </div>
+          <div className="mb-3">
+            <label className="text-xs text-gray-500 block mb-1">{t.description}</label>
+            <textarea rows={2} className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none resize-none"
+              value={String(form.description || "")} onChange={e => setForm(f => ({ ...f, description: e.target.value || null }))} />
+          </div>
+          <div className="flex items-center gap-3 mb-4">
+            <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+              <input type="checkbox" checked={Boolean(form.isVisible)} onChange={e => setForm(f => ({ ...f, isVisible: e.target.checked }))} />
+              {t.visibleOnSite}
+            </label>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={save} disabled={saving} className="text-xs px-4 py-2 rounded bg-neon-green/20 text-neon-green border border-neon-green/30 hover:bg-neon-green/30 transition-all disabled:opacity-50">
+              {saving ? "…" : t.save}
+            </button>
+            <button onClick={closeForm} className="text-xs px-4 py-2 rounded border border-gray-800 text-gray-500 hover:text-gray-300 transition-all">
+              {t.cancel}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="text-gray-600 text-sm font-mono">Chargement…</p>
+      ) : sessions.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-gray-600 text-sm font-mono mb-4">{t.noSessions}</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {sessions.map(s => {
+            const color = typeColor[String(s.type)] || "#888";
+            return (
+              <div key={String(s.id)} className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/[0.05] hover:border-neon-green/20 transition-all">
+                <span className="w-14 shrink-0 text-right text-xs font-mono" style={{ color: color + "aa" }}>{String(s.time)}</span>
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                <span className="flex-1 text-sm text-white">{String(s.title)}</span>
+                {s.speakerName && <span className="text-xs text-gray-500">{String(s.speakerName)}</span>}
+                <span className="text-xs px-1.5 py-0.5 rounded shrink-0" style={{ color, background: color + "20" }}>{String(s.type)}</span>
+                {!s.isVisible && <span className="text-xs text-gray-600 shrink-0">{t.hidden}</span>}
+                <button onClick={() => startEdit(s)} className="text-xs text-gray-500 hover:text-neon-green transition-colors shrink-0">✎</button>
+                <button onClick={() => del(Number(s.id))} className="text-xs text-gray-600 hover:text-red-400 transition-colors shrink-0">✕</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AuditPanel() {
+  const { t } = useAdminT();
+  const [logs, setLogs] = useState<Record<string, unknown>[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [resource, setResource] = useState("");
+  const [action, setAction] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [purging, setPurging] = useState(false);
+
+  const RESOURCES = ["", "cfp", "registration", "volunteer", "speaker", "session", "user", "speaker_onboarding"];
+  const ACTIONS = ["", "CREATE", "UPDATE", "DELETE", "VALIDATE", "REJECT", "ACCEPT", "LOGIN"];
+
+  const load = async (p: number, res: string, act: string) => {
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(p) });
+    if (res) params.set("resource", res);
+    if (act) params.set("action", act);
+    const r = await fetch(`/api/admin/audit?${params}`);
+    if (r.ok) {
+      const j = await r.json();
+      setLogs(j.logs);
+      setTotal(j.total);
+      setPage(j.page);
+      setPages(j.pages);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(page, resource, action); }, [page, resource, action]);
+
+  const purge = async () => {
+    if (!confirm(t.confirmPurge)) return;
+    setPurging(true);
+    const r = await fetch("/api/admin/audit", { method: "DELETE" });
+    if (r.ok) { const j = await r.json(); alert(`${j.deleted} ${t.deletedEntries}`); load(1, resource, action); }
+    setPurging(false);
+  };
+
+  const actionColor: Record<string, string> = {
+    CREATE: "#00ff9d", UPDATE: "#0066ff", DELETE: "#ff0066",
+    VALIDATE: "#00ff9d", ACCEPT: "#00ff9d", REJECT: "#ff6600", LOGIN: "#ffaa00",
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black text-white">{t.auditTitle}</h1>
+          <p className="text-xs text-gray-600 mt-1 font-mono">{t.retention60} · {total} {t.entry}</p>
+        </div>
+        <button onClick={purge} disabled={purging} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-50">
+          {purging ? "…" : t.purgeOld}
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-3 mb-5">
+        <select className="bg-black/40 border border-gray-800 rounded px-3 py-1.5 text-sm text-white focus:border-neon-green/50 outline-none"
+          value={resource} onChange={e => { setResource(e.target.value); setPage(1); }}>
+          {RESOURCES.map(r => <option key={r} value={r}>{r || t.allResources}</option>)}
+        </select>
+        <select className="bg-black/40 border border-gray-800 rounded px-3 py-1.5 text-sm text-white focus:border-neon-green/50 outline-none"
+          value={action} onChange={e => { setAction(e.target.value); setPage(1); }}>
+          {ACTIONS.map(a => <option key={a} value={a}>{a || t.allActions}</option>)}
+        </select>
+      </div>
+
+      {loading ? (
+        <p className="text-gray-600 text-sm font-mono">Chargement…</p>
+      ) : logs.length === 0 ? (
+        <p className="text-gray-600 text-sm font-mono">{t.noEntries}</p>
+      ) : (
+        <>
+          <div className="space-y-1 mb-4">
+            {logs.map(log => {
+              const actColor = actionColor[String(log.action)] || "#888";
+              return (
+                <div key={String(log.id)} className="flex items-start gap-3 p-3 rounded bg-white/[0.02] border border-white/[0.04] text-xs font-mono">
+                  <span className="text-gray-600 shrink-0 w-32">{new Date(String(log.createdAt)).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</span>
+                  <span className="px-1.5 py-0.5 rounded shrink-0" style={{ color: actColor, background: actColor + "20" }}>{String(log.action)}</span>
+                  <span className="text-gray-400 shrink-0">{String(log.resource)}{log.resourceId ? `#${log.resourceId}` : ""}</span>
+                  <span className="text-gray-600 shrink-0">{String(log.ip || "")}</span>
+                  {log.details && <span className="text-gray-700 truncate">{JSON.stringify(log.details)}</span>}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center gap-2 justify-center">
+            <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="text-xs px-3 py-1 rounded border border-gray-800 text-gray-500 hover:text-gray-300 disabled:opacity-30 transition-all">←</button>
+            <span className="text-xs text-gray-600 font-mono">{t.page} {page} {t.of} {pages}</span>
+            <button disabled={page >= pages} onClick={() => setPage(p => p + 1)} className="text-xs px-3 py-1 rounded border border-gray-800 text-gray-500 hover:text-gray-300 disabled:opacity-30 transition-all">→</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [stats, setStats] = useState<Record<string, number>>({});
@@ -2693,6 +3026,12 @@ export default function AdminDashboard() {
   const [showForm, setShowForm] = useState(false);
   const [cfpNotes, setCfpNotes] = useState<Record<number, string>>({});
   const [onboarding, setOnboarding] = useState<Record<number, Record<string, boolean | string>>>({});
+  const [lang, setLang] = useState<AdminLang>(() => {
+    if (typeof window !== "undefined") return (localStorage.getItem("admin_lang") as AdminLang) || "fr";
+    return "fr";
+  });
+  const t = adminI18n[lang];
+  const changeLang = (l: AdminLang) => { setLang(l); localStorage.setItem("admin_lang", l); };
   const router = useRouter();
 
   const logout = async () => {
@@ -2812,65 +3151,67 @@ export default function AdminDashboard() {
 
   const tabGroups: TabGroup[] = [
     {
-      label: "Vue générale",
+      label: t.overview,
       icon: "◈",
       tabs: [
-        { id: "dashboard", label: "Dashboard" },
+        { id: "dashboard", label: t.dashboard },
       ],
     },
     {
-      label: "Speakers & Programme",
+      label: t.speakersProgram,
       icon: "◆",
       tabs: [
-        { id: "pipeline", label: "Pipeline CFP→Programme", count: stats.cfp },
-        { id: "past-speakers", label: "Anciens Speakers" },
+        { id: "pipeline", label: t.pipeline, count: stats.cfp },
+        { id: "sessions", label: t.sessions },
+        { id: "past-speakers", label: t.pastSpeakers },
       ],
     },
     {
-      label: "Participants",
+      label: t.participants,
       icon: "◉",
       tabs: [
-        { id: "registrations", label: "Inscriptions", count: stats.registrations },
-        { id: "volunteers", label: "Bénévoles", count: stats.volunteers },
-        { id: "newsletter", label: "Newsletter", count: stats.newsletter },
+        { id: "registrations", label: t.registrations, count: stats.registrations },
+        { id: "volunteers", label: t.volunteers, count: stats.volunteers },
+        { id: "newsletter", label: t.newsletter, count: stats.newsletter },
       ],
     },
     {
-      label: "Sponsors",
+      label: t.sponsorsGroup,
       icon: "◇",
       tabs: [
-        { id: "sponsors", label: "Sponsors actifs", count: stats.sponsors },
-        { id: "sponsor-pipeline", label: "Pipeline" },
-        { id: "prospection", label: "Prospection IA" },
+        { id: "sponsors", label: t.sponsorsActive, count: stats.sponsors },
+        { id: "sponsor-pipeline", label: t.sponsorPipeline },
+        { id: "prospection", label: t.prospection },
       ],
     },
     {
-      label: "Budget",
+      label: t.budget,
       icon: "◈",
       tabs: [
-        { id: "tickets", label: "Billets & Tarifs" },
-        { id: "sponsor-packages", label: "Packages Sponsoring" },
-        { id: "budget", label: "Suivi Budget" },
+        { id: "tickets", label: t.tickets },
+        { id: "sponsor-packages", label: t.sponsorPackages },
+        { id: "budget", label: t.budgetTracking },
       ],
     },
     {
-      label: "Communication",
+      label: t.communication,
       icon: "◉",
       tabs: [
-        { id: "communication", label: "Planification & Posts" },
+        { id: "communication", label: t.communicationPosts },
       ],
     },
     {
-      label: "Opérations",
+      label: t.operations,
       icon: "◎",
       tabs: [
-        { id: "logistics", label: "Logistique" },
-        { id: "team", label: "Équipe", count: stats.team },
-        { id: "certificates", label: "Certificats" },
-        { id: "export", label: "Export CSV" },
-        { id: "users", label: "Utilisateurs" },
-        { id: "profiles", label: "Profils & Droits" },
-        { id: "settings", label: "⚙ Paramètres Événement" },
+        { id: "logistics", label: t.logistics },
+        { id: "team", label: t.team, count: stats.team },
+        { id: "certificates", label: t.certificates },
+        { id: "export", label: t.exportCsv },
+        { id: "users", label: t.users },
+        { id: "profiles", label: t.profiles },
+        { id: "audit", label: t.auditLog },
+        { id: "settings", label: t.eventSettings },
       ],
     },
   ];
@@ -2893,13 +3234,20 @@ export default function AdminDashboard() {
   })();
 
   return (
+    <AdminLangContext.Provider value={{ lang, t, setLang: changeLang }}>
     <div className="min-h-screen bg-dark-900" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
       {/* Top bar */}
       <div className="border-b border-neon-green/20 bg-black/80 px-6 py-3 flex items-center justify-between sticky top-0 z-40">
         <span className="text-neon-green font-mono text-sm font-bold">&gt; EOCON_ADMIN</span>
         <div className="flex items-center gap-4">
-          <a href="/" target="_blank" className="text-gray-500 hover:text-neon-green text-xs transition-colors">↗ Voir le site</a>
-          <button onClick={logout} className="text-xs text-red-400 hover:text-red-300 transition-colors">Déconnexion</button>
+          <a href="/" target="_blank" className="text-gray-500 hover:text-neon-green text-xs transition-colors">↗ {t.viewSite}</a>
+          <button
+            onClick={() => changeLang(lang === "fr" ? "en" : "fr")}
+            className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-neon-green hover:border-neon-green/40 transition-all font-mono"
+          >
+            {lang === "fr" ? "EN" : "FR"}
+          </button>
+          <button onClick={logout} className="text-xs text-red-400 hover:text-red-300 transition-colors">{t.logout}</button>
         </div>
       </div>
 
@@ -2937,17 +3285,17 @@ export default function AdminDashboard() {
           {/* DASHBOARD */}
           {tab === "dashboard" && (
             <div>
-              <h1 className="text-2xl font-black text-white mb-6">Dashboard</h1>
+              <h1 className="text-2xl font-black text-white mb-6">{t.dashboardTitle}</h1>
               {/* Stat cards */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6">
-                <StatCard label="Speakers" value={stats.speakers || 0} />
-                <StatCard label="Sponsors" value={stats.sponsors || 0} color="#ffd700" />
-                <StatCard label="Sessions" value={stats.sessions || 0} color="#0066ff" />
-                <StatCard label="CFP" value={stats.cfp || 0} color="#cc00ff" />
-                <StatCard label="Bénévoles" value={stats.volunteers || 0} color="#ff6600" />
-                <StatCard label="Inscriptions" value={stats.registrations || 0} color="#ff0066" />
-                <StatCard label="Newsletter" value={stats.subscribers || 0} color="#ffaa00" />
-                <StatCard label="Équipe" value={stats.team || 0} color="#00ccff" />
+                <StatCard label={t.speakers} value={stats.speakers || 0} />
+                <StatCard label={t.sponsors} value={stats.sponsors || 0} color="#ffd700" />
+                <StatCard label={t.sessionsLabel} value={stats.sessions || 0} color="#0066ff" />
+                <StatCard label={t.cfp} value={stats.cfp || 0} color="#cc00ff" />
+                <StatCard label={t.benevoles} value={stats.volunteers || 0} color="#ff6600" />
+                <StatCard label={t.inscriptions} value={stats.registrations || 0} color="#ff0066" />
+                <StatCard label={t.newsletterLabel} value={stats.subscribers || 0} color="#ffaa00" />
+                <StatCard label={t.equipe} value={stats.team || 0} color="#00ccff" />
               </div>
               {/* Analytics section inlined */}
               {(data.analytics?.[0] as Record<string, unknown> | undefined) && (() => {
@@ -3069,8 +3417,8 @@ export default function AdminDashboard() {
           {tab === "sponsors" && (
             <div>
               <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-black text-white">Sponsors</h1>
-                <button onClick={() => { setForm({ isVisible: true, tier: "GOLD", sortOrder: 0 }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter</button>
+                <h1 className="text-2xl font-black text-white">{t.sponsorsTitle}</h1>
+                <button onClick={() => { setForm({ isVisible: true, tier: "GOLD", sortOrder: 0 }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">{t.addSponsor}</button>
               </div>
 
               {showForm && (
@@ -3140,7 +3488,7 @@ export default function AdminDashboard() {
           {/* VOLUNTEERS */}
           {tab === "volunteers" && (
             <div>
-              <h1 className="text-2xl font-black text-white mb-6">Bénévoles ({(data.volunteers || []).length})</h1>
+              <h1 className="text-2xl font-black text-white mb-6">{t.benevoles} ({(data.volunteers || []).length})</h1>
               <div className="space-y-3">
                 {((data.volunteers || []) as Record<string, unknown>[]).map(v => (
                   <div key={v.id as number} className="cyber-card rounded-xl p-5">
@@ -3218,7 +3566,7 @@ export default function AdminDashboard() {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h1 className="text-2xl font-black text-white">Inscriptions ({(data.registrations || []).length})</h1>
+                  <h1 className="text-2xl font-black text-white">{t.registrationsTitle} ({(data.registrations || []).length})</h1>
                   <p className="text-gray-500 text-xs mt-1">Validez le paiement pour envoyer le billet avec QR code</p>
                 </div>
                 <a href="/admin/checkin" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">
@@ -3229,7 +3577,7 @@ export default function AdminDashboard() {
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-neon-green/10 text-gray-500 text-left">
-                      {["Nom", "Ticket", "Statut", "Check-in", "Date", "Action"].map(h => (
+                      {[t.name, t.ticketType, t.status, t.checkedIn, t.date, t.actions].map(h => (
                         <th key={h} className="py-2 px-3 font-normal">{h}</th>
                       ))}
                     </tr>
@@ -3264,7 +3612,7 @@ export default function AdminDashboard() {
                                 if (res.ok) fetchData("registrations");
                               }}
                             >
-                              ✓ Valider + envoyer billet
+                              {t.validateAndSend}
                             </button>
                           )}
                           {(r.status as string) === "validated" && (
@@ -3544,16 +3892,22 @@ export default function AdminDashboard() {
             <CertificatesPanel />
           )}
 
+          {/* SESSIONS / PROGRAMME */}
+          {tab === "sessions" && <SessionsPanel />}
+
+          {/* AUDIT LOG — super_admin only */}
+          {tab === "audit" && <AuditPanel />}
+
           {/* EXPORT */}
           {tab === "export" && (
             <div>
-              <h1 className="text-2xl font-black text-white mb-6">Export CSV</h1>
+              <h1 className="text-2xl font-black text-white mb-6">{t.exportTitle}</h1>
               <div className="grid sm:grid-cols-2 gap-4">
                 {[
-                  { type: "registrations", label: "Inscriptions CSV", color: "#ff0066", desc: "Tous les participants inscrits" },
-                  { type: "cfp", label: "CFP CSV", color: "#cc00ff", desc: "Toutes les propositions de talks" },
-                  { type: "volunteers", label: "Bénévoles CSV", color: "#ff6600", desc: "Candidatures bénévoles" },
-                  { type: "newsletter", label: "Newsletter CSV", color: "#ffaa00", desc: "Abonnés à la newsletter" },
+                  { type: "registrations", label: t.exportRegistrations, color: "#ff0066", desc: t.allParticipants },
+                  { type: "cfp", label: t.exportCfpLabel, color: "#cc00ff", desc: t.allCfp },
+                  { type: "volunteers", label: t.exportVolunteers, color: "#ff6600", desc: t.allVolunteers },
+                  { type: "newsletter", label: t.exportNewsletter, color: "#ffaa00", desc: t.allNewsletter },
                 ].map(item => (
                   <a
                     key={item.type}
@@ -3572,5 +3926,6 @@ export default function AdminDashboard() {
         </main>
       </div>
     </div>
+    </AdminLangContext.Provider>
   );
 }

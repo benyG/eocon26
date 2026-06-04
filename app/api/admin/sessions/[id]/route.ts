@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
 import { getEventSettings } from "@/lib/settings";
+import { logAction } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     });
   }
 
+  logAction(req, "UPDATE", "session", params.id, { title: session.title });
   return NextResponse.json(session);
 }
 
@@ -49,6 +51,7 @@ export async function DELETE(_: NextRequest, { params }: { params: { id: string 
   }
 
   await prisma.conferenceSession.delete({ where: { id: Number(params.id) } });
+  logAction(_, "DELETE", "session", params.id);
   return NextResponse.json({ success: true });
 }
 

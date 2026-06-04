@@ -1446,9 +1446,39 @@ const BUDGET_COST_LABELS = [
   "Impressions", "Gadjets", "Sécurité", "Santé", "Animation DJ",
 ];
 
+interface AutoRevenue { label: string; value: number; color: string; }
+
 function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; onRefresh: () => void }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ category: "costs", planned: 0, actual: 0, status: "pending" });
+  const [autoRevenues, setAutoRevenues] = useState<AutoRevenue[]>([]);
+
+  // Fetch auto-calculated revenues from ticket sales + sponsor packages
+  useEffect(() => {
+    async function loadAutoRevenues() {
+      const [ticketRes, sponsorRes] = await Promise.all([
+        fetch("/api/admin/ticket-types"),
+        fetch("/api/admin/packages"),
+      ]);
+      const revenues: AutoRevenue[] = [];
+      if (ticketRes.ok) {
+        const types = await ticketRes.json() as Array<{ nameFr: string; priceFr: number; sold: number; color: string }>;
+        for (const t of types) {
+          const val = t.priceFr * (t.sold || 0);
+          if (t.sold > 0 || t.priceFr > 0) revenues.push({ label: `Billets — ${t.nameFr}`, value: val, color: t.color });
+        }
+      }
+      if (sponsorRes.ok) {
+        const pkgs = await sponsorRes.json() as Array<{ name: string; price: number; sponsors?: unknown[] }>;
+        for (const p of pkgs) {
+          const count = Array.isArray(p.sponsors) ? p.sponsors.length : 0;
+          if (p.price > 0) revenues.push({ label: `Sponsors — ${p.name}`, value: p.price * count, color: "#ffaa00" });
+        }
+      }
+      setAutoRevenues(revenues);
+    }
+    loadAutoRevenues();
+  }, [items]);
 
   const save = async () => {
     await fetch("/api/admin/budget", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
@@ -1473,12 +1503,23 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
     onRefresh();
   };
 
-  const revenues = items.filter(i => i.category === "revenue");
+  const manualRevenues = items.filter(i => i.category === "revenue");
   const costs = items.filter(i => i.category === "costs");
-  const totalPlannedRev = revenues.reduce((s, i) => s + ((i.planned as number) || 0), 0);
-  const totalActualRev = revenues.reduce((s, i) => s + ((i.actual as number) || 0), 0);
+  const autoTotal = autoRevenues.reduce((s, r) => s + r.value, 0);
+  const totalPlannedRev = manualRevenues.reduce((s, i) => s + ((i.planned as number) || 0), 0) + autoTotal;
+  const totalActualRev = manualRevenues.reduce((s, i) => s + ((i.actual as number) || 0), 0) + autoTotal;
   const totalPlannedCost = costs.reduce((s, i) => s + ((i.planned as number) || 0), 0);
   const totalActualCost = costs.reduce((s, i) => s + ((i.actual as number) || 0), 0);
+  const balance = totalActualRev - totalActualCost;
+
+  // Histogram data: revenues vs costs by category
+  const histogramItems: { label: string; value: number; color: string; maxVal: number }[] = [
+    ...autoRevenues.map(r => ({ label: r.label, value: r.value, color: r.color, maxVal: 0 })),
+    ...manualRevenues.map(r => ({ label: r.label as string, value: (r.actual as number) || (r.planned as number) || 0, color: "#00ff9d", maxVal: 0 })),
+    ...costs.map(c => ({ label: c.label as string, value: -((c.actual as number) || (c.planned as number) || 0), color: "#ff4444", maxVal: 0 })),
+  ].filter(i => i.value !== 0);
+
+  const maxAbsVal = Math.max(...histogramItems.map(i => Math.abs(i.value)), 1);
 
   const renderTable = (rows: Record<string, unknown>[], title: string, color: string) => (
     <div className="cyber-card rounded-xl p-5 mb-6">
@@ -1498,27 +1539,18 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
             <tr key={r.id as number} className="border-b border-gray-900 hover:bg-white/[0.01]">
               <td className="py-2 px-2 text-white">{r.label as string}</td>
               <td className="py-2 px-2 text-right">
-                <input
-                  type="number"
-                  className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
+                <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
                   defaultValue={(r.planned as number) || 0}
-                  onBlur={e => update(r.id as number, { planned: parseFloat(e.target.value) || 0 })}
-                />
+                  onBlur={e => update(r.id as number, { planned: parseFloat(e.target.value) || 0 })} />
               </td>
               <td className="py-2 px-2 text-right">
-                <input
-                  type="number"
-                  className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
+                <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
                   defaultValue={(r.actual as number) || 0}
-                  onBlur={e => update(r.id as number, { actual: parseFloat(e.target.value) || 0 })}
-                />
+                  onBlur={e => update(r.id as number, { actual: parseFloat(e.target.value) || 0 })} />
               </td>
               <td className="py-2 px-2">
-                <select
-                  className="cyber-input text-xs px-2 py-1 rounded"
-                  value={r.status as string}
-                  onChange={e => update(r.id as number, { status: e.target.value })}
-                >
+                <select className="cyber-input text-xs px-2 py-1 rounded" value={r.status as string}
+                  onChange={e => update(r.id as number, { status: e.target.value })}>
                   <option value="pending">En attente</option>
                   <option value="paid">Payé</option>
                   <option value="cancelled">Annulé</option>
@@ -1545,20 +1577,73 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
         </div>
       </div>
 
-      {/* Summary */}
+      {/* KPI Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { label: "Revenus prévus", value: totalPlannedRev, color: "#00ff9d" },
+          { label: "Revenus projetés", value: totalPlannedRev, color: "#00ff9d" },
           { label: "Revenus réels", value: totalActualRev, color: "#00ff9d" },
-          { label: "Dépenses prévues", value: totalPlannedCost, color: "#ff0066" },
-          { label: "Dépenses réelles", value: totalActualCost, color: "#ff0066" },
+          { label: "Dépenses prévues", value: totalPlannedCost, color: "#ff4444" },
+          { label: "Solde net", value: balance, color: balance >= 0 ? "#00ff9d" : "#ff4444" },
         ].map(s => (
           <div key={s.label} className="cyber-card rounded-xl p-4 text-center">
-            <div className="text-xl font-black font-mono" style={{ color: s.color }}>{s.value.toLocaleString("fr-FR")} FCFA</div>
+            <div className="text-xl font-black font-mono" style={{ color: s.color, fontFamily: "'Share Tech Mono', monospace" }}>{s.value.toLocaleString("fr-FR")} XAF</div>
             <div className="text-gray-500 text-xs mt-1">{s.label}</div>
           </div>
         ))}
       </div>
+
+      {/* Auto-revenues from ticket sales + sponsors */}
+      {autoRevenues.length > 0 && (
+        <div className="cyber-card rounded-xl p-5 mb-6">
+          <h3 className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: "#00ff9d" }}>
+            Revenus calculés automatiquement
+            <span className="ml-2 text-xs font-normal text-gray-500">(billets vendus × tarif + sponsors confirmés × package)</span>
+          </h3>
+          <div className="space-y-2">
+            {autoRevenues.map((r, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: r.color }} />
+                <span className="text-xs text-gray-300 flex-1">{r.label}</span>
+                <span className="text-xs font-mono font-bold" style={{ color: r.color, fontFamily: "'Share Tech Mono', monospace" }}>{r.value.toLocaleString("fr-FR")} XAF</span>
+              </div>
+            ))}
+            <div className="border-t border-gray-800 pt-2 flex justify-between">
+              <span className="text-xs text-gray-500">Total revenus auto</span>
+              <span className="text-xs font-bold font-mono text-neon-green" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{autoTotal.toLocaleString("fr-FR")} XAF</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Horizontal Histogram */}
+      {histogramItems.length > 0 && (
+        <div className="cyber-card rounded-xl p-5 mb-6">
+          <h3 className="text-sm font-bold uppercase tracking-widest mb-4 text-gray-400">Histogramme revenus / dépenses</h3>
+          <div className="space-y-2">
+            {histogramItems.sort((a, b) => b.value - a.value).map((item, i) => {
+              const isPos = item.value >= 0;
+              const barPct = Math.abs(item.value) / maxAbsVal * 100;
+              return (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="w-40 text-xs text-gray-400 truncate text-right flex-shrink-0">{item.label}</div>
+                  <div className="flex-1 flex items-center" style={{ height: "20px" }}>
+                    {isPos ? (
+                      <div className="h-4 rounded-r-full transition-all" style={{ width: `${barPct}%`, background: item.color, minWidth: "2px" }} />
+                    ) : (
+                      <div className="flex items-center w-full justify-end">
+                        <div className="h-4 rounded-l-full transition-all" style={{ width: `${barPct}%`, background: item.color, minWidth: "2px" }} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="w-32 text-xs font-mono text-right flex-shrink-0" style={{ color: item.color, fontFamily: "'Share Tech Mono', monospace" }}>
+                    {isPos ? "+" : ""}{Math.abs(item.value).toLocaleString("fr-FR")}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div className="cyber-card rounded-xl p-5 mb-6">
@@ -1600,8 +1685,8 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
           </button>
         </div>
       )}
-      {renderTable(revenues, "Revenus", "#00ff9d")}
-      {renderTable(costs, "Dépenses", "#ff0066")}
+      {renderTable(manualRevenues, "Revenus additionnels (manuels)", "#00ff9d")}
+      {renderTable(costs, "Dépenses", "#ff4444")}
     </div>
   );
 }

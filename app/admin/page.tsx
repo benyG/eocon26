@@ -601,6 +601,9 @@ function CommunicationPanel() {
   const [templates, setTemplates] = useState<Record<string, unknown>[]>([]);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [templateForm, setTemplateForm] = useState<Record<string, unknown>>({});
+  // Transactional template editing
+  const [txEdits, setTxEdits] = useState<Record<number, { subject: string; htmlBody: string }>>({});
+  const [txSaving, setTxSaving] = useState<number | null>(null);;
   const [sending, setSending] = useState<number | null>(null);
   const [refining, setRefining] = useState<number | null>(null);
   const [refineInstructions, setRefineInstructions] = useState("");
@@ -827,6 +830,24 @@ function CommunicationPanel() {
 
   const seedTemplates = async () => {
     await fetch("/api/admin/email-templates/seed", { method: "POST" });
+    await loadTemplates();
+  };
+
+  const seedTransactionalTemplates = async () => {
+    await fetch("/api/admin/email-templates/seed-transactional", { method: "POST" });
+    await loadTemplates();
+  };
+
+  const saveTxTemplate = async (id: number) => {
+    const edit = txEdits[id];
+    if (!edit) return;
+    setTxSaving(id);
+    await fetch(`/api/admin/email-templates/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(edit),
+    });
+    setTxSaving(null);
     await loadTemplates();
   };
 
@@ -1218,10 +1239,57 @@ function CommunicationPanel() {
         </div>
       </div>
 
+      {/* Transactional templates */}
+      <div className="cyber-card rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Templates Transactionnels</h3>
+          <button onClick={seedTransactionalTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>🔧 Initialiser templates transactionnels</button>
+        </div>
+        <div className="space-y-3">
+          {templates.filter(t => t.slug).length === 0 && (
+            <p className="text-gray-600 text-xs text-center py-4">Aucun template transactionnel. Cliquez sur &quot;Initialiser&quot; pour créer les 7 templates.</p>
+          )}
+          {templates.filter(t => t.slug).map(t => {
+            const id = t.id as number;
+            const edit = txEdits[id] || { subject: t.subject as string, htmlBody: t.htmlBody as string };
+            let vars: string[] = [];
+            try { vars = JSON.parse(t.variables as string || "[]"); } catch { vars = []; }
+            return (
+              <div key={id} className="border border-gray-800 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: "#00ff9d10", color: "#00ff9d", border: "1px solid #00ff9d30" }}>{t.slug as string}</span>
+                  <span className="text-white text-xs font-bold">{t.name as string}</span>
+                </div>
+                {vars.length > 0 && (
+                  <p className="text-gray-600 text-xs mb-2">Variables : {vars.map(v => `{{${v}}}`).join(", ")}</p>
+                )}
+                <input
+                  className="cyber-input w-full text-xs rounded px-3 py-2 text-white mb-2"
+                  value={edit.subject}
+                  onChange={e => setTxEdits(prev => ({ ...prev, [id]: { ...edit, subject: e.target.value } }))}
+                  placeholder="Objet"
+                />
+                <textarea
+                  className="cyber-input w-full text-xs rounded px-3 py-2 text-white h-40 resize-none"
+                  value={edit.htmlBody}
+                  onChange={e => setTxEdits(prev => ({ ...prev, [id]: { ...edit, htmlBody: e.target.value } }))}
+                  placeholder="Corps HTML"
+                />
+                <div className="mt-2 flex justify-end">
+                  <button onClick={() => saveTxTemplate(id)} disabled={txSaving === id} className="text-xs px-3 py-1.5 rounded" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>
+                    {txSaving === id ? "..." : "Sauvegarder"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Email templates */}
       <div className="cyber-card rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Templates Email</h3>
+          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Templates Email Campagnes</h3>
           <div className="flex gap-2">
             <button onClick={seedTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>⚡ Seeder</button>
             <button onClick={() => setShowTemplateForm(!showTemplateForm)} className="btn-neon px-3 py-1.5 rounded text-xs">+ Créer</button>
@@ -1263,13 +1331,13 @@ function CommunicationPanel() {
         )}
 
         <div className="space-y-2">
-          {templates.length === 0 && (
+          {templates.filter(t => !t.slug).length === 0 && (
             <div className="text-center py-8">
-              <p className="text-gray-600 text-xs mb-3">Aucun template. Seedez les templates EOCON 2026 ou créez-en un.</p>
+              <p className="text-gray-600 text-xs mb-3">Aucun template campagne. Seedez les templates EOCON 2026 ou créez-en un.</p>
               <button onClick={seedTemplates} className="text-xs px-4 py-2 rounded" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>⚡ Seeder les 7 templates EOCON</button>
             </div>
           )}
-          {templates.map(t => (
+          {templates.filter(t => !t.slug).map(t => (
             <div key={t.id as number} className="border border-gray-800 rounded-lg p-3">
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex-1 min-w-0">
@@ -1305,7 +1373,7 @@ function CommunicationPanel() {
               </div>
             </div>
           ))}
-          {!templates.length && <p className="text-gray-700 text-xs text-center py-3">Aucun template. Créez-en un.</p>}
+          {!templates.filter(t => !t.slug).length && <p className="text-gray-700 text-xs text-center py-3">Aucun template campagne. Créez-en un.</p>}
         </div>
       </div>
     </div>
@@ -2292,9 +2360,134 @@ function CertificatesPanel() {
   );
 }
 
+interface SponsorPkg {
+  id: number; tier: string; nameFr: string; nameEn: string; price: number;
+  maxSponsors: number; sortOrder: number; highlightColor: string;
+  perksFr: string; perksEn: string; isVisible: boolean;
+}
+
+function SponsorPackageEditor({ pkg, onSave, onDelete }: { pkg: SponsorPkg; onSave: (data: Partial<SponsorPkg>) => Promise<void>; onDelete: () => Promise<void> }) {
+  const [draft, setDraft] = useState<SponsorPkg>({ ...pkg });
+  const [perksFr, setPerksFr] = useState<string[]>(() => { try { return JSON.parse(pkg.perksFr || "[]"); } catch { return []; } });
+  const [perksEn, setPerksEn] = useState<string[]>(() => { try { return JSON.parse(pkg.perksEn || "[]"); } catch { return []; } });
+  const [saving, setSaving] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const color = draft.highlightColor || "#888";
+
+  const save = async () => {
+    setSaving(true);
+    await onSave({ ...draft, perksFr: JSON.stringify(perksFr), perksEn: JSON.stringify(perksEn) });
+    setSaving(false);
+  };
+
+  const updatePerk = (list: string[], setList: (v: string[]) => void, i: number, val: string) => {
+    const next = [...list]; next[i] = val; setList(next);
+  };
+  const removePerk = (list: string[], setList: (v: string[]) => void, i: number) => {
+    setList(list.filter((_, j) => j !== i));
+  };
+
+  return (
+    <div className="cyber-card rounded-xl overflow-hidden" style={{ borderColor: color + "40" }}>
+      {/* Header row */}
+      <div className="flex items-center gap-3 p-4 cursor-pointer" onClick={() => setExpanded(e => !e)}>
+        <span className="text-base font-black font-mono" style={{ color }}>{draft.tier}</span>
+        <span className="text-white font-bold text-sm flex-1">{draft.nameFr} / <span className="text-gray-500">{draft.nameEn}</span></span>
+        <span className="text-neon-green font-mono text-sm">{draft.price > 0 ? `${draft.price.toLocaleString("fr-FR")} FCFA` : "Partenariat"}</span>
+        <span className={`text-xs px-2 py-0.5 rounded ${draft.isVisible ? "text-neon-green bg-neon-green/10" : "text-gray-600 bg-gray-800"}`}>{draft.isVisible ? "Visible" : "Masqué"}</span>
+        <span className="text-gray-500 text-xs ml-2">{expanded ? "▲" : "▼"}</span>
+      </div>
+
+      {expanded && (
+        <div className="px-4 pb-4 space-y-4 border-t border-white/5 pt-4">
+          {/* Tier + colors */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Identifiant (tier)</label>
+              <input className="cyber-input w-full px-2 py-1.5 rounded text-sm" value={draft.tier} onChange={e => setDraft(d => ({ ...d, tier: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Couleur</label>
+              <div className="flex gap-2 items-center">
+                <input type="color" className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" value={draft.highlightColor} onChange={e => setDraft(d => ({ ...d, highlightColor: e.target.value }))} />
+                <input className="cyber-input flex-1 px-2 py-1.5 rounded text-sm font-mono" value={draft.highlightColor} onChange={e => setDraft(d => ({ ...d, highlightColor: e.target.value }))} />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Max sponsors</label>
+              <input type="number" min={0} className="cyber-input w-full px-2 py-1.5 rounded text-sm" value={draft.maxSponsors} onChange={e => setDraft(d => ({ ...d, maxSponsors: parseInt(e.target.value) || 0 }))} />
+            </div>
+          </div>
+
+          {/* Names + price */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Nom FR</label>
+              <input className="cyber-input w-full px-2 py-1.5 rounded text-sm" value={draft.nameFr} onChange={e => setDraft(d => ({ ...d, nameFr: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Name EN</label>
+              <input className="cyber-input w-full px-2 py-1.5 rounded text-sm" value={draft.nameEn} onChange={e => setDraft(d => ({ ...d, nameEn: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Prix FCFA (0 = partenariat)</label>
+              <input type="number" min={0} step={50000} className="cyber-input w-full px-2 py-1.5 rounded text-sm" value={draft.price} onChange={e => setDraft(d => ({ ...d, price: parseInt(e.target.value) || 0 }))} />
+            </div>
+          </div>
+
+          {/* Perks FR + EN */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-500 uppercase">Avantages FR</p>
+                <button onClick={() => setPerksFr(p => [...p, ""])} className="text-xs text-neon-green hover:text-neon-green/70">+ Ajouter</button>
+              </div>
+              <div className="space-y-1">
+                {perksFr.map((p, i) => (
+                  <div key={i} className="flex gap-1">
+                    <input className="cyber-input flex-1 px-2 py-1 rounded text-xs" value={p} onChange={e => updatePerk(perksFr, setPerksFr, i, e.target.value)} />
+                    <button onClick={() => removePerk(perksFr, setPerksFr, i)} className="text-red-500/60 hover:text-red-400 text-xs px-1">✕</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-500 uppercase">Perks EN</p>
+                <button onClick={() => setPerksEn(p => [...p, ""])} className="text-xs text-neon-green hover:text-neon-green/70">+ Add</button>
+              </div>
+              <div className="space-y-1">
+                {perksEn.map((p, i) => (
+                  <div key={i} className="flex gap-1">
+                    <input className="cyber-input flex-1 px-2 py-1 rounded text-xs" value={p} onChange={e => updatePerk(perksEn, setPerksEn, i, e.target.value)} />
+                    <button onClick={() => removePerk(perksEn, setPerksEn, i)} className="text-red-500/60 hover:text-red-400 text-xs px-1">✕</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-between pt-2">
+            <button onClick={() => onSave({ isVisible: !draft.isVisible }).then(() => setDraft(d => ({ ...d, isVisible: !d.isVisible })))} className={`text-xs px-3 py-1.5 rounded border ${draft.isVisible ? "border-neon-green/30 text-neon-green" : "border-gray-700 text-gray-500"}`}>
+              {draft.isVisible ? "Visible ✓" : "Masqué"}
+            </button>
+            <div className="flex gap-2">
+              <button onClick={() => { if (confirm("Supprimer ce package ?")) onDelete(); }} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10">Supprimer</button>
+              <button onClick={save} disabled={saving} className="btn-neon px-4 py-1.5 rounded text-xs">{saving ? "..." : "Enregistrer"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SponsorPackagesPanel() {
-  const [packages, setPackages] = useState<Record<string, unknown>[]>([]);
+  const [packages, setPackages] = useState<SponsorPkg[]>([]);
   const [loading, setLoading] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [newTier, setNewTier] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2310,9 +2503,23 @@ function SponsorPackagesPanel() {
     load();
   };
 
-  const toggleVisible = async (id: number, isVisible: boolean) => {
-    await fetch(`/api/admin/sponsor-packages/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isVisible }) });
+  const savePackage = async (id: number, data: Partial<SponsorPkg>) => {
+    await fetch(`/api/admin/sponsor-packages/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
     load();
+  };
+
+  const deletePackage = async (id: number) => {
+    await fetch(`/api/admin/sponsor-packages/${id}`, { method: "DELETE" });
+    load();
+  };
+
+  const createPackage = async () => {
+    if (!newTier.trim()) return;
+    await fetch("/api/admin/sponsor-packages", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tier: newTier.toUpperCase(), nameFr: newTier, nameEn: newTier, price: 0, maxSponsors: 5, sortOrder: packages.length + 1, highlightColor: "#888888", perksFr: "[]", perksEn: "[]", perks: "[]", isVisible: true }),
+    });
+    setNewTier(""); setAdding(false); load();
   };
 
   return (
@@ -2320,48 +2527,36 @@ function SponsorPackagesPanel() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black text-white">Packages de Sponsoring</h1>
-          <p className="text-gray-500 text-xs mt-1">Ces packages sont affichés sur le site web et utilisés dans la prospection IA</p>
+          <p className="text-gray-500 text-xs mt-1">Cliquez sur un package pour le modifier. Les données sont stockées en base.</p>
         </div>
-        {!packages.length && !loading && (
-          <button onClick={seed} className="btn-neon px-4 py-2 rounded text-sm">🌱 Initialiser packages standard</button>
-        )}
+        <div className="flex gap-2">
+          {!packages.length && !loading && (
+            <button onClick={seed} className="btn-neon px-4 py-2 rounded text-sm">🌱 Initialiser packages standard</button>
+          )}
+          <button onClick={() => setAdding(a => !a)} className="btn-neon px-4 py-2 rounded text-sm">+ Nouveau package</button>
+        </div>
       </div>
-      <div className="space-y-4">
-        {packages.map(pkg => {
-          const perksFr = JSON.parse((pkg.perksFr as string) || "[]") as string[];
-          const perksEn = JSON.parse((pkg.perksEn as string) || "[]") as string[];
-          return (
-            <div key={pkg.id as number} className={`cyber-card rounded-xl p-5 ${!pkg.isVisible ? "opacity-50" : ""}`} style={{ borderColor: ((pkg.highlightColor as string) || "#333") + "40" }}>
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <div>
-                  <div className="flex items-center gap-3 mb-1">
-                    <span className="text-lg font-black" style={{ color: (pkg.highlightColor as string) || "#888" }}>{pkg.tier as string}</span>
-                    <span className="text-xl font-black font-mono text-white">{(pkg.price as number) > 0 ? `${(pkg.price as number).toLocaleString("fr-FR")} FCFA` : "Partenariat"}</span>
-                    {!!(pkg.maxSponsors as number) && <span className="text-xs text-gray-600">max {pkg.maxSponsors as number} sponsors</span>}
-                  </div>
-                  <p className="text-gray-400 text-sm">{pkg.nameFr as string} / <span className="text-gray-600">{pkg.nameEn as string}</span></p>
-                </div>
-                <button onClick={() => toggleVisible(pkg.id as number, !(pkg.isVisible as boolean))} className={`text-xs px-3 py-1 rounded shrink-0 ${pkg.isVisible ? "text-neon-green bg-neon-green/10" : "text-gray-600 bg-gray-800"}`}>
-                  {pkg.isVisible ? "Visible" : "Masqué"}
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-gray-500 mb-2 uppercase">Avantages FR</p>
-                  <ul className="space-y-1">
-                    {perksFr.map((p, i) => <li key={i} className="text-gray-400 text-xs flex gap-2"><span style={{ color: (pkg.highlightColor as string) || "#888" }}>✓</span>{p}</li>)}
-                  </ul>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-2 uppercase">Perks EN</p>
-                  <ul className="space-y-1">
-                    {perksEn.map((p, i) => <li key={i} className="text-gray-400 text-xs flex gap-2"><span style={{ color: (pkg.highlightColor as string) || "#888" }}>✓</span>{p}</li>)}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+
+      {adding && (
+        <div className="cyber-card rounded-xl p-4 mb-4 flex gap-3 items-end">
+          <div className="flex-1">
+            <label className="text-xs text-gray-500 mb-1 block">Identifiant du nouveau package (ex: STARTUP)</label>
+            <input autoFocus className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="STARTUP" value={newTier} onChange={e => setNewTier(e.target.value)} onKeyDown={e => e.key === "Enter" && createPackage()} />
+          </div>
+          <button onClick={createPackage} className="btn-neon px-4 py-2 rounded text-sm">Créer</button>
+          <button onClick={() => setAdding(false)} className="text-gray-500 text-sm px-2">Annuler</button>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {packages.map(pkg => (
+          <SponsorPackageEditor
+            key={pkg.id}
+            pkg={pkg}
+            onSave={(data) => savePackage(pkg.id, data)}
+            onDelete={() => deletePackage(pkg.id)}
+          />
+        ))}
         {!packages.length && !loading && (
           <p className="text-gray-600 text-xs py-8 text-center">Aucun package configuré.</p>
         )}
@@ -3022,7 +3217,10 @@ export default function AdminDashboard() {
           {tab === "registrations" && (
             <div>
               <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-black text-white">Inscriptions ({(data.registrations || []).length})</h1>
+                <div>
+                  <h1 className="text-2xl font-black text-white">Inscriptions ({(data.registrations || []).length})</h1>
+                  <p className="text-gray-500 text-xs mt-1">Validez le paiement pour envoyer le billet avec QR code</p>
+                </div>
                 <a href="/admin/checkin" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">
                   📱 Ouvrir Check-in J-Day →
                 </a>
@@ -3031,7 +3229,7 @@ export default function AdminDashboard() {
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-neon-green/10 text-gray-500 text-left">
-                      {["Nom", "Email", "Ticket", "Statut", "Check-in", "Date"].map(h => (
+                      {["Nom", "Ticket", "Statut", "Check-in", "Date", "Action"].map(h => (
                         <th key={h} className="py-2 px-3 font-normal">{h}</th>
                       ))}
                     </tr>
@@ -3039,8 +3237,11 @@ export default function AdminDashboard() {
                   <tbody>
                     {((data.registrations || []) as Record<string, unknown>[]).map(r => (
                       <tr key={r.id as number} className={`border-b border-gray-800 hover:bg-white/[0.02] transition-colors ${r.checkedInAt ? "bg-neon-green/[0.02]" : ""}`}>
-                        <td className="py-2 px-3 text-white">{r.fname as string} {r.lname as string}<br/><span className="text-gray-500">{r.email as string}</span></td>
-                        <td className="py-2 px-3 text-gray-500">{(r.org as string) || (r.country as string) || "—"}</td>
+                        <td className="py-2 px-3">
+                          <span className="text-white">{r.fname as string} {r.lname as string}</span>
+                          <br/><span className="text-gray-500">{r.email as string}</span>
+                          {!!r.org && <><br/><span className="text-gray-600">{String(r.org)}</span></>}
+                        </td>
                         <td className="py-2 px-3"><span className="px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green/70">{r.ticketType as string}</span></td>
                         <td className="py-2 px-3"><Badge status={r.status as string} /></td>
                         <td className="py-2 px-3">
@@ -3049,6 +3250,27 @@ export default function AdminDashboard() {
                             : <span className="text-gray-600 text-xs">—</span>}
                         </td>
                         <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleDateString("fr-FR")}</td>
+                        <td className="py-2 px-3">
+                          {(r.status as string) === "pending" && (
+                            <button
+                              className="text-xs px-3 py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/20 hover:bg-neon-green/20 transition-colors"
+                              onClick={async () => {
+                                if (!confirm(`Valider le paiement de ${r.fname} ${r.lname} et envoyer le billet ?`)) return;
+                                const res = await fetch("/api/admin/submissions", {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ type: "registration", action: "validate", id: r.id }),
+                                });
+                                if (res.ok) fetchData("registrations");
+                              }}
+                            >
+                              ✓ Valider + envoyer billet
+                            </button>
+                          )}
+                          {(r.status as string) === "validated" && (
+                            <span className="text-xs text-neon-green/60 font-mono">Billet envoyé ✓</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

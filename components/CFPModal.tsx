@@ -2,9 +2,27 @@
 import { useState } from "react";
 import { Translations } from "@/lib/i18n";
 
+const COUNTRIES = [
+  "Afghanistan","Albania","Algeria","Angola","Argentina","Armenia","Australia","Austria","Azerbaijan",
+  "Bahrain","Bangladesh","Belarus","Belgium","Benin","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Bulgaria","Burkina Faso","Burundi",
+  "Cambodia","Cameroon","Canada","Central African Republic","Chad","Chile","China","Colombia","Congo","Congo (DRC)","Côte d'Ivoire","Croatia","Cuba",
+  "Czech Republic","Denmark","Djibouti","Dominican Republic","Ecuador","Egypt","El Salvador","Eritrea","Estonia","Ethiopia",
+  "Finland","France","Gabon","Gambia","Georgia","Germany","Ghana","Greece","Guatemala","Guinea","Guinea-Bissau",
+  "Haiti","Honduras","Hungary","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Jamaica","Japan","Jordan",
+  "Kazakhstan","Kenya","Kosovo","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Liberia","Libya","Lithuania","Luxembourg",
+  "Madagascar","Malawi","Malaysia","Mali","Malta","Mauritania","Mauritius","Mexico","Moldova","Mongolia","Montenegro","Morocco","Mozambique",
+  "Myanmar","Namibia","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Korea","North Macedonia","Norway",
+  "Oman","Pakistan","Palestine","Panama","Paraguay","Peru","Philippines","Poland","Portugal","Qatar",
+  "Romania","Russia","Rwanda","Saudi Arabia","Senegal","Serbia","Sierra Leone","Singapore","Slovakia","Slovenia","Somalia","South Africa",
+  "South Korea","South Sudan","Spain","Sri Lanka","Sudan","Sweden","Switzerland","Syria",
+  "Taiwan","Tajikistan","Tanzania","Thailand","Togo","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Uganda",
+  "Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan",
+  "Venezuela","Vietnam","Yemen","Zambia","Zimbabwe",
+];
+
 export default function CFPSection({ t }: { t: Translations }) {
   const [formData, setFormData] = useState({
-    name: "", email: "", org: "", country: "", talk_title: "", format: "", abstract: "", bio: ""
+    name: "", email: "", org: "", country: "", talk_title: "", format: "", abstract: "", bio: "", lang_presentation: "fr"
   });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -127,12 +145,14 @@ export default function CFPSection({ t }: { t: Translations }) {
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.cfp.form.country}</label>
-                    <input
-                      className="cyber-input w-full px-3 py-2 rounded text-sm"
-                      placeholder={t.cfp.form.country}
+                    <select
+                      className="cyber-input w-full px-3 py-2 rounded text-sm bg-transparent"
                       value={formData.country}
                       onChange={e => setFormData({ ...formData, country: e.target.value })}
-                    />
+                    >
+                      <option value="">--</option>
+                      {COUNTRIES.map(c => <option key={c} value={c} className="bg-dark-800">{c}</option>)}
+                    </select>
                   </div>
                 </div>
                 <div>
@@ -175,6 +195,13 @@ export default function CFPSection({ t }: { t: Translations }) {
                     value={formData.bio}
                     onChange={e => setFormData({ ...formData, bio: e.target.value })}
                   />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.cfp.form.lang_presentation} *</label>
+                  <select required className="cyber-input w-full px-3 py-2 rounded text-sm bg-transparent" value={formData.lang_presentation} onChange={e => setFormData({ ...formData, lang_presentation: e.target.value })}>
+                    <option value="fr" className="bg-dark-800">Français</option>
+                    <option value="en" className="bg-dark-800">English</option>
+                  </select>
                 </div>
                 {error && <p className="text-red-400 text-xs font-mono">{error}</p>}
                 <button type="submit" disabled={loading} className="w-full btn-neon-solid py-3 rounded text-sm border-2 border-neon-green disabled:opacity-50">

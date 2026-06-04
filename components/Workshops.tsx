@@ -32,26 +32,16 @@ const levelLabels: Record<string, { fr: string; en: string }> = {
 
 export default function Workshops({ t, onOpenModal, lang }: { t: Translations; onOpenModal: (m: string) => void; lang?: "fr" | "en" }) {
   const [workshops, setWorkshops] = useState<Workshop[]>([]);
-  const [useFallback, setUseFallback] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     fetch("/api/workshops").then(r => r.json()).then(d => {
-      if (Array.isArray(d) && d.length > 0) setWorkshops(d);
-      else setUseFallback(true);
-    }).catch(() => setUseFallback(true));
+      if (Array.isArray(d)) setWorkshops(d);
+      setLoaded(true);
+    }).catch(() => setLoaded(true));
   }, []);
 
-  const items = useFallback
-    ? (t.workshops.items as { title: string; desc: string; level: string; duration: string }[]).map((w, i) => ({
-        id: i,
-        title: w.title,
-        description: w.desc,
-        level: w.level.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""),
-        duration: w.duration,
-        maxSeats: null,
-        instructor: null,
-      }))
-    : workshops.map(w => ({ ...w, level: w.level.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "") }));
+  const items = workshops.map(w => ({ ...w, level: w.level.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "") }));
 
   return (
     <section id="workshops" className="py-24 px-4 relative">
@@ -66,6 +56,11 @@ export default function Workshops({ t, onOpenModal, lang }: { t: Translations; o
           <p className="text-gray-500 text-sm mt-2">{t.workshops.description}</p>
         </div>
 
+        {loaded && items.length === 0 && (
+          <p className="text-center text-gray-600 py-8 font-mono text-sm" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+            // Ateliers à venir — restez connectés
+          </p>
+        )}
         <div className="grid sm:grid-cols-2 gap-6">
           {items.map((w) => {
             const color = levelColors[w.level] || "#00ff9d";

@@ -3058,7 +3058,7 @@ function SessionsPanel() {
                 <span className="w-14 shrink-0 text-right text-xs font-mono" style={{ color: color + "aa" }}>{String(s.time)}</span>
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
                 <span className="flex-1 text-sm text-white">{String(s.title)}</span>
-                {s.speakerName && <span className="text-xs text-gray-500">{String(s.speakerName)}</span>}
+                {!!s.speakerName && <span className="text-xs text-gray-500">{String(s.speakerName)}</span>}
                 <span className="text-xs px-1.5 py-0.5 rounded shrink-0" style={{ color, background: color + "20" }}>{String(s.type)}</span>
                 {!s.isVisible && <span className="text-xs text-gray-600 shrink-0">{t.hidden}</span>}
                 <button onClick={() => startEdit(s)} className="text-xs text-gray-500 hover:text-neon-green transition-colors shrink-0">✎</button>
@@ -3156,7 +3156,7 @@ function AuditPanel() {
                   <span className="px-1.5 py-0.5 rounded shrink-0" style={{ color: actColor, background: actColor + "20" }}>{String(log.action)}</span>
                   <span className="text-gray-400 shrink-0">{String(log.resource)}{log.resourceId ? `#${log.resourceId}` : ""}</span>
                   <span className="text-gray-600 shrink-0">{String(log.ip || "")}</span>
-                  {log.details && <span className="text-gray-700 truncate">{JSON.stringify(log.details)}</span>}
+                  {!!log.details && <span className="text-gray-700 truncate">{JSON.stringify(log.details)}</span>}
                 </div>
               );
             })}

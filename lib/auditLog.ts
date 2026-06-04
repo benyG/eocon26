@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
+import { Prisma } from "@prisma/client";
 
 const RETENTION_DAYS = 60;
 
@@ -13,14 +14,14 @@ function getIpFromRequest(req: NextRequest): string {
 
 /**
  * Fire-and-forget audit log write.
- * Also lazily purges entries older than RETENTION_DAYS (1% chance per call to avoid overhead).
+ * Also lazily purges entries older than RETENTION_DAYS (5% chance per call).
  */
 export function logAction(
   req: NextRequest,
   action: string,
   resource: string,
   resourceId?: string | number | null,
-  details?: Record<string, unknown>,
+  details?: Record<string, string | number | boolean | null>,
 ) {
   const ip = getIpFromRequest(req);
 
@@ -32,12 +33,11 @@ export function logAction(
         action,
         resource,
         resourceId: resourceId != null ? String(resourceId) : null,
-        details: details ?? undefined,
+        details: details as Prisma.InputJsonValue ?? Prisma.DbNull,
       },
     })
     .catch(e => console.error("[AuditLog]", e));
 
-  // 5% chance of running cleanup to keep the table lean
   if (Math.random() < 0.05) {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - RETENTION_DAYS);
@@ -46,3 +46,4 @@ export function logAction(
       .catch(e => console.error("[AuditLog cleanup]", e));
   }
 }
+

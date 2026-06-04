@@ -78,6 +78,49 @@ export async function sendCFPDecision(
   });
 }
 
+/**
+ * Sent immediately after registration: instructions + payment link.
+ * No QR code at this stage — ticket is sent after payment is confirmed.
+ */
+export async function sendRegistrationPending(
+  to: string,
+  fname: string,
+  lname: string,
+  ticketType: string,
+  registrationId: number,
+  paymentUrl: string,
+) {
+  const ref = `EOCON26-${String(registrationId).padStart(5, "0")}`;
+  await getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `✅ Inscription reçue — EOCON 2026 [${ref}]`,
+    html: `
+      <div style="font-family:monospace;background:#0a0a0a;color:#fff;padding:32px;max-width:600px">
+        <h1 style="color:#00ff9d">&gt; EOCON 2026 — Inscription enregistrée</h1>
+        <p>Bonjour <strong>${esc(fname)} ${esc(lname)}</strong>,</p>
+        <p>Votre inscription a bien été reçue pour le billet <strong>${esc(ticketType)}</strong>.</p>
+        <p>Votre numéro de référence : <strong style="color:#00ff9d">${ref}</strong></p>
+        <div style="background:#111;border:1px solid #ffaa0033;border-radius:12px;padding:24px;margin:24px 0">
+          <p style="color:#ffaa00;font-weight:bold;margin:0 0 12px">⚠️ Votre place n'est pas encore confirmée</p>
+          <p style="margin:0 0 12px">Pour valider définitivement votre inscription, effectuez votre paiement via le lien ci-dessous :</p>
+          <div style="text-align:center;margin:16px 0">
+            <a href="${paymentUrl}" style="background:#00ff9d;color:#000;font-weight:bold;padding:12px 28px;border-radius:8px;text-decoration:none;font-family:monospace;display:inline-block">
+              💳 Procéder au paiement
+            </a>
+          </div>
+          <p style="color:#555;font-size:12px;margin:8px 0 0">Mentionnez votre référence <strong>${ref}</strong> lors du paiement.</p>
+        </div>
+        <p>Une fois le paiement confirmé, vous recevrez votre billet avec QR code d'accès.</p>
+        <hr style="border-color:#222;margin:24px 0"/>
+        <p style="color:#555;font-size:12px">📅 28 Novembre 2026 · Hotel Onomo, Douala · #EOCON #EOCTF</p>
+      </div>`,
+  });
+}
+
+/**
+ * Sent after admin validates the payment: full ticket with QR code.
+ */
 export async function sendRegistrationTicket(
   to: string,
   fname: string,

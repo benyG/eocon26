@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { name, email, phone, city, role, experience, motivation } = body;
+    const { name, email, phone, city, role, experience, motivation, lang_expression } = body;
 
     if (!name || !email || !motivation) {
       return NextResponse.json({ error: "Champs requis manquants" }, { status: 400 });
@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
         role: role?.slice(0, 100),
         experience,
         motivation,
+        langExpression: lang_expression || "fr",
       },
     });
 

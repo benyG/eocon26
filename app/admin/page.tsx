@@ -3149,7 +3149,10 @@ export default function AdminDashboard() {
           {tab === "registrations" && (
             <div>
               <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-black text-white">Inscriptions ({(data.registrations || []).length})</h1>
+                <div>
+                  <h1 className="text-2xl font-black text-white">Inscriptions ({(data.registrations || []).length})</h1>
+                  <p className="text-gray-500 text-xs mt-1">Validez le paiement pour envoyer le billet avec QR code</p>
+                </div>
                 <a href="/admin/checkin" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">
                   📱 Ouvrir Check-in J-Day →
                 </a>
@@ -3158,7 +3161,7 @@ export default function AdminDashboard() {
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-neon-green/10 text-gray-500 text-left">
-                      {["Nom", "Email", "Ticket", "Statut", "Check-in", "Date"].map(h => (
+                      {["Nom", "Ticket", "Statut", "Check-in", "Date", "Action"].map(h => (
                         <th key={h} className="py-2 px-3 font-normal">{h}</th>
                       ))}
                     </tr>
@@ -3166,8 +3169,11 @@ export default function AdminDashboard() {
                   <tbody>
                     {((data.registrations || []) as Record<string, unknown>[]).map(r => (
                       <tr key={r.id as number} className={`border-b border-gray-800 hover:bg-white/[0.02] transition-colors ${r.checkedInAt ? "bg-neon-green/[0.02]" : ""}`}>
-                        <td className="py-2 px-3 text-white">{r.fname as string} {r.lname as string}<br/><span className="text-gray-500">{r.email as string}</span></td>
-                        <td className="py-2 px-3 text-gray-500">{(r.org as string) || (r.country as string) || "—"}</td>
+                        <td className="py-2 px-3">
+                          <span className="text-white">{r.fname as string} {r.lname as string}</span>
+                          <br/><span className="text-gray-500">{r.email as string}</span>
+                          {!!r.org && <><br/><span className="text-gray-600">{String(r.org)}</span></>}
+                        </td>
                         <td className="py-2 px-3"><span className="px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green/70">{r.ticketType as string}</span></td>
                         <td className="py-2 px-3"><Badge status={r.status as string} /></td>
                         <td className="py-2 px-3">
@@ -3176,6 +3182,27 @@ export default function AdminDashboard() {
                             : <span className="text-gray-600 text-xs">—</span>}
                         </td>
                         <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleDateString("fr-FR")}</td>
+                        <td className="py-2 px-3">
+                          {(r.status as string) === "pending" && (
+                            <button
+                              className="text-xs px-3 py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/20 hover:bg-neon-green/20 transition-colors"
+                              onClick={async () => {
+                                if (!confirm(`Valider le paiement de ${r.fname} ${r.lname} et envoyer le billet ?`)) return;
+                                const res = await fetch("/api/admin/submissions", {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ type: "registration", action: "validate", id: r.id }),
+                                });
+                                if (res.ok) fetchData("registrations");
+                              }}
+                            >
+                              ✓ Valider + envoyer billet
+                            </button>
+                          )}
+                          {(r.status as string) === "validated" && (
+                            <span className="text-xs text-neon-green/60 font-mono">Billet envoyé ✓</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

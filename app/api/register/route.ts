@@ -1,9 +1,9 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { sendRegistrationTicket } from "@/lib/email";
+import { sendRegistrationPending } from "@/lib/email";
 import { rateLimit, getIp } from "@/lib/rateLimit";
-import { generateQrPayload } from "@/lib/qr";
+import { getEventSettings } from "@/lib/settings";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VALID_TICKET_TYPES = ["standard", "student", "vip", "sponsor", "online", "early-bird"];
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { fname, lname, email, org, country, ticketType } = body;
+    const { fname, lname, email, org, country, ticketType, lang_expression } = body;
 
     if (!fname || !lname || !email || !ticketType) {
       return NextResponse.json({ error: "Champs requis manquants" }, { status: 400 });
@@ -38,13 +38,14 @@ export async function POST(req: NextRequest) {
         org: org?.slice(0, 200),
         country: country?.slice(0, 100),
         ticketType,
+        langExpression: lang_expression || "fr",
       },
     });
 
-    const qrCode = generateQrPayload(registration.id);
-    await prisma.registration.update({ where: { id: registration.id }, data: { qrCode } });
+    const settings = await getEventSettings().catch(() => ({} as Record<string, string>));
+    const paymentUrl = settings.url_inscription || "https://eyesopensecurity.com/#inscription";
 
-    sendRegistrationTicket(email, fname, lname, ticketType, registration.id).catch(e =>
+    sendRegistrationPending(email, fname, lname, ticketType, registration.id, paymentUrl).catch(e =>
       console.error("[Register email]", e),
     );
 

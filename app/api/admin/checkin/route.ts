@@ -17,6 +17,9 @@ export async function POST(req: NextRequest) {
   if (!reg) {
     return NextResponse.json({ error: "Registration not found" }, { status: 404 });
   }
+  if (reg.status !== "validated") {
+    return NextResponse.json({ error: "Paiement non confirmé — inscription non validée" }, { status: 403 });
+  }
   if (reg.checkedInAt) {
     return NextResponse.json({
       error: "Already checked in",

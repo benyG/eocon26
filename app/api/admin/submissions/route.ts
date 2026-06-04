@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
-import { sendCFPDecision } from "@/lib/email";
+import { sendCFPDecision, sendRegistrationTicket } from "@/lib/email";
+import { generateQrPayload } from "@/lib/qr";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,21 @@ export async function PATCH(req: NextRequest) {
   if (type === "volunteer") {
     return NextResponse.json(await prisma.volunteerApplication.update({ where: { id }, data: { status } }));
   }
+  // Validate registration: set status validated + generate QR + send ticket email
+  if (type === "registration" && action === "validate") {
+    const reg = await prisma.registration.findUnique({ where: { id } });
+    if (!reg) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const qrCode = reg.qrCode || generateQrPayload(reg.id);
+    const updated = await prisma.registration.update({
+      where: { id },
+      data: { status: "validated", qrCode },
+    });
+    sendRegistrationTicket(reg.email, reg.fname, reg.lname, reg.ticketType, reg.id).catch(e =>
+      console.error("[Registration ticket email]", e),
+    );
+    return NextResponse.json(updated);
+  }
+
   if (type === "registration") {
     return NextResponse.json(await prisma.registration.update({ where: { id }, data: { status } }));
   }

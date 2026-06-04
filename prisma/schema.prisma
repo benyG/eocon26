@@ -18,6 +18,7 @@ model CFPSubmission {
   format         String?
   abstract       String    @db.Text
   bio            String?   @db.Text
+  langPresentation String? @default("fr")
   // Pipeline: submitted | reviewing | accepted | rejected | onboarding | confirmed | scheduled
   status         String    @default("pending")
   pipelineStage  String    @default("submitted")
@@ -34,36 +35,38 @@ model CFPSubmission {
 }
 
 model VolunteerApplication {
-  id           Int       @id @default(autoincrement())
-  name         String
-  email        String
-  phone        String?
-  city         String?
-  role         String?
-  experience   String?   @db.Text
-  motivation   String    @db.Text
-  status       String    @default("pending")
-  assignedRole String?
-  shiftStart   DateTime?
-  shiftEnd     DateTime?
-  createdAt    DateTime  @default(now())
+  id              Int       @id @default(autoincrement())
+  name            String
+  email           String
+  phone           String?
+  city            String?
+  role            String?
+  experience      String?   @db.Text
+  motivation      String    @db.Text
+  langExpression  String?   @default("fr")
+  status          String    @default("pending")
+  assignedRole    String?
+  shiftStart      DateTime?
+  shiftEnd        DateTime?
+  createdAt       DateTime  @default(now())
 
   @@map("volunteer_applications")
 }
 
 model Registration {
-  id          Int       @id @default(autoincrement())
-  fname       String
-  lname       String
-  email       String
-  org         String?
-  country     String?
-  ticketType  String
-  status      String    @default("pending")
-  qrCode      String?
-  checkedInAt DateTime?
-  checkedInBy String?
-  createdAt   DateTime  @default(now())
+  id             Int       @id @default(autoincrement())
+  fname          String
+  lname          String
+  email          String
+  org            String?
+  country        String?
+  ticketType     String
+  langExpression String?   @default("fr")
+  status         String    @default("pending")
+  qrCode         String?
+  checkedInAt    DateTime?
+  checkedInBy    String?
+  createdAt      DateTime  @default(now())
 
   @@map("registrations")
 }

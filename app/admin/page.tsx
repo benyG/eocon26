@@ -2340,82 +2340,240 @@ function AnalyticsPanel({ data }: { data: Record<string, unknown> | null }) {
 }
 
 function CertificatesPanel() {
-  const [sending, setSending] = useState<string | null>(null);
-  const [result, setResult] = useState<{ sent: number; failed: number } | null>(null);
+  const { t } = useAdminT();
+  const [subTab, setSubTab] = useState<"issue" | "list" | "keys">("issue");
+  const [badges, setBadges] = useState<Record<string, unknown>[]>([]);
+  const [filterType, setFilterType] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({ badgeType: "participant", recipientName: "", recipientEmail: "", subtype: "" });
+  const [status, setStatus] = useState<string | null>(null);
+  const [keys, setKeys] = useState<{ privateKeyBase64: string; publicKeyBase64: string } | null>(null);
+  const [keyLoading, setKeyLoading] = useState(false);
 
-  const send = async (type: string) => {
-    setSending(type);
-    setResult(null);
-    const res = await fetch("/api/admin/certificates", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type }),
-    });
-    if (res.ok) setResult(await res.json());
-    setSending(null);
+  void t; // used for translation context
+
+  const BADGE_TYPES = [
+    { value: "participant", label: "Participant", color: "#00ff9d" },
+    { value: "speaker", label: "Speaker", color: "#ff0066" },
+    { value: "volunteer", label: "Volunteer", color: "#ff6600" },
+    { value: "ctf_competitor", label: "CTF Competitor", color: "#00ccff" },
+    { value: "ctf_winner", label: "CTF Winner", color: "#ffd700" },
+    { value: "organizer", label: "Organizer", color: "#cc00ff" },
+  ];
+
+  const loadBadges = useCallback(async () => {
+    setLoading(true);
+    const r = await fetch(`/api/admin/badges${filterType ? `?type=${filterType}` : ""}`);
+    if (r.ok) setBadges(await r.json());
+    setLoading(false);
+  }, [filterType]);
+
+  useEffect(() => { if (subTab === "list") loadBadges(); }, [subTab, filterType, loadBadges]);
+
+  const bulkAction = async (action: string) => {
+    setStatus("Generating…");
+    const r = await fetch("/api/admin/badges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+    if (r.ok) {
+      const j = await r.json();
+      setStatus(`Done: ${j.issued ?? j.sent ?? 0} badge(s) generated/sent.${j.failed ? ` (${j.failed} failed)` : ""}`);
+    } else setStatus("Error");
   };
+
+  const issueSingle = async () => {
+    if (!form.recipientName || !form.recipientEmail) return;
+    setStatus("Issuing…");
+    const r = await fetch("/api/admin/badges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "issue", ...form, subtype: form.subtype || null }) });
+    if (r.ok) { setStatus("Badge issued."); setForm({ badgeType: "participant", recipientName: "", recipientEmail: "", subtype: "" }); }
+    else setStatus("Error issuing badge");
+  };
+
+  const sendBadge = async (id: number) => {
+    setStatus(`Sending badge #${id}…`);
+    const r = await fetch("/api/admin/badges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "send", id }) });
+    setStatus(r.ok ? "Email sent." : "Error sending");
+    loadBadges();
+  };
+
+  const revokeBadge = async (id: number) => {
+    if (!confirm("Revoke this badge? This cannot be undone.")) return;
+    await fetch("/api/admin/badges", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    loadBadges();
+  };
+
+  const genKeys = async () => {
+    if (!confirm("Generate a new keypair? This will invalidate all previously signed badges.")) return;
+    setKeyLoading(true);
+    const r = await fetch("/api/admin/badges/generate-keys", { method: "POST" });
+    if (r.ok) setKeys(await r.json());
+    setKeyLoading(false);
+  };
+
+  const badgeColor = (type: string) => BADGE_TYPES.find(b => b.value === type)?.color || "#888";
 
   return (
     <div>
-      <h1 className="text-2xl font-black text-white mb-2">Certificats</h1>
-      <p className="text-gray-500 text-xs mb-6">Envoi des certificats par email après l&apos;événement</p>
-      {result && (
-        <div className="cyber-card rounded-xl p-4 mb-6 border-neon-green/30">
-          <span className="text-neon-green text-sm">✓ {result.sent} envoyés</span>
-          {result.failed > 0 && <span className="text-red-400 text-sm ml-3">✗ {result.failed} échecs</span>}
+      <h1 className="text-2xl font-black text-white mb-2">Badges &amp; Certificates</h1>
+      <p className="text-xs text-gray-600 font-mono mb-6">Open Badges V3 · W3C Verifiable Credentials · Ed25519 signed</p>
+
+      {/* Sub-tabs */}
+      <div className="flex gap-2 mb-6 border-b border-gray-800 pb-3">
+        {(["issue", "list", "keys"] as const).map(st => (
+          <button key={st} onClick={() => setSubTab(st)}
+            className={`text-xs px-4 py-1.5 rounded transition-all ${subTab === st ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 border border-gray-800"}`}>
+            {st === "issue" ? "🎫 Issue" : st === "list" ? "📋 Issued" : "🔑 Keys"}
+          </button>
+        ))}
+      </div>
+
+      {status && (
+        <div className="mb-4 p-3 rounded bg-neon-green/10 border border-neon-green/20 text-neon-green text-xs font-mono flex justify-between">
+          <span>{status}</span>
+          <button onClick={() => setStatus(null)} className="text-gray-500 hover:text-white">✕</button>
         </div>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="cyber-card rounded-xl p-6">
-          <h2 className="text-white font-bold mb-2">Certificat Participants</h2>
-          <p className="text-gray-500 text-xs mb-4">Envoyé à tous les participants ayant été check-in le jour J</p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => send("participants")}
-              disabled={!!sending}
-              className="btn-neon px-4 py-2 rounded text-sm"
-            >
-              {sending === "participants" ? "Envoi..." : "Envoyer à tous"}
-            </button>
-            <a href="/api/admin/certificates" onClick={e => { e.preventDefault(); window.open("/api/admin/certificates?preview=participant", "_blank"); }}
-              className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white border border-gray-700 hover:border-gray-500 transition-colors">
-              Aperçu
-            </a>
+
+      {/* ISSUE TAB */}
+      {subTab === "issue" && (
+        <div className="space-y-6">
+          {/* Bulk actions */}
+          <div>
+            <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Bulk Generation</h2>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {[
+                { action: "bulk-participants", label: "🎫 All Checked-in Participants", desc: "Issues participant badges for all checked-in registrations", color: "#00ff9d" },
+                { action: "bulk-speakers", label: "🎤 All Speakers", desc: "Issues speaker badges for all 2026 speakers", color: "#ff0066" },
+                { action: "bulk-send", label: "📤 Send All Pending Emails", desc: "Sends badge emails to all recipients who haven't received one yet", color: "#0066ff" },
+              ].map(item => (
+                <button key={item.action} onClick={() => bulkAction(item.action)}
+                  className="cyber-card rounded-xl p-5 text-left hover:opacity-80 transition-opacity"
+                  style={{ borderColor: item.color + "30" }}>
+                  <div className="font-bold text-sm mb-1" style={{ color: item.color }}>{item.label}</div>
+                  <div className="text-xs text-gray-600">{item.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Single badge form */}
+          <div>
+            <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Issue Single Badge</h2>
+            <div className="cyber-card rounded-xl p-5 space-y-3">
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Badge Type</label>
+                  <select className="cyber-input w-full px-3 py-2 rounded text-xs"
+                    value={form.badgeType} onChange={e => setForm(f => ({ ...f, badgeType: e.target.value }))}>
+                    {BADGE_TYPES.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
+                  </select>
+                </div>
+                {form.badgeType === "participant" && (
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Ticket Level (subtype)</label>
+                    <input className="cyber-input w-full px-3 py-2 rounded text-xs" placeholder="student / standard / vip"
+                      value={form.subtype} onChange={e => setForm(f => ({ ...f, subtype: e.target.value }))} />
+                  </div>
+                )}
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Recipient Name *</label>
+                  <input className="cyber-input w-full px-3 py-2 rounded text-xs"
+                    value={form.recipientName} onChange={e => setForm(f => ({ ...f, recipientName: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Recipient Email *</label>
+                  <input type="email" className="cyber-input w-full px-3 py-2 rounded text-xs"
+                    value={form.recipientEmail} onChange={e => setForm(f => ({ ...f, recipientEmail: e.target.value }))} />
+                </div>
+              </div>
+              <button onClick={issueSingle} className="btn-neon px-4 py-2 rounded text-xs">Issue Badge</button>
+            </div>
           </div>
         </div>
-        <div className="cyber-card rounded-xl p-6">
-          <h2 className="text-white font-bold mb-2">Certificat Speakers</h2>
-          <p className="text-gray-500 text-xs mb-4">Envoyé à tous les speakers 2026 avec un talk assigné</p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => send("speakers")}
-              disabled={!!sending}
-              className="btn-neon px-4 py-2 rounded text-sm"
-            >
-              {sending === "speakers" ? "Envoi..." : "Envoyer à tous"}
+      )}
+
+      {/* LIST TAB */}
+      {subTab === "list" && (
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <select className="bg-black/40 border border-gray-800 rounded px-3 py-1.5 text-xs text-white outline-none"
+              value={filterType} onChange={e => setFilterType(e.target.value)}>
+              <option value="">— All types</option>
+              {BADGE_TYPES.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
+            </select>
+            <span className="text-xs text-gray-600">{badges.length} badge(s)</span>
+          </div>
+          {loading ? <p className="text-gray-600 text-xs font-mono">Loading…</p> : (
+            <div className="space-y-2">
+              {badges.map(b => {
+                const color = badgeColor(String(b.badgeType));
+                return (
+                  <div key={String(b.id)} className="flex items-center gap-3 p-3 rounded bg-white/[0.02] border border-white/[0.04] text-xs">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                    <span className="flex-1 text-white font-medium">{String(b.recipientName)}</span>
+                    <span className="text-gray-500 truncate max-w-[160px]">{String(b.recipientEmail)}</span>
+                    <span className="px-1.5 py-0.5 rounded font-mono shrink-0" style={{ color, background: color + "20" }}>
+                      {String(b.badgeType)}{b.subtype ? ` / ${b.subtype}` : ""}
+                    </span>
+                    <span className="text-gray-600 shrink-0">{new Date(String(b.issuedAt)).toLocaleDateString()}</span>
+                    {b.revokedAt ? (
+                      <span className="text-red-500 text-xs shrink-0">REVOKED</span>
+                    ) : (
+                      <>
+                        {b.emailSentAt
+                          ? <span className="text-neon-green/50 text-xs shrink-0">✓ sent</span>
+                          : <button onClick={() => sendBadge(Number(b.id))} className="text-xs text-blue-400 hover:text-blue-300 shrink-0 transition-colors">📤 Send</button>
+                        }
+                        <a href={`/verify/${b.uuid}`} target="_blank" className="text-xs text-gray-500 hover:text-neon-green transition-colors shrink-0">🔍</a>
+                        <button onClick={() => revokeBadge(Number(b.id))} className="text-xs text-red-600 hover:text-red-400 shrink-0 transition-colors">✕</button>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+              {badges.length === 0 && <p className="text-gray-600 text-xs font-mono py-4">// No badges issued yet</p>}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* KEYS TAB */}
+      {subTab === "keys" && (
+        <div className="space-y-4">
+          <div className="cyber-card rounded-xl p-5 border border-yellow-500/20">
+            <p className="text-yellow-400 text-xs font-bold mb-2">⚠ Cryptographic Key Setup</p>
+            <p className="text-gray-500 text-xs leading-relaxed mb-4">
+              EOCON badges are signed with an Ed25519 keypair. Generate the keys once, add them to your environment variables, and never regenerate (doing so invalidates all existing badges).
+            </p>
+            <div className="mb-3">
+              <p className="text-xs text-gray-500 mb-1">Status:</p>
+              <p className="text-xs font-mono text-orange-400">
+                Check server .env file for BADGE_PRIVATE_KEY and BADGE_PUBLIC_KEY
+              </p>
+            </div>
+            <button onClick={genKeys} disabled={keyLoading} className="text-xs px-4 py-2 rounded border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 transition-all disabled:opacity-50">
+              {keyLoading ? "Generating…" : "Generate Ed25519 Keypair"}
             </button>
           </div>
+
+          {keys && (
+            <div className="cyber-card rounded-xl p-5 space-y-3">
+              <p className="text-neon-green text-xs font-bold">✓ Keys generated — add to .env file:</p>
+              {[
+                { label: "BADGE_PRIVATE_KEY", value: keys.privateKeyBase64, warn: true },
+                { label: "BADGE_PUBLIC_KEY", value: keys.publicKeyBase64, warn: false },
+              ].map(k => (
+                <div key={k.label}>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs text-gray-500">{k.label} {k.warn && <span className="text-red-400">(keep secret!)</span>}</label>
+                    <button onClick={() => navigator.clipboard.writeText(`${k.label}="${k.value}"`)}
+                      className="text-xs text-neon-green hover:underline">Copy</button>
+                  </div>
+                  <div className="bg-black/60 rounded p-2 text-xs font-mono text-gray-500 break-all max-h-16 overflow-y-auto">{k.value}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
-      <div className="cyber-card rounded-xl p-5 mt-6">
-        <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">Aperçus</h2>
-        <div className="flex gap-3">
-          <a
-            href="#"
-            onClick={e => { e.preventDefault(); fetch("/api/admin/certificates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "preview-participant" }) }).then(r => r.text()).then(html => { const w = window.open(); w?.document.write(html); }); }}
-            className="text-xs text-neon-green hover:underline"
-          >
-            Voir aperçu participant →
-          </a>
-          <a
-            href="#"
-            onClick={e => { e.preventDefault(); fetch("/api/admin/certificates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "preview-speaker" }) }).then(r => r.text()).then(html => { const w = window.open(); w?.document.write(html); }); }}
-            className="text-xs text-neon-green hover:underline"
-          >
-            Voir aperçu speaker →
-          </a>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -2900,7 +3058,7 @@ function SessionsPanel() {
                 <span className="w-14 shrink-0 text-right text-xs font-mono" style={{ color: color + "aa" }}>{String(s.time)}</span>
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
                 <span className="flex-1 text-sm text-white">{String(s.title)}</span>
-                {s.speakerName && <span className="text-xs text-gray-500">{String(s.speakerName)}</span>}
+                {!!s.speakerName && <span className="text-xs text-gray-500">{String(s.speakerName)}</span>}
                 <span className="text-xs px-1.5 py-0.5 rounded shrink-0" style={{ color, background: color + "20" }}>{String(s.type)}</span>
                 {!s.isVisible && <span className="text-xs text-gray-600 shrink-0">{t.hidden}</span>}
                 <button onClick={() => startEdit(s)} className="text-xs text-gray-500 hover:text-neon-green transition-colors shrink-0">✎</button>
@@ -2998,7 +3156,7 @@ function AuditPanel() {
                   <span className="px-1.5 py-0.5 rounded shrink-0" style={{ color: actColor, background: actColor + "20" }}>{String(log.action)}</span>
                   <span className="text-gray-400 shrink-0">{String(log.resource)}{log.resourceId ? `#${log.resourceId}` : ""}</span>
                   <span className="text-gray-600 shrink-0">{String(log.ip || "")}</span>
-                  {log.details && <span className="text-gray-700 truncate">{JSON.stringify(log.details)}</span>}
+                  {!!log.details && <span className="text-gray-700 truncate">{JSON.stringify(log.details)}</span>}
                 </div>
               );
             })}

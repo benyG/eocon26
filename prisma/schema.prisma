@@ -423,3 +423,20 @@ model AuditLog {
   @@index([resource])
   @@map("audit_logs")
 }
+
+model BadgeCredential {
+  id             Int       @id @default(autoincrement())
+  uuid           String    @unique @default(cuid())
+  badgeType      String    // participant | speaker | volunteer | ctf_competitor | ctf_winner | organizer
+  subtype        String?   // ticket level for participant (student/standard/vip), null for others
+  recipientName  String
+  recipientEmail String
+  credentialJson String    @db.LongText
+  issuedAt       DateTime  @default(now())
+  revokedAt      DateTime?
+  emailSentAt    DateTime?
+
+  @@index([recipientEmail])
+  @@index([badgeType])
+  @@map("badge_credentials")
+}

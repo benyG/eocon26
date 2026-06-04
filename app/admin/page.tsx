@@ -1410,32 +1410,42 @@ const PROSPECT_STATUSES = [
 
 function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<string, unknown>[]; onRefresh: () => void }) {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<Record<string, unknown>>({ status: "contacted" });
+  const [form, setForm] = useState<Record<string, unknown>>({ status: "prospect" });
   const [aiEmail, setAiEmail] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
-  const [aiEmailTarget, setAiEmailTarget] = useState<string | null>(null);
+  const [aiEmailTarget, setAiEmailTarget] = useState<{ org: string; id: number } | null>(null);
+  const [generatingFor, setGeneratingFor] = useState<number | null>(null);
 
   const generateFollowupEmail = async (p: Record<string, unknown>) => {
-    setAiEmailTarget(p.org as string);
+    setGeneratingFor(p.id as number);
+    setAiEmailTarget({ org: p.org as string, id: p.id as number });
     const res = await fetch("/api/admin/ai/sponsor-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ org: p.org, contact: p.contact, package: p.package, status: p.status, notes: p.notes, mode: "followup" }),
     });
-    if (res.ok) setAiEmail(await res.json() as { subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string });
+    if (res.ok) setAiEmail(await res.json());
+    setGeneratingFor(null);
+  };
+
+  const markContacted = async (id: number) => {
+    await fetch(`/api/admin/sponsor-prospects/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "contacted" }),
+    });
+    setAiEmail(null);
+    setAiEmailTarget(null);
+    onRefresh();
   };
 
   const save = async () => {
     await fetch("/api/admin/sponsor-prospects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-    setShowForm(false); setForm({ status: "contacted" }); onRefresh();
+    setShowForm(false); setForm({ status: "prospect" }); onRefresh();
   };
 
   const updateStatus = async (id: number, status: string) => {
     await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
     onRefresh();
-  };
-
-  const updateNotes = async (id: number, notes: string) => {
-    await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notes }) });
   };
 
   const del = async (id: number) => {
@@ -1448,15 +1458,16 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-black text-white">Pipeline Sponsors</h1>
-        <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter prospect</button>
+        <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">+ Prospect</button>
       </div>
 
+      {/* AI Email Modal */}
       {aiEmail && aiEmailTarget && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between mb-4">
-              <h3 className="text-white font-bold">Email de relance — {aiEmailTarget}</h3>
-              <button onClick={() => setAiEmail(null)} className="text-gray-500 hover:text-white">✕</button>
+              <h3 className="text-white font-bold">Email — {aiEmailTarget.org}</h3>
+              <button onClick={() => { setAiEmail(null); setAiEmailTarget(null); }} className="text-gray-500 hover:text-white">✕</button>
             </div>
             <div className="space-y-4">
               {[
@@ -1473,9 +1484,19 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
                 </div>
               ))}
             </div>
+            <div className="mt-4 pt-4 border-t border-gray-800">
+              <button
+                onClick={() => markContacted(aiEmailTarget.id)}
+                className="w-full text-xs px-4 py-2 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-all"
+              >
+                📤 Marquer comme envoyé → Statut &quot;Contacté&quot;
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* Add form */}
       {showForm && (
         <div className="cyber-card rounded-xl p-5 mb-6 space-y-3">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -1493,7 +1514,7 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
             ))}
             <div>
               <label className="text-xs text-gray-500 block mb-1">Statut</label>
-              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.status as string) || "contacted"} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
+              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.status as string) || "prospect"} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
                 {PROSPECT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
             </div>
@@ -1504,61 +1525,73 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
           </div>
           <div className="flex gap-2">
             <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">Sauvegarder</button>
-            <button onClick={() => { setShowForm(false); setForm({ status: "contacted" }); }} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
+            <button onClick={() => { setShowForm(false); setForm({ status: "prospect" }); }} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
           </div>
         </div>
       )}
-      <div className="space-y-3">
-        {PROSPECT_STATUSES.map(st => {
-          const group = prospects.filter(p => p.status === st.value);
-          if (!group.length) return null;
-          return (
-            <div key={st.value} className="mb-4">
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-2" style={{ color: st.color }}>
-                <span className="w-2 h-2 rounded-full inline-block" style={{ background: st.color }} />
-                {st.label} ({group.length})
-              </h3>
-              <div className="space-y-2 pl-4">
-                {group.map(p => (
-                  <div key={p.id as number} className="cyber-card rounded-lg p-4" style={{ borderLeft: `3px solid ${st.color}40` }}>
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-bold text-sm">{p.org as string}</p>
-                        <div className="flex gap-3 text-xs text-gray-500 mt-0.5 flex-wrap">
-                          {!!(p.contact as string) && <span>{p.contact as string}</span>}
-                          {!!(p.email as string) && <span className="text-neon-green/60">{p.email as string}</span>}
-                          {!!(p.phone as string) && <span>{p.phone as string}</span>}
-                          {!!(p.package as string) && <span className="px-1.5 py-0.5 rounded" style={{ background: st.color + "20", color: st.color }}>{p.package as string}</span>}
-                        </div>
-                        {!!(p.notes as string) && (
-                          <textarea
-                            defaultValue={(p.notes as string) || ""}
-                            onBlur={e => updateNotes(p.id as number, e.target.value)}
-                            className="cyber-input w-full text-xs rounded p-2 mt-2 h-12 resize-none"
-                            placeholder="Notes..."
-                          />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => generateFollowupEmail(p)} className="text-xs px-2 py-1 rounded transition-all" style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}>✨ Email IA</button>
+
+      {/* Kanban Board */}
+      <div className="overflow-x-auto pb-4">
+        <div className="flex gap-4 min-w-max">
+          {PROSPECT_STATUSES.map(st => {
+            const group = prospects.filter(p => p.status === st.value);
+            return (
+              <div key={st.value} className="w-64 shrink-0">
+                <div className="flex items-center gap-2 mb-3 px-1">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: st.color }} />
+                  <span className="text-xs font-bold uppercase tracking-wider" style={{ color: st.color }}>{st.label}</span>
+                  <span className="ml-auto text-xs text-gray-700 font-mono">{group.length}</span>
+                </div>
+                <div className="space-y-2 min-h-[100px]">
+                  {group.map(p => (
+                    <div
+                      key={p.id as number}
+                      className="cyber-card rounded-lg p-3 text-xs"
+                      style={{ borderLeft: `3px solid ${st.color}40` }}
+                    >
+                      <p className="text-white font-bold text-sm mb-1 truncate">{p.org as string}</p>
+                      {(p.contact as string) && <p className="text-gray-500 truncate">{p.contact as string}</p>}
+                      {(p.email as string) && <p className="text-neon-green/60 truncate">{p.email as string}</p>}
+                      {(p.package as string) && (
+                        <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-xs" style={{ background: st.color + "20", color: st.color }}>
+                          {p.package as string}
+                        </span>
+                      )}
+                      {(p.notes as string) && (
+                        <p className="text-gray-600 text-xs mt-1 truncate" title={p.notes as string}>{p.notes as string}</p>
+                      )}
+                      <div className="flex items-center gap-1 mt-2 flex-wrap">
+                        <button
+                          onClick={() => generateFollowupEmail(p)}
+                          disabled={generatingFor === (p.id as number)}
+                          className="text-xs px-1.5 py-0.5 rounded transition-all disabled:opacity-50"
+                          style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}
+                        >
+                          {generatingFor === (p.id as number) ? "…" : "✨"}
+                        </button>
                         <select
-                          className="cyber-input text-xs px-2 py-1 rounded"
+                          className="cyber-input text-xs px-1 py-0.5 rounded flex-1 min-w-0"
                           value={p.status as string}
                           onChange={e => updateStatus(p.id as number, e.target.value)}
                         >
                           {PROSPECT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                         </select>
-                        <button onClick={() => del(p.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">Suppr.</button>
+                        <button onClick={() => del(p.id as number)} className="text-xs text-red-500 hover:text-red-400 px-1">✕</button>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                  {group.length === 0 && (
+                    <div className="border border-dashed border-gray-800 rounded-lg h-16 flex items-center justify-center">
+                      <span className="text-gray-800 text-xs">vide</span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-        {!prospects.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun prospect pour l&apos;instant</p>}
+            );
+          })}
+        </div>
       </div>
+      {!prospects.length && <p className="text-gray-600 text-xs py-4 text-center">Aucun prospect pour l&apos;instant</p>}
     </div>
   );
 }

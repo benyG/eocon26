@@ -45,6 +45,7 @@ interface SpeakerRecord {
   country?: string | null;
   bio: string;
   photoUrl?: string | null;
+  visualUrl?: string | null;
   linkedin?: string | null;
   twitter?: string | null;
   talkTitle?: string | null;
@@ -170,6 +171,25 @@ export default function PipelineKanban() {
       });
       setSpeakers(prev => prev.map(s => s.id === speakerId ? { ...s, photoUrl: url } : s));
       if (editSpeaker?.id === speakerId) setEditSpeaker(prev => prev ? { ...prev, photoUrl: url } : prev);
+    }
+    setUploadingPhoto(false);
+  };
+
+  const uploadSpeakerVisual = async (speakerId: number, file: File) => {
+    setUploadingPhoto(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("folder", "speaker-visuals");
+    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    if (res.ok) {
+      const { url } = await res.json() as { url: string };
+      await fetch(`/api/admin/speakers/${speakerId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visualUrl: url }),
+      });
+      setSpeakers(prev => prev.map(s => s.id === speakerId ? { ...s, visualUrl: url } : s));
+      if (editSpeaker?.id === speakerId) setEditSpeaker(prev => prev ? { ...prev, visualUrl: url } : prev);
     }
     setUploadingPhoto(false);
   };
@@ -462,18 +482,53 @@ export default function PipelineKanban() {
             <div className="cyber-card rounded-xl p-5 border-neon-green/30">
               <h3 className="text-white font-bold mb-4 text-sm">Édition — {editSpeaker.name}</h3>
 
-              {/* Photo upload */}
-              <div className="flex items-center gap-4 mb-4">
-                {editSpeaker.photoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={editSpeaker.photoUrl} alt="" className="w-20 h-20 rounded-full object-cover border-2 border-neon-green/30" />
-                ) : (
-                  <div className="w-20 h-20 rounded-full bg-gray-800 border-2 border-dashed border-gray-700 flex items-center justify-center text-gray-600">👤</div>
-                )}
-                <label className="cursor-pointer border border-dashed border-gray-700 rounded-lg px-4 py-2 hover:border-gray-500 transition-colors">
-                  <span className="text-gray-500 text-xs">{uploadingPhoto ? "Upload..." : "📷 Changer la photo (JPG/PNG/WEBP)"}</span>
-                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" ref={fileRef} onChange={e => { const f = e.target.files?.[0]; if (f) uploadSpeakerPhoto(editSpeaker.id, f).then(() => setEditSpeaker(prev => prev ? { ...prev, photoUrl: speakers.find(s => s.id === editSpeaker.id)?.photoUrl || prev.photoUrl } : null)); e.target.value = ""; }} disabled={uploadingPhoto} />
-                </label>
+              {/* Photo + Visual uploads */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                {/* Profile photo */}
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">Photo de profil</p>
+                  <div className="flex items-center gap-3">
+                    {editSpeaker.photoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={editSpeaker.photoUrl} alt="" className="w-16 h-16 rounded-full object-cover border-2 border-gray-700" />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-gray-800 border-2 border-dashed border-gray-700 flex items-center justify-center text-gray-600">👤</div>
+                    )}
+                    <label className="cursor-pointer border border-dashed border-gray-700 rounded-lg px-3 py-2 hover:border-gray-500 transition-colors">
+                      <span className="text-gray-500 text-xs">{uploadingPhoto ? "Upload..." : "📷 Photo"}</span>
+                      <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" ref={fileRef}
+                        onChange={e => { const f = e.target.files?.[0]; if (f) uploadSpeakerPhoto(editSpeaker.id, f).then(() => setEditSpeaker(prev => prev ? { ...prev, photoUrl: speakers.find(s => s.id === editSpeaker.id)?.photoUrl || prev.photoUrl } : null)); e.target.value = ""; }}
+                        disabled={uploadingPhoto} />
+                    </label>
+                  </div>
+                </div>
+                {/* Communication visual */}
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Visuel communication
+                    <span className="ml-1 text-gray-600">(infographiste)</span>
+                  </p>
+                  <div className="flex items-center gap-3">
+                    {editSpeaker.visualUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={editSpeaker.visualUrl} alt="Visuel" className="w-16 h-16 rounded-lg object-cover border-2 border-neon-green/40" />
+                    ) : (
+                      <div className="w-16 h-16 rounded-lg bg-gray-800 border-2 border-dashed border-neon-green/20 flex items-center justify-center text-xs text-gray-600 text-center p-1">🎨</div>
+                    )}
+                    <label className="cursor-pointer border border-dashed border-neon-green/30 rounded-lg px-3 py-2 hover:border-neon-green/60 transition-colors">
+                      <span className="text-neon-green/60 text-xs">{uploadingPhoto ? "Upload..." : "🎨 Visuel réseaux"}</span>
+                      <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) uploadSpeakerVisual(editSpeaker.id, f).then(() => setEditSpeaker(prev => prev ? { ...prev, visualUrl: speakers.find(s => s.id === editSpeaker.id)?.visualUrl || prev.visualUrl } : null)); e.target.value = ""; }}
+                        disabled={uploadingPhoto} />
+                    </label>
+                  </div>
+                  {editSpeaker.visualUrl && (
+                    <p className="text-xs text-neon-green/40 mt-1">✓ Sera utilisé dans les posts auto</p>
+                  )}
+                  {!editSpeaker.visualUrl && editSpeaker.photoUrl && (
+                    <p className="text-xs text-gray-600 mt-1">Fallback: photo de profil</p>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

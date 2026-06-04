@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
 import { sendCFPDecision } from "@/lib/email";
+import { getEventSettings } from "@/lib/settings";
 
 // Valid pipeline stages in order
 const STAGES = ["submitted", "reviewing", "accepted", "onboarding", "confirmed", "scheduled"] as const;
@@ -110,16 +111,33 @@ export async function PATCH(req: NextRequest) {
       data: { onboardingStatus: "completed" },
     });
 
-    // Auto-schedule speaker announcement posts
+    // Auto-schedule speaker announcement posts — uses visualUrl (infographist graphic) first
     const speaker = await prisma.speaker.findUnique({ where: { id: cfp.speakerId } });
     if (speaker) {
+      const settings = await getEventSettings().catch(() => ({} as Record<string, string>));
+      const dateFr = settings.event_date_display_fr || "28 novembre 2026";
+      const venue = settings.event_venue || "Hotel Onomo";
+      const city = settings.event_city || "Douala";
+      const urlInscription = settings.url_inscription || "https://eyesopensecurity.com/#inscription";
+      const urlProgramme = settings.url_programme || "https://eyesopensecurity.com/#programme";
+
+      // Check how many announcements are already scheduled to stagger time
+      const existingCount = await prisma.socialPost.count({
+        where: { contentType: "speaker_announcement", status: "scheduled" },
+      });
+
       const announcementDate = new Date();
       announcementDate.setDate(announcementDate.getDate() + 1);
-      announcementDate.setHours(10, 0, 0, 0);
+      // Stagger: 10:00, 11:30, 13:00, 14:30, 16:00, … (90-min slots)
+      const hourOffset = (existingCount % 6) * 90;
+      announcementDate.setHours(10, hourOffset % 60, 0, 0);
+      if (hourOffset >= 60) announcementDate.setHours(10 + Math.floor(hourOffset / 60), hourOffset % 60, 0, 0);
 
-      const linkedinContent = `🎤 [EOCON 2026 · Speaker Annonce]\n\nNous avons le plaisir d'accueillir ${speaker.name}${speaker.title ? `, ${speaker.title}` : ""}${speaker.company ? ` @ ${speaker.company}` : ""}${speaker.country ? ` (${speaker.country})` : ""} !\n\n📋 Talk : "${speaker.talkTitle}"\n\n📅 28 novembre 2026 · Hotel Onomo, Douala\n🎫 Inscriptions : https://eyesopensecurity.com/#inscription\n\n#EOCON2026 #Cybersécurité #Afrique #EyesOpen`;
+      const imageUrl = speaker.visualUrl || speaker.photoUrl || null;
 
-      const twitterContent = `🎤 Speaker EOCON 2026 !\n\n${speaker.name}${speaker.company ? ` (@${speaker.company})` : ""} présentera : "${speaker.talkTitle?.slice(0, 60)}..."\n\n📅 28 nov 2026 · Douala\n🔗 eyesopensecurity.com\n\n#EOCON2026 #Cybersécurité`.slice(0, 280);
+      const linkedinContent = `🎤 [EOCON 2026 · Speaker Annonce]\n\nNous avons le plaisir d'accueillir ${speaker.name}${speaker.title ? `, ${speaker.title}` : ""}${speaker.company ? ` @ ${speaker.company}` : ""}${speaker.country ? ` (${speaker.country})` : ""} !\n\n📋 Talk : "${speaker.talkTitle}"\n\n📅 ${dateFr} · ${venue}, ${city}\n\n👉 Voir le programme : ${urlProgramme}\n🎫 Inscriptions : ${urlInscription}\n\n#EOCON2026 #Cybersécurité #Afrique #EyesOpen`;
+
+      const twitterContent = `🎤 Speaker EOCON 2026 !\n\n${speaker.name}${speaker.company ? ` @ ${speaker.company}` : ""} : "${speaker.talkTitle?.slice(0, 60)}${(speaker.talkTitle?.length ?? 0) > 60 ? "…" : ""}"\n\n📅 ${dateFr} · ${city}\n🔗 ${urlProgramme}\n\n#EOCON2026 #Cybersécurité`.slice(0, 280);
 
       await prisma.socialPost.createMany({
         data: [
@@ -128,7 +146,7 @@ export async function PATCH(req: NextRequest) {
             platform: "linkedin",
             lang: "fr",
             content: linkedinContent,
-            imageUrl: speaker.photoUrl || null,
+            imageUrl,
             scheduledAt: announcementDate,
             status: "scheduled",
             contentType: "speaker_announcement",
@@ -139,8 +157,8 @@ export async function PATCH(req: NextRequest) {
             platform: "twitter",
             lang: "fr",
             content: twitterContent,
-            imageUrl: speaker.photoUrl || null,
-            scheduledAt: new Date(announcementDate.getTime() + 30 * 60_000), // +30min offset
+            imageUrl,
+            scheduledAt: new Date(announcementDate.getTime() + 30 * 60_000),
             status: "scheduled",
             contentType: "speaker_announcement",
             speakerId: speaker.id,

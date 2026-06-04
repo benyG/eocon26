@@ -76,6 +76,7 @@ model Speaker {
   country         String?
   bio             String   @db.Text
   photoUrl        String?
+  visualUrl       String?  // Infographist-produced visual for social posts (distinct from profile photo)
   linkedin        String?
   twitter         String?
   talkTitle       String?

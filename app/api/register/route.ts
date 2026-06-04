@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { sendRegistrationPending } from "@/lib/email";
+import { generateTicketRef, formatTicketRef } from "@/lib/ticketRef";
 import { rateLimit, getIp } from "@/lib/rateLimit";
 import { getEventSettings } from "@/lib/settings";
 
@@ -30,6 +31,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Nom trop long" }, { status: 400 });
     }
 
+    const rawRef = generateTicketRef();
+    const ticketRef = formatTicketRef(rawRef);
     const registration = await prisma.registration.create({
       data: {
         fname: fname.slice(0, 80),
@@ -39,13 +42,14 @@ export async function POST(req: NextRequest) {
         country: country?.slice(0, 100),
         ticketType,
         langExpression: lang_expression || "fr",
+        ticketRef: rawRef,
       },
     });
 
     const settings = await getEventSettings().catch(() => ({} as Record<string, string>));
     const paymentUrl = settings.url_inscription || "https://eyesopensecurity.com/#inscription";
 
-    sendRegistrationPending(email, fname, lname, ticketType, registration.id, paymentUrl).catch(e =>
+    sendRegistrationPending(email, fname, lname, ticketType, ticketRef, paymentUrl).catch(e =>
       console.error("[Register email]", e),
     );
 

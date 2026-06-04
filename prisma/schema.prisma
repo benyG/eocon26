@@ -61,6 +61,7 @@ model Registration {
   org            String?
   country        String?
   ticketType     String
+  ticketRef      String?   @unique
   langExpression String?   @default("fr")
   status         String    @default("pending")
   qrCode         String?
@@ -278,9 +279,11 @@ model TicketType {
 
 model EmailTemplate {
   id          Int       @id @default(autoincrement())
+  slug        String?   @unique
   name        String
   subject     String
   htmlBody    String    @db.LongText
+  variables   String?   @db.Text
   segment     String    @default("all") // all | registered | cfp_accepted | volunteers | newsletter
   scheduledAt DateTime?
   sentAt      DateTime?

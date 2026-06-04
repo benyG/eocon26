@@ -162,7 +162,10 @@ export default function CheckinPage() {
             <span className="text-xs text-gray-500 ml-2 font-normal">check-ins</span>
           </div>
         </div>
-        <a href="/admin" className="text-xs text-gray-500 hover:text-neon-green transition-colors">← Admin</a>
+        <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+          <a href="/admin/checkin/test" style={{ color: "#555", fontSize: 11, textDecoration: "none" }}>🧪 Test QR</a>
+          <a href="/admin" className="text-xs text-gray-500 hover:text-neon-green transition-colors">← Admin</a>
+        </div>
       </div>
 
       <div className="flex flex-1 gap-0">

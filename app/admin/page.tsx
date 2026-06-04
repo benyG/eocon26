@@ -601,6 +601,9 @@ function CommunicationPanel() {
   const [templates, setTemplates] = useState<Record<string, unknown>[]>([]);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [templateForm, setTemplateForm] = useState<Record<string, unknown>>({});
+  // Transactional template editing
+  const [txEdits, setTxEdits] = useState<Record<number, { subject: string; htmlBody: string }>>({});
+  const [txSaving, setTxSaving] = useState<number | null>(null);;
   const [sending, setSending] = useState<number | null>(null);
   const [refining, setRefining] = useState<number | null>(null);
   const [refineInstructions, setRefineInstructions] = useState("");
@@ -827,6 +830,24 @@ function CommunicationPanel() {
 
   const seedTemplates = async () => {
     await fetch("/api/admin/email-templates/seed", { method: "POST" });
+    await loadTemplates();
+  };
+
+  const seedTransactionalTemplates = async () => {
+    await fetch("/api/admin/email-templates/seed-transactional", { method: "POST" });
+    await loadTemplates();
+  };
+
+  const saveTxTemplate = async (id: number) => {
+    const edit = txEdits[id];
+    if (!edit) return;
+    setTxSaving(id);
+    await fetch(`/api/admin/email-templates/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(edit),
+    });
+    setTxSaving(null);
     await loadTemplates();
   };
 
@@ -1218,10 +1239,57 @@ function CommunicationPanel() {
         </div>
       </div>
 
+      {/* Transactional templates */}
+      <div className="cyber-card rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Templates Transactionnels</h3>
+          <button onClick={seedTransactionalTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>🔧 Initialiser templates transactionnels</button>
+        </div>
+        <div className="space-y-3">
+          {templates.filter(t => t.slug).length === 0 && (
+            <p className="text-gray-600 text-xs text-center py-4">Aucun template transactionnel. Cliquez sur &quot;Initialiser&quot; pour créer les 7 templates.</p>
+          )}
+          {templates.filter(t => t.slug).map(t => {
+            const id = t.id as number;
+            const edit = txEdits[id] || { subject: t.subject as string, htmlBody: t.htmlBody as string };
+            let vars: string[] = [];
+            try { vars = JSON.parse(t.variables as string || "[]"); } catch { vars = []; }
+            return (
+              <div key={id} className="border border-gray-800 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: "#00ff9d10", color: "#00ff9d", border: "1px solid #00ff9d30" }}>{t.slug as string}</span>
+                  <span className="text-white text-xs font-bold">{t.name as string}</span>
+                </div>
+                {vars.length > 0 && (
+                  <p className="text-gray-600 text-xs mb-2">Variables : {vars.map(v => `{{${v}}}`).join(", ")}</p>
+                )}
+                <input
+                  className="cyber-input w-full text-xs rounded px-3 py-2 text-white mb-2"
+                  value={edit.subject}
+                  onChange={e => setTxEdits(prev => ({ ...prev, [id]: { ...edit, subject: e.target.value } }))}
+                  placeholder="Objet"
+                />
+                <textarea
+                  className="cyber-input w-full text-xs rounded px-3 py-2 text-white h-40 resize-none"
+                  value={edit.htmlBody}
+                  onChange={e => setTxEdits(prev => ({ ...prev, [id]: { ...edit, htmlBody: e.target.value } }))}
+                  placeholder="Corps HTML"
+                />
+                <div className="mt-2 flex justify-end">
+                  <button onClick={() => saveTxTemplate(id)} disabled={txSaving === id} className="text-xs px-3 py-1.5 rounded" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>
+                    {txSaving === id ? "..." : "Sauvegarder"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Email templates */}
       <div className="cyber-card rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Templates Email</h3>
+          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Templates Email Campagnes</h3>
           <div className="flex gap-2">
             <button onClick={seedTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>⚡ Seeder</button>
             <button onClick={() => setShowTemplateForm(!showTemplateForm)} className="btn-neon px-3 py-1.5 rounded text-xs">+ Créer</button>

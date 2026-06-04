@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
-import { sendCFPDecision, sendRegistrationTicket } from "@/lib/email";
+import { sendCFPDecision, sendRegistrationTicket, sendVolunteerAccepted } from "@/lib/email";
 import { generateQrPayload } from "@/lib/qr";
+import { formatTicketRef } from "@/lib/ticketRef";
 
 export const dynamic = "force-dynamic";
 
@@ -54,9 +55,6 @@ export async function PATCH(req: NextRequest) {
   if (type === "cfp") {
     return NextResponse.json(await prisma.cFPSubmission.update({ where: { id }, data: { status, notes: notes ?? undefined } }));
   }
-  if (type === "volunteer") {
-    return NextResponse.json(await prisma.volunteerApplication.update({ where: { id }, data: { status } }));
-  }
   // Validate registration: set status validated + generate QR + send ticket email
   if (type === "registration" && action === "validate") {
     const reg = await prisma.registration.findUnique({ where: { id } });
@@ -66,7 +64,8 @@ export async function PATCH(req: NextRequest) {
       where: { id },
       data: { status: "validated", qrCode },
     });
-    sendRegistrationTicket(reg.email, reg.fname, reg.lname, reg.ticketType, reg.id).catch(e =>
+    const ticketRef = formatTicketRef(reg.ticketRef || String(reg.id).padStart(5, "0"));
+    sendRegistrationTicket(reg.email, reg.fname, reg.lname, reg.ticketType, reg.id, ticketRef).catch(e =>
       console.error("[Registration ticket email]", e),
     );
     return NextResponse.json(updated);
@@ -75,5 +74,17 @@ export async function PATCH(req: NextRequest) {
   if (type === "registration") {
     return NextResponse.json(await prisma.registration.update({ where: { id }, data: { status } }));
   }
+
+  if (type === "volunteer") {
+    const vol = await prisma.volunteerApplication.findUnique({ where: { id } });
+    const updated = await prisma.volunteerApplication.update({ where: { id }, data: { status } });
+    if (status === "accepted" && vol) {
+      sendVolunteerAccepted(vol.email, vol.name, vol.assignedRole || "À confirmer").catch(e =>
+        console.error("[Volunteer accepted email]", e),
+      );
+    }
+    return NextResponse.json(updated);
+  }
+
   return NextResponse.json({ error: "Unknown type" }, { status: 400 });
 }

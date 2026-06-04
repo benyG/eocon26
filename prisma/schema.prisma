@@ -180,6 +180,21 @@ model NewsletterSubscriber {
   @@map("newsletter_subscribers")
 }
 
+model AdminProfile {
+  id          Int       @id @default(autoincrement())
+  slug        String    @unique // e.g. "super_admin"
+  name        String
+  description String    @default("")
+  color       String    @default("#888888")
+  permissions String    @db.Text // JSON AdminPermissions
+  isSystem    Boolean   @default(false) // system profiles can't be deleted
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  users       AdminUser[]
+
+  @@map("admin_profiles")
+}
+
 model AdminUser {
   id           Int            @id @default(autoincrement())
   name         String
@@ -187,7 +202,8 @@ model AdminUser {
   passwordHash String
   permissions  String         @db.Text // JSON: { cfp: "write", speakers: "read", ... }
   isActive     Boolean        @default(true)
-  profileId    String?
+  profileId    Int?
+  profile      AdminProfile?  @relation(fields: [profileId], references: [id], onDelete: SetNull)
   createdAt    DateTime       @default(now())
   sessions     AdminSession[]
 

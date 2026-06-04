@@ -3,8 +3,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ADMIN_PROFILES } from "@/lib/adminProfiles";
 import PipelineKanban from "@/components/admin/PipelineKanban";
+import AdminProfilesPanel from "@/components/admin/AdminProfilesPanel";
 
-type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages";
+type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -2308,6 +2309,7 @@ export default function AdminDashboard() {
         { id: "certificates", label: "Certificats" },
         { id: "export", label: "Export CSV" },
         { id: "users", label: "Utilisateurs" },
+        { id: "profiles", label: "Profils & Droits" },
       ],
     },
   ];
@@ -2901,6 +2903,7 @@ export default function AdminDashboard() {
           )}
 
           {tab === "users" && <AdminUsersPanel />}
+          {tab === "profiles" && <AdminProfilesPanel />}
 
           {/* COMMUNICATION */}
           {tab === "communication" && (

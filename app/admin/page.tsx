@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef, createContext, useContext } f
 import { useRouter } from "next/navigation";
 import { ADMIN_PROFILES } from "@/lib/adminProfiles";
 import PipelineKanban from "@/components/admin/PipelineKanban";
+import CountrySelect from "@/components/CountrySelect";
 import AdminProfilesPanel from "@/components/admin/AdminProfilesPanel";
 import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
 
@@ -2975,13 +2976,21 @@ function EventSettingsPanel() {
               {SETTINGS_FIELDS.filter(f => f.group === group).map(field => (
                 <div key={field.key}>
                   <label className="block text-xs text-gray-500 mb-1">{field.label}</label>
-                  <input
-                    type={field.type}
-                    value={settings[field.key] || ""}
-                    onChange={e => handleChange(field.key, e.target.value)}
-                    className="cyber-input w-full px-3 py-2 rounded text-sm text-white"
-                    style={{ fontFamily: "'Share Tech Mono', monospace" }}
-                  />
+                  {field.key === "event_country" ? (
+                    <CountrySelect
+                      value={settings[field.key] || ""}
+                      onChange={v => handleChange(field.key, v)}
+                      className="w-full text-sm"
+                    />
+                  ) : (
+                    <input
+                      type={field.type}
+                      value={settings[field.key] || ""}
+                      onChange={e => handleChange(field.key, e.target.value)}
+                      className="cyber-input w-full px-3 py-2 rounded text-sm text-white"
+                      style={{ fontFamily: "'Share Tech Mono', monospace" }}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -4074,7 +4083,7 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Pays</label>
-                      <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.country as string) || ""} onChange={e => setForm({ ...form, country: e.target.value })} />
+                      <CountrySelect value={(form.country as string) || ""} onChange={v => setForm({ ...form, country: v })} className="w-full text-xs" />
                     </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Édition (ex: 2024)</label>

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { Translations } from "@/lib/i18n";
+import CountrySelect from "@/components/CountrySelect";
 
 interface TicketTypeData {
   id: number;
@@ -230,8 +231,12 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.register.form.country}</label>
-                    <input className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder={t.register.form.country}
-                      value={formData.country} onChange={e => setFormData({ ...formData, country: e.target.value })} />
+                    <CountrySelect
+                      value={formData.country}
+                      onChange={v => setFormData({ ...formData, country: v })}
+                      className="w-full"
+                      placeholder={t.register.form.country}
+                    />
                   </div>
                 </div>
                 <div>

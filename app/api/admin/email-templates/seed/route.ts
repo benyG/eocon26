@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
 
+export const dynamic = "force-dynamic";
+
 const SEED_TEMPLATES = [
   {
     name: "📣 Ouverture des inscriptions",

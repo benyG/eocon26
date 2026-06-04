@@ -4,6 +4,8 @@ import { isAdminAuthenticated } from "@/lib/adminAuth";
 import { getOpenAI, getEoconContext } from "@/lib/openai";
 import { getCtaForContentType, getEventSettings } from "@/lib/settings";
 
+export const dynamic = "force-dynamic";
+
 interface PostsResult {
   linkedin_fr: string;
   linkedin_en: string;

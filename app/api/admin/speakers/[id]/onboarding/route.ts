@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const speakerId = parseInt(params.id);
   const onboarding = await prisma.speakerOnboarding.findUnique({ where: { speakerId } });

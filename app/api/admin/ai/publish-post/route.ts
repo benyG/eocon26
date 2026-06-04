@@ -4,6 +4,8 @@ import { isAdminAuthenticated } from "@/lib/adminAuth";
 import { publishPost as publishLinkedIn } from "@/lib/linkedin";
 import { publishTweet } from "@/lib/twitter";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id, scheduledAt } = await req.json();

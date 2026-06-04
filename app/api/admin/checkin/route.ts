@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyQrPayload } from "@/lib/qr";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   const { payload, operatorName } = await req.json();
   if (!payload) {

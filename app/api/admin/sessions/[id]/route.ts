@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
 import { getEventSettings } from "@/lib/settings";
 
+export const dynamic = "force-dynamic";
+
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const data = await req.json();

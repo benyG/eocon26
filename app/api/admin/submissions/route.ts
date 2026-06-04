@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
 import { sendCFPDecision } from "@/lib/email";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const type = req.nextUrl.searchParams.get("type") || "cfp";

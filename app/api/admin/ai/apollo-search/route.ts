@@ -4,6 +4,8 @@ import { isAdminAuthenticated } from "@/lib/adminAuth";
 import { getOpenAI, EOCON_CONTEXT } from "@/lib/openai";
 import { searchOrganizations, searchPeople } from "@/lib/apollo";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { keywords, locations, employeeRange } = await req.json();

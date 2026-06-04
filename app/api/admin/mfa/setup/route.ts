@@ -1,26 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { authenticator } from "otplib";
+import { generateSecret, generateURI, verify } from "otplib";
 import QRCode from "qrcode";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
 
-function xorSecret(input: string, isEncrypt: boolean): string {
-  const key = process.env.ADMIN_SECRET || "fallback";
-  const buf = isEncrypt ? Buffer.from(input, "utf-8") : Buffer.from(input, "base64");
-  const keyBuf = Buffer.from(key);
-  const out = Buffer.alloc(buf.length);
-  for (let i = 0; i < buf.length; i++) out[i] = buf[i] ^ keyBuf[i % keyBuf.length];
-  return isEncrypt ? out.toString("base64") : out.toString("utf-8");
+function xorBuf(input: Buffer, key: Buffer): Buffer {
+  const out = Buffer.alloc(input.length);
+  for (let i = 0; i < input.length; i++) out[i] = input[i] ^ key[i % key.length];
+  return out;
 }
 
 function encryptSecret(secret: string): string {
-  return xorSecret(secret, true);
+  const key = Buffer.from(process.env.ADMIN_SECRET || "fallback");
+  return xorBuf(Buffer.from(secret, "utf-8"), key).toString("base64");
 }
 
 function decryptSecret(encrypted: string): string {
-  return xorSecret(encrypted, false);
+  const key = Buffer.from(process.env.ADMIN_SECRET || "fallback");
+  return xorBuf(Buffer.from(encrypted, "base64"), key).toString("utf-8");
 }
 
 // GET: Generate a new TOTP secret and return QR code for the current user
@@ -33,8 +32,12 @@ export async function GET(req: NextRequest) {
   const user = await prisma.adminUser.findUnique({ where: { id: userId } });
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  const secret = authenticator.generateSecret();
-  const otpauth = authenticator.keyuri(user.email, "EOCON 2026 Admin", secret);
+  const secret = generateSecret();
+  const otpauth = generateURI({
+    issuer: "EOCON 2026 Admin",
+    label: user.email,
+    secret,
+  });
   const qrDataUrl = await QRCode.toDataURL(otpauth, { width: 256, margin: 2 });
 
   // Store the pending secret (not yet activated — user must verify first)
@@ -57,8 +60,8 @@ export async function POST(req: NextRequest) {
   if (!user || !user.mfaSecret) return NextResponse.json({ error: "Setup MFA d'abord" }, { status: 400 });
 
   const secret = decryptSecret(user.mfaSecret);
-  const isValid = authenticator.check(totp, secret);
-  if (!isValid) return NextResponse.json({ error: "Code incorrect — réessayez" }, { status: 400 });
+  const result = await verify({ secret, token: totp });
+  if (!result.valid) return NextResponse.json({ error: "Code incorrect — réessayez" }, { status: 400 });
 
   await prisma.adminUser.update({
     where: { id: userId },

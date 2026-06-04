@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { authenticator } from "otplib";
+import { verify } from "otplib";
 import { createHmac } from "crypto";
 import { verifyMfaPending } from "../login/route";
 
@@ -28,8 +28,8 @@ export async function POST(req: NextRequest) {
   if (!user.mfaSecret) return NextResponse.json({ error: "MFA non configuré" }, { status: 400 });
 
   const secret = decryptSecret(user.mfaSecret);
-  const isValid = authenticator.check(totp, secret);
-  if (!isValid) return NextResponse.json({ error: "Code incorrect" }, { status: 401 });
+  const result = await verify({ secret, token: totp });
+  if (!result.valid) return NextResponse.json({ error: "Code incorrect" }, { status: 401 });
 
   // Create session
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);

@@ -601,6 +601,9 @@ function CommunicationPanel() {
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [templateForm, setTemplateForm] = useState<Record<string, unknown>>({});
   const [sending, setSending] = useState<number | null>(null);
+  const [refining, setRefining] = useState<number | null>(null);
+  const [refineInstructions, setRefineInstructions] = useState("");
+  const [previewTemplate, setPreviewTemplate] = useState<Record<string, unknown> | null>(null);
   // Dynamic context
   const [contextType, setContextType] = useState<"speaker" | "session" | "workshop" | "sponsor" | "countdown" | "cfp" | "inscriptions" | "ctf" | "custom">("speaker");
   const [contextData, setContextData] = useState<{
@@ -802,6 +805,26 @@ function CommunicationPanel() {
     await loadTemplates();
   };
 
+  const refineTemplate = async (id: number) => {
+    setRefining(id);
+    const res = await fetch("/api/admin/email-templates/refine", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ templateId: id, instructions: refineInstructions || undefined }),
+    });
+    if (res.ok) {
+      const updated = await res.json() as Record<string, unknown>;
+      setTemplates(prev => prev.map(t => t.id === id ? updated : t));
+    }
+    setRefining(null);
+    setRefineInstructions("");
+  };
+
+  const seedTemplates = async () => {
+    await fetch("/api/admin/email-templates/seed", { method: "POST" });
+    await loadTemplates();
+  };
+
   const saveTemplate = async () => {
     await fetch("/api/admin/email-templates", {
       method: "POST",
@@ -869,15 +892,18 @@ function CommunicationPanel() {
           <p className="text-gray-700 text-xs mt-3 text-center">Cliquez sur un jour pour planifier un post</p>
         </div>
 
-        {/* Side panel */}
+        {/* Side panel — fixed layout: sticky header + scrollable body + sticky footer */}
         {panelOpen && selectedDay && (
-          <div className="cyber-card rounded-xl p-5 w-96 shrink-0 overflow-y-auto max-h-[600px]">
-            <div className="flex items-center justify-between mb-4">
+          <div className="cyber-card rounded-xl w-96 shrink-0 flex flex-col" style={{ height: "calc(100vh - 160px)", maxHeight: 680 }}>
+            {/* Sticky header */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-800 shrink-0">
               <h3 className="text-white font-bold text-sm">
                 {selectedDay.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
               </h3>
               <button onClick={() => setPanelOpen(false)} className="text-gray-500 hover:text-white">✕</button>
             </div>
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3">
 
             {/* Context type selector */}
             <div className="mb-3">
@@ -999,7 +1025,7 @@ function CommunicationPanel() {
             {/* Brief */}
             <div className="mb-3">
               <p className="text-xs text-gray-500 mb-1 uppercase tracking-wider">Brief</p>
-              <textarea value={brief} onChange={e => setBrief(e.target.value)} className="cyber-input w-full text-xs rounded p-2 h-20 resize-none" placeholder="Décrivez le contenu du post..." />
+              <textarea value={brief} onChange={e => setBrief(e.target.value)} className="cyber-input w-full text-xs rounded p-2 h-24 resize-none text-white" placeholder="Décrivez le contenu du post..." />
             </div>
 
             {/* Image attachment */}
@@ -1028,27 +1054,73 @@ function CommunicationPanel() {
               )}
             </div>
 
-            <button onClick={generatePosts} disabled={generating || !brief.trim()} className="btn-neon w-full py-2 rounded text-xs mb-4">
-              {generating ? "Génération en cours..." : "✨ Générer avec IA"}
-            </button>
+              <button onClick={generatePosts} disabled={generating || !brief.trim()} className="btn-neon w-full py-2 rounded text-xs">
+                {generating ? "Génération en cours..." : "✨ Générer avec IA"}
+              </button>
 
-            {/* Generated posts preview */}
-            {generatedPosts && (
-              <div className="space-y-2 mb-4">
-                <p className="text-xs text-gray-500 uppercase tracking-wider">Posts générés</p>
-                {(["linkedin", "twitter", "instagram"] as const).filter(p => platforms[p]).map(platform => (
-                  <div key={platform} className="border border-gray-800 rounded-lg p-3">
-                    <p className="text-xs text-gray-500 capitalize mb-1">{platform}</p>
-                    <p className="text-gray-400 text-xs line-clamp-3">
-                      {lang !== "en" ? generatedPosts[`${platform}_fr`] : generatedPosts[`${platform}_en`]}
-                    </p>
-                  </div>
-                ))}
-                <button onClick={savePosts} disabled={saving} className="w-full py-2 rounded text-xs transition-all" style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}>
-                  {saving ? "Enregistrement..." : "💾 Enregistrer & Planifier"}
-                </button>
+              {/* Generated posts preview */}
+              {generatedPosts && (
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-500 uppercase tracking-wider">Aperçu des posts</p>
+                  {(["linkedin", "twitter", "instagram"] as const).filter(p => platforms[p]).map(platform => (
+                    <div key={platform} className="border border-gray-800 rounded-lg p-3">
+                      <p className="text-xs font-bold mb-1 capitalize" style={{ color: platform === "linkedin" ? "#0066ff" : platform === "twitter" ? "#00ccff" : "#cc00ff" }}>{platform}</p>
+                      {(lang === "both" ? ["fr", "en"] : [lang]).map(l => (
+                        <div key={l} className="mb-1">
+                          <span className="text-gray-600 text-xs">[{l.toUpperCase()}] </span>
+                          <span className="text-gray-400 text-xs">{generatedPosts[`${platform}_${l}`]?.slice(0, 120)}...</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>{/* end scrollable body */}
+
+            {/* Sticky footer — always visible */}
+            <div className="shrink-0 border-t border-gray-800 px-5 py-3 space-y-2">
+              {/* Schedule date */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 shrink-0">📅</span>
+                <input
+                  type="datetime-local"
+                  value={scheduleDate}
+                  onChange={e => setScheduleDate(e.target.value)}
+                  className="cyber-input text-xs rounded px-2 py-1 flex-1 text-white"
+                />
               </div>
-            )}
+              {/* Action buttons */}
+              {generatedPosts ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={async () => {
+                      await savePosts();
+                      // publish all saved drafts immediately
+                      const fresh = await fetch("/api/admin/ai/social-posts").then(r => r.json()) as Record<string, unknown>[];
+                      for (const p of fresh.filter(p => p.status === "draft")) {
+                        await fetch("/api/admin/ai/publish-post", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: p.id }) });
+                      }
+                      await loadLinkedinPosts();
+                    }}
+                    disabled={saving}
+                    className="py-2 rounded text-xs font-bold transition-all"
+                    style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}
+                  >
+                    ▶ Poster maintenant
+                  </button>
+                  <button
+                    onClick={savePosts}
+                    disabled={saving || !scheduleDate}
+                    className="py-2 rounded text-xs font-bold transition-all"
+                    style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d40" }}
+                  >
+                    {saving ? "..." : "📅 Planifier"}
+                  </button>
+                </div>
+              ) : (
+                <p className="text-gray-700 text-xs text-center">Générez d&apos;abord les posts avec l&apos;IA ↑</p>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -1109,37 +1181,87 @@ function CommunicationPanel() {
       <div className="cyber-card rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Templates Email</h3>
-          <button onClick={() => setShowTemplateForm(!showTemplateForm)} className="btn-neon px-3 py-1.5 rounded text-xs">+ Template</button>
+          <div className="flex gap-2">
+            <button onClick={seedTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>⚡ Seeder</button>
+            <button onClick={() => setShowTemplateForm(!showTemplateForm)} className="btn-neon px-3 py-1.5 rounded text-xs">+ Créer</button>
+          </div>
         </div>
         {showTemplateForm && (
           <div className="border border-gray-800 rounded-lg p-4 mb-4 space-y-2">
-            <input placeholder="Nom du template" className="cyber-input w-full text-xs rounded px-3 py-2" value={(templateForm.name as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, name: e.target.value }))} />
-            <input placeholder="Objet email" className="cyber-input w-full text-xs rounded px-3 py-2" value={(templateForm.subject as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, subject: e.target.value }))} />
-            <select className="cyber-input w-full text-xs rounded px-3 py-2" value={(templateForm.segment as string) || "all"} onChange={e => setTemplateForm(f => ({ ...f, segment: e.target.value }))}>
+            <input placeholder="Nom du template" className="cyber-input w-full text-xs rounded px-3 py-2 text-white" value={(templateForm.name as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, name: e.target.value }))} />
+            <input placeholder="Objet email" className="cyber-input w-full text-xs rounded px-3 py-2 text-white" value={(templateForm.subject as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, subject: e.target.value }))} />
+            <select className="cyber-input w-full text-xs rounded px-3 py-2 text-black" value={(templateForm.segment as string) || "all"} onChange={e => setTemplateForm(f => ({ ...f, segment: e.target.value }))}>
               <option value="all">Tous</option>
               <option value="registered">Inscrits</option>
               <option value="cfp_accepted">Speakers acceptés</option>
               <option value="volunteers">Bénévoles acceptés</option>
               <option value="newsletter">Newsletter</option>
             </select>
-            <textarea placeholder="Corps HTML de l'email" className="cyber-input w-full text-xs rounded px-3 py-2 h-24 resize-none" value={(templateForm.htmlBody as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, htmlBody: e.target.value }))} />
+            <textarea placeholder="Corps HTML de l'email" className="cyber-input w-full text-xs rounded px-3 py-2 h-32 resize-none text-white" value={(templateForm.htmlBody as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, htmlBody: e.target.value }))} />
             <div className="flex gap-2">
               <button onClick={saveTemplate} className="btn-neon px-3 py-1.5 rounded text-xs">Enregistrer</button>
               <button onClick={() => setShowTemplateForm(false)} className="text-gray-500 text-xs hover:text-white px-2">Annuler</button>
             </div>
           </div>
         )}
-        <div className="space-y-2">
-          {templates.map(t => (
-            <div key={t.id as number} className="border border-gray-800 rounded-lg p-3 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-white text-xs font-bold">{t.name as string}</p>
-                <p className="text-gray-500 text-xs">{t.subject as string} · <span className="text-gray-600">{t.segment as string}</span></p>
-                {!!t.sentAt && <p className="text-gray-700 text-xs">Envoyé le {new Date(t.sentAt as string).toLocaleDateString("fr-FR")}</p>}
+
+        {/* Preview modal */}
+        {previewTemplate && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setPreviewTemplate(null)}>
+            <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-4 border-b">
+                <div>
+                  <p className="font-bold text-gray-900 text-sm">{previewTemplate.name as string}</p>
+                  <p className="text-gray-500 text-xs">Objet : {previewTemplate.subject as string}</p>
+                </div>
+                <button onClick={() => setPreviewTemplate(null)} className="text-gray-400 hover:text-gray-900">✕</button>
               </div>
-              <button onClick={() => sendTemplate(t.id as number)} disabled={sending === (t.id as number)} className="text-xs px-3 py-1.5 rounded shrink-0" style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d30" }}>
-                {sending === (t.id as number) ? "Envoi..." : "▶ Envoyer"}
-              </button>
+              <div className="p-4" dangerouslySetInnerHTML={{ __html: previewTemplate.htmlBody as string }} />
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {templates.length === 0 && (
+            <div className="text-center py-8">
+              <p className="text-gray-600 text-xs mb-3">Aucun template. Seedez les templates EOCON 2026 ou créez-en un.</p>
+              <button onClick={seedTemplates} className="text-xs px-4 py-2 rounded" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>⚡ Seeder les 7 templates EOCON</button>
+            </div>
+          )}
+          {templates.map(t => (
+            <div key={t.id as number} className="border border-gray-800 rounded-lg p-3">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-xs font-bold">{t.name as string}</p>
+                  <p className="text-gray-500 text-xs">Objet : {t.subject as string}</p>
+                  <span className="text-xs px-1.5 py-0.5 rounded mt-1 inline-block" style={{ color: "#888", background: "#88888815" }}>{t.segment as string}</span>
+                  {!!t.sentAt && <p className="text-gray-700 text-xs mt-1">Envoyé le {new Date(t.sentAt as string).toLocaleDateString("fr-FR")}</p>}
+                </div>
+                <div className="flex gap-1 shrink-0 flex-wrap justify-end">
+                  <button onClick={() => setPreviewTemplate(t)} className="text-xs px-2 py-1 rounded" style={{ color: "#888", border: "1px solid #33333380" }}>👁</button>
+                  <button onClick={() => sendTemplate(t.id as number)} disabled={sending === (t.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>
+                    {sending === (t.id as number) ? "..." : "▶ Envoyer"}
+                  </button>
+                </div>
+              </div>
+              {/* AI refine row */}
+              <div className="flex gap-2 pt-2 border-t border-gray-800/50">
+                <input
+                  type="text"
+                  placeholder="Instructions pour l'IA (optionnel)..."
+                  className="cyber-input flex-1 text-xs rounded px-2 py-1 text-white"
+                  onFocus={() => setRefineInstructions("")}
+                  onChange={e => setRefineInstructions(e.target.value)}
+                />
+                <button
+                  onClick={() => refineTemplate(t.id as number)}
+                  disabled={refining === (t.id as number)}
+                  className="text-xs px-3 py-1 rounded shrink-0 transition-all"
+                  style={{ background: "#cc00ff15", color: "#cc00ff", border: "1px solid #cc00ff30" }}
+                >
+                  {refining === (t.id as number) ? "IA..." : "✨ Améliorer"}
+                </button>
+              </div>
             </div>
           ))}
           {!templates.length && <p className="text-gray-700 text-xs text-center py-3">Aucun template. Créez-en un.</p>}
@@ -2171,10 +2293,16 @@ export default function AdminDashboard() {
       ],
     },
     {
+      label: "Communication",
+      icon: "◉",
+      tabs: [
+        { id: "communication", label: "Planification & Posts" },
+      ],
+    },
+    {
       label: "Opérations",
       icon: "◎",
       tabs: [
-        { id: "communication", label: "Communication" },
         { id: "logistics", label: "Logistique" },
         { id: "team", label: "Équipe", count: stats.team },
         { id: "certificates", label: "Certificats" },

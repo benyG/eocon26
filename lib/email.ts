@@ -123,7 +123,8 @@ export async function sendRegistrationTicket(
   const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com";
   const connectUrl = `${baseUrl}/connect/${ticketRef}`;
 
-  const qrString = generateQrPayload(registrationId);
+  const qrPayload = generateQrPayload(registrationId);
+  const qrString = `${baseUrl}/checkin/${qrPayload}`;
   const accessQrDataUrl = await QRCode.toDataURL(qrString, { width: 200, margin: 2, color: { dark: "#000000", light: "#ffffff" } });
   const connectQrDataUrl = await QRCode.toDataURL(connectUrl, { width: 256, margin: 2, color: { dark: "#000000", light: "#ffffff" } });
 

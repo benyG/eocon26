@@ -706,6 +706,7 @@ export default function PipelineKanban() {
                 value={planStartDate}
                 onChange={e => setPlanStartDate(e.target.value)}
                 className="cyber-input text-xs rounded px-3 py-1.5 text-white"
+                style={{ colorScheme: "dark" }}
               />
             </div>
             {planStartDate && planDays.length === 7 && (

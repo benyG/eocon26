@@ -1,5 +1,6 @@
 export interface AdminPermissions {
   dashboard?: "read";
+  checkin?: "read" | "write";
   cfp?: "read" | "write";
   speakers?: "read" | "write";
   onboarding?: "read" | "write";
@@ -81,6 +82,16 @@ export const ADMIN_PROFILES: AdminProfile[] = [
     permissions: {
       logistics: "write", volunteers: "write", registrations: "write",
       team: "write", export: "read",
+    },
+  },
+  {
+    id: "hotesse",
+    name: "Hôtesse d'Accueil",
+    description: "Validation check-in et consultation des inscrits",
+    color: "#00ccff",
+    permissions: {
+      checkin: "write",
+      registrations: "read",
     },
   },
   {

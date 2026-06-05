@@ -11,7 +11,10 @@ export function generateQrPayload(registrationId: number): string {
 }
 
 export function verifyQrPayload(payload: string): number | null {
-  const parts = payload.split(":");
+  // Handle full URL format: https://...//checkin/123:abcd1234
+  let raw = payload;
+  if (payload.includes("/checkin/")) raw = payload.split("/checkin/").pop() || payload;
+  const parts = raw.split(":");
   if (parts.length !== 2) return null;
   const id = parseInt(parts[0]);
   if (isNaN(id)) return null;

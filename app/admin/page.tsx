@@ -2503,7 +2503,9 @@ function CertificatesPanel() {
   const [badges, setBadges] = useState<Record<string, unknown>[]>([]);
   const [filterType, setFilterType] = useState("");
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ badgeType: "participant", recipientName: "", recipientEmail: "", subtype: "" });
+  const [checkedInRegs, setCheckedInRegs] = useState<Record<string, unknown>[]>([]);
+  const [regsLoading, setRegsLoading] = useState(false);
+  const [issuingId, setIssuingId] = useState<number | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [keys, setKeys] = useState<{ privateKeyBase64: string; publicKeyBase64: string } | null>(null);
   const [keyLoading, setKeyLoading] = useState(false);
@@ -2527,6 +2529,38 @@ function CertificatesPanel() {
   }, [filterType]);
 
   useEffect(() => { if (subTab === "list") loadBadges(); }, [subTab, filterType, loadBadges]);
+
+  const loadCheckedInRegs = useCallback(async () => {
+    setRegsLoading(true);
+    const r = await fetch("/api/admin/submissions?type=registration");
+    if (r.ok) {
+      const data = await r.json();
+      const regs = Array.isArray(data) ? data : data.registrations || [];
+      setCheckedInRegs(regs.filter((x: Record<string, unknown>) => x.checkedInAt && x.status === "validated"));
+    }
+    setRegsLoading(false);
+  }, []);
+
+  useEffect(() => { if (subTab === "issue") loadCheckedInRegs(); }, [subTab, loadCheckedInRegs]);
+
+  const issueForReg = async (reg: Record<string, unknown>) => {
+    setIssuingId(reg.id as number);
+    setStatus("Issuing…");
+    const r = await fetch("/api/admin/badges", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "issue",
+        badgeType: "participant",
+        recipientName: `${reg.fname} ${reg.lname}`,
+        recipientEmail: reg.email,
+        subtype: (reg.ticketType as string)?.toLowerCase() || null,
+      }),
+    });
+    if (r.ok) setStatus(`Badge émis pour ${reg.fname} ${reg.lname}.`);
+    else setStatus("Erreur lors de l'émission du badge");
+    setIssuingId(null);
+  };
 
   const bulkAction = async (action: string) => {
     setStatus("Generating…");
@@ -2612,38 +2646,39 @@ function CertificatesPanel() {
             </div>
           </div>
 
-          {/* Single badge form */}
+          {/* Single badge — checked-in registrants table */}
           <div>
-            <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Issue Single Badge</h2>
-            <div className="cyber-card rounded-xl p-5 space-y-3">
-              <div className="grid sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Badge Type</label>
-                  <select className="cyber-input w-full px-3 py-2 rounded text-xs"
-                    value={form.badgeType} onChange={e => setForm(f => ({ ...f, badgeType: e.target.value }))}>
-                    {BADGE_TYPES.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
-                  </select>
-                </div>
-                {form.badgeType === "participant" && (
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-1">Ticket Level (subtype)</label>
-                    <input className="cyber-input w-full px-3 py-2 rounded text-xs" placeholder="student / standard / vip"
-                      value={form.subtype} onChange={e => setForm(f => ({ ...f, subtype: e.target.value }))} />
-                  </div>
-                )}
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Recipient Name *</label>
-                  <input className="cyber-input w-full px-3 py-2 rounded text-xs"
-                    value={form.recipientName} onChange={e => setForm(f => ({ ...f, recipientName: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Recipient Email *</label>
-                  <input type="email" className="cyber-input w-full px-3 py-2 rounded text-xs"
-                    value={form.recipientEmail} onChange={e => setForm(f => ({ ...f, recipientEmail: e.target.value }))} />
-                </div>
+            <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">
+              Issue Badge — Participants check-in
+              <span className="text-gray-600 font-normal ml-2">({checkedInRegs.length} checked-in)</span>
+            </h2>
+            {regsLoading ? (
+              <p className="text-gray-600 text-xs font-mono py-4">Chargement…</p>
+            ) : checkedInRegs.length === 0 ? (
+              <div className="cyber-card rounded-xl p-6 text-center text-gray-600 text-xs font-mono">
+                // Aucun participant check-in pour l&apos;instant
               </div>
-              <button onClick={issueSingle} className="btn-neon px-4 py-2 rounded text-xs">Issue Badge</button>
-            </div>
+            ) : (
+              <div className="space-y-2">
+                {checkedInRegs.map(r => (
+                  <div key={r.id as number} className="flex items-center gap-3 p-3 rounded bg-white/[0.02] border border-white/[0.04] text-xs">
+                    <span className="flex-1 text-white font-medium">{String(r.fname)} {String(r.lname)}</span>
+                    <span className="text-gray-500 truncate max-w-[160px]">{String(r.email)}</span>
+                    <span className="px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green/70 font-mono shrink-0">{String(r.ticketType)}</span>
+                    <span className="text-neon-green/50 shrink-0 text-xs">
+                      ✓ {new Date(r.checkedInAt as string).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                    <button
+                      onClick={() => issueForReg(r)}
+                      disabled={issuingId === (r.id as number)}
+                      className="text-xs px-3 py-1 rounded border border-neon-green/20 text-neon-green hover:bg-neon-green/10 transition-colors disabled:opacity-50 shrink-0"
+                    >
+                      {issuingId === (r.id as number) ? "…" : "Issue Badge"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

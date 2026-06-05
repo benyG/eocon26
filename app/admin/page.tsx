@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef, createContext, useContext } f
 import { useRouter } from "next/navigation";
 import { ADMIN_PROFILES } from "@/lib/adminProfiles";
 import PipelineKanban from "@/components/admin/PipelineKanban";
+import CountrySelect from "@/components/CountrySelect";
 import AdminProfilesPanel from "@/components/admin/AdminProfilesPanel";
 import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
 
@@ -2136,7 +2137,7 @@ interface TicketTypeRow {
   priceFr: number; priceEn: number; perksFr: string; perksEn: string;
   earlyBirdPriceFr: number | null; earlyBirdPriceEn: number | null;
   earlyBirdUntil: string | null; color: string; isFeatured: boolean;
-  isVisible: boolean; maxCapacity: number; sortOrder: number; sold: number;
+  isVisible: boolean; ctfAccess: boolean; maxCapacity: number; sortOrder: number; sold: number;
 }
 
 function TicketsPanel() {
@@ -2293,6 +2294,10 @@ function TicketsPanel() {
                       <input type="checkbox" checked={!!editForm.isVisible} onChange={e => setEditForm(f => ({ ...f, isVisible: e.target.checked }))} />
                       Visible sur le portail
                     </label>
+                    <label className="flex items-center gap-2 text-xs cursor-pointer font-bold" style={{ color: "#00ccff" }}>
+                      <input type="checkbox" checked={!!editForm.ctfAccess} onChange={e => setEditForm(f => ({ ...f, ctfAccess: e.target.checked }))} />
+                      ⚡ Accès CTF
+                    </label>
                     <div className="flex items-center gap-2">
                       <label className="text-xs text-gray-500">Ordre</label>
                       <input type="number" value={editForm.sortOrder ?? 0} onChange={e => setEditForm(f => ({ ...f, sortOrder: parseInt(e.target.value) }))} className="cyber-input text-xs rounded px-2 py-1 w-16" />
@@ -2313,6 +2318,7 @@ function TicketsPanel() {
                           <span className="text-white font-bold">{t.nameFr} / {t.nameEn}</span>
                           {t.isFeatured && <span className="text-xs px-2 py-0.5 rounded" style={{ background: t.color + "20", color: t.color }}>★ Recommandé</span>}
                           {!t.isVisible && <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-500">Masqué</span>}
+                          {t.ctfAccess && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}>⚡ CTF</span>}
                         </div>
                         <div className="text-xs text-gray-400 mt-0.5 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
                           <span style={{ color: t.color }}>{t.priceFr.toLocaleString("fr-FR")} XAF</span>
@@ -2915,6 +2921,9 @@ const SETTINGS_FIELDS = [
   { key: "event_city", label: "Ville", type: "text", group: "Lieu" },
   { key: "event_country", label: "Pays", type: "text", group: "Lieu" },
   { key: "event_address", label: "Adresse complète", type: "text", group: "Lieu" },
+  { key: "ctf_tagline", label: "Accroche principale", type: "text", group: "CTF" },
+  { key: "ctf_prize_main", label: "Gains vainqueur (résumé court)", type: "text", group: "CTF" },
+  { key: "ctf_prize_details", label: "Gains vainqueur (détails complets)", type: "text", group: "CTF" },
   { key: "site_base_url", label: "URL de base du site", type: "url", group: "Liens" },
   { key: "url_inscription", label: "Lien → Inscription", type: "url", group: "Liens" },
   { key: "url_cfp", label: "Lien → CFP", type: "url", group: "Liens" },
@@ -2975,13 +2984,30 @@ function EventSettingsPanel() {
               {SETTINGS_FIELDS.filter(f => f.group === group).map(field => (
                 <div key={field.key}>
                   <label className="block text-xs text-gray-500 mb-1">{field.label}</label>
-                  <input
-                    type={field.type}
-                    value={settings[field.key] || ""}
-                    onChange={e => handleChange(field.key, e.target.value)}
-                    className="cyber-input w-full px-3 py-2 rounded text-sm text-white"
-                    style={{ fontFamily: "'Share Tech Mono', monospace" }}
-                  />
+                  {field.key === "event_country" ? (
+                    <CountrySelect
+                      value={settings[field.key] || ""}
+                      onChange={v => handleChange(field.key, v)}
+                      className="w-full text-sm"
+                    />
+                  ) : field.key === "ctf_prize_details" ? (
+                    <textarea
+                      rows={4}
+                      value={settings[field.key] || ""}
+                      onChange={e => handleChange(field.key, e.target.value)}
+                      className="cyber-input w-full px-3 py-2 rounded text-sm text-white resize-none"
+                      style={{ fontFamily: "'Share Tech Mono', monospace" }}
+                      placeholder="Ex: 1er prix : 500 000 XAF + trophée + badge CTF Winner&#10;2e prix : 200 000 XAF&#10;3e prix : 100 000 XAF"
+                    />
+                  ) : (
+                    <input
+                      type={field.type}
+                      value={settings[field.key] || ""}
+                      onChange={e => handleChange(field.key, e.target.value)}
+                      className="cyber-input w-full px-3 py-2 rounded text-sm text-white"
+                      style={{ fontFamily: "'Share Tech Mono', monospace" }}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -4074,7 +4100,7 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Pays</label>
-                      <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.country as string) || ""} onChange={e => setForm({ ...form, country: e.target.value })} />
+                      <CountrySelect value={(form.country as string) || ""} onChange={v => setForm({ ...form, country: v })} className="w-full text-xs" />
                     </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Édition (ex: 2024)</label>

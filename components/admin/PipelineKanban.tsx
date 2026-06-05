@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
+import CountrySelect from "@/components/CountrySelect";
 
 type Stage = "submitted" | "reviewing" | "accepted" | "onboarding" | "confirmed" | "scheduled";
 
@@ -536,7 +537,6 @@ export default function PipelineKanban() {
                   { key: "name", label: "Nom complet", type: "text" },
                   { key: "title", label: "Titre / Poste", type: "text" },
                   { key: "company", label: "Organisation", type: "text" },
-                  { key: "country", label: "Pays", type: "text" },
                   { key: "linkedin", label: "LinkedIn URL", type: "text" },
                   { key: "twitter", label: "X/Twitter URL", type: "text" },
                   { key: "talkTitle", label: "Titre du talk", type: "text" },
@@ -552,6 +552,14 @@ export default function PipelineKanban() {
                     />
                   </div>
                 ))}
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Pays</label>
+                  <CountrySelect
+                    value={(editSpeaker.country as string) || ""}
+                    onChange={v => setEditSpeaker(prev => prev ? { ...prev, country: v } : prev)}
+                    className="w-full text-xs"
+                  />
+                </div>
               </div>
               <div className="mt-3 space-y-2">
                 <label className="text-xs text-gray-500 block">Bio</label>

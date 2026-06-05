@@ -1,7 +1,15 @@
 "use client";
+import { useState } from "react";
 import { Translations } from "@/lib/i18n";
 
-export default function CTF({ t, onOpenModal }: { t: Translations; onOpenModal: (m: string) => void }) {
+interface CTFSettings {
+  tagline?: string;
+  prizeMain?: string;
+  prizeDetails?: string;
+}
+
+export default function CTF({ t, onOpenModal, ctfSettings = {} }: { t: Translations; onOpenModal: (m: string) => void; ctfSettings?: CTFSettings }) {
+  const [showPrizeModal, setShowPrizeModal] = useState(false);
   const steps = [t.ctf.step1, t.ctf.step2, t.ctf.step3, t.ctf.step4];
 
   return (
@@ -64,7 +72,7 @@ export default function CTF({ t, onOpenModal }: { t: Translations; onOpenModal: 
             </span>
           </h2>
           <div className="section-line mx-auto mb-6" style={{ background: "linear-gradient(90deg, #00ff9d, transparent)" }} />
-          <p className="text-gray-400 text-lg max-w-2xl mx-auto">{t.ctf.description}</p>
+          <p className="text-gray-400 text-lg max-w-2xl mx-auto">{ctfSettings.tagline || t.ctf.description}</p>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-12 items-start">
@@ -75,7 +83,6 @@ export default function CTF({ t, onOpenModal }: { t: Translations; onOpenModal: 
               {[
                 { val: t.ctf.disciplines, icon: "🎯" },
                 { val: t.ctf.challenges, icon: "🚩" },
-                { val: t.ctf.points, icon: "⚡" },
                 { val: t.ctf.teams, icon: "👥" },
               ].map((s) => (
                 <div key={s.val} className="cyber-card rounded-xl p-4 text-center" style={{ borderColor: "rgba(0,255,157,0.2)" }}>
@@ -85,6 +92,25 @@ export default function CTF({ t, onOpenModal }: { t: Translations; onOpenModal: 
                   </div>
                 </div>
               ))}
+
+              {/* CTF Prize card */}
+              <div className="cyber-card rounded-xl p-4 text-center" style={{ borderColor: "rgba(255,215,0,0.3)", background: "rgba(255,215,0,0.04)" }}>
+                <div className="text-2xl mb-1">🏆</div>
+                <div className="font-bold text-sm font-mono" style={{ color: "#ffd700", fontFamily: "'Share Tech Mono', monospace" }}>
+                  {ctfSettings.prizeMain || t.ctf.points}
+                </div>
+                {ctfSettings.prizeDetails && (
+                  <button
+                    onClick={() => setShowPrizeModal(true)}
+                    className="text-xs mt-1 underline underline-offset-2 transition-colors"
+                    style={{ color: "#ffd70099", fontFamily: "'Share Tech Mono', monospace" }}
+                    onMouseEnter={e => (e.currentTarget.style.color = "#ffd700")}
+                    onMouseLeave={e => (e.currentTarget.style.color = "#ffd70099")}
+                  >
+                    plus de détails
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Disciplines */}
@@ -172,6 +198,32 @@ export default function CTF({ t, onOpenModal }: { t: Translations; onOpenModal: 
           </div>
         </div>
       </div>
+
+      {/* Prize details modal */}
+      {showPrizeModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.85)" }}
+          onClick={() => setShowPrizeModal(false)}
+        >
+          <div
+            className="max-w-md w-full rounded-2xl p-6"
+            style={{ background: "#0a0a0f", border: "1px solid rgba(255,215,0,0.3)" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-bold text-lg flex items-center gap-2">🏆 Gains CTF</h3>
+              <button onClick={() => setShowPrizeModal(false)} className="text-gray-500 hover:text-white text-2xl leading-none transition-colors">×</button>
+            </div>
+            <div
+              className="text-gray-300 text-sm whitespace-pre-line leading-relaxed"
+              style={{ fontFamily: "'Share Tech Mono', monospace" }}
+            >
+              {ctfSettings.prizeDetails}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

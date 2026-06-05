@@ -1923,10 +1923,40 @@ const BUDGET_COST_LABELS = [
 
 interface AutoRevenue { label: string; value: number; color: string; }
 
+const BUDGET_STATUS_COLORS: Record<string, string> = {
+  paid: "#00ff9d",
+  pending: "#ffaa00",
+  cancelled: "#666666",
+};
+
 function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; onRefresh: () => void }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ category: "costs", planned: 0, actual: 0, status: "pending" });
   const [autoRevenues, setAutoRevenues] = useState<AutoRevenue[]>([]);
+  const [capitalDepart, setCapitalDepart] = useState<number>(0);
+  const [capitalInput, setCapitalInput] = useState<string>("0");
+  const [teamMembers, setTeamMembers] = useState<Array<{ id: number; name: string }>>([]);
+
+  // Fetch capital setting and team members
+  useEffect(() => {
+    async function loadMeta() {
+      const [settingsRes, teamRes] = await Promise.all([
+        fetch("/api/admin/settings"),
+        fetch("/api/admin/team"),
+      ]);
+      if (settingsRes.ok) {
+        const s = await settingsRes.json() as Record<string, string>;
+        const cap = parseFloat(s.capitalDepart || "0") || 0;
+        setCapitalDepart(cap);
+        setCapitalInput(String(cap));
+      }
+      if (teamRes.ok) {
+        const members = await teamRes.json() as Array<{ id: number; name: string }>;
+        setTeamMembers(members);
+      }
+    }
+    loadMeta();
+  }, []);
 
   // Fetch auto-calculated revenues from ticket sales + sponsor packages
   useEffect(() => {
@@ -1986,6 +2016,13 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
   const totalPlannedCost = costs.reduce((s, i) => s + ((i.planned as number) || 0), 0);
   const totalActualCost = costs.reduce((s, i) => s + ((i.actual as number) || 0), 0);
   const balance = totalActualRev - totalActualCost;
+  const capitalRestant = capitalDepart - totalActualCost;
+  const capitalDepasse = capitalDepart > 0 && totalActualCost > capitalDepart;
+
+  const saveCapital = async (val: number) => {
+    setCapitalDepart(val);
+    await fetch("/api/admin/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ capitalDepart: String(val) }) });
+  };
 
   // Histogram data: revenues vs costs by category
   const histogramItems: { label: string; value: number; color: string; maxVal: number }[] = [
@@ -1996,7 +2033,7 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
 
   const maxAbsVal = Math.max(...histogramItems.map(i => Math.abs(i.value)), 1);
 
-  const renderTable = (rows: Record<string, unknown>[], title: string, color: string) => (
+  const renderTable = (rows: Record<string, unknown>[], title: string, color: string, showResponsable = false) => (
     <div className="cyber-card rounded-xl p-5 mb-6">
       <h3 className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color }}>{title}</h3>
       <table className="w-full text-xs">
@@ -2006,36 +2043,56 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
             <th className="text-right py-2 px-2 font-normal">Prévu (FCFA)</th>
             <th className="text-right py-2 px-2 font-normal">Réel (FCFA)</th>
             <th className="text-left py-2 px-2 font-normal">Statut</th>
+            {showResponsable && <th className="text-left py-2 px-2 font-normal">Responsable</th>}
             <th className="py-2 px-2" />
           </tr>
         </thead>
         <tbody>
-          {rows.map(r => (
-            <tr key={r.id as number} className="border-b border-gray-900 hover:bg-white/[0.01]">
-              <td className="py-2 px-2 text-white">{r.label as string}</td>
-              <td className="py-2 px-2 text-right">
-                <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
-                  defaultValue={(r.planned as number) || 0}
-                  onBlur={e => update(r.id as number, { planned: parseFloat(e.target.value) || 0 })} />
-              </td>
-              <td className="py-2 px-2 text-right">
-                <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
-                  defaultValue={(r.actual as number) || 0}
-                  onBlur={e => update(r.id as number, { actual: parseFloat(e.target.value) || 0 })} />
-              </td>
-              <td className="py-2 px-2">
-                <select className="cyber-input text-xs px-2 py-1 rounded" value={r.status as string}
-                  onChange={e => update(r.id as number, { status: e.target.value })}>
-                  <option value="pending">En attente</option>
-                  <option value="paid">Payé</option>
-                  <option value="cancelled">Annulé</option>
-                </select>
-              </td>
-              <td className="py-2 px-2">
-                <button onClick={() => del(r.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>
-              </td>
-            </tr>
-          ))}
+          {rows.map(r => {
+            const statusColor = BUDGET_STATUS_COLORS[r.status as string] || "#888";
+            return (
+              <tr key={r.id as number} className="border-b border-gray-900 hover:bg-white/[0.01]" style={{ borderLeft: `3px solid ${statusColor}20` }}>
+                <td className="py-2 px-2 text-white">{r.label as string}</td>
+                <td className="py-2 px-2 text-right">
+                  <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
+                    defaultValue={(r.planned as number) || 0}
+                    onBlur={e => update(r.id as number, { planned: parseFloat(e.target.value) || 0 })} />
+                </td>
+                <td className="py-2 px-2 text-right">
+                  <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
+                    defaultValue={(r.actual as number) || 0}
+                    onBlur={e => update(r.id as number, { actual: parseFloat(e.target.value) || 0 })} />
+                </td>
+                <td className="py-2 px-2">
+                  <select
+                    className="cyber-input text-xs px-2 py-1 rounded font-bold"
+                    style={{ color: statusColor, borderColor: statusColor + "60" }}
+                    value={r.status as string}
+                    onChange={e => update(r.id as number, { status: e.target.value })}>
+                    <option value="pending" style={{ color: BUDGET_STATUS_COLORS.pending }}>En attente</option>
+                    <option value="paid" style={{ color: BUDGET_STATUS_COLORS.paid }}>Payé</option>
+                    <option value="cancelled" style={{ color: BUDGET_STATUS_COLORS.cancelled }}>Annulé</option>
+                  </select>
+                </td>
+                {showResponsable && (
+                  <td className="py-2 px-2">
+                    <select
+                      className="cyber-input text-xs px-2 py-1 rounded w-36"
+                      defaultValue={(r.responsable as string) || ""}
+                      onChange={e => update(r.id as number, { responsable: e.target.value || null })}>
+                      <option value="">— aucun —</option>
+                      {teamMembers.map(m => (
+                        <option key={m.id} value={m.name}>{m.name}</option>
+                      ))}
+                    </select>
+                  </td>
+                )}
+                <td className="py-2 px-2">
+                  <button onClick={() => del(r.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       {!rows.length && <p className="text-gray-600 text-xs py-4 text-center">Aucun élément</p>}
@@ -2052,16 +2109,42 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
         </div>
       </div>
 
+      {/* Capital de départ */}
+      <div className="cyber-card rounded-xl p-4 mb-4 flex items-center gap-4">
+        <div className="text-xs text-gray-400 uppercase tracking-widest whitespace-nowrap">Capital de départ</div>
+        <input
+          type="number"
+          className="cyber-input px-3 py-1.5 rounded text-sm font-mono flex-1 max-w-[220px]"
+          value={capitalInput}
+          onChange={e => setCapitalInput(e.target.value)}
+          onBlur={e => saveCapital(parseFloat(e.target.value) || 0)}
+        />
+        <span className="text-xs text-gray-500">XAF</span>
+        {capitalDepart > 0 && (
+          <span className="text-xs text-gray-400 ml-2">
+            Capital restant : <span className="font-mono font-bold" style={{ color: capitalRestant >= 0 ? "#00ff9d" : "#ff4444" }}>{capitalRestant.toLocaleString("fr-FR")} XAF</span>
+          </span>
+        )}
+      </div>
+
+      {capitalDepasse && (
+        <div className="rounded-xl px-4 py-3 mb-4 text-sm font-bold flex items-center gap-2" style={{ background: "#ff006620", border: "1px solid #ff0066", color: "#ff4444" }}>
+          ⚠ Les dépenses réelles ({totalActualCost.toLocaleString("fr-FR")} XAF) dépassent le capital de départ ({capitalDepart.toLocaleString("fr-FR")} XAF) de {(totalActualCost - capitalDepart).toLocaleString("fr-FR")} XAF
+        </div>
+      )}
+
       {/* KPI Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         {[
+          { label: "Capital départ", value: capitalDepart, color: "#00ccff" },
+          { label: "Capital restant", value: capitalRestant, color: capitalRestant >= 0 ? "#00ccff" : "#ff4444" },
           { label: "Revenus projetés", value: totalPlannedRev, color: "#00ff9d" },
           { label: "Revenus réels", value: totalActualRev, color: "#00ff9d" },
           { label: "Dépenses prévues", value: totalPlannedCost, color: "#ff4444" },
           { label: "Solde net", value: balance, color: balance >= 0 ? "#00ff9d" : "#ff4444" },
         ].map(s => (
           <div key={s.label} className="cyber-card rounded-xl p-4 text-center">
-            <div className="text-xl font-black font-mono" style={{ color: s.color, fontFamily: "'Share Tech Mono', monospace" }}>{s.value.toLocaleString("fr-FR")} XAF</div>
+            <div className="text-lg font-black font-mono" style={{ color: s.color, fontFamily: "'Share Tech Mono', monospace" }}>{s.value.toLocaleString("fr-FR")}</div>
             <div className="text-gray-500 text-xs mt-1">{s.label}</div>
           </div>
         ))}
@@ -2161,7 +2244,7 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
         </div>
       )}
       {renderTable(manualRevenues, "Revenus additionnels (manuels)", "#00ff9d")}
-      {renderTable(costs, "Dépenses", "#ff4444")}
+      {renderTable(costs, "Dépenses", "#ff4444", true)}
     </div>
   );
 }
@@ -3854,8 +3937,12 @@ export default function AdminDashboard() {
           {tab === "volunteers" && (
             <div>
               <h1 className="text-2xl font-black text-white mb-6">{t.benevoles} ({(data.volunteers || []).length})</h1>
+              {(() => {
+                const volunteerList = (data.volunteers || []) as Record<string, unknown>[];
+                const existingRoles = Array.from(new Set(volunteerList.map(v => v.role as string).filter(Boolean))).sort();
+                return (
               <div className="space-y-3">
-                {((data.volunteers || []) as Record<string, unknown>[]).map(v => (
+                {volunteerList.map(v => (
                   <div key={v.id as number} className="cyber-card rounded-xl p-5">
                     <div className="flex items-start justify-between gap-4 mb-3">
                       <div>
@@ -3878,19 +3965,22 @@ export default function AdminDashboard() {
                       <div className="border-t border-gray-800 pt-3 mt-2">
                         <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Affectation</p>
                         <div className="flex gap-2 flex-wrap">
-                          <input
-                            type="text"
-                            placeholder="Rôle assigné"
+                          <select
+                            className="cyber-input text-xs rounded px-2 py-1 flex-1 min-w-[140px]"
                             defaultValue={(v.assignedRole as string) || ""}
-                            className="cyber-input text-xs rounded px-2 py-1 flex-1 min-w-[120px]"
-                            onBlur={async (e) => {
+                            onChange={async (e) => {
                               await fetch("/api/admin/submissions", {
                                 method: "PATCH",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ type: "volunteer-assign", id: v.id, assignedRole: e.target.value }),
                               });
                             }}
-                          />
+                          >
+                            <option value="">— Rôle assigné —</option>
+                            {existingRoles.map(r => (
+                              <option key={r} value={r}>{r}</option>
+                            ))}
+                          </select>
                           <input
                             type="datetime-local"
                             defaultValue={(v.shiftStart as string)?.slice(0, 16) || ""}
@@ -3921,8 +4011,10 @@ export default function AdminDashboard() {
                     <p className="text-gray-600 text-xs mt-2">{new Date(v.createdAt as string).toLocaleDateString("fr-FR")}</p>
                   </div>
                 ))}
-                {!data.volunteers?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune candidature</p>}
+                {!volunteerList.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune candidature</p>}
               </div>
+                );
+              })()}
             </div>
           )}
 

@@ -333,8 +333,9 @@ model BudgetItem {
   label     String
   planned   Float    @default(0)
   actual    Float    @default(0)
-  status    String   @default("pending") // pending | paid | cancelled
-  createdAt DateTime @default(now())
+  status      String   @default("pending") // pending | paid | cancelled
+  responsable String?
+  createdAt   DateTime @default(now())
 
   @@map("budget_items")
 }

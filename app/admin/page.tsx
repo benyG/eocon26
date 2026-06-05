@@ -3465,11 +3465,303 @@ function AuditPanel() {
   );
 }
 
+// ---- Domain Health Dashboard ----
+
+interface DashboardExtra {
+  budget: { category: string; planned: number; actual: number }[];
+  logistics: { done: boolean; deadline: string | null }[];
+  sessions: { date: string | null }[];
+  socialPosts: { status: string }[];
+  sponsorProspects: { status: string }[];
+  speakerOnboarding: { completed: boolean }[];
+  cfpDetailed: { status: string; scheduledInProgramme: boolean }[];
+  registrationsPending: number;
+  registrationsValidated: number;
+}
+
+function HealthDot({ color }: { color: "green" | "orange" | "red" | "grey" }) {
+  const map = { green: "#00ff9d", orange: "#ffaa00", red: "#ff0066", grey: "#555" };
+  return <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ background: map[color], boxShadow: `0 0 6px ${map[color]}` }} />;
+}
+
+function MiniBar({ value, total, color, danger }: { value: number; total: number; color: string; danger?: boolean }) {
+  const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
+  const barColor = danger && pct >= 100 ? "#ff0066" : color;
+  return (
+    <div className="mt-2">
+      <div className="flex justify-between text-xs text-gray-600 mb-1">
+        <span>{value} / {total}</span>
+        <span>{pct}%</span>
+      </div>
+      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
+      </div>
+    </div>
+  );
+}
+
+function DomainCard({
+  title, color, health, onNavigate, children, borderTop,
+}: {
+  title: string; color: string; health: "green" | "orange" | "red" | "grey";
+  onNavigate: () => void; children: React.ReactNode; borderTop?: boolean;
+}) {
+  return (
+    <div
+      className="cyber-card rounded-xl p-5"
+      style={{ borderLeft: `4px solid ${color}`, ...(borderTop ? { borderTop: `1px solid ${color}30` } : {}) }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <HealthDot color={health} />
+          <span className="font-bold text-white text-sm">{title}</span>
+        </div>
+        <button
+          onClick={onNavigate}
+          className="text-xs px-2 py-0.5 rounded border transition-all hover:brightness-125"
+          style={{ color, borderColor: color + "50", background: color + "12" }}
+        >
+          → Voir
+        </button>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function MetricRow({ label, value, color }: { label: string; value: string | number; color?: string }) {
+  return (
+    <div className="text-center">
+      <div className="text-lg font-black font-mono" style={{ color: color || "#aaa", fontFamily: "'Share Tech Mono', monospace" }}>{value}</div>
+      <div className="text-gray-600 text-xs mt-0.5 uppercase tracking-wider leading-tight">{label}</div>
+    </div>
+  );
+}
+
+function DashboardHealthPanel({
+  stats, extra, analyticsData, onNavigate,
+}: {
+  stats: Record<string, number>;
+  extra: DashboardExtra;
+  analyticsData: Record<string, unknown> | null;
+  onNavigate: (tab: Tab) => void;
+}) {
+  // ── CFP ──
+  const cfpTotal = stats.cfp || 0;
+  const cfpAccepted = extra.cfpDetailed.filter(s => s.status === "accepted" || s.status === "onboarding" || s.status === "confirmed" || s.status === "scheduled").length;
+  const cfpConfirmed = extra.cfpDetailed.filter(s => s.status === "confirmed" || s.status === "scheduled").length;
+  const cfpScheduled = extra.cfpDetailed.filter(s => s.scheduledInProgramme).length;
+  const cfpHealth: "green" | "orange" | "red" =
+    cfpConfirmed === 0 ? "red" :
+    cfpScheduled < cfpConfirmed * 0.5 ? "orange" : "green";
+
+  // ── Programme ──
+  const sessTotal = extra.sessions.length;
+  const sessScheduled = extra.sessions.filter(s => !!s.date).length;
+  const sessBacklog = sessTotal - sessScheduled;
+  const sessHealth: "green" | "orange" | "red" =
+    sessTotal === 0 || sessScheduled / Math.max(sessTotal, 1) < 0.3 ? "red" :
+    sessScheduled / Math.max(sessTotal, 1) < 0.7 ? "orange" : "green";
+
+  // ── Speakers ──
+  const speakerTotal = stats.speakers || 0;
+  const speakerVisible = speakerTotal; // approximation — visible count from stats
+  const onboardingPending = extra.speakerOnboarding.filter(o => !o.completed).length;
+  const speakerHealth: "green" | "orange" | "red" =
+    speakerTotal === 0 ? "red" : onboardingPending > 0 ? "orange" : "green";
+
+  // ── Inscriptions ──
+  const validated = extra.registrationsValidated;
+  const pendingPay = extra.registrationsPending;
+  const regTotal = validated + pendingPay;
+  const capacity = 200;
+  const fillPct = Math.round((validated / capacity) * 100);
+  const inscHealth: "green" | "orange" | "red" =
+    validated === 0 ? "red" : fillPct < 50 ? "orange" : "green";
+
+  // ── Budget ──
+  const capital = extra.budget.filter(b => b.category === "revenue").reduce((a, b) => a + b.planned, 0);
+  const depenses = extra.budget.filter(b => b.category === "costs").reduce((a, b) => a + b.actual, 0);
+  const solde = capital - depenses;
+  const remaining = capital - depenses;
+  const budgetHealth: "green" | "orange" | "red" =
+    depenses > capital ? "red" : remaining < capital * 0.2 ? "orange" : "green";
+
+  // ── Sponsors ──
+  const sponsorConfirmed = stats.sponsors || 0;
+  const prospectsByStage: Record<string, number> = {};
+  for (const p of extra.sponsorProspects) {
+    prospectsByStage[p.status] = (prospectsByStage[p.status] || 0) + 1;
+  }
+  const sponsorHealth: "green" | "orange" | "red" =
+    sponsorConfirmed === 0 ? "red" : sponsorConfirmed < 3 ? "orange" : "green";
+
+  // ── Bénévoles ──
+  const volTotal = stats.volunteers || 0;
+  const volAccepted = (analyticsData?.volAccepted as number) || 0;
+  const volWithRole = extra.registrationsPending; // rough — we don't have this separately; show 0
+  const volHealth: "green" | "orange" | "red" =
+    volAccepted < 5 ? "red" : volAccepted < 10 ? "orange" : "green";
+
+  // ── Logistique ──
+  const taskTotal = extra.logistics.length;
+  const taskDone = extra.logistics.filter(t => t.done).length;
+  const now = new Date();
+  const taskOverdue = extra.logistics.filter(t => !t.done && t.deadline && new Date(t.deadline) < now).length;
+  const logHealth: "green" | "orange" | "red" =
+    taskOverdue > 0 ? "red" : taskDone < taskTotal * 0.5 ? "orange" : "green";
+
+  // ── Communication ──
+  const postsFailed = extra.socialPosts.filter(p => p.status === "failed").length;
+  const postsScheduled = extra.socialPosts.filter(p => p.status === "scheduled").length;
+  const postsPublished = extra.socialPosts.filter(p => p.status === "published").length;
+  const commHealth: "green" | "orange" | "red" =
+    postsFailed > 0 ? "red" : postsScheduled === 0 ? "orange" : "green";
+
+  // ── Check-in ──
+  const checkedIn = stats.checkedIn || 0;
+  const checkinRate = validated > 0 ? Math.round((checkedIn / validated) * 100) : 0;
+
+  const fmt = (n: number) => n.toLocaleString("fr-FR");
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+      {/* CFP */}
+      <DomainCard title="CFP" color="#cc00ff" health={cfpHealth} onNavigate={() => onNavigate("cfp" as Tab)}>
+        {/* Funnel */}
+        <div className="flex items-center gap-1 mb-3">
+          {[
+            { label: "Soumis", val: cfpTotal },
+            { label: "Acceptés", val: cfpAccepted },
+            { label: "Confirmés", val: cfpConfirmed },
+            { label: "Programmés", val: cfpScheduled },
+          ].map((step, i) => (
+            <div key={step.label} className="flex items-center gap-1 flex-1">
+              <div className="flex-1 rounded-lg p-1.5 text-center" style={{ background: "#cc00ff15", border: "1px solid #cc00ff30" }}>
+                <div className="text-base font-black font-mono" style={{ color: "#cc00ff", fontFamily: "'Share Tech Mono', monospace" }}>{step.val}</div>
+                <div className="text-gray-600 text-xs leading-tight">{step.label}</div>
+              </div>
+              {i < 3 && <span className="text-gray-700 text-xs shrink-0">›</span>}
+            </div>
+          ))}
+        </div>
+      </DomainCard>
+
+      {/* Programme */}
+      <DomainCard title="Programme" color="#00ccff" health={sessHealth} onNavigate={() => onNavigate("pipeline")}>
+        <div className="grid grid-cols-3 gap-3 mb-2">
+          <MetricRow label="Programmées" value={sessScheduled} color="#00ccff" />
+          <MetricRow label="Total sessions" value={sessTotal} color="#aaa" />
+          <MetricRow label="Backlog" value={sessBacklog} color={sessBacklog > 0 ? "#ffaa00" : "#555"} />
+        </div>
+        <MiniBar value={sessScheduled} total={Math.max(sessTotal, 1)} color="#00ccff" />
+      </DomainCard>
+
+      {/* Speakers */}
+      <DomainCard title="Speakers" color="#00ff9d" health={speakerHealth} onNavigate={() => onNavigate("pipeline")}>
+        <div className="grid grid-cols-3 gap-3">
+          <MetricRow label="Total" value={speakerTotal} color="#00ff9d" />
+          <MetricRow label="Visibles" value={speakerVisible} color="#aaa" />
+          <MetricRow label="Onboarding en attente" value={onboardingPending} color={onboardingPending > 0 ? "#ffaa00" : "#555"} />
+        </div>
+      </DomainCard>
+
+      {/* Inscriptions */}
+      <DomainCard title="Inscriptions" color="#ff6600" health={inscHealth} onNavigate={() => onNavigate("registrations")}>
+        <div className="grid grid-cols-3 gap-3 mb-2">
+          <MetricRow label="Validées" value={validated} color="#ff6600" />
+          <MetricRow label="En attente" value={pendingPay} color="#ffaa00" />
+          <MetricRow label="Capacité" value={`${fillPct}%`} color={fillPct >= 80 ? "#00ff9d" : fillPct >= 50 ? "#ffaa00" : "#ff0066"} />
+        </div>
+        <MiniBar value={validated} total={capacity} color="#ff6600" />
+      </DomainCard>
+
+      {/* Budget */}
+      <DomainCard title="Budget" color="#ffaa00" health={budgetHealth} onNavigate={() => onNavigate("budget")}>
+        <div className="grid grid-cols-3 gap-3 mb-2">
+          <MetricRow label="Capital" value={capital > 0 ? `${fmt(Math.round(capital / 1000))}k` : "—"} color="#aaa" />
+          <MetricRow label="Dépenses réelles" value={depenses > 0 ? `${fmt(Math.round(depenses / 1000))}k` : "—"} color={depenses > capital ? "#ff0066" : "#ffaa00"} />
+          <MetricRow label="Solde net" value={capital > 0 ? `${solde >= 0 ? "+" : ""}${fmt(Math.round(solde / 1000))}k` : "—"} color={solde >= 0 ? "#00ff9d" : "#ff0066"} />
+        </div>
+        <MiniBar value={depenses} total={Math.max(capital, 1)} color="#ffaa00" danger />
+      </DomainCard>
+
+      {/* Sponsors */}
+      <DomainCard title="Sponsors" color="#ffaa00" health={sponsorHealth} onNavigate={() => onNavigate("sponsors")}>
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <MetricRow label="Confirmés" value={sponsorConfirmed} color="#ffaa00" />
+          <MetricRow label="Pipeline total" value={extra.sponsorProspects.length} color="#aaa" />
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {["contacted", "meeting", "positive", "concluded"].map(stage => (
+            prospectsByStage[stage] ? (
+              <span key={stage} className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: "#ffaa0015", color: "#ffaa00" }}>
+                {stage}: {prospectsByStage[stage]}
+              </span>
+            ) : null
+          ))}
+        </div>
+      </DomainCard>
+
+      {/* Bénévoles */}
+      <DomainCard title="Bénévoles" color="#0066ff" health={volHealth} onNavigate={() => onNavigate("volunteers")}>
+        <div className="grid grid-cols-3 gap-3">
+          <MetricRow label="Candidatures" value={volTotal} color="#aaa" />
+          <MetricRow label="Acceptés" value={volAccepted} color="#0066ff" />
+          <MetricRow label="Rôles assignés" value={volWithRole} color="#00ff9d" />
+        </div>
+      </DomainCard>
+
+      {/* Logistique */}
+      <DomainCard title="Logistique" color="#ff6600" health={logHealth} onNavigate={() => onNavigate("logistics")}>
+        <div className="grid grid-cols-3 gap-3 mb-2">
+          <MetricRow label="Faites" value={taskDone} color="#00ff9d" />
+          <MetricRow label="Total" value={taskTotal} color="#aaa" />
+          <MetricRow label="En retard" value={taskOverdue} color={taskOverdue > 0 ? "#ff0066" : "#555"} />
+        </div>
+        <MiniBar value={taskDone} total={Math.max(taskTotal, 1)} color="#ff6600" />
+      </DomainCard>
+
+      {/* Communication */}
+      <DomainCard title="Communication" color="#cc00ff" health={commHealth} onNavigate={() => onNavigate("communication")}>
+        <div className="grid grid-cols-3 gap-3">
+          <MetricRow label="Planifiés" value={postsScheduled} color="#ffaa00" />
+          <MetricRow label="Publiés" value={postsPublished} color="#00ff9d" />
+          <MetricRow label="Échoués" value={postsFailed} color={postsFailed > 0 ? "#ff0066" : "#555"} />
+        </div>
+      </DomainCard>
+
+      {/* Check-in */}
+      <DomainCard title="Check-in" color="#00ccff" health="grey" onNavigate={() => onNavigate("registrations")}>
+        <div className="grid grid-cols-3 gap-3 mb-2">
+          <MetricRow label="Enregistrés" value={checkedIn} color="#00ccff" />
+          <MetricRow label="Validés total" value={validated} color="#aaa" />
+          <MetricRow label="Taux" value={`${checkinRate}%`} color={checkinRate >= 50 ? "#00ff9d" : "#888"} />
+        </div>
+        <MiniBar value={checkedIn} total={Math.max(validated, 1)} color="#00ccff" />
+      </DomainCard>
+
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [stats, setStats] = useState<Record<string, number>>({});
   const [data, setData] = useState<Record<string, unknown[]>>({});
   const [loading, setLoading] = useState(false);
+  const [dashboardExtra, setDashboardExtra] = useState<DashboardExtra>({
+    budget: [],
+    logistics: [],
+    sessions: [],
+    socialPosts: [],
+    sponsorProspects: [],
+    speakerOnboarding: [],
+    cfpDetailed: [],
+    registrationsPending: 0,
+    registrationsValidated: 0,
+  });
   const [form, setForm] = useState<Record<string, unknown>>({});
   const [editing, setEditing] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -3540,6 +3832,57 @@ export default function AdminDashboard() {
   useEffect(() => { fetchStats(); }, [fetchStats]);
   useEffect(() => { fetchData("dashboard"); }, [fetchData]);
   useEffect(() => { if (tab !== "dashboard") fetchData(tab); }, [tab, fetchData]);
+
+  // Fetch extra data for domain health dashboard
+  useEffect(() => {
+    const load = async () => {
+      const [budgetRes, logRes, sessRes, postsRes, prospectsRes, obRes, cfpRes, regRes] = await Promise.allSettled([
+        fetch("/api/admin/budget"),
+        fetch("/api/admin/logistics"),
+        fetch("/api/admin/sessions"),
+        fetch("/api/admin/ai/social-posts"),
+        fetch("/api/admin/sponsor-prospects"),
+        fetch("/api/admin/profiles?type=onboarding"),
+        fetch("/api/admin/submissions?type=cfp"),
+        fetch("/api/admin/submissions?type=registration"),
+      ]);
+      const safeJson = async (r: PromiseSettledResult<Response>): Promise<unknown[]> => {
+        if (r.status === "fulfilled" && r.value.ok) { try { return await r.value.json(); } catch { return []; } }
+        return [];
+      };
+      const budget = (await safeJson(budgetRes)) as { category: string; planned: number; actual: number }[];
+      const logistics = (await safeJson(logRes)) as { done: boolean; deadline: string | null }[];
+      const sessions = (await safeJson(sessRes)) as { date: string | null }[];
+      const socialPosts = (await safeJson(postsRes)) as { status: string }[];
+      const sponsorProspects = (await safeJson(prospectsRes)) as { status: string }[];
+      const cfpRaw = (await safeJson(cfpRes)) as { status: string; pipelineStage?: string }[];
+      const cfpDetailed = cfpRaw.map(c => ({
+        status: c.status,
+        scheduledInProgramme: c.pipelineStage === "scheduled" || c.status === "scheduled",
+      }));
+      const regRaw = (await safeJson(regRes)) as { status: string }[];
+      const registrationsValidated = regRaw.filter(r => r.status === "validated" || r.status === "paid").length;
+      const registrationsPending = regRaw.filter(r => r.status === "pending").length;
+
+      // Onboarding: fetch speakers and check if they have talkTitle (basic completion proxy)
+      let speakerOnboarding: { completed: boolean }[] = [];
+      try {
+        const spRes = await fetch("/api/admin/speakers");
+        if (spRes.ok) {
+          const spData = await spRes.json() as { talkTitle?: string; photoUrl?: string; bio?: string }[];
+          speakerOnboarding = spData.map(s => ({
+            completed: !!(s.talkTitle && s.photoUrl && s.bio),
+          }));
+        }
+      } catch { /* ignore */ }
+
+      setDashboardExtra({
+        budget, logistics, sessions, socialPosts, sponsorProspects,
+        speakerOnboarding, cfpDetailed, registrationsPending, registrationsValidated,
+      });
+    };
+    load();
+  }, []);
 
   const save = async (endpoint: string) => {
     const method = editing ? "PUT" : "POST";
@@ -3733,131 +4076,20 @@ export default function AdminDashboard() {
           {/* DASHBOARD */}
           {tab === "dashboard" && (
             <div>
-              <h1 className="text-2xl font-black text-white mb-6">{t.dashboardTitle}</h1>
-              {/* Stat cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6">
-                <StatCard label={t.speakers} value={stats.speakers || 0} />
-                <StatCard label={t.sponsors} value={stats.sponsors || 0} color="#ffd700" />
-                <StatCard label={t.sessionsLabel} value={stats.sessions || 0} color="#0066ff" />
-                <StatCard label={t.cfp} value={stats.cfp || 0} color="#cc00ff" />
-                <StatCard label={t.benevoles} value={stats.volunteers || 0} color="#ff6600" />
-                <StatCard label={t.inscriptions} value={stats.registrations || 0} color="#ff0066" />
-                <StatCard label={t.newsletterLabel} value={stats.subscribers || 0} color="#ffaa00" />
-                <StatCard label={t.equipe} value={stats.team || 0} color="#00ccff" />
+              <div className="flex items-center justify-between mb-6">
+                <h1 className="text-2xl font-black text-white">{t.dashboardTitle}</h1>
+                <div className="flex items-center gap-3 text-xs text-gray-600">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-400 inline-block" />OK</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ background: "#ffaa00" }} />Attention</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ background: "#ff0066" }} />Critique</span>
+                </div>
               </div>
-              {/* Analytics section inlined */}
-              {(data.analytics?.[0] as Record<string, unknown> | undefined) && (() => {
-                const ad = data.analytics![0] as Record<string, unknown>;
-                const curve = (ad.registrationCurve as { date: string; count: number }[]) || [];
-                const byTicket = (ad.byTicket as Record<string, number>) || {};
-                const topCountries = (ad.topCountries as { country: string; count: number }[]) || [];
-                const totalRegs = (ad.totalRegistrations as number) || 0;
-                const maxCount = Math.max(...curve.map(c => c.count), 1);
-                return (
-                  <>
-                    {/* CFP breakdown + check-in */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                      {[
-                        { label: "CFP Total", value: ad.cfpTotal as number, color: "#888" },
-                        { label: "CFP Acceptés", value: ad.cfpAccepted as number, color: "#00ff9d" },
-                        { label: "Taux CFP", value: `${ad.cfpRate}%`, color: "#ff6600" },
-                        { label: "Check-ins", value: ad.checkedIn as number, color: "#0066ff" },
-                      ].map(k => (
-                        <div key={k.label} className="cyber-card rounded-xl p-4 text-center">
-                          <div className="text-2xl font-black font-mono" style={{ color: k.color, fontFamily: "'Share Tech Mono', monospace" }}>{k.value ?? 0}</div>
-                          <div className="text-gray-500 text-xs uppercase tracking-wider mt-1">{k.label}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {/* Registration curve */}
-                    {curve.length > 0 && (
-                      <div className="cyber-card rounded-xl p-5 mb-6">
-                        <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Courbe d&apos;inscriptions</h2>
-                        <div className="flex items-end gap-1 h-32">
-                          {curve.map(c => (
-                            <div key={c.date} className="flex flex-col items-center flex-1 min-w-0" title={`${c.date}: ${c.count}`}>
-                              <div className="w-full rounded-t transition-all" style={{ height: `${Math.round((c.count / maxCount) * 100)}%`, background: "#00ff9d", minHeight: 2, opacity: 0.8 }} />
-                            </div>
-                          ))}
-                        </div>
-                        <div className="flex justify-between text-gray-700 text-xs mt-1">
-                          <span>{curve[0]?.date || ""}</span>
-                          <span>{totalRegs} total</span>
-                          <span>{curve[curve.length - 1]?.date || ""}</span>
-                        </div>
-                      </div>
-                    )}
-                    {/* Ticket breakdown + top countries */}
-                    {(Object.keys(byTicket).length > 0 || topCountries.length > 0) && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <div className="cyber-card rounded-xl p-5">
-                          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Par type de billet</h2>
-                          <div className="space-y-2">
-                            {Object.entries(byTicket).map(([type, count]) => (
-                              <div key={type} className="flex items-center gap-2">
-                                <span className="text-xs text-gray-400 w-24 shrink-0">{type}</span>
-                                <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-                                  <div className="h-full rounded-full bg-neon-green/60" style={{ width: `${totalRegs > 0 ? Math.round((count / totalRegs) * 100) : 0}%` }} />
-                                </div>
-                                <span className="text-xs font-mono text-neon-green w-8 text-right">{count}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="cyber-card rounded-xl p-5">
-                          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Top pays</h2>
-                          <div className="space-y-2">
-                            {topCountries.map(c => (
-                              <div key={c.country} className="flex items-center gap-2">
-                                <span className="text-xs text-gray-400 w-24 shrink-0 truncate">{c.country}</span>
-                                <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-                                  <div className="h-full rounded-full" style={{ width: `${totalRegs > 0 ? Math.round((c.count / totalRegs) * 100) : 0}%`, background: "#0066ff" }} />
-                                </div>
-                                <span className="text-xs font-mono w-8 text-right" style={{ color: "#0066ff" }}>{c.count}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    {/* CFP funnel + volunteer rates */}
-                    <div className="cyber-card rounded-xl p-5 mb-6">
-                      <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Funnel CFP &amp; Bénévoles</h2>
-                      <div className="flex gap-8 items-center flex-wrap">
-                        {[
-                          { label: "CFP Soumis", value: ad.cfpTotal as number, color: "#888" },
-                          { label: "CFP Acceptés", value: ad.cfpAccepted as number, color: "#00ff9d" },
-                          { label: "Taux CFP", value: `${ad.cfpRate}%`, color: "#ff6600" },
-                          { label: "Taux Bénévoles", value: `${ad.volRate}%`, color: "#cc00ff" },
-                        ].map(f => (
-                          <div key={f.label} className="text-center">
-                            <div className="text-2xl font-black font-mono" style={{ color: f.color, fontFamily: "'Share Tech Mono', monospace" }}>{f.value ?? 0}</div>
-                            <div className="text-gray-500 text-xs mt-1">{f.label}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                );
-              })()}
-              {/* Quick action cards */}
-              <div className="grid sm:grid-cols-2 gap-4">
-                {[
-                  { tab: "speakers", label: "Gérer les Speakers", desc: "Ajouter, éditer et ordonner les intervenants 2026" },
-                  { tab: "sponsors", label: "Gérer les Sponsors", desc: "Logos, tiers et liens des sponsors" },
-                  { tab: "pipeline", label: "Éditer le Programme", desc: "Planifier les sessions dans le pipeline speakers (onglet Programme)" },
-                  { tab: "cfp", label: "Propositions de Talks", desc: "Examiner et statuer sur les CFP reçus" },
-                  { tab: "volunteers", label: "Candidatures Bénévoles", desc: "Gérer les candidatures reçues" },
-                  { tab: "registrations", label: "Inscriptions", desc: "Liste complète des participants inscrits" },
-                  { tab: "team", label: "Équipe d'organisation", desc: "Gérer les membres de l'équipe organisatrice" },
-                  { tab: "past-speakers", label: "Anciens Intervenants", desc: "Archive des intervenants des éditions précédentes" },
-                ].map(item => (
-                  <button key={item.tab} onClick={() => setTab(item.tab as Tab)} className="cyber-card rounded-xl p-5 text-left hover:border-neon-green/50 transition-all">
-                    <div className="text-neon-green font-bold text-sm mb-1">{item.label}</div>
-                    <div className="text-gray-500 text-xs">{item.desc}</div>
-                  </button>
-                ))}
-              </div>
+              <DashboardHealthPanel
+                stats={stats}
+                extra={dashboardExtra}
+                analyticsData={(data.analytics?.[0] as Record<string, unknown>) || null}
+                onNavigate={setTab}
+              />
             </div>
           )}
 

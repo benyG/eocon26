@@ -122,7 +122,9 @@ model ConferenceSession {
   title        String
   type         String    // keynote | talk | workshop | panel | break | logistics
   speakerName  String?
-  speakerId    Int?      // FK to Speaker (optional — non-speaker sessions like breaks)
+  speakerId    Int?      // FK to Speaker (optional)
+  workshopId   Int?      // FK to Workshop (optional)
+  workshop     Workshop? @relation(fields: [workshopId], references: [id], onDelete: SetNull)
   room         String?
   description  String?   @db.Text
   sortOrder    Int       @default(0)
@@ -145,6 +147,7 @@ model Workshop {
   isVisible   Boolean  @default(true)
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
+  sessions    ConferenceSession[]
 
   @@map("workshops")
 }

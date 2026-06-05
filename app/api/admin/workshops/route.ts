@@ -12,5 +12,21 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const data = await req.json();
-  return NextResponse.json(await prisma.workshop.create({ data }), { status: 201 });
+  const workshop = await prisma.workshop.create({ data });
+
+  // Create linked ConferenceSession so the workshop appears in the programme backlog
+  await prisma.conferenceSession.create({
+    data: {
+      title: workshop.title,
+      type: "workshop",
+      speakerName: workshop.instructor || undefined,
+      workshopId: workshop.id,
+      description: workshop.description,
+      time: "TBD",
+      isVisible: false, // will be made visible when scheduled in programme
+      sortOrder: 999,
+    },
+  });
+
+  return NextResponse.json(workshop, { status: 201 });
 }

@@ -298,30 +298,46 @@ export default function PipelineKanban() {
     if (item.type === "cfp") {
       const card = cards.find(c => c.id === item.id);
       if (!card) return;
-      const res = await fetch("/api/admin/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: card.talkTitle,
-          type: card.format === "keynote" ? "keynote" : "talk",
-          date, time: dropTime,
-          speakerName: card.name,
-          speakerId: card.speakerId || null,
-          isVisible: true, sortOrder: 100,
-        }),
-      });
-      if (res.ok) {
-        const s = await res.json();
-        setSessions(prev => [...prev, s]);
-        await moveStage(card.id, "scheduled");
+      // Find the existing session linked to this speaker (created at confirmed stage)
+      const existingSession = card.speakerId ? sessions.find(s => s.speakerId === card.speakerId) : null;
+      if (existingSession) {
+        // Update existing session with date/time/visibility
+        const res = await fetch(`/api/admin/sessions/${existingSession.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date, time: dropTime, isVisible: true }),
+        });
+        if (res.ok) {
+          setSessions(prev => prev.map(s => s.id === existingSession.id ? { ...s, date, time: dropTime, isVisible: true } : s));
+          await moveStage(card.id, "scheduled");
+        }
+      } else {
+        // Fallback: create session (e.g. for manually created speakers without session)
+        const res = await fetch("/api/admin/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: card.talkTitle,
+            type: card.format === "keynote" ? "keynote" : card.format === "workshop" ? "workshop" : "talk",
+            date, time: dropTime,
+            speakerName: card.name,
+            speakerId: card.speakerId || null,
+            isVisible: true, sortOrder: 100,
+          }),
+        });
+        if (res.ok) {
+          const s = await res.json();
+          setSessions(prev => [...prev, s]);
+          await moveStage(card.id, "scheduled");
+        }
       }
     } else {
       const res = await fetch(`/api/admin/sessions/${item.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, time: dropTime }),
+        body: JSON.stringify({ date, time: dropTime, isVisible: true }),
       });
-      if (res.ok) setSessions(prev => prev.map(s => s.id === item.id ? { ...s, date, time: dropTime } : s));
+      if (res.ok) setSessions(prev => prev.map(s => s.id === item.id ? { ...s, date, time: dropTime, isVisible: true } : s));
     }
     setPendingDrop(null);
     setDropTime("09:00");
@@ -329,19 +345,20 @@ export default function PipelineKanban() {
 
   const unscheduleSession = async (sess: SessionRecord) => {
     if (!confirm(`Retirer "${sess.title}" du programme ?`)) return;
-    const linkedCard = sess.speakerId ? cards.find(c => c.speakerId === sess.speakerId && c.pipelineStage === "scheduled") : null;
-    if (linkedCard) {
-      await fetch(`/api/admin/sessions/${sess.id}`, { method: "DELETE" });
-      setSessions(prev => prev.filter(s => s.id !== sess.id));
-      await moveStage(linkedCard.id, "confirmed");
-    } else {
-      const res = await fetch(`/api/admin/sessions/${sess.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: null }),
-      });
-      if (res.ok) setSessions(prev => prev.map(s => s.id === sess.id ? { ...s, date: null } : s));
-    }
+    const linkedCard = sess.speakerId
+      ? cards.find(c => c.speakerId === sess.speakerId && c.pipelineStage === "scheduled")
+      : null;
+
+    // Always: clear date + hide from public (session stays in backlog)
+    const res = await fetch(`/api/admin/sessions/${sess.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: null, time: "TBD", isVisible: false }),
+    });
+    if (res.ok) setSessions(prev => prev.map(s => s.id === sess.id ? { ...s, date: null, time: "TBD", isVisible: false } : s));
+
+    // If linked to a CFP, move it back to "confirmed" (session reappears in backlog)
+    if (linkedCard) await moveStage(linkedCard.id, "confirmed");
   };
 
   const toggleSessionVisible = async (sess: SessionRecord) => {
@@ -723,43 +740,52 @@ export default function PipelineKanban() {
               <h3 className="text-xs font-bold uppercase tracking-widest text-neon-green">Backlog</h3>
               <span className="text-gray-600 text-xs">— glissez vers une journée</span>
             </div>
-            {cards.filter(c => c.pipelineStage === "confirmed").length === 0 && sessions.filter(s => !s.date).length === 0 ? (
-              <p className="text-gray-600 text-xs py-2">Aucun speaker confirmé ni session non planifiée.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {cards.filter(c => c.pipelineStage === "confirmed").map(card => (
-                  <div
-                    key={`cfp-${card.id}`}
-                    draggable
-                    onDragStart={() => setDragItem({ type: "cfp", id: card.id, title: card.talkTitle, name: card.name })}
-                    onDragEnd={() => setDragItem(null)}
-                    className="border border-neon-green/40 rounded-lg px-3 py-2 cursor-grab hover:border-neon-green/80 transition-all select-none"
-                    style={{ background: "#00ff9d08", maxWidth: 200 }}
-                  >
-                    <p className="text-white font-bold text-xs truncate">{card.name}</p>
-                    <p className="text-gray-500 text-xs truncate">{card.talkTitle}</p>
-                    {card.format && <span className="text-neon-green/50 text-xs">{card.format}</span>}
-                  </div>
-                ))}
-                {sessions.filter(s => !s.date).map(sess => (
-                  <div
-                    key={`sess-${sess.id}`}
-                    draggable
-                    onDragStart={() => setDragItem({ type: "session", id: sess.id, title: sess.title })}
-                    onDragEnd={() => setDragItem(null)}
-                    className="border border-gray-700 rounded-lg px-3 py-2 cursor-grab hover:border-gray-500 transition-all select-none"
-                    style={{ maxWidth: 200 }}
-                  >
-                    <div className="flex items-center gap-1 mb-0.5">
-                      <span className="text-xs px-1 py-0.5 rounded uppercase" style={{ color: typeColor(sess.type), background: typeColor(sess.type) + "20", fontSize: "9px" }}>{sess.type}</span>
-                      {!sess.isVisible && <span className="text-gray-600 text-xs">🙈</span>}
+            {(() => {
+              // Confirmed CFP cards (each has a linked session — shown as CFP chip, NOT as standalone session)
+              const confirmedCfpCards = cards.filter(c => c.pipelineStage === "confirmed");
+              // Speaker IDs already represented by a confirmed CFP chip
+              const cfpSpeakerIds = new Set(confirmedCfpCards.map(c => c.speakerId).filter(Boolean));
+              // Standalone sessions: no date, not linked to a confirmed CFP speaker
+              const standaloneSessions = sessions.filter(s => !s.date && (!s.speakerId || !cfpSpeakerIds.has(s.speakerId)));
+              const isEmpty = confirmedCfpCards.length === 0 && standaloneSessions.length === 0;
+              return isEmpty ? (
+                <p className="text-gray-600 text-xs py-2">Aucun speaker confirmé ni session non planifiée.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {confirmedCfpCards.map(card => (
+                    <div
+                      key={`cfp-${card.id}`}
+                      draggable
+                      onDragStart={() => setDragItem({ type: "cfp", id: card.id, title: card.talkTitle, name: card.name })}
+                      onDragEnd={() => setDragItem(null)}
+                      className="border border-neon-green/40 rounded-lg px-3 py-2 cursor-grab hover:border-neon-green/80 transition-all select-none"
+                      style={{ background: "#00ff9d08", maxWidth: 200 }}
+                    >
+                      <p className="text-white font-bold text-xs truncate">{card.name}</p>
+                      <p className="text-gray-500 text-xs truncate">{card.talkTitle}</p>
+                      {card.format && <span className="text-neon-green/50 text-xs">{card.format}</span>}
                     </div>
-                    <p className="text-gray-200 font-bold text-xs truncate">{sess.title}</p>
-                    {sess.speakerName && <p className="text-gray-500 text-xs truncate">{sess.speakerName}</p>}
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                  {standaloneSessions.map(sess => (
+                    <div
+                      key={`sess-${sess.id}`}
+                      draggable
+                      onDragStart={() => setDragItem({ type: "session", id: sess.id, title: sess.title })}
+                      onDragEnd={() => setDragItem(null)}
+                      className="border border-gray-700 rounded-lg px-3 py-2 cursor-grab hover:border-gray-500 transition-all select-none"
+                      style={{ maxWidth: 200 }}
+                    >
+                      <div className="flex items-center gap-1 mb-0.5">
+                        <span className="text-xs px-1 py-0.5 rounded uppercase" style={{ color: typeColor(sess.type), background: typeColor(sess.type) + "20", fontSize: "9px" }}>{sess.type}</span>
+                        {!sess.isVisible && <span className="text-gray-600 text-xs">🙈</span>}
+                      </div>
+                      <p className="text-gray-200 font-bold text-xs truncate">{sess.title}</p>
+                      {sess.speakerName && <p className="text-gray-500 text-xs truncate">{sess.speakerName}</p>}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           {/* 7-day grid */}

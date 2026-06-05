@@ -14,7 +14,7 @@ const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; 
 });
 const useAdminT = () => useContext(AdminLangContext);
 
-type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "sessions" | "audit";
+type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -498,6 +498,8 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
         status: "prospect",
       }),
     });
+    setEmailTarget(null);
+    setEmailResult(null);
     onRefresh();
   };
 
@@ -3068,177 +3070,6 @@ function EventSettingsPanel() {
 }
 
 
-function SessionsPanel() {
-  const { t } = useAdminT();
-  const [sessions, setSessions] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [seeding, setSeeding] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState<Record<string, unknown>>({});
-  const [saving, setSaving] = useState(false);
-
-  const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
-
-  const load = async () => {
-    setLoading(true);
-    const r = await fetch("/api/admin/sessions");
-    if (r.ok) setSessions(await r.json());
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const seed = async () => {
-    if (!confirm("Initialiser le programme avec les sessions standard ? (Annulé si des sessions existent déjà)")) return;
-    setSeeding(true);
-    const r = await fetch("/api/admin/sessions/seed", { method: "POST" });
-    const j = await r.json();
-    if (!r.ok) alert(j.error || "Erreur");
-    else { alert(`${j.seeded} sessions créées.`); load(); }
-    setSeeding(false);
-  };
-
-  const startEdit = (s: Record<string, unknown> | null) => {
-    setEditingId(s ? Number(s.id) : null);
-    setForm(s ? { ...s } : { time: "09:00", title: "", type: "talk", sortOrder: 100, isVisible: true });
-    setShowForm(true);
-  };
-
-  const closeForm = () => { setShowForm(false); setEditingId(null); };
-
-  const save = async () => {
-    setSaving(true);
-    const url = editingId ? `/api/admin/sessions/${editingId}` : "/api/admin/sessions";
-    const method = editingId ? "PUT" : "POST";
-    const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-    if (r.ok) { closeForm(); load(); }
-    setSaving(false);
-  };
-
-  const del = async (id: number) => {
-    if (!confirm("Supprimer cette session ?")) return;
-    await fetch(`/api/admin/sessions/${id}`, { method: "DELETE" });
-    load();
-  };
-
-  const typeColor: Record<string, string> = {
-    keynote: "#00ff9d", talk: "#0066ff", workshop: "#ff6600", panel: "#cc00ff", break: "#444", logistics: "#888",
-  };
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-black text-white">{t.sessionsTitle}</h1>
-        <div className="flex gap-2">
-          <button onClick={seed} disabled={seeding} className="text-xs px-3 py-1.5 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-all disabled:opacity-50">
-            {seeding ? "…" : t.initStandard}
-          </button>
-          <button onClick={() => startEdit(null)} className="text-xs px-3 py-1.5 rounded bg-neon-green/10 text-neon-green border border-neon-green/30 hover:bg-neon-green/20 transition-all">
-            + {t.newSession}
-          </button>
-        </div>
-      </div>
-
-      {/* Edit/create form */}
-      {showForm && (
-        <div className="cyber-card rounded-xl p-5 mb-6 border border-neon-green/20">
-          <h2 className="text-sm font-bold text-neon-green mb-4">{editingId ? t.editSession : t.newSession}</h2>
-          <div className="grid sm:grid-cols-2 gap-3 mb-3">
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">{t.sessionTitle}</label>
-              <input className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
-                value={String(form.title || "")} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">{t.type}</label>
-              <select className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
-                value={String(form.type || "talk")} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-                {SESSION_TYPES.map(st => <option key={st} value={st}>{st}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">{t.date}</label>
-              <input type="date" className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
-                value={String(form.date || "")} onChange={e => setForm(f => ({ ...f, date: e.target.value || null }))} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">{t.startTime}</label>
-              <input type="time" className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
-                value={String(form.time || "")} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">{t.endTime}</label>
-              <input type="time" className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
-                value={String(form.endTime || "")} onChange={e => setForm(f => ({ ...f, endTime: e.target.value || null }))} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">{t.room}</label>
-              <input className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
-                value={String(form.room || "")} onChange={e => setForm(f => ({ ...f, room: e.target.value || null }))} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">{t.speakerName}</label>
-              <input className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
-                value={String(form.speakerName || "")} onChange={e => setForm(f => ({ ...f, speakerName: e.target.value || null }))} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">{t.sortOrder}</label>
-              <input type="number" className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
-                value={Number(form.sortOrder ?? 100)} onChange={e => setForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))} />
-            </div>
-          </div>
-          <div className="mb-3">
-            <label className="text-xs text-gray-500 block mb-1">{t.description}</label>
-            <textarea rows={2} className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none resize-none"
-              value={String(form.description || "")} onChange={e => setForm(f => ({ ...f, description: e.target.value || null }))} />
-          </div>
-          <div className="flex items-center gap-3 mb-4">
-            <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-              <input type="checkbox" checked={Boolean(form.isVisible)} onChange={e => setForm(f => ({ ...f, isVisible: e.target.checked }))} />
-              {t.visibleOnSite}
-            </label>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={save} disabled={saving} className="text-xs px-4 py-2 rounded bg-neon-green/20 text-neon-green border border-neon-green/30 hover:bg-neon-green/30 transition-all disabled:opacity-50">
-              {saving ? "…" : t.save}
-            </button>
-            <button onClick={closeForm} className="text-xs px-4 py-2 rounded border border-gray-800 text-gray-500 hover:text-gray-300 transition-all">
-              {t.cancel}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {loading ? (
-        <p className="text-gray-600 text-sm font-mono">Chargement…</p>
-      ) : sessions.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-600 text-sm font-mono mb-4">{t.noSessions}</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {sessions.map(s => {
-            const color = typeColor[String(s.type)] || "#888";
-            return (
-              <div key={String(s.id)} className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/[0.05] hover:border-neon-green/20 transition-all">
-                <span className="w-14 shrink-0 text-right text-xs font-mono" style={{ color: color + "aa" }}>{String(s.time)}</span>
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                <span className="flex-1 text-sm text-white">{String(s.title)}</span>
-                {!!s.speakerName && <span className="text-xs text-gray-500">{String(s.speakerName)}</span>}
-                <span className="text-xs px-1.5 py-0.5 rounded shrink-0" style={{ color, background: color + "20" }}>{String(s.type)}</span>
-                {!s.isVisible && <span className="text-xs text-gray-600 shrink-0">{t.hidden}</span>}
-                <button onClick={() => startEdit(s)} className="text-xs text-gray-500 hover:text-neon-green transition-colors shrink-0">✎</button>
-                <button onClick={() => del(Number(s.id))} className="text-xs text-gray-600 hover:text-red-400 transition-colors shrink-0">✕</button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function AuditPanel() {
   const { t } = useAdminT();
   const [logs, setLogs] = useState<Record<string, unknown>[]>([]);
@@ -3487,7 +3318,6 @@ export default function AdminDashboard() {
       icon: "◆",
       tabs: [
         { id: "pipeline", label: t.pipeline, count: stats.cfp },
-        { id: "sessions", label: t.sessions },
         { id: "past-speakers", label: t.pastSpeakers },
       ],
     },
@@ -3722,7 +3552,7 @@ export default function AdminDashboard() {
                 {[
                   { tab: "speakers", label: "Gérer les Speakers", desc: "Ajouter, éditer et ordonner les intervenants 2026" },
                   { tab: "sponsors", label: "Gérer les Sponsors", desc: "Logos, tiers et liens des sponsors" },
-                  { tab: "sessions", label: "Éditer le Programme", desc: "Créer et ordonner les sessions par date" },
+                  { tab: "pipeline", label: "Éditer le Programme", desc: "Planifier les sessions dans le pipeline speakers (onglet Programme)" },
                   { tab: "cfp", label: "Propositions de Talks", desc: "Examiner et statuer sur les CFP reçus" },
                   { tab: "volunteers", label: "Candidatures Bénévoles", desc: "Gérer les candidatures reçues" },
                   { tab: "registrations", label: "Inscriptions", desc: "Liste complète des participants inscrits" },
@@ -4216,9 +4046,6 @@ export default function AdminDashboard() {
           {tab === "certificates" && (
             <CertificatesPanel />
           )}
-
-          {/* SESSIONS / PROGRAMME */}
-          {tab === "sessions" && <SessionsPanel />}
 
           {/* AUDIT LOG — super_admin only */}
           {tab === "audit" && <AuditPanel />}

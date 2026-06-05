@@ -143,9 +143,8 @@ export default function Speakers({ t, onOpenModal }: { t: Translations; onOpenMo
       if (Array.isArray(data)) setSpeakers(data);
     }).catch(() => {});
     fetch("/api/past-speakers").then(r => r.json()).then(data => {
-      if (Array.isArray(data) && data.length > 0) setPastSpeakers(data);
-      else setPastSpeakers(FALLBACK_PAST);
-    }).catch(() => setPastSpeakers(FALLBACK_PAST));
+      if (Array.isArray(data)) setPastSpeakers(data);
+    }).catch(() => {});
   }, []);
 
   const tbaCount = Math.max(0, 6 - speakers.length);

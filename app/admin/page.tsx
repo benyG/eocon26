@@ -14,7 +14,7 @@ const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; 
 });
 const useAdminT = () => useContext(AdminLangContext);
 
-type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit";
+type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -1923,10 +1923,40 @@ const BUDGET_COST_LABELS = [
 
 interface AutoRevenue { label: string; value: number; color: string; }
 
+const BUDGET_STATUS_COLORS: Record<string, string> = {
+  paid: "#00ff9d",
+  pending: "#ffaa00",
+  cancelled: "#666666",
+};
+
 function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; onRefresh: () => void }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ category: "costs", planned: 0, actual: 0, status: "pending" });
   const [autoRevenues, setAutoRevenues] = useState<AutoRevenue[]>([]);
+  const [capitalDepart, setCapitalDepart] = useState<number>(0);
+  const [capitalInput, setCapitalInput] = useState<string>("0");
+  const [teamMembers, setTeamMembers] = useState<Array<{ id: number; name: string }>>([]);
+
+  // Fetch capital setting and team members
+  useEffect(() => {
+    async function loadMeta() {
+      const [settingsRes, teamRes] = await Promise.all([
+        fetch("/api/admin/settings"),
+        fetch("/api/admin/team"),
+      ]);
+      if (settingsRes.ok) {
+        const s = await settingsRes.json() as Record<string, string>;
+        const cap = parseFloat(s.capitalDepart || "0") || 0;
+        setCapitalDepart(cap);
+        setCapitalInput(String(cap));
+      }
+      if (teamRes.ok) {
+        const members = await teamRes.json() as Array<{ id: number; name: string }>;
+        setTeamMembers(members);
+      }
+    }
+    loadMeta();
+  }, []);
 
   // Fetch auto-calculated revenues from ticket sales + sponsor packages
   useEffect(() => {
@@ -1986,6 +2016,13 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
   const totalPlannedCost = costs.reduce((s, i) => s + ((i.planned as number) || 0), 0);
   const totalActualCost = costs.reduce((s, i) => s + ((i.actual as number) || 0), 0);
   const balance = totalActualRev - totalActualCost;
+  const capitalRestant = capitalDepart - totalActualCost;
+  const capitalDepasse = capitalDepart > 0 && totalActualCost > capitalDepart;
+
+  const saveCapital = async (val: number) => {
+    setCapitalDepart(val);
+    await fetch("/api/admin/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ capitalDepart: String(val) }) });
+  };
 
   // Histogram data: revenues vs costs by category
   const histogramItems: { label: string; value: number; color: string; maxVal: number }[] = [
@@ -1996,7 +2033,7 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
 
   const maxAbsVal = Math.max(...histogramItems.map(i => Math.abs(i.value)), 1);
 
-  const renderTable = (rows: Record<string, unknown>[], title: string, color: string) => (
+  const renderTable = (rows: Record<string, unknown>[], title: string, color: string, showResponsable = false) => (
     <div className="cyber-card rounded-xl p-5 mb-6">
       <h3 className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color }}>{title}</h3>
       <table className="w-full text-xs">
@@ -2006,36 +2043,56 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
             <th className="text-right py-2 px-2 font-normal">Prévu (FCFA)</th>
             <th className="text-right py-2 px-2 font-normal">Réel (FCFA)</th>
             <th className="text-left py-2 px-2 font-normal">Statut</th>
+            {showResponsable && <th className="text-left py-2 px-2 font-normal">Responsable</th>}
             <th className="py-2 px-2" />
           </tr>
         </thead>
         <tbody>
-          {rows.map(r => (
-            <tr key={r.id as number} className="border-b border-gray-900 hover:bg-white/[0.01]">
-              <td className="py-2 px-2 text-white">{r.label as string}</td>
-              <td className="py-2 px-2 text-right">
-                <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
-                  defaultValue={(r.planned as number) || 0}
-                  onBlur={e => update(r.id as number, { planned: parseFloat(e.target.value) || 0 })} />
-              </td>
-              <td className="py-2 px-2 text-right">
-                <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
-                  defaultValue={(r.actual as number) || 0}
-                  onBlur={e => update(r.id as number, { actual: parseFloat(e.target.value) || 0 })} />
-              </td>
-              <td className="py-2 px-2">
-                <select className="cyber-input text-xs px-2 py-1 rounded" value={r.status as string}
-                  onChange={e => update(r.id as number, { status: e.target.value })}>
-                  <option value="pending">En attente</option>
-                  <option value="paid">Payé</option>
-                  <option value="cancelled">Annulé</option>
-                </select>
-              </td>
-              <td className="py-2 px-2">
-                <button onClick={() => del(r.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>
-              </td>
-            </tr>
-          ))}
+          {rows.map(r => {
+            const statusColor = BUDGET_STATUS_COLORS[r.status as string] || "#888";
+            return (
+              <tr key={r.id as number} className="border-b border-gray-900 hover:bg-white/[0.01]" style={{ borderLeft: `3px solid ${statusColor}20` }}>
+                <td className="py-2 px-2 text-white">{r.label as string}</td>
+                <td className="py-2 px-2 text-right">
+                  <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
+                    defaultValue={(r.planned as number) || 0}
+                    onBlur={e => update(r.id as number, { planned: parseFloat(e.target.value) || 0 })} />
+                </td>
+                <td className="py-2 px-2 text-right">
+                  <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
+                    defaultValue={(r.actual as number) || 0}
+                    onBlur={e => update(r.id as number, { actual: parseFloat(e.target.value) || 0 })} />
+                </td>
+                <td className="py-2 px-2">
+                  <select
+                    className="cyber-input text-xs px-2 py-1 rounded font-bold"
+                    style={{ color: statusColor, borderColor: statusColor + "60" }}
+                    value={r.status as string}
+                    onChange={e => update(r.id as number, { status: e.target.value })}>
+                    <option value="pending" style={{ color: BUDGET_STATUS_COLORS.pending }}>En attente</option>
+                    <option value="paid" style={{ color: BUDGET_STATUS_COLORS.paid }}>Payé</option>
+                    <option value="cancelled" style={{ color: BUDGET_STATUS_COLORS.cancelled }}>Annulé</option>
+                  </select>
+                </td>
+                {showResponsable && (
+                  <td className="py-2 px-2">
+                    <select
+                      className="cyber-input text-xs px-2 py-1 rounded w-36"
+                      defaultValue={(r.responsable as string) || ""}
+                      onChange={e => update(r.id as number, { responsable: e.target.value || null })}>
+                      <option value="">— aucun —</option>
+                      {teamMembers.map(m => (
+                        <option key={m.id} value={m.name}>{m.name}</option>
+                      ))}
+                    </select>
+                  </td>
+                )}
+                <td className="py-2 px-2">
+                  <button onClick={() => del(r.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       {!rows.length && <p className="text-gray-600 text-xs py-4 text-center">Aucun élément</p>}
@@ -2052,16 +2109,42 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
         </div>
       </div>
 
+      {/* Capital de départ */}
+      <div className="cyber-card rounded-xl p-4 mb-4 flex items-center gap-4">
+        <div className="text-xs text-gray-400 uppercase tracking-widest whitespace-nowrap">Capital de départ</div>
+        <input
+          type="number"
+          className="cyber-input px-3 py-1.5 rounded text-sm font-mono flex-1 max-w-[220px]"
+          value={capitalInput}
+          onChange={e => setCapitalInput(e.target.value)}
+          onBlur={e => saveCapital(parseFloat(e.target.value) || 0)}
+        />
+        <span className="text-xs text-gray-500">XAF</span>
+        {capitalDepart > 0 && (
+          <span className="text-xs text-gray-400 ml-2">
+            Capital restant : <span className="font-mono font-bold" style={{ color: capitalRestant >= 0 ? "#00ff9d" : "#ff4444" }}>{capitalRestant.toLocaleString("fr-FR")} XAF</span>
+          </span>
+        )}
+      </div>
+
+      {capitalDepasse && (
+        <div className="rounded-xl px-4 py-3 mb-4 text-sm font-bold flex items-center gap-2" style={{ background: "#ff006620", border: "1px solid #ff0066", color: "#ff4444" }}>
+          ⚠ Les dépenses réelles ({totalActualCost.toLocaleString("fr-FR")} XAF) dépassent le capital de départ ({capitalDepart.toLocaleString("fr-FR")} XAF) de {(totalActualCost - capitalDepart).toLocaleString("fr-FR")} XAF
+        </div>
+      )}
+
       {/* KPI Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         {[
+          { label: "Capital départ", value: capitalDepart, color: "#00ccff" },
+          { label: "Capital restant", value: capitalRestant, color: capitalRestant >= 0 ? "#00ccff" : "#ff4444" },
           { label: "Revenus projetés", value: totalPlannedRev, color: "#00ff9d" },
           { label: "Revenus réels", value: totalActualRev, color: "#00ff9d" },
           { label: "Dépenses prévues", value: totalPlannedCost, color: "#ff4444" },
           { label: "Solde net", value: balance, color: balance >= 0 ? "#00ff9d" : "#ff4444" },
         ].map(s => (
           <div key={s.label} className="cyber-card rounded-xl p-4 text-center">
-            <div className="text-xl font-black font-mono" style={{ color: s.color, fontFamily: "'Share Tech Mono', monospace" }}>{s.value.toLocaleString("fr-FR")} XAF</div>
+            <div className="text-lg font-black font-mono" style={{ color: s.color, fontFamily: "'Share Tech Mono', monospace" }}>{s.value.toLocaleString("fr-FR")}</div>
             <div className="text-gray-500 text-xs mt-1">{s.label}</div>
           </div>
         ))}
@@ -2161,7 +2244,7 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
         </div>
       )}
       {renderTable(manualRevenues, "Revenus additionnels (manuels)", "#00ff9d")}
-      {renderTable(costs, "Dépenses", "#ff4444")}
+      {renderTable(costs, "Dépenses", "#ff4444", true)}
     </div>
   );
 }
@@ -2322,7 +2405,7 @@ interface TicketTypeRow {
   priceFr: number; priceEn: number; perksFr: string; perksEn: string;
   earlyBirdPriceFr: number | null; earlyBirdPriceEn: number | null;
   earlyBirdUntil: string | null; color: string; isFeatured: boolean;
-  isVisible: boolean; ctfAccess: boolean; maxCapacity: number; sortOrder: number; sold: number;
+  isVisible: boolean; ctfAccess: boolean; includesCTF: boolean; maxCapacity: number; sortOrder: number; sold: number;
 }
 
 function TicketsPanel() {
@@ -2483,6 +2566,10 @@ function TicketsPanel() {
                       <input type="checkbox" checked={!!editForm.ctfAccess} onChange={e => setEditForm(f => ({ ...f, ctfAccess: e.target.checked }))} />
                       ⚡ Accès CTF
                     </label>
+                    <label className="flex items-center gap-2 text-xs cursor-pointer font-bold" style={{ color: "#00ff9d" }}>
+                      <input type="checkbox" checked={!!editForm.includesCTF} onChange={e => setEditForm(f => ({ ...f, includesCTF: e.target.checked }))} />
+                      Accès CTF inclus ⚡
+                    </label>
                     <div className="flex items-center gap-2">
                       <label className="text-xs text-gray-500">Ordre</label>
                       <input type="number" value={editForm.sortOrder ?? 0} onChange={e => setEditForm(f => ({ ...f, sortOrder: parseInt(e.target.value) }))} className="cyber-input text-xs rounded px-2 py-1 w-16" />
@@ -2504,6 +2591,7 @@ function TicketsPanel() {
                           {t.isFeatured && <span className="text-xs px-2 py-0.5 rounded" style={{ background: t.color + "20", color: t.color }}>★ Recommandé</span>}
                           {!t.isVisible && <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-500">Masqué</span>}
                           {t.ctfAccess && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}>⚡ CTF</span>}
+                          {t.includesCTF && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>⚡ CTF inclus</span>}
                         </div>
                         <div className="text-xs text-gray-400 mt-0.5 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
                           <span style={{ color: t.color }}>{t.priceFr.toLocaleString("fr-FR")} XAF</span>
@@ -2539,6 +2627,565 @@ function TicketsPanel() {
           <p className="text-gray-600 text-xs py-8 text-center">Les types de billets sont auto-seedés au démarrage (Student, Standard, VIP).</p>
         )}
       </div>
+    </div>
+  );
+}
+
+function levenshtein(a: string, b: string): number {
+  const dp = Array.from({ length: a.length + 1 }, (_, i) =>
+    Array.from({ length: b.length + 1 }, (_, j) => i === 0 ? j : j === 0 ? i : 0)
+  );
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++)
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+  return dp[a.length][b.length];
+}
+
+const CTF_CATEGORIES = ["Web", "Crypto", "Forensics", "Reverse", "Pwn", "OSINT", "Misc"];
+const CAT_COLORS: Record<string, string> = {
+  Web: "#00ccff", Crypto: "#ffaa00", Forensics: "#cc00ff",
+  Reverse: "#ff6600", Pwn: "#ff0066", OSINT: "#00ff9d", Misc: "#888",
+};
+const CTF_STATUSES = [
+  { key: "idea", label: "Idée", color: "#888" },
+  { key: "in_progress", label: "En cours", color: "#ffaa00" },
+  { key: "testing", label: "En test", color: "#cc00ff" },
+  { key: "validated", label: "Validé", color: "#00ff9d" },
+  { key: "published", label: "Publié CTFd", color: "#00ccff" },
+];
+
+interface CTFChallenge {
+  id: number; title: string; category: string; difficulty: string;
+  points: number; author?: string | null; status: string; ctfdId?: number | null;
+  notes?: string | null; sortOrder: number;
+}
+
+interface CTFParticipant {
+  id: number; fname: string; lname: string; email: string; ticketType: string;
+  ctfCompetitorName?: string | null; ctfTeamName?: string | null;
+  ctfAccountCreated: boolean; langExpression?: string | null;
+}
+
+const CTF_EMAIL_TEMPLATES = [
+  { key: "ctf_account_created", label: "Vos accès CTFd" },
+  { key: "ctf_no_teammate", label: "Vous participez sans équipe" },
+  { key: "ctf_reminder", label: "Rappel CTF — J-1" },
+];
+
+type CTFSubTab = "config" | "challenges" | "participants" | "emails";
+
+function CTFPanel() {
+  const [sub, setSub] = useState<CTFSubTab>("config");
+  const subTabs: { id: CTFSubTab; label: string }[] = [
+    { id: "config", label: "Configuration" },
+    { id: "challenges", label: "Challenges" },
+    { id: "participants", label: "Participants" },
+    { id: "emails", label: "Emails" },
+  ];
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-black text-white">⚡ CTF Management</h1>
+      </div>
+      <div className="flex gap-2 mb-6 border-b border-gray-800 pb-2">
+        {subTabs.map(st => (
+          <button
+            key={st.id}
+            onClick={() => setSub(st.id)}
+            className="px-4 py-2 rounded-t text-xs font-bold transition-colors"
+            style={{ color: sub === st.id ? "#00ff9d" : "#666", borderBottom: sub === st.id ? "2px solid #00ff9d" : "2px solid transparent" }}
+          >
+            {st.label}
+          </button>
+        ))}
+      </div>
+      {sub === "config" && <CTFConfigTab />}
+      {sub === "challenges" && <CTFChallengesTab />}
+      {sub === "participants" && <CTFParticipantsTab />}
+      {sub === "emails" && <CTFEmailsTab />}
+    </div>
+  );
+}
+
+function CTFConfigTab() {
+  const [form, setForm] = useState<Record<string, string>>({ ctfdUrl: "", ctfdApiKey: "", ctfDefaultPassword: "", ctfEnabled: "false" });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/settings").then(r => r.json()).then((d: Record<string, string>) => {
+      setForm(f => ({
+        ...f,
+        ctfdUrl: d.ctfdUrl || "",
+        ctfdApiKey: d.ctfdApiKey || "",
+        ctfDefaultPassword: d.ctfDefaultPassword || "",
+        ctfEnabled: d.ctfEnabled || "false",
+      }));
+    });
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    await fetch("/api/admin/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    setSaved(true);
+    setSaving(false);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const testConnection = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const url = form.ctfdUrl.replace(/\/$/, "");
+      const res = await fetch(`${url}/api/v1/challenges`, { headers: { "Authorization": `Token ${form.ctfdApiKey}` } });
+      setTestResult({ ok: res.ok, msg: res.ok ? "Connexion réussie ✓" : `Erreur ${res.status}` });
+    } catch {
+      setTestResult({ ok: false, msg: "Impossible de contacter CTFd" });
+    }
+    setTesting(false);
+  };
+
+  return (
+    <div className="cyber-card rounded-xl p-6 max-w-xl space-y-4">
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">CTFd URL</label>
+        <input className="cyber-input w-full px-3 py-2 rounded text-sm" value={form.ctfdUrl} onChange={e => setForm(f => ({ ...f, ctfdUrl: e.target.value }))} placeholder="https://ctf.eocon.eyesopensecurity.com" />
+      </div>
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">CTFd API Key</label>
+        <input type="password" className="cyber-input w-full px-3 py-2 rounded text-sm" value={form.ctfdApiKey} onChange={e => setForm(f => ({ ...f, ctfdApiKey: e.target.value }))} placeholder="••••••••" />
+      </div>
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Mot de passe par défaut</label>
+        <input className="cyber-input w-full px-3 py-2 rounded text-sm" value={form.ctfDefaultPassword} onChange={e => setForm(f => ({ ...f, ctfDefaultPassword: e.target.value }))} placeholder="eocon2026!" />
+      </div>
+      <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+        <input type="checkbox" checked={form.ctfEnabled === "true"} onChange={e => setForm(f => ({ ...f, ctfEnabled: e.target.checked ? "true" : "false" }))} />
+        CTF activé
+      </label>
+      <div className="flex gap-3 flex-wrap">
+        <button onClick={save} disabled={saving} className="btn-neon px-4 py-2 rounded text-sm">
+          {saving ? "Enregistrement..." : saved ? "✓ Enregistré" : "Enregistrer"}
+        </button>
+        <button onClick={testConnection} disabled={testing} className="px-4 py-2 rounded text-sm border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">
+          {testing ? "Test en cours..." : "Tester la connexion"}
+        </button>
+      </div>
+      {testResult && (
+        <div className="px-3 py-2 rounded text-sm" style={{ background: testResult.ok ? "#00ff9d15" : "#ff006615", color: testResult.ok ? "#00ff9d" : "#ff0066", border: `1px solid ${testResult.ok ? "#00ff9d33" : "#ff006633"}` }}>
+          {testResult.msg}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CTFChallengesTab() {
+  const [challenges, setChallenges] = useState<CTFChallenge[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<Partial<CTFChallenge>>({ category: "Web", difficulty: "medium", points: 100, status: "idea" });
+  const [dragId, setDragId] = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    const res = await fetch("/api/admin/ctf/challenges");
+    if (res.ok) setChallenges(await res.json());
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async () => {
+    await fetch("/api/admin/ctf/challenges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    setShowForm(false);
+    setForm({ category: "Web", difficulty: "medium", points: 100, status: "idea" });
+    load();
+  };
+
+  const moveStatus = async (id: number, status: string) => {
+    await fetch(`/api/admin/ctf/challenges/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    load();
+  };
+
+  const del = async (id: number) => {
+    if (!confirm("Supprimer ce challenge ?")) return;
+    await fetch(`/api/admin/ctf/challenges/${id}`, { method: "DELETE" });
+    load();
+  };
+
+  // KPIs
+  const total = challenges.length;
+  const catCounts: Record<string, number> = {};
+  for (const c of challenges) { catCounts[c.category] = (catCounts[c.category] || 0) + 1; }
+  const validatedOrPublished = challenges.filter(c => c.status === "validated" || c.status === "published").length;
+  const pctDone = total > 0 ? Math.round((validatedOrPublished / total) * 100) : 0;
+
+  return (
+    <div>
+      {/* KPI bar */}
+      <div className="flex gap-3 flex-wrap mb-4">
+        <div className="cyber-card rounded-lg px-4 py-2 text-center">
+          <div className="text-xl font-black font-mono" style={{ color: "#00ff9d" }}>{total}</div>
+          <div className="text-xs text-gray-500">Total</div>
+        </div>
+        {Object.entries(catCounts).map(([cat, cnt]) => (
+          <div key={cat} className="cyber-card rounded-lg px-3 py-2 text-center">
+            <div className="text-lg font-bold" style={{ color: CAT_COLORS[cat] || "#888" }}>{cnt}</div>
+            <div className="text-xs text-gray-500">{cat}</div>
+          </div>
+        ))}
+        <div className="cyber-card rounded-lg px-4 py-2 text-center">
+          <div className="text-xl font-black font-mono" style={{ color: "#00ccff" }}>{pctDone}%</div>
+          <div className="text-xs text-gray-500">Prêts</div>
+        </div>
+      </div>
+
+      {/* Add form */}
+      <div className="mb-4">
+        <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-sm">+ Ajouter challenge</button>
+      </div>
+      {showForm && (
+        <div className="cyber-card rounded-xl p-4 mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="md:col-span-2">
+              <label className="text-xs text-gray-500 block mb-1">Titre *</label>
+              <input className="cyber-input w-full px-3 py-1.5 rounded text-sm" value={form.title || ""} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Catégorie</label>
+              <select className="cyber-input w-full px-3 py-1.5 rounded text-sm bg-transparent" value={form.category || "Web"} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+                {CTF_CATEGORIES.map(c => <option key={c} value={c} className="bg-black">{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Difficulté</label>
+              <select className="cyber-input w-full px-3 py-1.5 rounded text-sm bg-transparent" value={form.difficulty || "medium"} onChange={e => setForm(f => ({ ...f, difficulty: e.target.value }))}>
+                {["easy", "medium", "hard"].map(d => <option key={d} value={d} className="bg-black">{d}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Points</label>
+              <input type="number" className="cyber-input w-full px-3 py-1.5 rounded text-sm" value={form.points ?? 100} onChange={e => setForm(f => ({ ...f, points: parseInt(e.target.value) || 0 }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Auteur</label>
+              <input className="cyber-input w-full px-3 py-1.5 rounded text-sm" value={form.author || ""} onChange={e => setForm(f => ({ ...f, author: e.target.value }))} />
+            </div>
+            <div className="md:col-span-3">
+              <label className="text-xs text-gray-500 block mb-1">Notes</label>
+              <textarea className="cyber-input w-full px-3 py-1.5 rounded text-sm h-20" value={form.notes || ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-3">
+            <button onClick={save} className="btn-neon px-4 py-1.5 rounded text-sm">Créer</button>
+            <button onClick={() => setShowForm(false)} className="text-gray-500 text-sm hover:text-white">Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {/* Kanban */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 overflow-x-auto">
+        {CTF_STATUSES.map(st => {
+          const cols = challenges.filter(c => c.status === st.key);
+          return (
+            <div
+              key={st.key}
+              className="rounded-xl p-3 min-h-48"
+              style={{ background: "#0a0a0f", border: `1px solid ${st.color}22` }}
+              onDragOver={e => e.preventDefault()}
+              onDrop={() => { if (dragId !== null) moveStatus(dragId, st.key); }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-bold" style={{ color: st.color }}>{st.label}</span>
+                <span className="text-xs text-gray-600">({cols.length})</span>
+              </div>
+              <div className="space-y-2">
+                {cols.map(ch => (
+                  <div
+                    key={ch.id}
+                    draggable
+                    onDragStart={() => setDragId(ch.id)}
+                    onDragEnd={() => setDragId(null)}
+                    className="rounded-lg p-2 cursor-grab active:cursor-grabbing"
+                    style={{ background: "#111", border: "1px solid #222" }}
+                  >
+                    <div className="text-white text-xs font-bold mb-1 truncate">{ch.title}</div>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: (CAT_COLORS[ch.category] || "#888") + "20", color: CAT_COLORS[ch.category] || "#888", fontSize: "10px" }}>{ch.category}</span>
+                      <span className="text-xs text-gray-600" style={{ fontSize: "10px" }}>
+                        {ch.difficulty === "easy" ? "●" : ch.difficulty === "hard" ? "●●●" : "●●"}
+                      </span>
+                      <span className="text-xs font-mono ml-auto" style={{ color: "#ffaa00", fontSize: "10px" }}>{ch.points}pts</span>
+                    </div>
+                    {ch.author && <div className="text-gray-600 mt-0.5" style={{ fontSize: "10px" }}>by {ch.author}</div>}
+                    <button onClick={() => del(ch.id)} className="text-red-800 hover:text-red-400 mt-1" style={{ fontSize: "10px" }}>✕</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CTFParticipantsTab() {
+  const [participants, setParticipants] = useState<CTFParticipant[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState<number | null>(null);
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [emailModal, setEmailModal] = useState<{ reg: CTFParticipant } | null>(null);
+  const [emailTpl, setEmailTpl] = useState("ctf_account_created");
+  const [sending, setSending] = useState(false);
+  const [reconcileModal, setReconcileModal] = useState<{ teams: string[] } | null>(null);
+  const [canonical, setCanonical] = useState("");
+  const [editPseudo, setEditPseudo] = useState<{ id: number; value: string } | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch("/api/admin/ctf/participants");
+    if (res.ok) setParticipants(await res.json());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const createAccount = async (id: number) => {
+    setSyncing(id);
+    await fetch("/api/admin/ctf/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create_account", registrationIds: [id] }) });
+    await load();
+    setSyncing(null);
+  };
+
+  const syncAll = async () => {
+    setSyncingAll(true);
+    await fetch("/api/admin/ctf/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "sync_all" }) });
+    await load();
+    setSyncingAll(false);
+  };
+
+  const sendEmail = async () => {
+    if (!emailModal) return;
+    setSending(true);
+    await fetch("/api/admin/ctf/email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ registrationId: emailModal.reg.id, templateKey: emailTpl }) });
+    setSending(false);
+    setEmailModal(null);
+  };
+
+  // Team conflict detection
+  const teamNames = Array.from(new Set(participants.map(p => p.ctfTeamName).filter(Boolean))) as string[];
+  const conflicts: string[][] = [];
+  for (let i = 0; i < teamNames.length; i++) {
+    for (let j = i + 1; j < teamNames.length; j++) {
+      if (levenshtein(teamNames[i], teamNames[j]) <= 2) {
+        conflicts.push([teamNames[i], teamNames[j]]);
+      }
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-white font-bold">Participants CTF ({participants.length})</h2>
+        <button onClick={syncAll} disabled={syncingAll} className="btn-neon px-4 py-2 rounded text-sm">
+          {syncingAll ? "Synchronisation..." : "Tout synchroniser"}
+        </button>
+      </div>
+
+      {conflicts.map((pair, i) => (
+        <div key={i} className="mb-3 px-4 py-3 rounded-lg flex items-center justify-between" style={{ background: "#ffaa0010", border: "1px solid #ffaa0040" }}>
+          <div>
+            <span className="text-yellow-400 font-bold text-sm">⚠ Conflit équipe : </span>
+            <span className="text-gray-300 text-sm">«{pair[0]}» et «{pair[1]}» semblent similaires</span>
+          </div>
+          <button
+            onClick={() => { setReconcileModal({ teams: pair }); setCanonical(pair[0]); }}
+            className="text-xs px-3 py-1 rounded border border-yellow-600 text-yellow-400 hover:bg-yellow-900/20"
+          >
+            Réconcilier
+          </button>
+        </div>
+      ))}
+
+      {reconcileModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="cyber-card rounded-xl p-6 max-w-sm w-full">
+            <h3 className="text-white font-bold mb-4">Réconcilier équipes</h3>
+            <p className="text-gray-400 text-sm mb-3">Choisissez le nom canonique :</p>
+            {reconcileModal.teams.map(t => (
+              <label key={t} className="flex items-center gap-2 text-sm text-gray-300 mb-2 cursor-pointer">
+                <input type="radio" name="canonical" value={t} checked={canonical === t} onChange={() => setCanonical(t)} />
+                {t}
+              </label>
+            ))}
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={async () => {
+                  const toUpdate = participants.filter(p => reconcileModal.teams.includes(p.ctfTeamName || "") && p.ctfTeamName !== canonical);
+                  await Promise.all(toUpdate.map(p =>
+                    fetch(`/api/admin/registrations/${p.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ctfTeamName: canonical }) })
+                  ));
+                  setReconcileModal(null);
+                  load();
+                }}
+                className="btn-neon px-4 py-2 rounded text-sm"
+              >
+                Appliquer
+              </button>
+              <button onClick={() => setReconcileModal(null)} className="text-gray-500 text-sm hover:text-white">Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {emailModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="cyber-card rounded-xl p-6 max-w-sm w-full">
+            <h3 className="text-white font-bold mb-4">Envoyer un email à {emailModal.reg.fname}</h3>
+            <select className="cyber-input w-full px-3 py-2 rounded text-sm bg-transparent mb-4" value={emailTpl} onChange={e => setEmailTpl(e.target.value)}>
+              {CTF_EMAIL_TEMPLATES.map(t => <option key={t.key} value={t.key} className="bg-black">{t.label}</option>)}
+            </select>
+            <div className="flex gap-2">
+              <button onClick={sendEmail} disabled={sending} className="btn-neon px-4 py-2 rounded text-sm">{sending ? "Envoi..." : "Envoyer"}</button>
+              <button onClick={() => setEmailModal(null)} className="text-gray-500 text-sm hover:text-white">Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loading ? <p className="text-gray-500 text-sm">Chargement...</p> : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-gray-500 text-xs uppercase border-b border-gray-800">
+                <th className="text-left py-2 px-3">Nom complet</th>
+                <th className="text-left py-2 px-3">Pseudo CTF</th>
+                <th className="text-left py-2 px-3">Équipe</th>
+                <th className="text-left py-2 px-3">Ticket</th>
+                <th className="text-left py-2 px-3">Compte CTFd</th>
+                <th className="text-left py-2 px-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {participants.map(p => (
+                <tr key={p.id} className="border-b border-gray-900 hover:bg-white/2">
+                  <td className="py-2 px-3 text-white">{p.fname} {p.lname}</td>
+                  <td className="py-2 px-3 font-mono text-xs" style={{ color: "#00ccff" }}>{p.ctfCompetitorName || <span className="text-gray-600">—</span>}</td>
+                  <td className="py-2 px-3 text-xs text-gray-400">{p.ctfTeamName || <span className="text-gray-600">—</span>}</td>
+                  <td className="py-2 px-3">
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green/70">{p.ticketType}</span>
+                  </td>
+                  <td className="py-2 px-3">
+                    {p.ctfAccountCreated
+                      ? <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ff9d15", color: "#00ff9d" }}>✓ Créé</span>
+                      : <span className="text-xs text-gray-600">—</span>}
+                  </td>
+                  <td className="py-2 px-3">
+                    <div className="flex gap-2">
+                      {!p.ctfAccountCreated && (
+                        <button
+                          onClick={() => createAccount(p.id)}
+                          disabled={syncing === p.id}
+                          className="text-xs px-2 py-1 rounded border border-cyan-800 text-cyan-400 hover:bg-cyan-900/20"
+                        >
+                          {syncing === p.id ? "..." : "Créer compte CTFd"}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setEmailModal({ reg: p })}
+                        className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white"
+                      >
+                        ✉
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!participants.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun participant CTF — validez des inscriptions avec un ticket CTF activé.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CTFEmailsTab() {
+  const [templates, setTemplates] = useState<Record<string, { subjectFr: string; subjectEn: string; bodyFr: string; bodyEn: string }>>({});
+  const [saving, setSaving] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/settings").then(r => r.json()).then((d: Record<string, string>) => {
+      const tpls: typeof templates = {};
+      for (const t of CTF_EMAIL_TEMPLATES) {
+        const key = `emailTemplate_${t.key}`;
+        if (d[key]) {
+          try { tpls[t.key] = JSON.parse(d[key]); } catch { /* noop */ }
+        }
+        if (!tpls[t.key]) {
+          tpls[t.key] = {
+            subjectFr: `[EOCON 2026 CTF] ${t.label}`,
+            subjectEn: `[EOCON 2026 CTF] ${t.label}`,
+            bodyFr: `<p>Bonjour {{fname}},</p><p>${t.label}</p>`,
+            bodyEn: `<p>Hello {{fname}},</p><p>${t.label}</p>`,
+          };
+        }
+      }
+      setTemplates(tpls);
+    });
+  }, []);
+
+  const saveTemplate = async (key: string) => {
+    setSaving(key);
+    await fetch("/api/admin/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [`emailTemplate_${key}`]: JSON.stringify(templates[key]) }),
+    });
+    setSaved(key);
+    setSaving(null);
+    setTimeout(() => setSaved(null), 2000);
+  };
+
+  const update = (key: string, field: string, val: string) => {
+    setTemplates(prev => ({ ...prev, [key]: { ...prev[key], [field]: val } }));
+  };
+
+  return (
+    <div className="space-y-6">
+      {CTF_EMAIL_TEMPLATES.map(t => {
+        const tpl = templates[t.key];
+        if (!tpl) return null;
+        return (
+          <div key={t.key} className="cyber-card rounded-xl p-5">
+            <h3 className="text-white font-bold mb-4 text-sm">{t.label}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Sujet FR</label>
+                <input className="cyber-input w-full px-3 py-1.5 rounded text-sm" value={tpl.subjectFr} onChange={e => update(t.key, "subjectFr", e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Sujet EN</label>
+                <input className="cyber-input w-full px-3 py-1.5 rounded text-sm" value={tpl.subjectEn} onChange={e => update(t.key, "subjectEn", e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Corps FR (HTML)</label>
+                <textarea className="cyber-input w-full px-3 py-1.5 rounded text-sm h-32" value={tpl.bodyFr} onChange={e => update(t.key, "bodyFr", e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Corps EN (HTML)</label>
+                <textarea className="cyber-input w-full px-3 py-1.5 rounded text-sm h-32" value={tpl.bodyEn} onChange={e => update(t.key, "bodyEn", e.target.value)} />
+              </div>
+            </div>
+            <button onClick={() => saveTemplate(t.key)} disabled={saving === t.key} className="btn-neon px-4 py-2 rounded text-sm mt-4">
+              {saving === t.key ? "Enregistrement..." : saved === t.key ? "✓ Enregistré" : "Enregistrer"}
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -3382,11 +4029,303 @@ function AuditPanel() {
   );
 }
 
+// ---- Domain Health Dashboard ----
+
+interface DashboardExtra {
+  budget: { category: string; planned: number; actual: number }[];
+  logistics: { done: boolean; deadline: string | null }[];
+  sessions: { date: string | null }[];
+  socialPosts: { status: string }[];
+  sponsorProspects: { status: string }[];
+  speakerOnboarding: { completed: boolean }[];
+  cfpDetailed: { status: string; scheduledInProgramme: boolean }[];
+  registrationsPending: number;
+  registrationsValidated: number;
+}
+
+function HealthDot({ color }: { color: "green" | "orange" | "red" | "grey" }) {
+  const map = { green: "#00ff9d", orange: "#ffaa00", red: "#ff0066", grey: "#555" };
+  return <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ background: map[color], boxShadow: `0 0 6px ${map[color]}` }} />;
+}
+
+function MiniBar({ value, total, color, danger }: { value: number; total: number; color: string; danger?: boolean }) {
+  const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
+  const barColor = danger && pct >= 100 ? "#ff0066" : color;
+  return (
+    <div className="mt-2">
+      <div className="flex justify-between text-xs text-gray-600 mb-1">
+        <span>{value} / {total}</span>
+        <span>{pct}%</span>
+      </div>
+      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
+      </div>
+    </div>
+  );
+}
+
+function DomainCard({
+  title, color, health, onNavigate, children, borderTop,
+}: {
+  title: string; color: string; health: "green" | "orange" | "red" | "grey";
+  onNavigate: () => void; children: React.ReactNode; borderTop?: boolean;
+}) {
+  return (
+    <div
+      className="cyber-card rounded-xl p-5"
+      style={{ borderLeft: `4px solid ${color}`, ...(borderTop ? { borderTop: `1px solid ${color}30` } : {}) }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <HealthDot color={health} />
+          <span className="font-bold text-white text-sm">{title}</span>
+        </div>
+        <button
+          onClick={onNavigate}
+          className="text-xs px-2 py-0.5 rounded border transition-all hover:brightness-125"
+          style={{ color, borderColor: color + "50", background: color + "12" }}
+        >
+          → Voir
+        </button>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function MetricRow({ label, value, color }: { label: string; value: string | number; color?: string }) {
+  return (
+    <div className="text-center">
+      <div className="text-lg font-black font-mono" style={{ color: color || "#aaa", fontFamily: "'Share Tech Mono', monospace" }}>{value}</div>
+      <div className="text-gray-600 text-xs mt-0.5 uppercase tracking-wider leading-tight">{label}</div>
+    </div>
+  );
+}
+
+function DashboardHealthPanel({
+  stats, extra, analyticsData, onNavigate,
+}: {
+  stats: Record<string, number>;
+  extra: DashboardExtra;
+  analyticsData: Record<string, unknown> | null;
+  onNavigate: (tab: Tab) => void;
+}) {
+  // ── CFP ──
+  const cfpTotal = stats.cfp || 0;
+  const cfpAccepted = extra.cfpDetailed.filter(s => s.status === "accepted" || s.status === "onboarding" || s.status === "confirmed" || s.status === "scheduled").length;
+  const cfpConfirmed = extra.cfpDetailed.filter(s => s.status === "confirmed" || s.status === "scheduled").length;
+  const cfpScheduled = extra.cfpDetailed.filter(s => s.scheduledInProgramme).length;
+  const cfpHealth: "green" | "orange" | "red" =
+    cfpConfirmed === 0 ? "red" :
+    cfpScheduled < cfpConfirmed * 0.5 ? "orange" : "green";
+
+  // ── Programme ──
+  const sessTotal = extra.sessions.length;
+  const sessScheduled = extra.sessions.filter(s => !!s.date).length;
+  const sessBacklog = sessTotal - sessScheduled;
+  const sessHealth: "green" | "orange" | "red" =
+    sessTotal === 0 || sessScheduled / Math.max(sessTotal, 1) < 0.3 ? "red" :
+    sessScheduled / Math.max(sessTotal, 1) < 0.7 ? "orange" : "green";
+
+  // ── Speakers ──
+  const speakerTotal = stats.speakers || 0;
+  const speakerVisible = speakerTotal; // approximation — visible count from stats
+  const onboardingPending = extra.speakerOnboarding.filter(o => !o.completed).length;
+  const speakerHealth: "green" | "orange" | "red" =
+    speakerTotal === 0 ? "red" : onboardingPending > 0 ? "orange" : "green";
+
+  // ── Inscriptions ──
+  const validated = extra.registrationsValidated;
+  const pendingPay = extra.registrationsPending;
+  const regTotal = validated + pendingPay;
+  const capacity = 200;
+  const fillPct = Math.round((validated / capacity) * 100);
+  const inscHealth: "green" | "orange" | "red" =
+    validated === 0 ? "red" : fillPct < 50 ? "orange" : "green";
+
+  // ── Budget ──
+  const capital = extra.budget.filter(b => b.category === "revenue").reduce((a, b) => a + b.planned, 0);
+  const depenses = extra.budget.filter(b => b.category === "costs").reduce((a, b) => a + b.actual, 0);
+  const solde = capital - depenses;
+  const remaining = capital - depenses;
+  const budgetHealth: "green" | "orange" | "red" =
+    depenses > capital ? "red" : remaining < capital * 0.2 ? "orange" : "green";
+
+  // ── Sponsors ──
+  const sponsorConfirmed = stats.sponsors || 0;
+  const prospectsByStage: Record<string, number> = {};
+  for (const p of extra.sponsorProspects) {
+    prospectsByStage[p.status] = (prospectsByStage[p.status] || 0) + 1;
+  }
+  const sponsorHealth: "green" | "orange" | "red" =
+    sponsorConfirmed === 0 ? "red" : sponsorConfirmed < 3 ? "orange" : "green";
+
+  // ── Bénévoles ──
+  const volTotal = stats.volunteers || 0;
+  const volAccepted = (analyticsData?.volAccepted as number) || 0;
+  const volWithRole = extra.registrationsPending; // rough — we don't have this separately; show 0
+  const volHealth: "green" | "orange" | "red" =
+    volAccepted < 5 ? "red" : volAccepted < 10 ? "orange" : "green";
+
+  // ── Logistique ──
+  const taskTotal = extra.logistics.length;
+  const taskDone = extra.logistics.filter(t => t.done).length;
+  const now = new Date();
+  const taskOverdue = extra.logistics.filter(t => !t.done && t.deadline && new Date(t.deadline) < now).length;
+  const logHealth: "green" | "orange" | "red" =
+    taskOverdue > 0 ? "red" : taskDone < taskTotal * 0.5 ? "orange" : "green";
+
+  // ── Communication ──
+  const postsFailed = extra.socialPosts.filter(p => p.status === "failed").length;
+  const postsScheduled = extra.socialPosts.filter(p => p.status === "scheduled").length;
+  const postsPublished = extra.socialPosts.filter(p => p.status === "published").length;
+  const commHealth: "green" | "orange" | "red" =
+    postsFailed > 0 ? "red" : postsScheduled === 0 ? "orange" : "green";
+
+  // ── Check-in ──
+  const checkedIn = stats.checkedIn || 0;
+  const checkinRate = validated > 0 ? Math.round((checkedIn / validated) * 100) : 0;
+
+  const fmt = (n: number) => n.toLocaleString("fr-FR");
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+      {/* CFP */}
+      <DomainCard title="CFP" color="#cc00ff" health={cfpHealth} onNavigate={() => onNavigate("cfp" as Tab)}>
+        {/* Funnel */}
+        <div className="flex items-center gap-1 mb-3">
+          {[
+            { label: "Soumis", val: cfpTotal },
+            { label: "Acceptés", val: cfpAccepted },
+            { label: "Confirmés", val: cfpConfirmed },
+            { label: "Programmés", val: cfpScheduled },
+          ].map((step, i) => (
+            <div key={step.label} className="flex items-center gap-1 flex-1">
+              <div className="flex-1 rounded-lg p-1.5 text-center" style={{ background: "#cc00ff15", border: "1px solid #cc00ff30" }}>
+                <div className="text-base font-black font-mono" style={{ color: "#cc00ff", fontFamily: "'Share Tech Mono', monospace" }}>{step.val}</div>
+                <div className="text-gray-600 text-xs leading-tight">{step.label}</div>
+              </div>
+              {i < 3 && <span className="text-gray-700 text-xs shrink-0">›</span>}
+            </div>
+          ))}
+        </div>
+      </DomainCard>
+
+      {/* Programme */}
+      <DomainCard title="Programme" color="#00ccff" health={sessHealth} onNavigate={() => onNavigate("pipeline")}>
+        <div className="grid grid-cols-3 gap-3 mb-2">
+          <MetricRow label="Programmées" value={sessScheduled} color="#00ccff" />
+          <MetricRow label="Total sessions" value={sessTotal} color="#aaa" />
+          <MetricRow label="Backlog" value={sessBacklog} color={sessBacklog > 0 ? "#ffaa00" : "#555"} />
+        </div>
+        <MiniBar value={sessScheduled} total={Math.max(sessTotal, 1)} color="#00ccff" />
+      </DomainCard>
+
+      {/* Speakers */}
+      <DomainCard title="Speakers" color="#00ff9d" health={speakerHealth} onNavigate={() => onNavigate("pipeline")}>
+        <div className="grid grid-cols-3 gap-3">
+          <MetricRow label="Total" value={speakerTotal} color="#00ff9d" />
+          <MetricRow label="Visibles" value={speakerVisible} color="#aaa" />
+          <MetricRow label="Onboarding en attente" value={onboardingPending} color={onboardingPending > 0 ? "#ffaa00" : "#555"} />
+        </div>
+      </DomainCard>
+
+      {/* Inscriptions */}
+      <DomainCard title="Inscriptions" color="#ff6600" health={inscHealth} onNavigate={() => onNavigate("registrations")}>
+        <div className="grid grid-cols-3 gap-3 mb-2">
+          <MetricRow label="Validées" value={validated} color="#ff6600" />
+          <MetricRow label="En attente" value={pendingPay} color="#ffaa00" />
+          <MetricRow label="Capacité" value={`${fillPct}%`} color={fillPct >= 80 ? "#00ff9d" : fillPct >= 50 ? "#ffaa00" : "#ff0066"} />
+        </div>
+        <MiniBar value={validated} total={capacity} color="#ff6600" />
+      </DomainCard>
+
+      {/* Budget */}
+      <DomainCard title="Budget" color="#ffaa00" health={budgetHealth} onNavigate={() => onNavigate("budget")}>
+        <div className="grid grid-cols-3 gap-3 mb-2">
+          <MetricRow label="Capital" value={capital > 0 ? `${fmt(Math.round(capital / 1000))}k` : "—"} color="#aaa" />
+          <MetricRow label="Dépenses réelles" value={depenses > 0 ? `${fmt(Math.round(depenses / 1000))}k` : "—"} color={depenses > capital ? "#ff0066" : "#ffaa00"} />
+          <MetricRow label="Solde net" value={capital > 0 ? `${solde >= 0 ? "+" : ""}${fmt(Math.round(solde / 1000))}k` : "—"} color={solde >= 0 ? "#00ff9d" : "#ff0066"} />
+        </div>
+        <MiniBar value={depenses} total={Math.max(capital, 1)} color="#ffaa00" danger />
+      </DomainCard>
+
+      {/* Sponsors */}
+      <DomainCard title="Sponsors" color="#ffaa00" health={sponsorHealth} onNavigate={() => onNavigate("sponsors")}>
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <MetricRow label="Confirmés" value={sponsorConfirmed} color="#ffaa00" />
+          <MetricRow label="Pipeline total" value={extra.sponsorProspects.length} color="#aaa" />
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {["contacted", "meeting", "positive", "concluded"].map(stage => (
+            prospectsByStage[stage] ? (
+              <span key={stage} className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: "#ffaa0015", color: "#ffaa00" }}>
+                {stage}: {prospectsByStage[stage]}
+              </span>
+            ) : null
+          ))}
+        </div>
+      </DomainCard>
+
+      {/* Bénévoles */}
+      <DomainCard title="Bénévoles" color="#0066ff" health={volHealth} onNavigate={() => onNavigate("volunteers")}>
+        <div className="grid grid-cols-3 gap-3">
+          <MetricRow label="Candidatures" value={volTotal} color="#aaa" />
+          <MetricRow label="Acceptés" value={volAccepted} color="#0066ff" />
+          <MetricRow label="Rôles assignés" value={volWithRole} color="#00ff9d" />
+        </div>
+      </DomainCard>
+
+      {/* Logistique */}
+      <DomainCard title="Logistique" color="#ff6600" health={logHealth} onNavigate={() => onNavigate("logistics")}>
+        <div className="grid grid-cols-3 gap-3 mb-2">
+          <MetricRow label="Faites" value={taskDone} color="#00ff9d" />
+          <MetricRow label="Total" value={taskTotal} color="#aaa" />
+          <MetricRow label="En retard" value={taskOverdue} color={taskOverdue > 0 ? "#ff0066" : "#555"} />
+        </div>
+        <MiniBar value={taskDone} total={Math.max(taskTotal, 1)} color="#ff6600" />
+      </DomainCard>
+
+      {/* Communication */}
+      <DomainCard title="Communication" color="#cc00ff" health={commHealth} onNavigate={() => onNavigate("communication")}>
+        <div className="grid grid-cols-3 gap-3">
+          <MetricRow label="Planifiés" value={postsScheduled} color="#ffaa00" />
+          <MetricRow label="Publiés" value={postsPublished} color="#00ff9d" />
+          <MetricRow label="Échoués" value={postsFailed} color={postsFailed > 0 ? "#ff0066" : "#555"} />
+        </div>
+      </DomainCard>
+
+      {/* Check-in */}
+      <DomainCard title="Check-in" color="#00ccff" health="grey" onNavigate={() => onNavigate("registrations")}>
+        <div className="grid grid-cols-3 gap-3 mb-2">
+          <MetricRow label="Enregistrés" value={checkedIn} color="#00ccff" />
+          <MetricRow label="Validés total" value={validated} color="#aaa" />
+          <MetricRow label="Taux" value={`${checkinRate}%`} color={checkinRate >= 50 ? "#00ff9d" : "#888"} />
+        </div>
+        <MiniBar value={checkedIn} total={Math.max(validated, 1)} color="#00ccff" />
+      </DomainCard>
+
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [stats, setStats] = useState<Record<string, number>>({});
   const [data, setData] = useState<Record<string, unknown[]>>({});
   const [loading, setLoading] = useState(false);
+  const [dashboardExtra, setDashboardExtra] = useState<DashboardExtra>({
+    budget: [],
+    logistics: [],
+    sessions: [],
+    socialPosts: [],
+    sponsorProspects: [],
+    speakerOnboarding: [],
+    cfpDetailed: [],
+    registrationsPending: 0,
+    registrationsValidated: 0,
+  });
   const [form, setForm] = useState<Record<string, unknown>>({});
   const [editing, setEditing] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -3457,6 +4396,57 @@ export default function AdminDashboard() {
   useEffect(() => { fetchStats(); }, [fetchStats]);
   useEffect(() => { fetchData("dashboard"); }, [fetchData]);
   useEffect(() => { if (tab !== "dashboard") fetchData(tab); }, [tab, fetchData]);
+
+  // Fetch extra data for domain health dashboard
+  useEffect(() => {
+    const load = async () => {
+      const [budgetRes, logRes, sessRes, postsRes, prospectsRes, obRes, cfpRes, regRes] = await Promise.allSettled([
+        fetch("/api/admin/budget"),
+        fetch("/api/admin/logistics"),
+        fetch("/api/admin/sessions"),
+        fetch("/api/admin/ai/social-posts"),
+        fetch("/api/admin/sponsor-prospects"),
+        fetch("/api/admin/profiles?type=onboarding"),
+        fetch("/api/admin/submissions?type=cfp"),
+        fetch("/api/admin/submissions?type=registration"),
+      ]);
+      const safeJson = async (r: PromiseSettledResult<Response>): Promise<unknown[]> => {
+        if (r.status === "fulfilled" && r.value.ok) { try { return await r.value.json(); } catch { return []; } }
+        return [];
+      };
+      const budget = (await safeJson(budgetRes)) as { category: string; planned: number; actual: number }[];
+      const logistics = (await safeJson(logRes)) as { done: boolean; deadline: string | null }[];
+      const sessions = (await safeJson(sessRes)) as { date: string | null }[];
+      const socialPosts = (await safeJson(postsRes)) as { status: string }[];
+      const sponsorProspects = (await safeJson(prospectsRes)) as { status: string }[];
+      const cfpRaw = (await safeJson(cfpRes)) as { status: string; pipelineStage?: string }[];
+      const cfpDetailed = cfpRaw.map(c => ({
+        status: c.status,
+        scheduledInProgramme: c.pipelineStage === "scheduled" || c.status === "scheduled",
+      }));
+      const regRaw = (await safeJson(regRes)) as { status: string }[];
+      const registrationsValidated = regRaw.filter(r => r.status === "validated" || r.status === "paid").length;
+      const registrationsPending = regRaw.filter(r => r.status === "pending").length;
+
+      // Onboarding: fetch speakers and check if they have talkTitle (basic completion proxy)
+      let speakerOnboarding: { completed: boolean }[] = [];
+      try {
+        const spRes = await fetch("/api/admin/speakers");
+        if (spRes.ok) {
+          const spData = await spRes.json() as { talkTitle?: string; photoUrl?: string; bio?: string }[];
+          speakerOnboarding = spData.map(s => ({
+            completed: !!(s.talkTitle && s.photoUrl && s.bio),
+          }));
+        }
+      } catch { /* ignore */ }
+
+      setDashboardExtra({
+        budget, logistics, sessions, socialPosts, sponsorProspects,
+        speakerOnboarding, cfpDetailed, registrationsPending, registrationsValidated,
+      });
+    };
+    load();
+  }, []);
 
   const save = async (endpoint: string) => {
     const method = editing ? "PUT" : "POST";
@@ -3559,6 +4549,13 @@ export default function AdminDashboard() {
       ],
     },
     {
+      label: t.ctf,
+      icon: "⚡",
+      tabs: [
+        { id: "ctf", label: t.ctf },
+      ],
+    },
+    {
       label: t.communication,
       icon: "◉",
       tabs: [
@@ -3650,131 +4647,20 @@ export default function AdminDashboard() {
           {/* DASHBOARD */}
           {tab === "dashboard" && (
             <div>
-              <h1 className="text-2xl font-black text-white mb-6">{t.dashboardTitle}</h1>
-              {/* Stat cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6">
-                <StatCard label={t.speakers} value={stats.speakers || 0} />
-                <StatCard label={t.sponsors} value={stats.sponsors || 0} color="#ffd700" />
-                <StatCard label={t.sessionsLabel} value={stats.sessions || 0} color="#0066ff" />
-                <StatCard label={t.cfp} value={stats.cfp || 0} color="#cc00ff" />
-                <StatCard label={t.benevoles} value={stats.volunteers || 0} color="#ff6600" />
-                <StatCard label={t.inscriptions} value={stats.registrations || 0} color="#ff0066" />
-                <StatCard label={t.newsletterLabel} value={stats.subscribers || 0} color="#ffaa00" />
-                <StatCard label={t.equipe} value={stats.team || 0} color="#00ccff" />
+              <div className="flex items-center justify-between mb-6">
+                <h1 className="text-2xl font-black text-white">{t.dashboardTitle}</h1>
+                <div className="flex items-center gap-3 text-xs text-gray-600">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-400 inline-block" />OK</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ background: "#ffaa00" }} />Attention</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ background: "#ff0066" }} />Critique</span>
+                </div>
               </div>
-              {/* Analytics section inlined */}
-              {(data.analytics?.[0] as Record<string, unknown> | undefined) && (() => {
-                const ad = data.analytics![0] as Record<string, unknown>;
-                const curve = (ad.registrationCurve as { date: string; count: number }[]) || [];
-                const byTicket = (ad.byTicket as Record<string, number>) || {};
-                const topCountries = (ad.topCountries as { country: string; count: number }[]) || [];
-                const totalRegs = (ad.totalRegistrations as number) || 0;
-                const maxCount = Math.max(...curve.map(c => c.count), 1);
-                return (
-                  <>
-                    {/* CFP breakdown + check-in */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                      {[
-                        { label: "CFP Total", value: ad.cfpTotal as number, color: "#888" },
-                        { label: "CFP Acceptés", value: ad.cfpAccepted as number, color: "#00ff9d" },
-                        { label: "Taux CFP", value: `${ad.cfpRate}%`, color: "#ff6600" },
-                        { label: "Check-ins", value: ad.checkedIn as number, color: "#0066ff" },
-                      ].map(k => (
-                        <div key={k.label} className="cyber-card rounded-xl p-4 text-center">
-                          <div className="text-2xl font-black font-mono" style={{ color: k.color, fontFamily: "'Share Tech Mono', monospace" }}>{k.value ?? 0}</div>
-                          <div className="text-gray-500 text-xs uppercase tracking-wider mt-1">{k.label}</div>
-                        </div>
-                      ))}
-                    </div>
-                    {/* Registration curve */}
-                    {curve.length > 0 && (
-                      <div className="cyber-card rounded-xl p-5 mb-6">
-                        <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Courbe d&apos;inscriptions</h2>
-                        <div className="flex items-end gap-1 h-32">
-                          {curve.map(c => (
-                            <div key={c.date} className="flex flex-col items-center flex-1 min-w-0" title={`${c.date}: ${c.count}`}>
-                              <div className="w-full rounded-t transition-all" style={{ height: `${Math.round((c.count / maxCount) * 100)}%`, background: "#00ff9d", minHeight: 2, opacity: 0.8 }} />
-                            </div>
-                          ))}
-                        </div>
-                        <div className="flex justify-between text-gray-700 text-xs mt-1">
-                          <span>{curve[0]?.date || ""}</span>
-                          <span>{totalRegs} total</span>
-                          <span>{curve[curve.length - 1]?.date || ""}</span>
-                        </div>
-                      </div>
-                    )}
-                    {/* Ticket breakdown + top countries */}
-                    {(Object.keys(byTicket).length > 0 || topCountries.length > 0) && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <div className="cyber-card rounded-xl p-5">
-                          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Par type de billet</h2>
-                          <div className="space-y-2">
-                            {Object.entries(byTicket).map(([type, count]) => (
-                              <div key={type} className="flex items-center gap-2">
-                                <span className="text-xs text-gray-400 w-24 shrink-0">{type}</span>
-                                <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-                                  <div className="h-full rounded-full bg-neon-green/60" style={{ width: `${totalRegs > 0 ? Math.round((count / totalRegs) * 100) : 0}%` }} />
-                                </div>
-                                <span className="text-xs font-mono text-neon-green w-8 text-right">{count}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="cyber-card rounded-xl p-5">
-                          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Top pays</h2>
-                          <div className="space-y-2">
-                            {topCountries.map(c => (
-                              <div key={c.country} className="flex items-center gap-2">
-                                <span className="text-xs text-gray-400 w-24 shrink-0 truncate">{c.country}</span>
-                                <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-                                  <div className="h-full rounded-full" style={{ width: `${totalRegs > 0 ? Math.round((c.count / totalRegs) * 100) : 0}%`, background: "#0066ff" }} />
-                                </div>
-                                <span className="text-xs font-mono w-8 text-right" style={{ color: "#0066ff" }}>{c.count}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    {/* CFP funnel + volunteer rates */}
-                    <div className="cyber-card rounded-xl p-5 mb-6">
-                      <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Funnel CFP &amp; Bénévoles</h2>
-                      <div className="flex gap-8 items-center flex-wrap">
-                        {[
-                          { label: "CFP Soumis", value: ad.cfpTotal as number, color: "#888" },
-                          { label: "CFP Acceptés", value: ad.cfpAccepted as number, color: "#00ff9d" },
-                          { label: "Taux CFP", value: `${ad.cfpRate}%`, color: "#ff6600" },
-                          { label: "Taux Bénévoles", value: `${ad.volRate}%`, color: "#cc00ff" },
-                        ].map(f => (
-                          <div key={f.label} className="text-center">
-                            <div className="text-2xl font-black font-mono" style={{ color: f.color, fontFamily: "'Share Tech Mono', monospace" }}>{f.value ?? 0}</div>
-                            <div className="text-gray-500 text-xs mt-1">{f.label}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                );
-              })()}
-              {/* Quick action cards */}
-              <div className="grid sm:grid-cols-2 gap-4">
-                {[
-                  { tab: "speakers", label: "Gérer les Speakers", desc: "Ajouter, éditer et ordonner les intervenants 2026" },
-                  { tab: "sponsors", label: "Gérer les Sponsors", desc: "Logos, tiers et liens des sponsors" },
-                  { tab: "pipeline", label: "Éditer le Programme", desc: "Planifier les sessions dans le pipeline speakers (onglet Programme)" },
-                  { tab: "cfp", label: "Propositions de Talks", desc: "Examiner et statuer sur les CFP reçus" },
-                  { tab: "volunteers", label: "Candidatures Bénévoles", desc: "Gérer les candidatures reçues" },
-                  { tab: "registrations", label: "Inscriptions", desc: "Liste complète des participants inscrits" },
-                  { tab: "team", label: "Équipe d'organisation", desc: "Gérer les membres de l'équipe organisatrice" },
-                  { tab: "past-speakers", label: "Anciens Intervenants", desc: "Archive des intervenants des éditions précédentes" },
-                ].map(item => (
-                  <button key={item.tab} onClick={() => setTab(item.tab as Tab)} className="cyber-card rounded-xl p-5 text-left hover:border-neon-green/50 transition-all">
-                    <div className="text-neon-green font-bold text-sm mb-1">{item.label}</div>
-                    <div className="text-gray-500 text-xs">{item.desc}</div>
-                  </button>
-                ))}
-              </div>
+              <DashboardHealthPanel
+                stats={stats}
+                extra={dashboardExtra}
+                analyticsData={(data.analytics?.[0] as Record<string, unknown>) || null}
+                onNavigate={setTab}
+              />
             </div>
           )}
 
@@ -3854,8 +4740,12 @@ export default function AdminDashboard() {
           {tab === "volunteers" && (
             <div>
               <h1 className="text-2xl font-black text-white mb-6">{t.benevoles} ({(data.volunteers || []).length})</h1>
+              {(() => {
+                const volunteerList = (data.volunteers || []) as Record<string, unknown>[];
+                const existingRoles = Array.from(new Set(volunteerList.map(v => v.role as string).filter(Boolean))).sort();
+                return (
               <div className="space-y-3">
-                {((data.volunteers || []) as Record<string, unknown>[]).map(v => (
+                {volunteerList.map(v => (
                   <div key={v.id as number} className="cyber-card rounded-xl p-5">
                     <div className="flex items-start justify-between gap-4 mb-3">
                       <div>
@@ -3878,19 +4768,22 @@ export default function AdminDashboard() {
                       <div className="border-t border-gray-800 pt-3 mt-2">
                         <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Affectation</p>
                         <div className="flex gap-2 flex-wrap">
-                          <input
-                            type="text"
-                            placeholder="Rôle assigné"
+                          <select
+                            className="cyber-input text-xs rounded px-2 py-1 flex-1 min-w-[140px]"
                             defaultValue={(v.assignedRole as string) || ""}
-                            className="cyber-input text-xs rounded px-2 py-1 flex-1 min-w-[120px]"
-                            onBlur={async (e) => {
+                            onChange={async (e) => {
                               await fetch("/api/admin/submissions", {
                                 method: "PATCH",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ type: "volunteer-assign", id: v.id, assignedRole: e.target.value }),
                               });
                             }}
-                          />
+                          >
+                            <option value="">— Rôle assigné —</option>
+                            {existingRoles.map(r => (
+                              <option key={r} value={r}>{r}</option>
+                            ))}
+                          </select>
                           <input
                             type="datetime-local"
                             defaultValue={(v.shiftStart as string)?.slice(0, 16) || ""}
@@ -3921,8 +4814,10 @@ export default function AdminDashboard() {
                     <p className="text-gray-600 text-xs mt-2">{new Date(v.createdAt as string).toLocaleDateString("fr-FR")}</p>
                   </div>
                 ))}
-                {!data.volunteers?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune candidature</p>}
+                {!volunteerList.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune candidature</p>}
               </div>
+                );
+              })()}
             </div>
           )}
 
@@ -4248,6 +5143,9 @@ export default function AdminDashboard() {
               onRefresh={() => fetchData("logistics")}
             />
           )}
+
+          {/* CTF */}
+          {tab === "ctf" && <CTFPanel />}
 
           {/* TICKETS */}
           {tab === "tickets" && <TicketsPanel />}

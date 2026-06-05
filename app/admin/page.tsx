@@ -422,11 +422,21 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
   const [apolloKeywords, setApolloKeywords] = useState("cybersecurity,technology,telecom,finance");
   const [placesQuery, setPlacesQuery] = useState("");
   const [searching, setSearching] = useState(false);
-  const [emailTarget, setEmailTarget] = useState<Record<string, unknown> | null>(null);
-  const [emailResult, setEmailResult] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
-  const [generatingEmail, setGeneratingEmail] = useState(false);
   const [packages, setPackages] = useState<Record<string, unknown>[]>([]);
-  const [filter, setFilter] = useState<"all" | "pending" | "added">("all");
+  const [view, setView] = useState<"leads" | "pipeline">("leads");
+
+  // Selection for batch scoring
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [scoring, setScoring] = useState(false);
+
+  // Contact modal
+  const [contactTarget, setContactTarget] = useState<Record<string, unknown> | null>(null);
+  const [contactLang, setContactLang] = useState<"fr" | "en">("fr");
+  const [contactSubject, setContactSubject] = useState("");
+  const [contactBody, setContactBody] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/sponsor-packages").then(r => r.json()).then(setPackages).catch(() => {});
@@ -434,11 +444,7 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
 
   const runApolloSearch = async () => {
     setSearching(true);
-    await fetch("/api/admin/ai/apollo-search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ keywords: apolloKeywords.split(",").map(k => k.trim()).filter(Boolean) }),
-    });
+    await fetch("/api/admin/ai/apollo-search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keywords: apolloKeywords.split(",").map(k => k.trim()).filter(Boolean) }) });
     await onRefresh();
     setSearching(false);
   };
@@ -446,61 +452,9 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
   const runPlacesSearch = async () => {
     if (!placesQuery.trim()) return;
     setSearching(true);
-    await fetch("/api/admin/ai/places-search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: placesQuery }),
-    });
+    await fetch("/api/admin/ai/places-search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: placesQuery }) });
     await onRefresh();
     setSearching(false);
-  };
-
-  const generateEmail = async (lead: Record<string, unknown>) => {
-    setEmailTarget(lead);
-    setEmailResult(null);
-    setGeneratingEmail(true);
-    const pkg = packages.find(p => p.tier === lead.recommendedPackage);
-    const res = await fetch("/api/admin/ai/sponsor-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        org: lead.org,
-        contact: lead.contactName,
-        contactTitle: lead.contactTitle,
-        package: lead.recommendedPackage,
-        packagePrice: pkg ? `${(pkg.price as number).toLocaleString("fr-FR")} FCFA` : undefined,
-        sector: lead.sector,
-        mode: "prospect",
-      }),
-    });
-    if (res.ok) setEmailResult(await res.json());
-    setGeneratingEmail(false);
-  };
-
-  const addToPipeline = async (lead: Record<string, unknown>) => {
-    // Mark lead as added
-    await fetch("/api/admin/ai/prospect-leads", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: lead.id, addedToPipeline: true }),
-    });
-    // Create prospect entry with status "prospect"
-    await fetch("/api/admin/sponsor-prospects", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        org: lead.org,
-        contact: lead.contactName || null,
-        email: lead.contactEmail || null,
-        phone: lead.phone || null,
-        package: lead.recommendedPackage || null,
-        notes: lead.aiScoreReason || null,
-        status: "prospect",
-      }),
-    });
-    setEmailTarget(null);
-    setEmailResult(null);
-    onRefresh();
   };
 
   const scoreColor = (s: number | null | undefined) => {
@@ -508,6 +462,81 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
     return s >= 7 ? "#00ff9d" : s >= 5 ? "#ffaa00" : "#ff0066";
   };
 
+  const scoreSelected = async () => {
+    const ids = Array.from(selected);
+    if (ids.length === 0 || ids.length > 10) return;
+    setScoring(true);
+    const res = await fetch("/api/admin/ai/score-prospects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
+    if (res.ok) {
+      const { leads: updated } = await res.json() as { leads: Record<string, unknown>[]; scored: number };
+      // Merge updated scores back without full refresh
+      updated.forEach(u => {
+        const lead = leads.find(l => l.id === u.id);
+        if (lead) { lead.aiScore = u.aiScore; lead.aiScoreReason = u.aiScoreReason; lead.recommendedPackage = u.recommendedPackage; }
+      });
+      onRefresh();
+    }
+    setSelected(new Set());
+    setScoring(false);
+  };
+
+  const addToPipeline = async (lead: Record<string, unknown>, status = "prospect") => {
+    await fetch("/api/admin/ai/prospect-leads", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: lead.id, addedToPipeline: true }) });
+    await fetch("/api/admin/sponsor-prospects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ org: lead.org, contact: lead.contactName || null, email: lead.contactEmail || null, phone: lead.phone || null, package: lead.recommendedPackage || null, notes: lead.aiScoreReason || null, status }),
+    });
+    onRefresh();
+  };
+
+  const deleteLead = async (lead: Record<string, unknown>) => {
+    if (!confirm(`Supprimer définitivement "${lead.org}" ?`)) return;
+    await fetch("/api/admin/ai/prospect-leads", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: lead.id }) });
+    onRefresh();
+  };
+
+  const openContactModal = (lead: Record<string, unknown>) => {
+    setContactTarget(lead);
+    setContactLang("fr");
+    setContactSubject("");
+    setContactBody("");
+    setSendResult(null);
+    setGenerating(false);
+  };
+
+  const generateContactEmail = async () => {
+    if (!contactTarget) return;
+    setGenerating(true);
+    const pkg = packages.find(p => p.tier === contactTarget.recommendedPackage);
+    const res = await fetch("/api/admin/ai/sponsor-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ org: contactTarget.org, contact: contactTarget.contactName, contactTitle: contactTarget.contactTitle, package: contactTarget.recommendedPackage, packagePrice: pkg ? `${(pkg.price as number).toLocaleString("fr-FR")} FCFA` : undefined, sector: contactTarget.sector, mode: "prospect" }),
+    });
+    if (res.ok) {
+      const data = await res.json() as { subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string };
+      setContactSubject(contactLang === "fr" ? data.subjectFr : data.subjectEn);
+      setContactBody(contactLang === "fr" ? data.bodyFr : data.bodyEn);
+    }
+    setGenerating(false);
+  };
+
+  const sendContactEmail = async () => {
+    if (!contactTarget || !contactSubject || !contactBody) return;
+    const to = contactTarget.contactEmail as string;
+    if (!to) { setSendResult("❌ Aucun email de contact disponible pour ce prospect."); return; }
+    setSending(true);
+    const res = await fetch("/api/admin/ai/prospect-email-send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, subject: contactSubject, body: contactBody, org: contactTarget.org }),
+    });
+    setSendResult(res.ok ? "✓ Email envoyé avec succès." : "❌ Erreur lors de l'envoi.");
+    setSending(false);
+  };
+
+  // Deduplicate
   const seen = new Set<string>();
   const deduped = leads.filter(l => {
     const key = (l.org as string).toLowerCase().trim();
@@ -516,61 +545,92 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
     return true;
   });
 
-  const filtered = deduped.filter(l => {
-    if (filter === "pending") return !l.addedToPipeline;
-    if (filter === "added") return !!l.addedToPipeline;
-    return true;
-  });
+  const pendingLeads = deduped.filter(l => !l.addedToPipeline).sort((a, b) => ((b.aiScore as number) || 0) - ((a.aiScore as number) || 0));
+  const pipelineLeads = deduped.filter(l => !!l.addedToPipeline).sort((a, b) => ((b.aiScore as number) || 0) - ((a.aiScore as number) || 0));
 
-  const pending = deduped.filter(l => !l.addedToPipeline).length;
-  const added = deduped.filter(l => !!l.addedToPipeline).length;
+  // Selection helpers
+  const canSelect = (lead: Record<string, unknown>) => lead.aiScore === null || lead.aiScore === undefined;
+  const toggleSelect = (id: number, lead: Record<string, unknown>) => {
+    if (!canSelect(lead)) return; // already scored — block
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id); else if (next.size < 10) next.add(id);
+    setSelected(next);
+  };
+  const selectedCount = selected.size;
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-black text-white">Prospection Sponsors IA</h1>
-        <p className="text-gray-500 text-xs mt-1">Workflow : Recherche → Leads → Scoring IA → Email personnalisé → Pipeline</p>
-      </div>
-
-      {emailTarget && (
+      {/* Contact modal */}
+      {contactTarget && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto">
+          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-white font-bold">{emailTarget.org as string}</h3>
-                <p className="text-gray-500 text-xs">{emailTarget.sector as string} · Package recommandé : <span style={{ color: "#00ff9d" }}>{(emailTarget.recommendedPackage as string) || "—"}</span></p>
+                <h3 className="text-white font-bold">{contactTarget.org as string}</h3>
+                <p className="text-gray-500 text-xs">{contactTarget.sector as string} · {contactTarget.contactEmail as string || "Pas d'email"}</p>
               </div>
-              <button onClick={() => { setEmailTarget(null); setEmailResult(null); }} className="text-gray-500 hover:text-white text-xl">✕</button>
+              <button onClick={() => setContactTarget(null)} className="text-gray-500 hover:text-white text-xl">✕</button>
             </div>
-            {generatingEmail && <p className="text-gray-500 text-xs text-center py-8">Génération de l&apos;email personnalisé...</p>}
-            {emailResult && (
-              <div className="space-y-4">
-                {[
-                  { lang: "Français", subject: emailResult.subjectFr, body: emailResult.bodyFr },
-                  { lang: "English", subject: emailResult.subjectEn, body: emailResult.bodyEn },
-                ].map(e => (
-                  <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-bold text-gray-400 uppercase">{e.lang}</span>
-                      <button onClick={() => navigator.clipboard.writeText(`Objet : ${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>Copier</button>
-                    </div>
-                    <p className="text-white text-xs font-bold mb-2">Objet : {e.subject}</p>
-                    <p className="text-gray-400 text-xs whitespace-pre-wrap leading-relaxed">{e.body}</p>
-                  </div>
-                ))}
-                <button
-                  onClick={() => addToPipeline(emailTarget)}
-                  className="w-full py-2 rounded text-sm font-bold transition-all"
-                  style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}
-                >
-                  + Ajouter au pipeline sponsors
+
+            {/* Lang + generate */}
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-xs text-gray-500">Langue :</span>
+              {(["fr", "en"] as const).map(l => (
+                <button key={l} onClick={() => setContactLang(l)}
+                  className={`text-xs px-3 py-1 rounded border transition-all ${contactLang === l ? "bg-neon-green/10 text-neon-green border-neon-green/30" : "text-gray-500 border-gray-700"}`}>
+                  {l === "fr" ? "🇫🇷 Français" : "🇬🇧 English"}
                 </button>
-              </div>
+              ))}
+              <button onClick={generateContactEmail} disabled={generating}
+                className="ml-auto text-xs px-4 py-1.5 rounded transition-all"
+                style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}>
+                {generating ? "Génération…" : "✨ Générer"}
+              </button>
+            </div>
+
+            {/* Editable subject */}
+            <div className="mb-3">
+              <label className="text-xs text-gray-500 block mb-1">Objet</label>
+              <input
+                className="cyber-input w-full px-3 py-2 rounded text-xs text-white"
+                value={contactSubject}
+                onChange={e => setContactSubject(e.target.value)}
+                placeholder="Objet de l'email…"
+              />
+            </div>
+
+            {/* Editable body */}
+            <div className="mb-4">
+              <label className="text-xs text-gray-500 block mb-1">Corps du message</label>
+              <textarea
+                className="cyber-input w-full px-3 py-2 rounded text-xs text-white leading-relaxed"
+                rows={12}
+                value={contactBody}
+                onChange={e => setContactBody(e.target.value)}
+                placeholder="Corps de l'email…"
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button onClick={sendContactEmail} disabled={sending || !contactSubject || !contactBody}
+                className="btn-neon px-5 py-2 rounded text-xs disabled:opacity-50">
+                {sending ? "Envoi…" : "📤 Envoyer"}
+              </button>
+              <span className="text-xs text-gray-600">Reply-To : contact@eyesopensecurity.com</span>
+            </div>
+            {sendResult && (
+              <p className="mt-3 text-xs font-mono" style={{ color: sendResult.startsWith("✓") ? "#00ff9d" : "#ff0066" }}>{sendResult}</p>
             )}
           </div>
         </div>
       )}
 
+      <div className="mb-6">
+        <h1 className="text-2xl font-black text-white">Prospection Sponsors IA</h1>
+        <p className="text-gray-500 text-xs mt-1">Workflow : Recherche → Leads → Scoring IA → Pipeline → Contacter</p>
+      </div>
+
+      {/* Search */}
       <div className="cyber-card rounded-xl p-5 mb-5">
         <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#00ff9d" }}>
           Étape 1 — Recherche de prospects
@@ -603,99 +663,151 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
             </button>
           </div>
         )}
-        <p className="text-gray-700 text-xs mt-2">
-          Apollo.io couvre les entreprises de +50 employés en Afrique · Google Places couvre les PME locales de Douala
-        </p>
+        <p className="text-gray-700 text-xs mt-2">Apollo.io couvre les entreprises de +50 employés en Afrique · Google Places couvre les PME locales de Douala</p>
       </div>
 
-      <div className="cyber-card rounded-xl p-5 mb-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xs font-bold uppercase tracking-widest" style={{ color: "#0066ff" }}>
-            Étapes 2 &amp; 3 — Leads ({deduped.length}) · Scoring IA
-          </h2>
-          <div className="flex gap-2">
-            {(["all", "pending", "added"] as const).map(f => (
-              <button key={f} onClick={() => setFilter(f)} className={`text-xs px-3 py-1 rounded transition-all ${filter === f ? "bg-white/10 text-white" : "text-gray-600 hover:text-gray-400"}`}>
-                {f === "all" ? `Tous (${deduped.length})` : f === "pending" ? `À traiter (${pending})` : `En pipeline (${added})`}
-              </button>
-            ))}
+      {/* View tabs */}
+      <div className="flex items-center gap-3 mb-4">
+        {(["leads", "pipeline"] as const).map(v => (
+          <button key={v} onClick={() => setView(v)}
+            className={`text-xs px-4 py-2 rounded border transition-all ${view === v ? "bg-neon-green/10 text-neon-green border-neon-green/30" : "text-gray-600 border-gray-800"}`}>
+            {v === "leads" ? `📋 Leads (${pendingLeads.length})` : `🎯 En pipeline (${pipelineLeads.length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* LEADS VIEW */}
+      {view === "leads" && (
+        <div className="cyber-card rounded-xl p-5 mb-5">
+          {/* Scoring toolbar */}
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-xs text-gray-500">{selectedCount} sélectionné{selectedCount > 1 ? "s" : ""} (max 10)</span>
+            <button
+              onClick={scoreSelected}
+              disabled={selectedCount === 0 || scoring}
+              className="text-xs px-4 py-1.5 rounded transition-all disabled:opacity-40"
+              style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}
+            >
+              {scoring ? "Analyse IA…" : "✨ Scorer avec IA"}
+            </button>
+            {selectedCount > 0 && (
+              <button onClick={() => setSelected(new Set())} className="text-xs text-gray-600 hover:text-gray-400">Tout déselectionner</button>
+            )}
+          </div>
+
+          {pendingLeads.length === 0 && (
+            <p className="text-gray-600 text-xs py-8 text-center">Aucun prospect. Lancez une recherche ci-dessus ou tous les leads sont déjà en pipeline.</p>
+          )}
+
+          <div className="space-y-3">
+            {pendingLeads.map(lead => {
+              const id = lead.id as number;
+              const isSelected = selected.has(id);
+              const isScored = lead.aiScore !== null && lead.aiScore !== undefined;
+              return (
+                <div key={id} className={`border rounded-xl p-4 transition-all ${isSelected ? "border-blue-500/50 bg-blue-500/5" : "border-gray-700 hover:border-gray-500"}`}>
+                  <div className="flex items-start gap-3">
+                    {/* Checkbox */}
+                    <div className="pt-0.5 shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={isScored}
+                        onChange={() => toggleSelect(id, lead)}
+                        title={isScored ? "Déjà scoré — scoring IA non nécessaire" : "Sélectionner pour scorer"}
+                        className="w-3.5 h-3.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+                      />
+                    </div>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: lead.source === "apollo" ? "#0066ff15" : "#cc00ff15", color: lead.source === "apollo" ? "#0066ff" : "#cc00ff" }}>
+                          {lead.source as string}
+                        </span>
+                        {isScored ? (
+                          <span className="text-xs px-2 py-0.5 rounded font-mono font-bold" style={{ background: scoreColor(lead.aiScore as number) + "20", color: scoreColor(lead.aiScore as number) }}>
+                            ✨ {(lead.aiScore as number).toFixed(1)}/10
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-700 font-mono">— non scoré</span>
+                        )}
+                        {!!(lead.recommendedPackage as string) && (
+                          <span className="text-xs px-2 py-0.5 rounded border" style={{ borderColor: "#ffaa0040", color: "#ffaa00" }}>{lead.recommendedPackage as string}</span>
+                        )}
+                      </div>
+                      <p className="text-white font-bold text-sm">{lead.org as string}</p>
+                      {(!!lead.sector || !!lead.city) && <p className="text-gray-500 text-xs mt-0.5">{lead.sector as string}{lead.city ? ` · ${lead.city}` : ""}</p>}
+                      {!!lead.contactName && <p className="text-xs mt-1" style={{ color: "#00ff9d" }}>👤 {lead.contactName as string}{lead.contactTitle ? ` — ${lead.contactTitle}` : ""}</p>}
+                      {!!lead.contactEmail && <p className="text-gray-400 text-xs">✉ {lead.contactEmail as string}</p>}
+                      {!!lead.website && <a href={lead.website as string} target="_blank" rel="noreferrer" className="text-xs hover:underline block mt-0.5" style={{ color: "#0066ff" }}>🌐 {lead.website as string}</a>}
+                      {!lead.contactEmail && lead.source === "google_places" && <p className="text-gray-700 text-xs mt-0.5 italic">Email non disponible via Google Places — consulter le site web</p>}
+                      {!!lead.aiScoreReason && <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>}
+                    </div>
+                    {/* Actions */}
+                    <div className="flex flex-col gap-1.5 shrink-0">
+                      <button onClick={() => addToPipeline(lead, "prospect")}
+                        className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
+                        style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>
+                        + Pipeline
+                      </button>
+                      <button onClick={() => addToPipeline(lead, "abandoned")}
+                        className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
+                        style={{ background: "#88888815", color: "#888", border: "1px solid #88888830" }}>
+                        Abandonner
+                      </button>
+                      <button onClick={() => deleteLead(lead)}
+                        className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
+                        style={{ background: "#ff006615", color: "#ff0066", border: "1px solid #ff006630" }}>
+                        ✕ Supprimer
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
+      )}
 
-        {filtered.length === 0 && (
-          <p className="text-gray-600 text-xs py-8 text-center">
-            {deduped.length === 0 ? "Aucun prospect. Lancez une recherche ci-dessus." : "Aucun prospect dans ce filtre."}
-          </p>
-        )}
-
-        <div className="space-y-3">
-          {filtered.sort((a, b) => ((b.aiScore as number) || 0) - ((a.aiScore as number) || 0)).map(lead => (
-            <div key={lead.id as number} className={`border rounded-xl p-4 transition-all ${lead.addedToPipeline ? "border-gray-800 opacity-60" : "border-gray-700 hover:border-gray-500"}`}>
-              <div className="flex items-start justify-between gap-4">
+      {/* PIPELINE VIEW */}
+      {view === "pipeline" && (
+        <div className="cyber-card rounded-xl p-5 mb-5">
+          {pipelineLeads.length === 0 && (
+            <p className="text-gray-600 text-xs py-8 text-center">Aucun prospect en pipeline. Ajoutez des leads depuis l&apos;onglet Leads.</p>
+          )}
+          <div className="space-y-3">
+            {pipelineLeads.map(lead => (
+              <div key={lead.id as number} className="border border-gray-700 rounded-xl p-4 flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: lead.source === "apollo" ? "#0066ff15" : "#cc00ff15", color: lead.source === "apollo" ? "#0066ff" : "#cc00ff" }}>
-                      {lead.source as string}
-                    </span>
+                    <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: lead.source === "apollo" ? "#0066ff15" : "#cc00ff15", color: lead.source === "apollo" ? "#0066ff" : "#cc00ff" }}>{lead.source as string}</span>
                     {lead.aiScore !== null && lead.aiScore !== undefined && (
                       <span className="text-xs px-2 py-0.5 rounded font-mono font-bold" style={{ background: scoreColor(lead.aiScore as number) + "20", color: scoreColor(lead.aiScore as number) }}>
-                        Score {(lead.aiScore as number).toFixed(1)}/10
+                        ✨ {(lead.aiScore as number).toFixed(1)}/10
                       </span>
                     )}
                     {!!(lead.recommendedPackage as string) && (
-                      <span className="text-xs px-2 py-0.5 rounded border" style={{ borderColor: "#ffaa0040", color: "#ffaa00" }}>
-                        {lead.recommendedPackage as string}
-                      </span>
+                      <span className="text-xs px-2 py-0.5 rounded border" style={{ borderColor: "#ffaa0040", color: "#ffaa00" }}>{lead.recommendedPackage as string}</span>
                     )}
-                    {!!lead.addedToPipeline && <span className="text-xs text-neon-green">✓ En pipeline</span>}
+                    <span className="text-xs text-neon-green">✓ En pipeline</span>
                   </div>
                   <p className="text-white font-bold text-sm">{lead.org as string}</p>
-                  {(!!lead.sector || !!lead.city) && (
-                    <p className="text-gray-500 text-xs mt-0.5">{lead.sector as string}{lead.city ? ` · ${lead.city}` : ""}</p>
-                  )}
-                  {!!lead.contactName && (
-                    <p className="text-xs mt-1" style={{ color: "#00ff9d" }}>
-                      👤 {lead.contactName as string}{lead.contactTitle ? ` — ${lead.contactTitle}` : ""}
-                    </p>
-                  )}
-                  {!!lead.contactEmail && (
-                    <p className="text-gray-400 text-xs">✉ {lead.contactEmail as string}</p>
-                  )}
-                  {!!lead.website && (
-                    <a href={lead.website as string} target="_blank" rel="noreferrer" className="text-xs hover:underline block mt-0.5" style={{ color: "#0066ff" }}>
-                      🌐 {lead.website as string}
-                    </a>
-                  )}
-                  {!lead.contactEmail && lead.source === "google_places" && (
-                    <p className="text-gray-700 text-xs mt-0.5 italic">Email non disponible via Google Places — consulter le site web</p>
-                  )}
-                  {!!lead.aiScoreReason && (
-                    <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>
-                  )}
+                  {(!!lead.sector || !!lead.city) && <p className="text-gray-500 text-xs mt-0.5">{lead.sector as string}{lead.city ? ` · ${lead.city}` : ""}</p>}
+                  {!!lead.contactName && <p className="text-xs mt-1" style={{ color: "#00ff9d" }}>👤 {lead.contactName as string}{lead.contactTitle ? ` — ${lead.contactTitle}` : ""}</p>}
+                  {!!lead.contactEmail && <p className="text-gray-400 text-xs">✉ {lead.contactEmail as string}</p>}
+                  {!!lead.website && <a href={lead.website as string} target="_blank" rel="noreferrer" className="text-xs hover:underline block mt-0.5" style={{ color: "#0066ff" }}>🌐 {lead.website as string}</a>}
+                  {!!lead.aiScoreReason && <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>}
                 </div>
-                {!lead.addedToPipeline && (
-                  <div className="flex flex-col gap-2 shrink-0">
-                    <button
-                      onClick={() => generateEmail(lead)}
-                      className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
-                      style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}
-                    >
-                      ✉ Générer email
-                    </button>
-                    <button
-                      onClick={() => addToPipeline(lead)}
-                      className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
-                      style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}
-                    >
-                      + Pipeline
-                    </button>
-                  </div>
-                )}
+                <button onClick={() => openContactModal(lead)}
+                  className="text-xs px-4 py-2 rounded whitespace-nowrap transition-all shrink-0"
+                  style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}>
+                  ✉ Contacter le prospect
+                </button>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {packages.length > 0 && (
         <div className="cyber-card rounded-xl p-5">
@@ -1574,31 +1686,58 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
   const { t, lang } = useAdminT();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ status: "prospect" });
-  const [aiEmail, setAiEmail] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
-  const [aiEmailTarget, setAiEmailTarget] = useState<{ org: string; id: number } | null>(null);
-  const [generatingFor, setGeneratingFor] = useState<number | null>(null);
 
-  const generateFollowupEmail = async (p: Record<string, unknown>) => {
-    setGeneratingFor(p.id as number);
-    setAiEmailTarget({ org: p.org as string, id: p.id as number });
+  // Contact modal state
+  const [contactTarget, setContactTarget] = useState<Record<string, unknown> | null>(null);
+  const [contactLang, setContactLang] = useState<"fr" | "en">("fr");
+  const [contactSubject, setContactSubject] = useState("");
+  const [contactBody, setContactBody] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState<string | null>(null);
+
+  const openContact = (p: Record<string, unknown>) => {
+    setContactTarget(p);
+    setContactLang("fr");
+    setContactSubject("");
+    setContactBody("");
+    setSendResult(null);
+  };
+
+  const generateEmail = async () => {
+    if (!contactTarget) return;
+    setGenerating(true);
     const res = await fetch("/api/admin/ai/sponsor-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ org: p.org, contact: p.contact, package: p.package, status: p.status, notes: p.notes, mode: "followup" }),
+      body: JSON.stringify({ org: contactTarget.org, contact: contactTarget.contact, package: contactTarget.package, status: contactTarget.status, notes: contactTarget.notes, mode: "followup" }),
     });
-    if (res.ok) setAiEmail(await res.json());
-    setGeneratingFor(null);
+    if (res.ok) {
+      const data = await res.json() as { subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string };
+      setContactSubject(contactLang === "fr" ? data.subjectFr : data.subjectEn);
+      setContactBody(contactLang === "fr" ? data.bodyFr : data.bodyEn);
+    }
+    setGenerating(false);
   };
 
-  const markContacted = async (id: number) => {
-    await fetch(`/api/admin/sponsor-prospects/${id}`, {
-      method: "PATCH",
+  const sendEmail = async () => {
+    if (!contactTarget || !contactSubject || !contactBody) return;
+    const to = contactTarget.email as string;
+    if (!to) { setSendResult("❌ Aucun email de contact disponible."); return; }
+    setSending(true);
+    const res = await fetch("/api/admin/ai/prospect-email-send", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "contacted" }),
+      body: JSON.stringify({ to, subject: contactSubject, body: contactBody, org: contactTarget.org }),
     });
-    setAiEmail(null);
-    setAiEmailTarget(null);
-    onRefresh();
+    if (res.ok) {
+      setSendResult("✓ Email envoyé.");
+      await fetch(`/api/admin/sponsor-prospects/${contactTarget.id as number}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "contacted" }) });
+      onRefresh();
+    } else {
+      setSendResult("❌ Erreur lors de l'envoi.");
+    }
+    setSending(false);
   };
 
   const save = async () => {
@@ -1624,37 +1763,53 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
         <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">{t.addProspect}</button>
       </div>
 
-      {/* AI Email Modal */}
-      {aiEmail && aiEmailTarget && (
+      {/* Contact modal */}
+      {contactTarget && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between mb-4">
-              <h3 className="text-white font-bold">Email — {aiEmailTarget.org}</h3>
-              <button onClick={() => { setAiEmail(null); setAiEmailTarget(null); }} className="text-gray-500 hover:text-white">✕</button>
+              <div>
+                <h3 className="text-white font-bold">{contactTarget.org as string}</h3>
+                <p className="text-gray-500 text-xs">{(contactTarget.email as string) || "Pas d'email"} · Package : {(contactTarget.package as string) || "—"}</p>
+              </div>
+              <button onClick={() => setContactTarget(null)} className="text-gray-500 hover:text-white text-xl">✕</button>
             </div>
-            <div className="space-y-4">
-              {[
-                { lang: "FR", subject: aiEmail.subjectFr, body: aiEmail.bodyFr },
-                { lang: "EN", subject: aiEmail.subjectEn, body: aiEmail.bodyEn },
-              ].map(e => (
-                <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-bold text-gray-400">{e.lang}</span>
-                    <button onClick={() => navigator.clipboard.writeText(`${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>Copier</button>
-                  </div>
-                  <p className="text-white text-xs font-bold mb-2">Objet: {e.subject}</p>
-                  <p className="text-gray-400 text-xs whitespace-pre-wrap">{e.body}</p>
-                </div>
+
+            {/* Lang + generate */}
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-xs text-gray-500">Langue :</span>
+              {(["fr", "en"] as const).map(l => (
+                <button key={l} onClick={() => setContactLang(l)}
+                  className={`text-xs px-3 py-1 rounded border transition-all ${contactLang === l ? "bg-neon-green/10 text-neon-green border-neon-green/30" : "text-gray-500 border-gray-700"}`}>
+                  {l === "fr" ? "🇫🇷 Français" : "🇬🇧 English"}
+                </button>
               ))}
-            </div>
-            <div className="mt-4 pt-4 border-t border-gray-800">
-              <button
-                onClick={() => markContacted(aiEmailTarget.id)}
-                className="w-full text-xs px-4 py-2 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-all"
-              >
-                {t.markContacted}
+              <button onClick={generateEmail} disabled={generating}
+                className="ml-auto text-xs px-4 py-1.5 rounded transition-all"
+                style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}>
+                {generating ? "Génération…" : "✨ Générer relance"}
               </button>
             </div>
+
+            <div className="mb-3">
+              <label className="text-xs text-gray-500 block mb-1">Objet</label>
+              <input className="cyber-input w-full px-3 py-2 rounded text-xs text-white" value={contactSubject} onChange={e => setContactSubject(e.target.value)} placeholder="Objet…" />
+            </div>
+            <div className="mb-4">
+              <label className="text-xs text-gray-500 block mb-1">Corps du message</label>
+              <textarea className="cyber-input w-full px-3 py-2 rounded text-xs text-white leading-relaxed" rows={12} value={contactBody} onChange={e => setContactBody(e.target.value)} placeholder="Corps…" />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button onClick={sendEmail} disabled={sending || !contactSubject || !contactBody}
+                className="btn-neon px-5 py-2 rounded text-xs disabled:opacity-50">
+                {sending ? "Envoi…" : "📤 Envoyer"}
+              </button>
+              <span className="text-xs text-gray-600">Reply-To : contact@eyesopensecurity.com</span>
+            </div>
+            {sendResult && (
+              <p className="mt-3 text-xs font-mono" style={{ color: sendResult.startsWith("✓") ? "#00ff9d" : "#ff0066" }}>{sendResult}</p>
+            )}
           </div>
         </div>
       )}
@@ -1725,12 +1880,11 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
                       )}
                       <div className="flex items-center gap-1 mt-2 flex-wrap">
                         <button
-                          onClick={() => generateFollowupEmail(p)}
-                          disabled={generatingFor === (p.id as number)}
-                          className="text-xs px-1.5 py-0.5 rounded transition-all disabled:opacity-50"
+                          onClick={() => openContact(p)}
+                          className="text-xs px-2 py-0.5 rounded transition-all"
                           style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}
                         >
-                          {generatingFor === (p.id as number) ? "…" : "✨"}
+                          ✉
                         </button>
                         <select
                           className="cyber-input text-xs px-1 py-0.5 rounded flex-1 min-w-0"
@@ -2569,14 +2723,6 @@ function CertificatesPanel() {
       const j = await r.json();
       setStatus(`Done: ${j.issued ?? j.sent ?? 0} badge(s) generated/sent.${j.failed ? ` (${j.failed} failed)` : ""}`);
     } else setStatus("Error");
-  };
-
-  const issueSingle = async () => {
-    if (!form.recipientName || !form.recipientEmail) return;
-    setStatus("Issuing…");
-    const r = await fetch("/api/admin/badges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "issue", ...form, subtype: form.subtype || null }) });
-    if (r.ok) { setStatus("Badge issued."); setForm({ badgeType: "participant", recipientName: "", recipientEmail: "", subtype: "" }); }
-    else setStatus("Error issuing badge");
   };
 
   const sendBadge = async (id: number) => {

@@ -81,15 +81,35 @@ export async function PATCH(req: NextRequest) {
     // Create session only once (idempotent)
     const existing = await prisma.conferenceSession.findFirst({ where: { speakerId: cfp.speakerId } });
     if (!existing) {
+      const isWorkshop = cfp.format === "workshop";
+
+      // A workshop CFP → also create a Workshop record (visible in Ateliers tab)
+      let workshopId: number | undefined = undefined;
+      if (isWorkshop) {
+        const workshop = await prisma.workshop.create({
+          data: {
+            title: cfp.talkTitle,
+            description: cfp.abstract,
+            instructor: cfp.name,
+            level: "intermediate", // default — editable after
+            duration: "3h",         // default — editable after
+            isVisible: false,
+            sortOrder: 999,
+          },
+        });
+        workshopId = workshop.id;
+      }
+
       await prisma.conferenceSession.create({
         data: {
           title: cfp.talkTitle,
-          type: cfp.format === "keynote" ? "keynote" : cfp.format === "workshop" ? "workshop" : "talk",
+          type: isWorkshop ? "workshop" : cfp.format === "keynote" ? "keynote" : "talk",
           speakerName: cfp.name,
           speakerId: cfp.speakerId,
+          workshopId: workshopId ?? null,
           description: cfp.abstract,
           time: "TBD",
-          isVisible: false, // not on public site; visible in admin backlog
+          isVisible: false,
           sortOrder: 999,
         },
       });
@@ -130,8 +150,13 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  // ── demotion from confirmed → delete unscheduled session, hide speaker ───
+  // ── demotion from confirmed → delete unscheduled session + workshop, hide speaker ──
   if (cfp.pipelineStage === "confirmed" && stage !== "confirmed" && stage !== "scheduled" && cfp.speakerId) {
+    // Find unscheduled sessions for this speaker (may have workshopId)
+    const unscheduled = await prisma.conferenceSession.findMany({ where: { speakerId: cfp.speakerId, date: null } });
+    for (const sess of unscheduled) {
+      if (sess.workshopId) await prisma.workshop.delete({ where: { id: sess.workshopId } }).catch(() => {});
+    }
     await prisma.conferenceSession.deleteMany({ where: { speakerId: cfp.speakerId, date: null } });
     await prisma.speaker.update({
       where: { id: cfp.speakerId },

@@ -1011,10 +1011,32 @@ function CommunicationPanel() {
   };
 
   const statusColors: Record<string, string> = { draft: "#888", scheduled: "#ffaa00", published: "#00ff9d", failed: "#ff0066" };
+  const [commTab, setCommTab] = useState<"social" | "email">("social");
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-black text-white">Communication</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-black text-white">Communication</h1>
+      </div>
+
+      {/* Sub-tab switcher */}
+      <div className="flex gap-1 border-b border-gray-800">
+        {([
+          { key: "social", label: "📱 Réseaux Sociaux" },
+          { key: "email",  label: "✉ Emails & Templates" },
+        ] as const).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setCommTab(tab.key)}
+            className={`text-xs px-4 py-2 border-b-2 transition-all ${commTab === tab.key ? "border-neon-green text-neon-green" : "border-transparent text-gray-500 hover:text-gray-300"}`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── RÉSEAUX SOCIAUX ── */}
+      {commTab === "social" && <>
 
       {/* Calendar + Panel */}
       <div className="flex gap-4">
@@ -1387,6 +1409,11 @@ function CommunicationPanel() {
         </div>
       </div>
 
+      </>}
+
+      {/* ── EMAILS & TEMPLATES ── */}
+      {commTab === "email" && <>
+
       {/* Transactional templates */}
       <div className="cyber-card rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
@@ -1473,7 +1500,7 @@ function CommunicationPanel() {
                 </div>
                 <button onClick={() => setPreviewTemplate(null)} className="text-gray-400 hover:text-gray-900">✕</button>
               </div>
-              <div className="p-4" dangerouslySetInnerHTML={{ __html: previewTemplate.htmlBody as string }} />
+              <div className="p-4" dangerouslySetInnerHTML={{ __html: `<style>td,p,span,div,a,h1,h2,h3,h4,li,body{color:#111!important}</style>${previewTemplate.htmlBody as string}` }} />
             </div>
           </div>
         )}
@@ -1524,6 +1551,8 @@ function CommunicationPanel() {
           {!templates.filter(t => !t.slug).length && <p className="text-gray-700 text-xs text-center py-3">Aucun template campagne. Créez-en un.</p>}
         </div>
       </div>
+
+      </>}
     </div>
   );
 }

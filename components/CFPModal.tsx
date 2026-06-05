@@ -30,7 +30,12 @@ export default function CFPSection({ t }: { t: Translations }) {
     }
   };
 
-  const formats = [t.cfp.format1, t.cfp.format2, t.cfp.format3, t.cfp.format4];
+  const formats: { slug: string; label: string }[] = [
+    { slug: "talk", label: t.cfp.format1 },
+    { slug: "lightning", label: t.cfp.format2 },
+    { slug: "workshop", label: t.cfp.format3 },
+    { slug: "panel", label: t.cfp.format4 },
+  ];
 
   return (
     <section id="cfp" className="py-24 px-4 relative bg-dark-800/30">
@@ -73,9 +78,9 @@ export default function CFPSection({ t }: { t: Translations }) {
                 &gt; {t.cfp.formats_title}
               </h3>
               <div className="grid grid-cols-2 gap-3">
-                {formats.map((fmt, i) => (
-                  <div key={i} className="cyber-card rounded-lg p-3 text-sm text-gray-400 text-center">
-                    {fmt}
+                {formats.map((fmt) => (
+                  <div key={fmt.slug} className="cyber-card rounded-lg p-3 text-sm text-gray-400 text-center">
+                    {fmt.label}
                   </div>
                 ))}
               </div>
@@ -153,7 +158,7 @@ export default function CFPSection({ t }: { t: Translations }) {
                     onChange={e => setFormData({ ...formData, format: e.target.value })}
                   >
                     <option value="">--</option>
-                    {formats.map(f => <option key={f} value={f} className="bg-dark-800">{f}</option>)}
+                    {formats.map(f => <option key={f.slug} value={f.slug} className="bg-dark-800">{f.label}</option>)}
                   </select>
                 </div>
                 <div>

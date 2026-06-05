@@ -18,25 +18,39 @@ async function sendWithTemplate(
   vars: Record<string, string>,
   fallbackSubject: string,
   fallbackHtml: string,
+  lang: "fr" | "en" = "fr",
 ) {
-  const tpl = await getTransactionalTemplate(slug);
+  // Try lang-specific template first (slug_en), then fallback to default slug
+  const tpl = lang === "en"
+    ? (await getTransactionalTemplate(`${slug}_en`)) ?? (await getTransactionalTemplate(slug))
+    : (await getTransactionalTemplate(slug));
   const subject = tpl ? renderTemplate(tpl.subject, vars) : fallbackSubject;
   const html = tpl ? renderTemplate(tpl.htmlBody, vars) : fallbackHtml;
   await getResend().emails.send({ from: FROM, to, subject, html });
 }
 
-export async function sendCFPConfirmation(to: string, name: string, talkTitle: string) {
+export async function sendCFPConfirmation(to: string, name: string, talkTitle: string, lang: "fr" | "en" = "fr") {
   const vars = { name: esc(name), talkTitle: esc(talkTitle) };
+  const isFr = lang === "fr";
   await sendWithTemplate(
     "cfp_confirmation", to, vars,
-    "✅ Votre proposition de talk a bien été reçue — EOCON 2026",
-    `<div style="font-family:monospace;background:#0a0a0a;color:#fff;padding:32px;max-width:600px">
+    isFr ? "✅ Votre proposition de talk a bien été reçue — EOCON 2026" : "✅ Your talk submission has been received — EOCON 2026",
+    isFr
+      ? `<div style="font-family:monospace;background:#0a0a0a;color:#fff;padding:32px;max-width:600px">
       <h1 style="color:#00ff9d">&gt; EOCON 2026</h1>
       <p>Bonjour <strong>${esc(name)}</strong>,</p>
       <p>Votre proposition <em>&ldquo;${esc(talkTitle)}&rdquo;</em> a bien été reçue.</p>
       <hr style="border-color:#222;margin:24px 0"/>
       <p style="color:#555;font-size:12px">📅 28 Novembre 2026 · Hotel Onomo, Douala</p>
+    </div>`
+      : `<div style="font-family:monospace;background:#0a0a0a;color:#fff;padding:32px;max-width:600px">
+      <h1 style="color:#00ff9d">&gt; EOCON 2026</h1>
+      <p>Hello <strong>${esc(name)}</strong>,</p>
+      <p>Your talk proposal <em>&ldquo;${esc(talkTitle)}&rdquo;</em> has been received.</p>
+      <hr style="border-color:#222;margin:24px 0"/>
+      <p style="color:#555;font-size:12px">📅 28 November 2026 · Hotel Onomo, Douala</p>
     </div>`,
+    lang,
   );
 }
 
@@ -103,7 +117,9 @@ export async function sendRegistrationPending(
 
 export async function sendRegistrationTicket(
   to: string, fname: string, lname: string, ticketType: string, registrationId: number, ticketRef: string,
+  lang: "fr" | "en" = "fr",
 ) {
+  const isFr = lang === "fr";
   const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com";
   const connectUrl = `${baseUrl}/connect/${ticketRef}`;
 
@@ -148,8 +164,9 @@ export async function sendRegistrationTicket(
   const vars = { fname: esc(fname), lname: esc(lname), ticketType: esc(ticketType), ticketRef, qr_code_img: qrImg };
   await sendWithTemplate(
     "registration_ticket", to, vars,
-    `🎟️ Votre billet EOCON 2026 — ${ticketRef}`,
-    `<div style="font-family:monospace;background:#0a0a0a;color:#fff;padding:32px;max-width:600px">
+    isFr ? `🎟️ Votre billet EOCON 2026 — ${ticketRef}` : `🎟️ Your EOCON 2026 ticket — ${ticketRef}`,
+    isFr
+      ? `<div style="font-family:monospace;background:#0a0a0a;color:#fff;padding:32px;max-width:600px">
       <h1 style="color:#00ff9d">&gt; EOCON 2026 — BILLET CONFIRMÉ</h1>
       <div style="background:#111;border:1px solid #00ff9d33;border-radius:12px;padding:24px;margin:24px 0">
         <p><span style="color:#00ff9d">Participant :</span> ${esc(fname)} ${esc(lname)}</p>
@@ -168,6 +185,27 @@ export async function sendRegistrationTicket(
         ${badgeCoupon}
       </div>
       <p style="color:#555;font-size:12px">#EOCON #EOCTF</p>
+    </div>`
+      : `<div style="font-family:monospace;background:#0a0a0a;color:#fff;padding:32px;max-width:600px">
+      <h1 style="color:#00ff9d">&gt; EOCON 2026 — TICKET CONFIRMED</h1>
+      <div style="background:#111;border:1px solid #00ff9d33;border-radius:12px;padding:24px;margin:24px 0">
+        <p><span style="color:#00ff9d">Attendee:</span> ${esc(fname)} ${esc(lname)}</p>
+        <p><span style="color:#00ff9d">Type:</span> ${esc(ticketType)}</p>
+        <p><span style="color:#00ff9d">Reference:</span> <strong>${ticketRef}</strong></p>
+        <div style="text-align:center;margin:20px 0">${qrImg}<p style="color:#00ff9d;font-size:12px">Show this QR code at check-in</p></div>
+      </div>
+      <p>📍 Hotel Onomo, Douala, Cameroon</p>
+      <hr style="border-color:#222;margin:24px 0"/>
+      <div style="background:#111827;border:1px solid #00ccff33;border-radius:8px;padding:20px;margin-bottom:24px;">
+        <p style="color:#00ccff;font-size:12px;letter-spacing:2px;margin:0 0 8px;">🪪 ENTRY BADGE COUPON</p>
+        <p style="color:#888;font-size:12px;margin:0 0 12px;line-height:1.6;">
+          <strong style="color:#fff;">Print and bring this coupon</strong> on the day of the event.
+          It will be placed in your badge holder. The QR code lets other attendees find you on the network.
+        </p>
+        ${badgeCoupon}
+      </div>
+      <p style="color:#555;font-size:12px">#EOCON #EOCTF</p>
     </div>`,
+    lang,
   );
 }

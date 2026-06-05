@@ -46,7 +46,7 @@ JSON uniquement: {"score": <0-10>, "reason": "<1 phrase>", "package": "<PLATINUM
         model: process.env.OPENAI_MODEL || "gpt-4o-mini",
         messages: [{ role: "user", content: scorePrompt }],
         temperature: 0.3,
-        max_tokens: 150,
+        max_completion_tokens: 150,
       });
       const parsed = JSON.parse((r.choices[0]?.message?.content || "{}").replace(/```json?\n?/g, "").replace(/```/g, "").trim()) as { score?: number; reason?: string; package?: string; sector?: string };
       aiScore = parsed.score ?? null;

@@ -25,6 +25,13 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (!process.env.BADGE_PRIVATE_KEY) {
+    return NextResponse.json({
+      error: "BADGE_PRIVATE_KEY not configured. Go to Admin → Certificats → Onglet \"Clés\" and generate a keypair, then set the env vars.",
+    }, { status: 503 });
+  }
+
   const body = await req.json();
   const { action } = body;
 

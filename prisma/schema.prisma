@@ -71,6 +71,7 @@ model Registration {
   whatsapp           String?
   ctfCompetitorName  String?
   ctfTeamName        String?
+  ctfPassword        String?
   ctfAccountCreated  Boolean   @default(false)
   createdAt          DateTime  @default(now())
 

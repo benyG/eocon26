@@ -4,78 +4,130 @@ import { isAdminAuthenticated } from "@/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
 
-async function getCtfdSettings() {
-  const keys = ["ctfdUrl", "ctfdApiKey", "ctfDefaultPassword"];
-  const settings = await prisma.eventSetting.findMany({ where: { key: { in: keys } } });
+function randomPassword(len = 7): string {
+  const chars = "abcdefghijkmnpqrstuvwxyz23456789";
+  let out = "";
+  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+async function getCtfdConfig() {
+  const settings = await prisma.eventSetting.findMany({ where: { key: { in: ["ctfdUrl", "ctfdApiKey"] } } });
   const map: Record<string, string> = {};
   settings.forEach(s => { map[s.key] = s.value; });
-  return {
-    ctfdUrl: (map.ctfdUrl || "").replace(/\/$/, ""),
-    ctfdApiKey: map.ctfdApiKey || "",
-    ctfDefaultPassword: map.ctfDefaultPassword || "eocon2026!",
-  };
+  return { url: map.ctfdUrl?.replace(/\/$/, ""), apiKey: map.ctfdApiKey };
 }
 
-async function createCtfdAccount(ctfdUrl: string, apiKey: string, name: string, email: string, password: string) {
-  const res = await fetch(`${ctfdUrl}/api/v1/users`, {
+async function ctfdPost(url: string, apiKey: string, path: string, body: unknown) {
+  const res = await fetch(`${url}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Token ${apiKey}` },
-    body: JSON.stringify({ name, email, password, type: "user" }),
+    body: JSON.stringify(body),
   });
-  return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+  const json = await res.json();
+  return { ok: res.ok, status: res.status, data: json };
 }
 
-async function createCtfdTeam(ctfdUrl: string, apiKey: string, teamName: string, password: string) {
-  const res = await fetch(`${ctfdUrl}/api/v1/teams`, {
-    method: "POST",
+async function ctfdPatch(url: string, apiKey: string, path: string, body: unknown) {
+  const res = await fetch(`${url}${path}`, {
+    method: "PATCH",
     headers: { "Content-Type": "application/json", "Authorization": `Token ${apiKey}` },
-    body: JSON.stringify({ name: teamName, password }),
+    body: JSON.stringify(body),
   });
-  return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+  const json = await res.json();
+  return { ok: res.ok, status: res.status, data: json };
 }
 
 export async function POST(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { action, registrationIds } = await req.json() as { action: string; registrationIds?: number[] };
+  const { url, apiKey } = await getCtfdConfig();
 
-  const { ctfdUrl, ctfdApiKey, ctfDefaultPassword } = await getCtfdSettings();
-  if (!ctfdUrl || !ctfdApiKey) {
-    return NextResponse.json({ error: "CTFd URL or API key not configured" }, { status: 400 });
-  }
+  if (!url || !apiKey) return NextResponse.json({ error: "CTFd non configuré (URL ou clé API manquante)" }, { status: 400 });
 
-  const results: Record<string, unknown>[] = [];
+  // Get target participants
+  let where: { id?: { in: number[] }; ctfAccountCreated?: boolean } = {};
+  if (registrationIds?.length) where = { id: { in: registrationIds } };
 
-  const fetchRegs = async (ids?: number[]) => {
-    const where = ids?.length ? { id: { in: ids } } : {};
-    return prisma.registration.findMany({ where });
-  };
+  const participants = await prisma.registration.findMany({
+    where: { ...where, ctfCompetitorName: { not: null } },
+    select: { id: true, email: true, ctfCompetitorName: true, ctfTeamName: true, ctfPassword: true, ctfAccountCreated: true },
+  });
+
+  const results: { id: number; pseudo: string; success: boolean; error?: string; password?: string }[] = [];
 
   if (action === "create_account" || action === "sync_all") {
-    const regs = await fetchRegs(registrationIds);
-    for (const reg of regs) {
-      if (reg.ctfAccountCreated) { results.push({ id: reg.id, skip: true, reason: "already_created" }); continue; }
-      const name = reg.ctfCompetitorName || `${reg.fname}${reg.lname}`.replace(/\s/g, "");
-      const result = await createCtfdAccount(ctfdUrl, ctfdApiKey, name, reg.email, ctfDefaultPassword);
-      if (result.ok || result.status === 400) {
-        // 400 might mean user already exists — still mark as created
-        await prisma.registration.update({ where: { id: reg.id }, data: { ctfAccountCreated: true } });
+    for (const p of participants) {
+      if (p.ctfAccountCreated) { results.push({ id: p.id, pseudo: p.ctfCompetitorName!, success: true }); continue; }
+
+      // Generate unique password per user if not already set
+      const password = p.ctfPassword || randomPassword(7);
+
+      const r = await ctfdPost(url, apiKey, "/api/v1/users", {
+        name: p.ctfCompetitorName,
+        email: p.email,
+        password,
+        type: "user",
+        verified: true,
+      });
+
+      if (r.ok) {
+        await prisma.registration.update({
+          where: { id: p.id },
+          data: { ctfAccountCreated: true, ctfPassword: password },
+        });
+        results.push({ id: p.id, pseudo: p.ctfCompetitorName!, success: true, password });
+      } else {
+        results.push({ id: p.id, pseudo: p.ctfCompetitorName!, success: false, error: JSON.stringify(r.data) });
       }
-      results.push({ id: reg.id, ctfdResult: result });
     }
   }
 
   if (action === "create_team" || action === "sync_all") {
-    const regs = await fetchRegs(registrationIds);
-    // Group by team name
-    const teams: Record<string, typeof regs> = {};
-    for (const reg of regs) {
-      if (!reg.ctfTeamName) continue;
-      if (!teams[reg.ctfTeamName]) teams[reg.ctfTeamName] = [];
-      teams[reg.ctfTeamName].push(reg);
+    // Group participants by team name
+    const teamMap: Record<string, typeof participants> = {};
+    for (const p of participants) {
+      if (!p.ctfTeamName) continue;
+      if (!teamMap[p.ctfTeamName]) teamMap[p.ctfTeamName] = [];
+      teamMap[p.ctfTeamName].push(p);
     }
-    for (const [teamName, members] of Object.entries(teams)) {
-      const result = await createCtfdTeam(ctfdUrl, ctfdApiKey, teamName, ctfDefaultPassword);
-      results.push({ team: teamName, members: members.map(m => m.email), ctfdResult: result });
+
+    for (const [teamName, members] of Object.entries(teamMap)) {
+      // Unique password per team (same for all team members)
+      const teamPassword = randomPassword(7);
+
+      // Create team on CTFd
+      const tr = await ctfdPost(url, apiKey, "/api/v1/teams", {
+        name: teamName,
+        password: teamPassword,
+      });
+
+      if (!tr.ok) continue;
+      const teamId = tr.data?.data?.id as number | undefined;
+      if (!teamId) continue;
+
+      // Store team password in settings for reference
+      await prisma.eventSetting.upsert({
+        where: { key: `ctfTeamPassword_${teamName}` },
+        update: { value: teamPassword },
+        create: { key: `ctfTeamPassword_${teamName}`, value: teamPassword },
+      });
+
+      // Add each member to team
+      for (const member of members) {
+        // Get CTFd user id by looking up users (try GET /api/v1/users?name=...)
+        const userRes = await fetch(`${url}/api/v1/users?name=${encodeURIComponent(member.ctfCompetitorName!)}`, {
+          headers: { "Authorization": `Token ${apiKey}` },
+        });
+        if (!userRes.ok) continue;
+        const userData = await userRes.json() as { data?: Array<{ id: number }> };
+        const ctfdUserId = userData.data?.[0]?.id;
+        if (!ctfdUserId) continue;
+
+        // Assign user to team
+        await ctfdPatch(url, apiKey, `/api/v1/users/${ctfdUserId}`, { team_id: teamId });
+      }
     }
   }
 

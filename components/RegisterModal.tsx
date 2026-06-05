@@ -19,6 +19,7 @@ interface TicketTypeData {
   color: string;
   isFeatured: boolean;
   ctfAccess: boolean;
+  includesCTF: boolean;
   maxCapacity: number;
   sold: number;
   available: number;
@@ -34,7 +35,7 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
   const [step, setStep] = useState<"tiers" | "form">("tiers");
   const [selectedTier, setSelectedTier] = useState("");
   const [selectedTicket, setSelectedTicket] = useState<TicketTypeData | null>(null);
-  const [formData, setFormData] = useState({ fname: "", lname: "", email: "", org: "", country: "", lang_expression: "fr", linkedin: "", whatsapp: "" });
+  const [formData, setFormData] = useState({ fname: "", lname: "", email: "", org: "", country: "", lang_expression: "fr", linkedin: "", whatsapp: "", ctfCompetitorName: "", ctfTeamName: "" });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -56,7 +57,12 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, ticketType: selectedTier }),
+        body: JSON.stringify({
+          ...formData,
+          ticketType: selectedTier,
+          ctfCompetitorName: formData.ctfCompetitorName || undefined,
+          ctfTeamName: formData.ctfTeamName || undefined,
+        }),
       });
       if (!res.ok) throw new Error("Server error");
       setSubmitted(true);
@@ -272,6 +278,40 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                     </div>
                   </div>
                 </div>
+
+                {/* CTF fields — shown when ticket includes CTF */}
+                {(selectedTicket?.includesCTF || selectedTicket?.ctfAccess) && (
+                  <div
+                    className="p-4 rounded border space-y-3"
+                    style={{ borderColor: "#00ccff40", background: "#00ccff05", transition: "all 0.3s", opacity: 1 }}
+                  >
+                    <p className="text-xs font-mono text-cyan-400 mb-1" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                      ⚡ Participation CTF — <span className="text-gray-500">requis</span>
+                    </p>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>Pseudo CTF *</label>
+                      <input
+                        required
+                        className="cyber-input w-full px-3 py-2 rounded text-sm"
+                        placeholder="h4ck3r_name"
+                        value={formData.ctfCompetitorName}
+                        onChange={e => setFormData({ ...formData, ctfCompetitorName: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                        Nom d&apos;équipe <span className="text-gray-600">(optionnel — max 2 joueurs par équipe)</span>
+                      </label>
+                      <input
+                        className="cyber-input w-full px-3 py-2 rounded text-sm"
+                        placeholder="Team 404"
+                        maxLength={30}
+                        value={formData.ctfTeamName}
+                        onChange={e => setFormData({ ...formData, ctfTeamName: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="p-3 rounded border" style={{ background: (selectedTicket?.color || "#00ff9d") + "08", borderColor: (selectedTicket?.color || "#00ff9d") + "22" }}>
                   <p className="text-xs text-gray-500 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>

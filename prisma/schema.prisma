@@ -54,22 +54,25 @@ model VolunteerApplication {
 }
 
 model Registration {
-  id             Int       @id @default(autoincrement())
-  fname          String
-  lname          String
-  email          String
-  org            String?
-  country        String?
-  ticketType     String
-  ticketRef      String?   @unique
-  langExpression String?   @default("fr")
-  status         String    @default("pending")
-  qrCode         String?
-  checkedInAt    DateTime?
-  checkedInBy    String?
-  linkedin       String?
-  whatsapp       String?
-  createdAt      DateTime  @default(now())
+  id                 Int       @id @default(autoincrement())
+  fname              String
+  lname              String
+  email              String
+  org                String?
+  country            String?
+  ticketType         String
+  ticketRef          String?   @unique
+  langExpression     String?   @default("fr")
+  status             String    @default("pending")
+  qrCode             String?
+  checkedInAt        DateTime?
+  checkedInBy        String?
+  linkedin           String?
+  whatsapp           String?
+  ctfCompetitorName  String?
+  ctfTeamName        String?
+  ctfAccountCreated  Boolean   @default(false)
+  createdAt          DateTime  @default(now())
 
   @@map("registrations")
 }
@@ -278,12 +281,29 @@ model TicketType {
   isFeatured      Boolean  @default(false)
   isVisible       Boolean  @default(true)
   ctfAccess       Boolean  @default(false)
+  includesCTF     Boolean  @default(false)
   maxCapacity     Int      @default(200)
   sortOrder       Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@map("ticket_types")
+}
+
+model CTFChallenge {
+  id          Int      @id @default(autoincrement())
+  title       String
+  category    String   // Web | Crypto | Forensics | Reverse | Pwn | OSINT | Misc
+  difficulty  String   @default("medium") // easy | medium | hard
+  points      Int      @default(0)
+  author      String?
+  status      String   @default("idea") // idea | in_progress | testing | validated | published
+  ctfdId      Int?     // CTFd challenge ID after publish
+  notes       String?  @db.Text
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@map("ctf_challenges")
 }
 
 model EmailTemplate {

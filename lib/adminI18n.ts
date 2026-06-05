@@ -38,6 +38,7 @@ export const adminI18n = {
     profiles: "Profils & Droits",
     auditLog: "Journal d'Audit",
     eventSettings: "⚙ Paramètres Événement",
+    ctf: "⚡ CTF",
 
     // Dashboard
     dashboardTitle: "Dashboard",
@@ -211,6 +212,7 @@ export const adminI18n = {
     profiles: "Profiles & Permissions",
     auditLog: "Audit Log",
     eventSettings: "⚙ Event Settings",
+    ctf: "⚡ CTF",
 
     // Dashboard
     dashboardTitle: "Dashboard",

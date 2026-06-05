@@ -12,11 +12,13 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id, addedToPipeline } = await req.json();
-
-  const lead = await prisma.prospectLead.update({
-    where: { id },
-    data: { addedToPipeline },
-  });
-
+  const lead = await prisma.prospectLead.update({ where: { id }, data: { addedToPipeline } });
   return NextResponse.json(lead);
+}
+
+export async function DELETE(req: NextRequest) {
+  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id } = await req.json();
+  await prisma.prospectLead.delete({ where: { id } });
+  return NextResponse.json({ success: true });
 }

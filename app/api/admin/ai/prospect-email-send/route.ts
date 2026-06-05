@@ -1,0 +1,27 @@
+import { NextRequest, NextResponse } from "next/server";
+import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { Resend } from "resend";
+
+export const dynamic = "force-dynamic";
+
+export async function POST(req: NextRequest) {
+  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { to, subject, body, org } = await req.json() as { to: string; subject: string; body: string; org: string };
+  if (!to || !subject || !body) return NextResponse.json({ error: "to, subject, body requis" }, { status: 400 });
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const fromAddress = process.env.RESEND_FROM || "EOCON 2026 <noreply@eyesopensecurity.com>";
+
+  const { error } = await resend.emails.send({
+    from: fromAddress,
+    to: [to],
+    replyTo: "contact@eyesopensecurity.com",
+    subject,
+    text: body,
+    html: `<pre style="font-family:sans-serif;white-space:pre-wrap;font-size:14px;line-height:1.6">${body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`,
+    tags: [{ name: "type", value: "prospect" }, { name: "org", value: (org || "").slice(0, 64) }],
+  });
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ success: true });
+}

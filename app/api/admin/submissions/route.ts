@@ -72,7 +72,7 @@ export async function PATCH(req: NextRequest) {
     });
     logAction(req, "VALIDATE", "registration", id, { email: reg.email, ticketType: reg.ticketType });
     const ticketRef = formatTicketRef(reg.ticketRef || String(reg.id).padStart(5, "0"));
-    sendRegistrationTicket(reg.email, reg.fname, reg.lname, reg.ticketType, reg.id, ticketRef).catch(e =>
+    sendRegistrationTicket(reg.email, reg.fname, reg.lname, reg.ticketType, reg.id, ticketRef, (reg.langExpression === "en" ? "en" : "fr")).catch(e =>
       console.error("[Registration ticket email]", e),
     );
     return NextResponse.json(updated);

@@ -279,6 +279,7 @@ body {
   outline: none;
   transition: all 0.3s ease;
   font-family: 'Share Tech Mono', monospace;
+  color-scheme: dark;
 }
 
 .cyber-input:focus {

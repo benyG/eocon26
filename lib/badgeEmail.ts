@@ -13,6 +13,7 @@ export async function sendBadgeEmail(opts: {
   const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com";
   const verifyUrl = `${baseUrl}/verify/${uuid}`;
   const downloadUrl = `${baseUrl}/api/verify/${uuid}/download`;
+  const pdfUrl = `${baseUrl}/api/verify/${uuid}/pdf`;
   const svgDataUrl = svgToDataUrl(generateBadgeSvg(badgeType, recipientName, "2026", subtype));
 
   const badgeLabels: Record<BadgeType, string> = {
@@ -84,6 +85,21 @@ export async function sendBadgeEmail(opts: {
             Congratulations! You have been awarded the <strong style="color:${color};">EOCON 2026 — ${label}${subtypeStr}</strong> Open Badge.
             This is a cryptographically signed credential that can be verified by anyone and added to your professional profiles.
           </p>
+        </td></tr>
+
+        <!-- PDF download banner -->
+        <tr><td style="padding:0 40px 16px;">
+          <div style="background:#0a1628;border:2px solid ${color};border-radius:8px;padding:20px;text-align:center;">
+            <p style="font-size:13px;color:#ffffff;margin:0 0 6px;font-weight:bold;">📄 Téléchargez votre badge en PDF</p>
+            <p style="font-size:11px;color:#888888;margin:0 0 16px;line-height:1.6;">
+              Si le visuel du badge n&apos;apparaît pas correctement dans votre messagerie,<br/>
+              utilisez ce lien pour obtenir la version PDF imprimable avec tous les QR codes visibles.
+            </p>
+            <a href="${pdfUrl}" target="_blank"
+              style="display:inline-block;background:${color};color:#000000;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:bold;font-family:sans-serif;letter-spacing:1px;">
+              ⬇ TÉLÉCHARGER MON BADGE (PDF)
+            </a>
+          </div>
         </td></tr>
 
         <!-- Verification box -->

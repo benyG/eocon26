@@ -18,20 +18,5 @@ export async function PATCH(req: NextRequest) {
     data: { addedToPipeline },
   });
 
-  // If adding to pipeline, create a SponsorProspect
-  if (addedToPipeline) {
-    await prisma.sponsorProspect.create({
-      data: {
-        org: lead.org,
-        contact: lead.contactName || undefined,
-        email: lead.contactEmail || undefined,
-        phone: lead.phone || undefined,
-        package: lead.recommendedPackage || undefined,
-        status: "contacted",
-        notes: lead.aiScoreReason || undefined,
-      },
-    });
-  }
-
   return NextResponse.json(lead);
 }

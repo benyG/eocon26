@@ -102,6 +102,15 @@ export default function PipelineKanban() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Planning state
+  const [planStartDate, setPlanStartDate] = useState<string>("");
+  type DragItem = { type: "cfp"; id: number; title: string; name: string } | { type: "session"; id: number; title: string };
+  const [dragItem, setDragItem] = useState<DragItem | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [pendingDrop, setPendingDrop] = useState<{ date: string; item: DragItem } | null>(null);
+  const [dropTime, setDropTime] = useState("09:00");
+  const [seeding, setSeeding] = useState(false);
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     const [cfpRes, spRes, sessRes, wsRes] = await Promise.all([
@@ -259,6 +268,100 @@ export default function PipelineKanban() {
   };
 
   const scoreColor = (s?: number | null) => !s ? "#888" : s >= 7 ? "#00ff9d" : s >= 5 ? "#ffaa00" : "#ff0066";
+
+  const typeColor = (type: string) => {
+    const c: Record<string, string> = { keynote: "#ffaa00", talk: "#0066ff", panel: "#cc00ff", workshop: "#ff6600", break: "#555", logistics: "#888" };
+    return c[type] || "#888";
+  };
+  const fmtDate = (d: string) => {
+    try { return new Date(d + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" }); } catch { return d; }
+  };
+  const planDays = planStartDate
+    ? Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(planStartDate + "T00:00:00");
+        d.setDate(d.getDate() + i);
+        return d.toISOString().slice(0, 10);
+      })
+    : [];
+  const day6 = planDays[5] || null;
+
+  const handleDrop = (date: string) => {
+    setDropTarget(null);
+    if (!dragItem) return;
+    setPendingDrop({ date, item: dragItem });
+    setDragItem(null);
+  };
+
+  const confirmDrop = async () => {
+    if (!pendingDrop) return;
+    const { date, item } = pendingDrop;
+    if (item.type === "cfp") {
+      const card = cards.find(c => c.id === item.id);
+      if (!card) return;
+      const res = await fetch("/api/admin/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: card.talkTitle,
+          type: card.format === "keynote" ? "keynote" : "talk",
+          date, time: dropTime,
+          speakerName: card.name,
+          speakerId: card.speakerId || null,
+          isVisible: true, sortOrder: 100,
+        }),
+      });
+      if (res.ok) {
+        const s = await res.json();
+        setSessions(prev => [...prev, s]);
+        await moveStage(card.id, "scheduled");
+      }
+    } else {
+      const res = await fetch(`/api/admin/sessions/${item.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date, time: dropTime }),
+      });
+      if (res.ok) setSessions(prev => prev.map(s => s.id === item.id ? { ...s, date, time: dropTime } : s));
+    }
+    setPendingDrop(null);
+    setDropTime("09:00");
+  };
+
+  const unscheduleSession = async (sess: SessionRecord) => {
+    if (!confirm(`Retirer "${sess.title}" du programme ?`)) return;
+    const linkedCard = sess.speakerId ? cards.find(c => c.speakerId === sess.speakerId && c.pipelineStage === "scheduled") : null;
+    if (linkedCard) {
+      await fetch(`/api/admin/sessions/${sess.id}`, { method: "DELETE" });
+      setSessions(prev => prev.filter(s => s.id !== sess.id));
+      await moveStage(linkedCard.id, "confirmed");
+    } else {
+      const res = await fetch(`/api/admin/sessions/${sess.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: null }),
+      });
+      if (res.ok) setSessions(prev => prev.map(s => s.id === sess.id ? { ...s, date: null } : s));
+    }
+  };
+
+  const toggleSessionVisible = async (sess: SessionRecord) => {
+    const res = await fetch(`/api/admin/sessions/${sess.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isVisible: !sess.isVisible }),
+    });
+    if (res.ok) setSessions(prev => prev.map(s => s.id === sess.id ? { ...s, isVisible: !s.isVisible } : s));
+  };
+
+  const seedSessions = async () => {
+    if (!confirm("Initialiser le programme avec les sessions standard ?")) return;
+    setSeeding(true);
+    const r = await fetch("/api/admin/sessions/seed", { method: "POST" });
+    const j = await r.json();
+    if (!r.ok) alert(j.error || "Erreur");
+    else { await loadAll(); }
+    setSeeding(false);
+  };
 
   // ── View tabs ────────────────────────────────────────────────────────────
   const views: { key: ActiveView; label: string }[] = [
@@ -593,105 +696,153 @@ export default function PipelineKanban() {
 
       {/* ── PROGRAMME ──────────────────────────────────────────── */}
       {view === "programme" && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-gray-500 text-xs">Le programme affiché ici est exactement celui publié sur le site. Toute modification est immédiate.</p>
-            <button onClick={createSession} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter session</button>
+        <div className="space-y-4">
+          {/* Controls */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-400 shrink-0">Date de début :</label>
+              <input
+                type="date"
+                value={planStartDate}
+                onChange={e => setPlanStartDate(e.target.value)}
+                className="cyber-input text-xs rounded px-3 py-1.5 text-white"
+                style={{ colorScheme: "dark" }}
+              />
+            </div>
+            {planStartDate && planDays.length === 7 && (
+              <span className="text-xs text-gray-500">{fmtDate(planDays[0])} → {fmtDate(planDays[6])}</span>
+            )}
+            <button onClick={seedSessions} disabled={seeding} className="ml-auto text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-gray-200 disabled:opacity-50">
+              {seeding ? "…" : "⚙ Seed sessions"}
+            </button>
           </div>
 
-          {/* Group by date */}
-          {(() => {
-            const groups: Record<string, SessionRecord[]> = {};
-            sessions.forEach(s => { const k = s.date || "Sans date"; if (!groups[k]) groups[k] = []; groups[k].push(s); });
-            const keys = Object.keys(groups).sort((a, b) => a === "Sans date" ? 1 : b === "Sans date" ? -1 : a.localeCompare(b));
-            return keys.map(date => (
-              <div key={date}>
-                <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-2 mt-4">{date}</h3>
-                <div className="space-y-2">
-                  {groups[date].sort((a, b) => a.sortOrder - b.sortOrder || a.time.localeCompare(b.time)).map(sess => (
-                    <div key={sess.id} className={`cyber-card rounded-xl p-3 flex items-center gap-4 ${editSession?.id === sess.id ? "border-neon-green/40" : ""}`}>
-                      <span className="font-mono text-xs text-gray-400 w-14 shrink-0">{sess.time}{sess.endTime ? `–${sess.endTime}` : ""}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs px-1.5 py-0.5 rounded uppercase tracking-wider`} style={{ color: sess.type === "keynote" ? "#ffaa00" : sess.type === "break" ? "#888" : "#0066ff", background: sess.type === "keynote" ? "#ffaa0015" : sess.type === "break" ? "#88888815" : "#0066ff15" }}>{sess.type}</span>
-                          <span className="text-white text-sm font-bold line-clamp-1">{sess.title}</span>
-                          {!sess.isVisible && <span className="text-gray-600 text-xs">(caché)</span>}
-                        </div>
-                        {sess.speakerName && <p className="text-gray-500 text-xs mt-0.5">{sess.speakerName}{sess.room ? ` · ${sess.room}` : ""}</p>}
-                      </div>
-                      <button onClick={() => setEditSession(editSession?.id === sess.id ? null : sess)} className="text-xs px-3 py-1 rounded shrink-0" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>
-                        {editSession?.id === sess.id ? "Fermer" : "Éditer"}
-                      </button>
+          {/* Backlog */}
+          <div className="cyber-card rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-neon-green">Backlog</h3>
+              <span className="text-gray-600 text-xs">— glissez vers une journée</span>
+            </div>
+            {cards.filter(c => c.pipelineStage === "confirmed").length === 0 && sessions.filter(s => !s.date).length === 0 ? (
+              <p className="text-gray-600 text-xs py-2">Aucun speaker confirmé ni session non planifiée.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {cards.filter(c => c.pipelineStage === "confirmed").map(card => (
+                  <div
+                    key={`cfp-${card.id}`}
+                    draggable
+                    onDragStart={() => setDragItem({ type: "cfp", id: card.id, title: card.talkTitle, name: card.name })}
+                    onDragEnd={() => setDragItem(null)}
+                    className="border border-neon-green/40 rounded-lg px-3 py-2 cursor-grab hover:border-neon-green/80 transition-all select-none"
+                    style={{ background: "#00ff9d08", maxWidth: 200 }}
+                  >
+                    <p className="text-white font-bold text-xs truncate">{card.name}</p>
+                    <p className="text-gray-500 text-xs truncate">{card.talkTitle}</p>
+                    {card.format && <span className="text-neon-green/50 text-xs">{card.format}</span>}
+                  </div>
+                ))}
+                {sessions.filter(s => !s.date).map(sess => (
+                  <div
+                    key={`sess-${sess.id}`}
+                    draggable
+                    onDragStart={() => setDragItem({ type: "session", id: sess.id, title: sess.title })}
+                    onDragEnd={() => setDragItem(null)}
+                    className="border border-gray-700 rounded-lg px-3 py-2 cursor-grab hover:border-gray-500 transition-all select-none"
+                    style={{ maxWidth: 200 }}
+                  >
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <span className="text-xs px-1 py-0.5 rounded uppercase" style={{ color: typeColor(sess.type), background: typeColor(sess.type) + "20", fontSize: "9px" }}>{sess.type}</span>
+                      {!sess.isVisible && <span className="text-gray-600 text-xs">🙈</span>}
                     </div>
-                  ))}
-                </div>
-              </div>
-            ));
-          })()}
-
-          {/* Session edit form */}
-          {editSession && (
-            <div className="cyber-card rounded-xl p-5 border-neon-green/30">
-              <h3 className="text-white font-bold mb-4 text-sm">Édition session — {editSession.title}</h3>
-              <div className="grid grid-cols-3 gap-3 mb-3">
-                {([
-                  { key: "title", label: "Titre", col: 3 },
-                  { key: "speakerName", label: "Nom du speaker", col: 1 },
-                  { key: "date", label: "Date (YYYY-MM-DD)", col: 1 },
-                  { key: "time", label: "Début (HH:MM)", col: 1 },
-                  { key: "endTime", label: "Fin (HH:MM)", col: 1 },
-                  { key: "room", label: "Salle", col: 1 },
-                ] as { key: keyof SessionRecord; label: string; col: number }[]).map(f => (
-                  <div key={f.key} className={`col-span-${f.col}`}>
-                    <label className="text-xs text-gray-500 block mb-1">{f.label}</label>
-                    <input
-                      type="text"
-                      value={(editSession[f.key] as string) || ""}
-                      onChange={e => setEditSession(prev => prev ? { ...prev, [f.key]: e.target.value || null } : prev)}
-                      className="cyber-input w-full text-xs rounded px-3 py-2 text-white"
-                    />
+                    <p className="text-gray-200 font-bold text-xs truncate">{sess.title}</p>
+                    {sess.speakerName && <p className="text-gray-500 text-xs truncate">{sess.speakerName}</p>}
                   </div>
                 ))}
               </div>
-              <div className="mb-3">
-                <label className="text-xs text-gray-500 block mb-1">Type</label>
-                <select value={editSession.type} onChange={e => setEditSession(prev => prev ? { ...prev, type: e.target.value } : prev)} className="cyber-input text-xs rounded px-3 py-2 text-black">
-                  {["keynote", "talk", "panel", "workshop", "break", "logistics"].map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
+            )}
+          </div>
+
+          {/* 7-day grid */}
+          {!planStartDate ? (
+            <p className="text-gray-600 text-xs text-center py-8 border border-dashed border-gray-800 rounded-xl">
+              Choisissez une date de début pour afficher le planning.
+            </p>
+          ) : (
+            <div className="overflow-x-auto pb-2">
+              <div className="flex gap-3" style={{ minWidth: `${7 * 216}px` }}>
+                {planDays.map((day, i) => {
+                  const dated = sessions.filter(s => s.date === day);
+                  const undated = i === 5 ? sessions.filter(s => !s.date) : [];
+                  const daySessions = [...dated, ...undated].filter((s, idx, arr) => arr.findIndex(x => x.id === s.id) === idx);
+                  const isDropZone = dropTarget === day;
+                  return (
+                    <div
+                      key={day}
+                      className={`shrink-0 rounded-xl border-2 transition-all ${isDropZone ? "border-neon-green/70 bg-neon-green/5" : "border-gray-800"}`}
+                      style={{ width: 208 }}
+                      onDragOver={e => { e.preventDefault(); setDropTarget(day); }}
+                      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropTarget(null); }}
+                      onDrop={() => handleDrop(day)}
+                    >
+                      <div className="px-3 py-2 border-b border-gray-800 flex items-center justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-white">J{i + 1}</span>
+                          {i === 5 && <span className="ml-1 text-xs text-gray-600">(défaut seed)</span>}
+                          <div className="text-gray-500 text-xs">{fmtDate(day)}</div>
+                        </div>
+                        <span className="text-gray-700 text-xs font-mono">{daySessions.length}</span>
+                      </div>
+                      <div className="p-2 space-y-1.5 min-h-[140px]">
+                        {daySessions.sort((a, b) => a.time.localeCompare(b.time)).map(sess => (
+                          <div key={sess.id} className="rounded-lg p-2 text-xs" style={{ background: typeColor(sess.type) + "12", border: `1px solid ${typeColor(sess.type)}30` }}>
+                            <div className="flex items-start gap-1">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1 mb-0.5">
+                                  <span className="font-mono text-xs shrink-0" style={{ color: typeColor(sess.type) }}>{sess.time}</span>
+                                  <span className="uppercase shrink-0" style={{ color: typeColor(sess.type), fontSize: "9px" }}>{sess.type}</span>
+                                </div>
+                                <p className="text-white font-bold text-xs truncate">{sess.title}</p>
+                                {sess.speakerName && <p className="text-gray-500 text-xs truncate">{sess.speakerName}</p>}
+                              </div>
+                              <div className="flex flex-col gap-0.5 shrink-0">
+                                <button onClick={() => toggleSessionVisible(sess)} title={sess.isVisible ? "Masquer" : "Publier"} className="text-xs leading-none p-0.5 hover:bg-white/10 rounded">
+                                  {sess.isVisible ? "👁" : "🙈"}
+                                </button>
+                                <button onClick={() => unscheduleSession(sess)} title="Retirer" className="text-xs leading-none p-0.5 hover:bg-red-900/30 rounded text-gray-600 hover:text-red-400">✕</button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {daySessions.length === 0 && (
+                          <div className="h-16 flex items-center justify-center border border-dashed border-gray-800 rounded-lg">
+                            <span className="text-gray-700 text-xs">{dragItem ? "↓ Déposer" : "vide"}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="mb-3">
-                <label className="text-xs text-gray-500 block mb-1">Speaker</label>
-                <select
-                  value={editSession.speakerId || ""}
-                  onChange={e => {
-                    const id = parseInt(e.target.value) || null;
-                    const sp = speakers.find(s => s.id === id);
-                    setEditSession(prev => prev ? { ...prev, speakerId: id, speakerName: sp?.name || prev.speakerName } : prev);
-                  }}
-                  className="cyber-input text-xs rounded px-3 py-2 text-black w-full"
-                >
-                  <option value="">— Speaker manuel —</option>
-                  {speakers.map(sp => <option key={sp.id} value={sp.id}>{sp.name}{sp.talkTitle ? ` — ${sp.talkTitle}` : ""}</option>)}
-                </select>
-              </div>
-              <div className="mb-3">
-                <label className="text-xs text-gray-500 block mb-1">Description</label>
-                <textarea value={editSession.description || ""} onChange={e => setEditSession(prev => prev ? { ...prev, description: e.target.value } : prev)} className="cyber-input w-full text-xs rounded px-3 py-2 h-16 resize-none text-white" />
-              </div>
-              <div className="flex items-center gap-4 mb-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={editSession.isVisible} onChange={e => setEditSession(prev => prev ? { ...prev, isVisible: e.target.checked } : prev)} className="accent-neon-green" />
-                  <span className="text-xs text-gray-400">Visible sur le site</span>
-                </label>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Ordre</label>
-                  <input type="number" value={editSession.sortOrder} onChange={e => setEditSession(prev => prev ? { ...prev, sortOrder: parseInt(e.target.value) || 0 } : prev)} className="cyber-input w-16 text-xs rounded px-2 py-1 text-white" />
+            </div>
+          )}
+
+          {/* Drop time picker modal */}
+          {pendingDrop && (
+            <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+              <div className="cyber-card rounded-xl p-6 max-w-sm w-full border-neon-green/30">
+                <h3 className="text-white font-bold mb-1 text-sm">Programmer la session</h3>
+                <p className="text-gray-400 text-xs mb-4">
+                  <span className="text-white">{pendingDrop.item.type === "cfp" ? (pendingDrop.item as { name: string }).name : pendingDrop.item.title}</span>
+                  {" → "}J{planDays.indexOf(pendingDrop.date) + 1} ({fmtDate(pendingDrop.date)})
+                </p>
+                <div className="mb-4">
+                  <label className="text-xs text-gray-500 block mb-1">Heure de début</label>
+                  <input type="time" value={dropTime} onChange={e => setDropTime(e.target.value)} className="cyber-input w-full text-sm rounded px-3 py-2 text-white" />
                 </div>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => saveSession(editSession)} className="btn-neon px-4 py-2 rounded text-xs">💾 Sauvegarder</button>
-                <button onClick={() => { if (confirm("Supprimer cette session ?")) deleteSession(editSession.id); }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>Supprimer</button>
-                <button onClick={() => setEditSession(null)} className="text-xs text-gray-500 px-3 py-2">Annuler</button>
+                <div className="flex gap-2">
+                  <button onClick={confirmDrop} className="btn-neon px-4 py-2 rounded text-xs flex-1">✓ Confirmer</button>
+                  <button onClick={() => { setPendingDrop(null); setDropTime("09:00"); }} className="text-gray-500 text-xs px-3 py-2 hover:text-gray-300">Annuler</button>
+                </div>
               </div>
             </div>
           )}

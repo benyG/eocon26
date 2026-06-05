@@ -11,6 +11,18 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const data = await req.json();
-  return NextResponse.json(await prisma.teamMember.create({ data }), { status: 201 });
+  const body = await req.json();
+  const { name, role, bio, photoUrl, linkedin, twitter, isVisible, sortOrder } = body;
+  if (!name || !role) return NextResponse.json({ error: "name et role requis" }, { status: 400 });
+  return NextResponse.json(await prisma.teamMember.create({
+    data: {
+      name, role,
+      bio: bio || null,
+      photoUrl: photoUrl || null,
+      linkedin: linkedin || null,
+      twitter: twitter || null,
+      isVisible: isVisible !== false,
+      sortOrder: sortOrder ?? 0,
+    },
+  }), { status: 201 });
 }

@@ -1,8 +1,37 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { verifyCredential } from "@/lib/badgeCredential";
 import { generateBadgeSvg, BadgeType } from "@/lib/badgeSvg";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }: { params: { uuid: string } }): Promise<Metadata> {
+  const badge = await prisma.badgeCredential.findUnique({ where: { uuid: params.uuid } });
+  if (!badge) return { title: "Badge — EOCON 2026" };
+  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com";
+  const cred = JSON.parse(badge.credentialJson);
+  const imageUrl = `${baseUrl}/api/verify/${badge.uuid}/image`;
+  const pageUrl = `${baseUrl}/verify/${badge.uuid}`;
+  const title = `${cred.name || "EOCON 2026 Badge"} — ${badge.recipientName}`;
+  const description = `Verified Open Badge issued by EyesOpen Association for EOCON 2026`;
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: pageUrl,
+      type: "website",
+      images: [{ url: imageUrl, width: 400, height: 462, alt: title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [imageUrl],
+    },
+  };
+}
 
 export default async function VerifyPage({ params }: { params: { uuid: string } }) {
   const badge = await prisma.badgeCredential.findUnique({ where: { uuid: params.uuid } });

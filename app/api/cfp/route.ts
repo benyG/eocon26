@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       data: { name, email, org: org?.slice(0, 200), country: country?.slice(0, 100), talkTitle: talk_title, format, abstract, bio, langPresentation: lang_presentation || "fr" },
     });
 
-    sendCFPConfirmation(email, name, talk_title).catch(e => console.error("[CFP email]", e));
+    sendCFPConfirmation(email, name, talk_title, lang_presentation === "en" ? "en" : "fr").catch(e => console.error("[CFP email]", e));
 
     return NextResponse.json({ success: true, id: submission.id }, { status: 201 });
   } catch (err) {

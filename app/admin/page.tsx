@@ -2785,7 +2785,6 @@ function CertificatesPanel() {
     } else setStatus("Error");
   };
 
-
   const sendBadge = async (id: number) => {
     setStatus(`Sending badge #${id}…`);
     const r = await fetch("/api/admin/badges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "send", id }) });
@@ -4670,9 +4669,14 @@ export default function AdminDashboard() {
                   <h1 className="text-2xl font-black text-white">{t.registrationsTitle} ({(data.registrations || []).length})</h1>
                   <p className="text-gray-500 text-xs mt-1">Validez le paiement pour envoyer le billet avec QR code</p>
                 </div>
-                <a href="/admin/checkin" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">
-                  📱 Ouvrir Check-in J-Day →
-                </a>
+                <div className="flex gap-2">
+                  <a href="/checkin/scan" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">
+                    📷 Scanner QR →
+                  </a>
+                  <a href="/admin/checkin" target="_blank" rel="noreferrer" className="px-4 py-2 rounded text-sm border border-gray-700 text-gray-300 hover:text-white transition-colors">
+                    📋 Liste check-in →
+                  </a>
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">

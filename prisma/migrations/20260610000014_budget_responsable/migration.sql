@@ -1,0 +1,1 @@
+ALTER TABLE `budget_items` ADD COLUMN IF NOT EXISTS `responsable` VARCHAR(191) NULL;

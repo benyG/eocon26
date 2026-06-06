@@ -1,0 +1,14 @@
+CREATE TABLE IF NOT EXISTS `ctf_challenges` (
+  `id`        INT            NOT NULL AUTO_INCREMENT,
+  `title`     VARCHAR(191)   NOT NULL,
+  `category`  VARCHAR(191)   NOT NULL,
+  `difficulty` VARCHAR(191)  NOT NULL DEFAULT 'medium',
+  `points`    INT            NOT NULL DEFAULT 0,
+  `author`    VARCHAR(191)   NULL,
+  `status`    VARCHAR(191)   NOT NULL DEFAULT 'idea',
+  `ctfdId`    INT            NULL,
+  `notes`     TEXT           NULL,
+  `sortOrder` INT            NOT NULL DEFAULT 0,
+  `createdAt` DATETIME(3)    NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { name, email, org, country, talk_title, format, abstract, bio, lang_presentation, linkedin, twitter, whatsapp } = body;
+    const { name, email, org, country, talk_title, format, abstract, bio, lang_presentation, linkedin, twitter, whatsapp, certifications } = body;
 
     if (!name || !email || !talk_title || !abstract) {
       return NextResponse.json({ error: "Champs requis manquants" }, { status: 400 });
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     }
 
     const submission = await prisma.cFPSubmission.create({
-      data: { name, email, org: org?.slice(0, 200), country: country?.slice(0, 100), talkTitle: talk_title, format, abstract, bio, linkedin, twitter, whatsapp, langPresentation: lang_presentation || "fr" },
+      data: { name, email, org: org?.slice(0, 200), country: country?.slice(0, 100), talkTitle: talk_title, format, abstract, bio, linkedin, twitter, whatsapp, certifications: certifications?.slice(0, 500), langPresentation: lang_presentation || "fr" },
     });
 
     sendCFPConfirmation(email, name, talk_title, lang_presentation === "en" ? "en" : "fr").catch(e => console.error("[CFP email]", e));

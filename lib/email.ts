@@ -173,7 +173,8 @@ export async function sendRegistrationTicket(
   lang: "fr" | "en" = "fr",
 ) {
   const isFr = lang === "fr";
-  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com";
+  const domain = process.env.DOMAIN || process.env.NEXT_PUBLIC_URL || "eocon.eyesopensecurity.com";
+  const baseUrl = domain.startsWith("http") ? domain : `https://${domain}`;
   const connectUrl = `${baseUrl}/connect/${ticketRef}`;
 
   const qrPayload = generateQrPayload(registrationId);
@@ -184,8 +185,13 @@ export async function sendRegistrationTicket(
   const connectQrBuffer = await QRCode.toBuffer(connectUrl, { width: 256, margin: 2, color: { dark: "#000000", light: "#ffffff" } }) as Buffer;
   const connectQrDataUrl = `data:image/png;base64,${connectQrBuffer.toString("base64")}`;
 
-  // Generate PDF badge
-  const badgePdf = await generateBadgePdf(fname, lname, ticketType, ticketRef, accessQrBuffer);
+  // Generate PDF badge (fail-safe: email still sends without PDF if generation fails)
+  let badgePdf: Buffer | null = null;
+  try {
+    badgePdf = await generateBadgePdf(fname, lname, ticketType, ticketRef, accessQrBuffer);
+  } catch (pdfErr) {
+    console.error("[Badge PDF generation failed, sending email without PDF]", pdfErr);
+  }
 
   // CID reference — renders inline in all major email clients
   const qrImg = `<img src="cid:qr_access" alt="QR Code d'accès" style="width:180px;height:180px;border:4px solid #00ff9d;border-radius:8px" />`;
@@ -270,7 +276,7 @@ export async function sendRegistrationTicket(
     lang,
     [
       { filename: "qr-checkin.png", content: accessQrBuffer, content_id: "qr_access" },
-      { filename: `badge-EOCON2026-${ticketRef}.pdf`, content: badgePdf },
+      ...(badgePdf ? [{ filename: `badge-EOCON2026-${ticketRef}.pdf`, content: badgePdf }] : []),
     ],
   );
 }

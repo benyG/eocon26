@@ -660,7 +660,6 @@ export default function PipelineKanban() {
                   { key: "linkedin", label: "LinkedIn URL", type: "text" },
                   { key: "twitter", label: "X/Twitter URL", type: "text" },
                   { key: "talkTitle", label: "Titre du talk", type: "text" },
-                  { key: "talkFormat", label: "Format (talk/keynote/panel)", type: "text" },
                 ] as const).map(f => (
                   <div key={f.key}>
                     <label className="text-xs text-gray-500 block mb-1">{f.label}</label>
@@ -672,6 +671,22 @@ export default function PipelineKanban() {
                     />
                   </div>
                 ))}
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Format</label>
+                  <select
+                    value={editSpeaker.talkFormat || ""}
+                    onChange={e => setEditSpeaker(prev => prev ? { ...prev, talkFormat: e.target.value } : prev)}
+                    className="cyber-input w-full text-xs rounded px-3 py-2 text-white bg-transparent"
+                  >
+                    <option value="" className="bg-dark-800">— Choisir —</option>
+                    <option value="talk" className="bg-dark-800">Talk (30–45 min)</option>
+                    <option value="keynote" className="bg-dark-800">Keynote</option>
+                    <option value="workshop" className="bg-dark-800">Workshop / Atelier</option>
+                    <option value="panel" className="bg-dark-800">Panel / Table ronde</option>
+                    <option value="lightning" className="bg-dark-800">Lightning Talk (10–15 min)</option>
+                    <option value="autre" className="bg-dark-800">Autre</option>
+                  </select>
+                </div>
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">Pays</label>
                   <CountrySelect

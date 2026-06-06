@@ -1,2 +1,0 @@
-ALTER TABLE `ticket_types`
-  ADD COLUMN `ctfAccess` TINYINT(1) NOT NULL DEFAULT 0;

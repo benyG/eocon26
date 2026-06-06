@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import QRCode from "qrcode";
+import PDFDocument from "pdfkit";
 import { generateQrPayload } from "@/lib/qr";
 import { renderTemplate, getTransactionalTemplate } from "@/lib/renderTemplate";
 
@@ -12,6 +13,47 @@ function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#x27;");
 }
 
+async function generateBadgePdf(
+  fname: string, lname: string, ticketType: string, ticketRef: string, qrBuffer: Buffer,
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    // ID-1 card at 72dpi: 85.6mm × 54mm → 243 × 153 points
+    const doc = new PDFDocument({ size: [243, 153], margin: 0, info: { Title: `EOCON 2026 — ${ticketRef}` } });
+    const chunks: Buffer[] = [];
+    doc.on("data", (c: Buffer) => chunks.push(c));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    // Background
+    doc.rect(0, 0, 243, 153).fill("#0a0a0f");
+    // Left accent stripe
+    doc.rect(0, 0, 3, 153).fill("#00ff9d");
+
+    // Branding
+    doc.fillColor("#00ff9d").fontSize(7).font("Helvetica").text("EOCON", 12, 12, { characterSpacing: 3 });
+    doc.fillColor("#ffffff").fontSize(22).font("Helvetica-Bold").text("2026", 12, 20);
+    doc.rect(12, 48, 36, 1).fill("#00ff9d");
+    doc.fillColor("#444444").fontSize(6).font("Helvetica").text("EYESOPEN SECURITY", 12, 53, { characterSpacing: 1 });
+
+    // Name
+    const fullName = `${fname} ${lname}`.substring(0, 28);
+    doc.fillColor("#ffffff").fontSize(15).font("Helvetica-Bold").text(fullName, 12, 70, { width: 150 });
+
+    // Ticket type badge
+    doc.roundedRect(12, 93, ticketType.length * 6 + 12, 14, 3).fill("#00ff9d20");
+    doc.fillColor("#00ff9d").fontSize(7).font("Helvetica").text(ticketType.toUpperCase(), 18, 97, { characterSpacing: 2 });
+
+    // Reference
+    doc.fillColor("#333333").fontSize(6).text(ticketRef, 12, 113);
+
+    // QR code (right side)
+    doc.image(qrBuffer, 163, 18, { width: 68, height: 68 });
+    doc.fillColor("#333333").fontSize(6).font("Helvetica").text("CHECK-IN", 171, 88, { characterSpacing: 1 });
+
+    doc.end();
+  });
+}
+
 async function sendWithTemplate(
   slug: string,
   to: string,
@@ -19,6 +61,7 @@ async function sendWithTemplate(
   fallbackSubject: string,
   fallbackHtml: string,
   lang: "fr" | "en" = "fr",
+  attachments?: Array<{ filename: string; content: Buffer; content_id?: string }>,
 ) {
   // Try lang-specific template first (slug_en), then fallback to default slug
   const tpl = lang === "en"
@@ -26,7 +69,7 @@ async function sendWithTemplate(
     : (await getTransactionalTemplate(slug));
   const subject = tpl ? renderTemplate(tpl.subject, vars) : fallbackSubject;
   const html = tpl ? renderTemplate(tpl.htmlBody, vars) : fallbackHtml;
-  await getResend().emails.send({ from: FROM, to, subject, html });
+  await getResend().emails.send({ from: FROM, to, subject, html, attachments });
 }
 
 export async function sendCFPConfirmation(to: string, name: string, talkTitle: string, lang: "fr" | "en" = "fr") {
@@ -125,10 +168,17 @@ export async function sendRegistrationTicket(
 
   const qrPayload = generateQrPayload(registrationId);
   const qrString = `${baseUrl}/checkin/${qrPayload}`;
-  const accessQrDataUrl = await QRCode.toDataURL(qrString, { width: 200, margin: 2, color: { dark: "#000000", light: "#ffffff" } });
-  const connectQrDataUrl = await QRCode.toDataURL(connectUrl, { width: 256, margin: 2, color: { dark: "#000000", light: "#ffffff" } });
 
-  const qrImg = `<img src="${accessQrDataUrl}" alt="QR Code d'accès" style="width:180px;height:180px;border:4px solid #00ff9d;border-radius:8px" />`;
+  // Generate QR as PNG buffer for CID inline embedding (works in all email clients)
+  const accessQrBuffer = await QRCode.toBuffer(qrString, { width: 280, margin: 2, color: { dark: "#000000", light: "#ffffff" } }) as Buffer;
+  const connectQrBuffer = await QRCode.toBuffer(connectUrl, { width: 256, margin: 2, color: { dark: "#000000", light: "#ffffff" } }) as Buffer;
+  const connectQrDataUrl = `data:image/png;base64,${connectQrBuffer.toString("base64")}`;
+
+  // Generate PDF badge
+  const badgePdf = await generateBadgePdf(fname, lname, ticketType, ticketRef, accessQrBuffer);
+
+  // CID reference — renders inline in all major email clients
+  const qrImg = `<img src="cid:qr_access" alt="QR Code d'accès" style="width:180px;height:180px;border:4px solid #00ff9d;border-radius:8px" />`;
 
   // Badge coupon: ID-1 size = 85.6×54mm → at 96dpi ≈ 323×204px, we use 324×204 as CSS dimensions
   // Printed at 96dpi on A4, the browser will scale this to exact badge size
@@ -208,5 +258,9 @@ export async function sendRegistrationTicket(
       <p style="color:#555;font-size:12px">#EOCON #EOCTF</p>
     </div>`,
     lang,
+    [
+      { filename: "qr-checkin.png", content: accessQrBuffer, content_id: "qr_access" },
+      { filename: `badge-EOCON2026-${ticketRef}.pdf`, content: badgePdf },
+    ],
   );
 }

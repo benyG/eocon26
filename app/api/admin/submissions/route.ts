@@ -30,7 +30,12 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json();
-  const { type, id, status, notes, action, assignedRole, shiftStart, shiftEnd } = body;
+  const { type, id, status, notes, action, assignedRole, shiftStart, shiftEnd, ctfTeamName } = body;
+
+  if (type === "ctf-team") {
+    await prisma.registration.update({ where: { id }, data: { ctfTeamName } });
+    return NextResponse.json({ ok: true });
+  }
 
   if (type === "volunteer-assign") {
     const updateData: Record<string, unknown> = {};

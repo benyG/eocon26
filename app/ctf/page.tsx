@@ -16,16 +16,25 @@ interface ScoresResponse {
 }
 
 const glitchStyle = `
-@keyframes glitch {
-  0% { text-shadow: 2px 0 #ff0066, -2px 0 #00ccff; }
-  20% { text-shadow: -2px 0 #ff0066, 2px 0 #00ccff; clip-path: inset(20% 0 30% 0); }
-  40% { text-shadow: 2px 2px #ff0066, -2px -2px #00ccff; }
-  60% { text-shadow: -2px 0 #ff0066, 2px 0 #00ccff; clip-path: inset(60% 0 10% 0); }
-  80% { text-shadow: 2px 0 #ff0066, -2px 0 #00ccff; clip-path: inset(0); }
-  100% { text-shadow: 2px 0 #ff0066, -2px 0 #00ccff; }
+@keyframes glitch-shadow {
+  0%   { text-shadow: 3px 0 #ff0066, -3px 0 #00ccff; transform: skewX(0deg); }
+  5%   { text-shadow: -3px 0 #ff0066, 3px 0 #00ccff; transform: skewX(-1deg); }
+  10%  { text-shadow: 3px 1px #ff0066, -3px -1px #00ccff; transform: skewX(0deg); }
+  15%  { text-shadow: -2px 0 #ff0066, 2px 0 #00ccff; transform: skewX(0.5deg); }
+  20%  { text-shadow: 3px 0 #ff0066, -3px 0 #00ccff; transform: skewX(0deg); }
+  85%  { text-shadow: 3px 0 #ff0066, -3px 0 #00ccff; transform: skewX(0deg); }
+  90%  { text-shadow: -4px 0 #ff0066, 4px 0 #00ccff; transform: skewX(1deg); }
+  92%  { text-shadow: 4px 0 #ff0066, -4px 0 #00ccff; transform: skewX(-0.5deg); }
+  95%  { text-shadow: -3px 0 #ff0066, 3px 0 #00ccff; transform: skewX(0deg); }
+  100% { text-shadow: 3px 0 #ff0066, -3px 0 #00ccff; transform: skewX(0deg); }
+}
+@keyframes glitch-flicker {
+  0%, 97%, 100% { opacity: 1; }
+  98% { opacity: 0.85; }
+  99% { opacity: 1; }
 }
 .glitch {
-  animation: glitch 2s infinite;
+  animation: glitch-shadow 4s infinite, glitch-flicker 6s infinite;
   font-family: 'Share Tech Mono', monospace;
 }
 @keyframes scanline {

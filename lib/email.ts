@@ -97,63 +97,73 @@ export async function sendCFPConfirmation(to: string, name: string, talkTitle: s
   );
 }
 
-export async function sendVolunteerConfirmation(to: string, name: string) {
+export async function sendVolunteerConfirmation(to: string, name: string, lang: "fr" | "en" = "fr") {
+  const isFr = lang === "fr";
   const vars = { name: esc(name) };
   await sendWithTemplate(
     "volunteer_confirmation", to, vars,
-    "✅ Candidature bénévole reçue — EOCON 2026",
+    isFr ? "✅ Candidature bénévole reçue — EOCON 2026" : "✅ Volunteer application received — EOCON 2026",
     `<div style="font-family:monospace;background:#0a0a0a;color:#fff;padding:32px;max-width:600px">
       <h1 style="color:#00ff9d">&gt; EOCON 2026</h1>
-      <p>Bonjour <strong>${esc(name)}</strong>,</p>
-      <p>Merci pour votre candidature bénévole !</p>
+      <p>${isFr ? "Bonjour" : "Hello"} <strong>${esc(name)}</strong>,</p>
+      <p>${isFr ? "Merci pour votre candidature bénévole ! Nous l'examinerons et vous contacterons prochainement." : "Thank you for your volunteer application! We will review it and contact you shortly."}</p>
       <hr style="border-color:#222;margin:24px 0"/>
-      <p style="color:#555;font-size:12px">📅 28 Novembre 2026 · Hotel Onomo, Douala</p>
+      <p style="color:#555;font-size:12px">📅 ${isFr ? "28 Novembre 2026 · Hotel Onomo, Douala" : "November 28, 2026 · Hotel Onomo, Douala"}</p>
     </div>`,
   );
 }
 
-export async function sendVolunteerAccepted(to: string, name: string, assignedRole: string) {
-  const vars = { name: esc(name), assignedRole: esc(assignedRole || "À confirmer") };
+export async function sendVolunteerAccepted(to: string, name: string, assignedRole: string, lang: "fr" | "en" = "fr") {
+  const isFr = lang === "fr";
+  const role = assignedRole || (isFr ? "À confirmer" : "To be confirmed");
+  const vars = { name: esc(name), assignedRole: esc(role) };
   await sendWithTemplate(
     "volunteer_accepted", to, vars,
-    "🎉 Candidature bénévole acceptée — EOCON 2026",
+    isFr ? "🎉 Candidature bénévole acceptée — EOCON 2026" : "🎉 Volunteer application accepted — EOCON 2026",
     `<div style="font-family:monospace;background:#0a0a0a;color:#fff;padding:32px;max-width:600px">
-      <h1 style="color:#00ff9d">&gt; EOCON 2026 — Bienvenue dans l'équipe !</h1>
-      <p>Bonjour <strong>${esc(name)}</strong>,</p>
-      <p>Votre candidature bénévole a été <strong>acceptée</strong> !</p>
-      <p>Rôle assigné : <strong>${esc(assignedRole || "À confirmer")}</strong></p>
+      <h1 style="color:#00ff9d">&gt; EOCON 2026 — ${isFr ? "Bienvenue dans l'équipe !" : "Welcome to the team!"}</h1>
+      <p>${isFr ? "Bonjour" : "Hello"} <strong>${esc(name)}</strong>,</p>
+      <p>${isFr ? "Votre candidature bénévole a été <strong>acceptée</strong> !" : "Your volunteer application has been <strong>accepted</strong>!"}</p>
+      <p>${isFr ? "Rôle assigné" : "Assigned role"} : <strong>${esc(role)}</strong></p>
       <hr style="border-color:#222;margin:24px 0"/>
-      <p style="color:#555;font-size:12px">📅 28 Novembre 2026 · Hotel Onomo, Douala</p>
+      <p style="color:#555;font-size:12px">📅 ${isFr ? "28 Novembre 2026 · Hotel Onomo, Douala" : "November 28, 2026 · Hotel Onomo, Douala"}</p>
     </div>`,
   );
 }
 
-export async function sendCFPDecision(email: string, name: string, talkTitle: string, decision: "accepted" | "rejected"): Promise<void> {
+export async function sendCFPDecision(email: string, name: string, talkTitle: string, decision: "accepted" | "rejected", lang: "fr" | "en" = "fr"): Promise<void> {
+  const isFr = lang === "fr";
   const vars = { name: esc(name), talkTitle: esc(talkTitle) };
   const slug = decision === "accepted" ? "cfp_accepted" : "cfp_rejected";
   const fallbackSubject = decision === "accepted"
-    ? `🎉 CFP Accepté - EOCON 2026 : "${talkTitle}"`
-    : `CFP - EOCON 2026 : "${talkTitle}"`;
+    ? (isFr ? `🎉 CFP Accepté - EOCON 2026 : "${talkTitle}"` : `🎉 CFP Accepted - EOCON 2026: "${talkTitle}"`)
+    : (isFr ? `CFP - EOCON 2026 : "${talkTitle}"` : `CFP - EOCON 2026: "${talkTitle}"`);
   const fallbackHtml = decision === "accepted"
-    ? `<p>Bonjour ${esc(name)},</p><p>Votre proposition <strong>"${esc(talkTitle)}"</strong> a été <strong>acceptée</strong> pour EOCON 2026 !</p><p>— L'équipe EOCON</p>`
-    : `<p>Bonjour ${esc(name)},</p><p>Merci pour votre proposition <strong>"${esc(talkTitle)}"</strong>. Malheureusement elle n'a pas été retenue cette année.</p><p>— L'équipe EOCON</p>`;
+    ? (isFr
+        ? `<p>Bonjour ${esc(name)},</p><p>Votre proposition <strong>"${esc(talkTitle)}"</strong> a été <strong>acceptée</strong> pour EOCON 2026 !</p><p>— L'équipe EOCON</p>`
+        : `<p>Hello ${esc(name)},</p><p>Your proposal <strong>"${esc(talkTitle)}"</strong> has been <strong>accepted</strong> for EOCON 2026!</p><p>— The EOCON Team</p>`)
+    : (isFr
+        ? `<p>Bonjour ${esc(name)},</p><p>Merci pour votre proposition <strong>"${esc(talkTitle)}"</strong>. Malheureusement elle n'a pas été retenue cette année.</p><p>— L'équipe EOCON</p>`
+        : `<p>Hello ${esc(name)},</p><p>Thank you for your proposal <strong>"${esc(talkTitle)}"</strong>. Unfortunately it was not selected this year.</p><p>— The EOCON Team</p>`);
   await sendWithTemplate(slug, email, vars, fallbackSubject, fallbackHtml);
 }
 
 export async function sendRegistrationPending(
   to: string, fname: string, lname: string, ticketType: string, ticketRef: string, paymentUrl: string,
+  lang: "fr" | "en" = "fr",
 ) {
+  const isFr = lang === "fr";
   const vars = { fname: esc(fname), lname: esc(lname), ticketType: esc(ticketType), ticketRef, paymentUrl };
   await sendWithTemplate(
     "registration_pending", to, vars,
-    `✅ Inscription reçue — EOCON 2026 [${ticketRef}]`,
+    isFr ? `✅ Inscription reçue — EOCON 2026 [${ticketRef}]` : `✅ Registration received — EOCON 2026 [${ticketRef}]`,
     `<div style="font-family:monospace;background:#0a0a0a;color:#fff;padding:32px;max-width:600px">
-      <h1 style="color:#00ff9d">&gt; EOCON 2026 — Inscription enregistrée</h1>
-      <p>Bonjour <strong>${esc(fname)} ${esc(lname)}</strong>,</p>
-      <p>Référence : <strong style="color:#00ff9d">${ticketRef}</strong></p>
-      <div style="text-align:center;margin:20px 0"><a href="${paymentUrl}" style="background:#00ff9d;color:#000;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">💳 Procéder au paiement</a></div>
+      <h1 style="color:#00ff9d">&gt; EOCON 2026 — ${isFr ? "Inscription enregistrée" : "Registration recorded"}</h1>
+      <p>${isFr ? "Bonjour" : "Hello"} <strong>${esc(fname)} ${esc(lname)}</strong>,</p>
+      <p>${isFr ? "Référence" : "Reference"} : <strong style="color:#00ff9d">${ticketRef}</strong></p>
+      <div style="text-align:center;margin:20px 0"><a href="${paymentUrl}" style="background:#00ff9d;color:#000;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">${isFr ? "💳 Procéder au paiement" : "💳 Proceed to payment"}</a></div>
       <hr style="border-color:#222;margin:24px 0"/>
-      <p style="color:#555;font-size:12px">📅 28 Novembre 2026 · Hotel Onomo, Douala</p>
+      <p style="color:#555;font-size:12px">📅 ${isFr ? "28 Novembre 2026 · Hotel Onomo, Douala" : "November 28, 2026 · Hotel Onomo, Douala"}</p>
     </div>`,
   );
 }

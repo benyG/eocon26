@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    sendVolunteerConfirmation(email, name).catch(e => console.error("[Volunteer email]", e));
+    sendVolunteerConfirmation(email, name, lang_expression === "en" ? "en" : "fr").catch(e => console.error("[Volunteer email]", e));
 
     return NextResponse.json({ success: true, id: application.id }, { status: 201 });
   } catch (err) {

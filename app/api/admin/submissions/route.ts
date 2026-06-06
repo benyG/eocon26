@@ -55,7 +55,7 @@ export async function PATCH(req: NextRequest) {
       data: { status: decision, notes: notes ?? undefined, decisionSentAt: new Date() },
     });
     logAction(req, decision === "accepted" ? "ACCEPT" : "REJECT", "cfp", id, { email: submission.email });
-    sendCFPDecision(submission.email, submission.name, submission.talkTitle, decision).catch(e =>
+    sendCFPDecision(submission.email, submission.name, submission.talkTitle, decision, (submission.langPresentation === "en" ? "en" : "fr")).catch(e =>
       console.error("[CFP decision email]", e),
     );
     return NextResponse.json(submission);
@@ -94,7 +94,7 @@ export async function PATCH(req: NextRequest) {
     const updated = await prisma.volunteerApplication.update({ where: { id }, data: { status } });
     logAction(req, "UPDATE", "volunteer", id, { status });
     if (status === "accepted" && vol) {
-      sendVolunteerAccepted(vol.email, vol.name, vol.assignedRole || "À confirmer").catch(e =>
+      sendVolunteerAccepted(vol.email, vol.name, vol.assignedRole || "À confirmer", (vol.langExpression === "en" ? "en" : "fr")).catch(e =>
         console.error("[Volunteer accepted email]", e),
       );
     }

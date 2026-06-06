@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     const settings = await getEventSettings().catch(() => ({} as Record<string, string>));
     const paymentUrl = settings.url_inscription || "https://eyesopensecurity.com/#inscription";
 
-    sendRegistrationPending(email, fname, lname, ticketType, ticketRef, paymentUrl).catch(e =>
+    sendRegistrationPending(email, fname, lname, ticketType, ticketRef, paymentUrl, lang_expression === "en" ? "en" : "fr").catch(e =>
       console.error("[Register email]", e),
     );
 

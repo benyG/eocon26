@@ -131,6 +131,52 @@ export async function sendVolunteerAccepted(to: string, name: string, assignedRo
   );
 }
 
+export async function sendVolunteerShortlisted(to: string, name: string, lang: "fr" | "en" = "fr") {
+  const isFr = lang === "fr";
+  await sendWithTemplate("volunteer_shortlisted", to, { name: name.replace(/&/g,"&amp;") },
+    isFr ? "👀 Votre candidature bénévole — EOCON 2026" : "👀 Your volunteer application — EOCON 2026",
+    `<div style="font-family:monospace;background:#0a0a0a;color:#fff;padding:32px;max-width:600px">
+      <h1 style="color:#00ff9d">&gt; EOCON 2026</h1>
+      <p>${isFr ? "Bonjour" : "Hello"} <strong>${name.replace(/&/g,"&amp;")}</strong>,</p>
+      <p>${isFr ? "Votre candidature bénévole est en cours d'examen. Nous reviendrons vers vous très prochainement." : "Your volunteer application is under review. We will get back to you very soon."}</p>
+      <p style="color:#555;font-size:12px">📅 ${isFr ? "28 Novembre 2026 · Hotel Onomo, Douala" : "November 28, 2026 · Hotel Onomo, Douala"}</p>
+    </div>`,
+    lang,
+  );
+}
+
+export async function sendVolunteerOnboarding(to: string, name: string, assignedRole: string, lang: "fr" | "en" = "fr") {
+  const isFr = lang === "fr";
+  const roleSafe = assignedRole.replace(/&/g,"&amp;");
+  const nameSafe = name.replace(/&/g,"&amp;");
+  await sendWithTemplate("volunteer_onboarding", to, { name: nameSafe, assignedRole: roleSafe },
+    isFr ? `🎽 Informations bénévole — EOCON 2026` : `🎽 Volunteer briefing — EOCON 2026`,
+    `<div style="font-family:monospace;background:#0a0a0a;color:#fff;padding:32px;max-width:600px">
+      <h1 style="color:#00ff9d">&gt; EOCON 2026 — ${isFr ? "Bienvenue dans l'équipe !" : "Welcome to the team!"}</h1>
+      <p>${isFr ? "Bonjour" : "Hello"} <strong>${nameSafe}</strong>,</p>
+      <p>${isFr ? `Vous êtes assigné(e) au rôle : <strong style="color:#00ff9d">${roleSafe}</strong>` : `You are assigned to the role: <strong style="color:#00ff9d">${roleSafe}</strong>`}</p>
+      <p>${isFr ? "Rendez-vous le 28 novembre 2026 à partir de 07h30 à l'Hotel Onomo, Douala pour le briefing équipe." : "Join us on November 28, 2026 from 07:30 at Hotel Onomo, Douala for the team briefing."}</p>
+      <p style="color:#555;font-size:12px">#EOCON #TeamEOCON</p>
+    </div>`,
+    lang,
+  );
+}
+
+export async function sendVolunteerRejected(to: string, name: string, lang: "fr" | "en" = "fr") {
+  const isFr = lang === "fr";
+  const nameSafe = name.replace(/&/g,"&amp;");
+  await sendWithTemplate("volunteer_rejected", to, { name: nameSafe },
+    isFr ? "Candidature bénévole — EOCON 2026" : "Volunteer application — EOCON 2026",
+    `<div style="font-family:monospace;background:#0a0a0a;color:#fff;padding:32px;max-width:600px">
+      <h1 style="color:#00ff9d">&gt; EOCON 2026</h1>
+      <p>${isFr ? "Bonjour" : "Hello"} <strong>${nameSafe}</strong>,</p>
+      <p>${isFr ? "Après examen de votre candidature, nous ne sommes pas en mesure de vous retenir pour cette édition. Nous vous remercions de l'intérêt porté à EOCON 2026 et espérons vous revoir l'an prochain." : "After reviewing your application, we are unfortunately unable to include you in this edition's volunteer team. Thank you for your interest in EOCON 2026 — we hope to see you next year."}</p>
+      <p style="color:#555;font-size:12px">#EOCON</p>
+    </div>`,
+    lang,
+  );
+}
+
 export async function sendCFPDecision(email: string, name: string, talkTitle: string, decision: "accepted" | "rejected", lang: "fr" | "en" = "fr"): Promise<void> {
   const isFr = lang === "fr";
   const vars = { name: esc(name), talkTitle: esc(talkTitle) };

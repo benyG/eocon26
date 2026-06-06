@@ -4171,6 +4171,7 @@ export default function AdminDashboard() {
   const [showForm, setShowForm] = useState(false);
   const [cfpNotes, setCfpNotes] = useState<Record<number, string>>({});
   const [onboarding, setOnboarding] = useState<Record<number, Record<string, boolean | string>>>({});
+  const [detail, setDetail] = useState<{ type: string; item: Record<string, unknown> } | null>(null);
   const [lang, setLang] = useState<AdminLang>(() => {
     if (typeof window !== "undefined") return (localStorage.getItem("admin_lang") as AdminLang) || "fr";
     return "fr";
@@ -4438,6 +4439,8 @@ export default function AdminDashboard() {
   return (
     <AdminLangContext.Provider value={{ lang, t, setLang: changeLang }}>
     <div className="min-h-screen bg-dark-900" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+      {/* Detail drawer */}
+      {detail && <DetailDrawer item={detail.item} type={detail.type} onClose={() => setDetail(null)} />}
       {/* Top bar */}
       <div className="border-b border-neon-green/20 bg-black/80 px-6 py-3 flex items-center justify-between sticky top-0 z-40">
         <span className="text-neon-green font-mono text-sm font-bold">&gt; EOCON_ADMIN</span>
@@ -4563,6 +4566,7 @@ export default function AdminDashboard() {
                             {!s.isVisible && <span className="text-xs text-gray-600">Masqué</span>}
                           </div>
                           <div className="flex gap-2 shrink-0">
+                            <button onClick={() => setDetail({ type: "sponsor", item: s })} className="text-xs text-gray-400 hover:text-white px-2 py-1 border border-gray-700 rounded">Détails</button>
                             <button onClick={() => { setForm({ ...s }); setEditing(s.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">Éditer</button>
                             <button onClick={() => del("/api/admin/sponsors", s.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">Suppr.</button>
                           </div>
@@ -4592,9 +4596,10 @@ export default function AdminDashboard() {
                         <p className="text-white font-bold">{v.name as string} <span className="text-gray-500 font-normal text-sm">— {v.email as string}</span></p>
                         {!!v.role && <p className="text-neon-green/70 text-sm">Rôle souhaité : {v.role as string}</p>}
                         {!!v.city && <p className="text-gray-500 text-xs">{v.city as string}</p>}
-                        <p className="text-gray-400 text-xs mt-2">{v.motivation as string}</p>
+                        <p className="text-gray-400 text-xs mt-2 line-clamp-2">{v.motivation as string}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={() => setDetail({ type: "volunteer", item: v })} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">Détails</button>
                         <Badge status={v.status as string} />
                         <select className="cyber-input text-xs px-2 py-1 rounded bg-transparent" value={v.status as string}
                           onChange={e => updateStatus("volunteer", v.id as number, e.target.value)}>
@@ -4704,25 +4709,28 @@ export default function AdminDashboard() {
                         </td>
                         <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleDateString("fr-FR")}</td>
                         <td className="py-2 px-3">
-                          {(r.status as string) === "pending" && (
-                            <button
-                              className="text-xs px-3 py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/20 hover:bg-neon-green/20 transition-colors"
-                              onClick={async () => {
-                                if (!confirm(`Valider le paiement de ${r.fname} ${r.lname} et envoyer le billet ?`)) return;
-                                const res = await fetch("/api/admin/submissions", {
-                                  method: "PATCH",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ type: "registration", action: "validate", id: r.id }),
-                                });
-                                if (res.ok) fetchData("registrations");
-                              }}
-                            >
-                              {t.validateAndSend}
-                            </button>
-                          )}
-                          {(r.status as string) === "validated" && (
-                            <span className="text-xs text-neon-green/60 font-mono">Billet envoyé ✓</span>
-                          )}
+                          <div className="flex gap-2 flex-wrap items-center">
+                            <button onClick={() => setDetail({ type: "registration", item: r })} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">Détails</button>
+                            {(r.status as string) === "pending" && (
+                              <button
+                                className="text-xs px-3 py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/20 hover:bg-neon-green/20 transition-colors"
+                                onClick={async () => {
+                                  if (!confirm(`Valider le paiement de ${r.fname} ${r.lname} et envoyer le billet ?`)) return;
+                                  const res = await fetch("/api/admin/submissions", {
+                                    method: "PATCH",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ type: "registration", action: "validate", id: r.id }),
+                                  });
+                                  if (res.ok) fetchData("registrations");
+                                }}
+                              >
+                                {t.validateAndSend}
+                              </button>
+                            )}
+                            {(r.status as string) === "validated" && (
+                              <span className="text-xs text-neon-green/60 font-mono">Billet envoyé ✓</span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -5033,5 +5041,98 @@ export default function AdminDashboard() {
       </div>
     </div>
     </AdminLangContext.Provider>
+  );
+}
+
+// ── Detail drawer ─────────────────────────────────────────────────────────────
+function DetailDrawer({ item, type, onClose }: { item: Record<string, unknown>; type: string; onClose: () => void }) {
+  const fmt = (v: unknown) => {
+    if (v === null || v === undefined || v === "") return <span className="text-gray-600">—</span>;
+    if (typeof v === "boolean") return <span className={v ? "text-neon-green" : "text-gray-500"}>{v ? "Oui" : "Non"}</span>;
+    if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v)) return new Date(v).toLocaleString("fr-FR");
+    if (typeof v === "string" && (v.startsWith("http://") || v.startsWith("https://")))
+      return <a href={v} target="_blank" rel="noreferrer" className="text-cyan-400 underline break-all">{v}</a>;
+    if (typeof v === "string" && v.startsWith("linkedin")) return <a href={`https://${v}`} target="_blank" rel="noreferrer" className="text-cyan-400 underline">{v}</a>;
+    return <span className="text-white break-words">{String(v)}</span>;
+  };
+
+  const sections: Record<string, { label: string; fields: { key: string; label: string }[] }[]> = {
+    volunteer: [
+      { label: "Identité", fields: [{ key: "name", label: "Nom" }, { key: "email", label: "Email" }, { key: "phone", label: "Téléphone" }, { key: "city", label: "Ville" }] },
+      { label: "Réseaux", fields: [{ key: "linkedin", label: "LinkedIn" }, { key: "twitter", label: "X / Twitter" }, { key: "whatsapp", label: "WhatsApp" }] },
+      { label: "Candidature", fields: [{ key: "role", label: "Rôle souhaité" }, { key: "hoursPerWeek", label: "Heures / semaine" }, { key: "langExpression", label: "Langue" }, { key: "status", label: "Statut" }] },
+      { label: "Motivation", fields: [{ key: "motivation", label: "Motivation" }, { key: "experience", label: "Expérience" }] },
+      { label: "Affectation", fields: [{ key: "assignedRole", label: "Rôle assigné" }, { key: "shiftStart", label: "Début shift" }, { key: "shiftEnd", label: "Fin shift" }] },
+      { label: "Meta", fields: [{ key: "createdAt", label: "Soumis le" }] },
+    ],
+    registration: [
+      { label: "Participant", fields: [{ key: "fname", label: "Prénom" }, { key: "lname", label: "Nom" }, { key: "email", label: "Email" }, { key: "org", label: "Organisation" }, { key: "country", label: "Pays" }] },
+      { label: "Réseaux", fields: [{ key: "linkedin", label: "LinkedIn" }, { key: "whatsapp", label: "WhatsApp" }] },
+      { label: "Billet", fields: [{ key: "ticketType", label: "Type billet" }, { key: "ticketRef", label: "Référence" }, { key: "status", label: "Statut" }, { key: "langExpression", label: "Langue" }] },
+      { label: "Check-in", fields: [{ key: "checkedInAt", label: "Heure check-in" }, { key: "checkedInBy", label: "Par" }] },
+      { label: "CTF", fields: [{ key: "ctfCompetitorName", label: "Pseudo CTF" }, { key: "ctfTeamName", label: "Équipe CTF" }, { key: "ctfAccountCreated", label: "Compte CTFd créé" }] },
+      { label: "Meta", fields: [{ key: "createdAt", label: "Inscrit le" }] },
+    ],
+    sponsor: [
+      { label: "Sponsor", fields: [{ key: "name", label: "Nom" }, { key: "tier", label: "Tier" }, { key: "website", label: "Site web" }, { key: "logoUrl", label: "Logo URL" }] },
+      { label: "Visibilité", fields: [{ key: "isVisible", label: "Visible" }, { key: "sortOrder", label: "Ordre" }] },
+      { label: "Meta", fields: [{ key: "createdAt", label: "Créé le" }] },
+    ],
+    cfp: [
+      { label: "Speaker", fields: [{ key: "name", label: "Nom" }, { key: "email", label: "Email" }, { key: "org", label: "Organisation" }, { key: "country", label: "Pays" }] },
+      { label: "Réseaux", fields: [{ key: "linkedin", label: "LinkedIn" }, { key: "twitter", label: "X / Twitter" }, { key: "whatsapp", label: "WhatsApp" }] },
+      { label: "Proposition", fields: [{ key: "talkTitle", label: "Titre" }, { key: "format", label: "Format" }, { key: "langPresentation", label: "Langue" }, { key: "pipelineStage", label: "Étape" }, { key: "status", label: "Statut" }] },
+      { label: "Abstract", fields: [{ key: "abstract", label: "Abstract" }] },
+      { label: "Bio", fields: [{ key: "bio", label: "Bio" }] },
+      { label: "Analyse IA", fields: [{ key: "aiScore", label: "Score IA" }, { key: "aiAnalysis", label: "Analyse IA" }] },
+      { label: "Meta", fields: [{ key: "createdAt", label: "Soumis le" }, { key: "decisionSentAt", label: "Décision envoyée" }, { key: "notes", label: "Notes admin" }] },
+    ],
+    session: [
+      { label: "Session", fields: [{ key: "title", label: "Titre" }, { key: "type", label: "Type" }, { key: "speakerName", label: "Intervenant" }, { key: "room", label: "Salle" }] },
+      { label: "Horaires", fields: [{ key: "date", label: "Date" }, { key: "time", label: "Début" }, { key: "endTime", label: "Fin" }] },
+      { label: "Contenu", fields: [{ key: "description", label: "Description" }] },
+      { label: "Visibilité", fields: [{ key: "isVisible", label: "Visible" }, { key: "sortOrder", label: "Ordre" }] },
+    ],
+  };
+
+  const secs = sections[type] || Object.keys(item).map(key => ({ label: "", fields: [{ key, label: key }] }));
+  const typeLabels: Record<string, string> = { volunteer: "Bénévole", registration: "Inscription", sponsor: "Sponsor", cfp: "Soumission CFP", session: "Session" };
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 z-50" onClick={onClose} />
+      <div className="fixed top-0 right-0 h-full w-full max-w-lg bg-dark-900 border-l border-neon-green/20 z-50 overflow-y-auto" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+        <div className="sticky top-0 bg-dark-900 border-b border-neon-green/10 px-6 py-4 flex items-center justify-between">
+          <div>
+            <p className="text-neon-green text-xs uppercase tracking-widest">{typeLabels[type] || type}</p>
+            <h2 className="text-white font-bold text-lg mt-0.5">
+              {(item.name as string) || (item.fname ? `${item.fname} ${item.lname}` : `#${item.id}`)}
+            </h2>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-2xl leading-none px-2">×</button>
+        </div>
+
+        <div className="px-6 py-4 space-y-6">
+          {secs.map((sec, si) => (
+            <div key={si}>
+              {sec.label && <p className="text-neon-green/60 text-xs uppercase tracking-widest mb-3 border-b border-neon-green/10 pb-1">{sec.label}</p>}
+              <div className="space-y-3">
+                {sec.fields.map(({ key, label }) => {
+                  const val = item[key];
+                  if (val === null || val === undefined || val === "") return null;
+                  const isLong = typeof val === "string" && val.length > 120;
+                  return (
+                    <div key={key} className={isLong ? "" : "flex gap-3"}>
+                      <span className="text-gray-500 text-xs shrink-0 w-32">{label}</span>
+                      <div className={`text-sm ${isLong ? "mt-1 text-gray-300 leading-relaxed whitespace-pre-wrap bg-black/20 rounded p-3" : ""}`}>{fmt(val)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
   );
 }

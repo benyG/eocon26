@@ -5,7 +5,8 @@ import CountrySelect from "@/components/CountrySelect";
 
 export default function CFPSection({ t }: { t: Translations }) {
   const [formData, setFormData] = useState({
-    name: "", email: "", org: "", country: "", talk_title: "", format: "", abstract: "", bio: "", lang_presentation: "fr"
+    name: "", email: "", org: "", country: "", talk_title: "", format: "", abstract: "", bio: "",
+    linkedin: "", twitter: "", whatsapp: "", lang_presentation: "fr"
   });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -180,6 +181,35 @@ export default function CFPSection({ t }: { t: Translations }) {
                     value={formData.bio}
                     onChange={e => setFormData({ ...formData, bio: e.target.value })}
                   />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>LinkedIn</label>
+                    <input
+                      className="cyber-input w-full px-3 py-2 rounded text-sm"
+                      placeholder="linkedin.com/in/…"
+                      value={formData.linkedin}
+                      onChange={e => setFormData({ ...formData, linkedin: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>X / Twitter</label>
+                    <input
+                      className="cyber-input w-full px-3 py-2 rounded text-sm"
+                      placeholder="@handle"
+                      value={formData.twitter}
+                      onChange={e => setFormData({ ...formData, twitter: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>WhatsApp</label>
+                    <input
+                      className="cyber-input w-full px-3 py-2 rounded text-sm"
+                      placeholder="+237…"
+                      value={formData.whatsapp}
+                      onChange={e => setFormData({ ...formData, whatsapp: e.target.value })}
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.cfp.form.lang_presentation} *</label>

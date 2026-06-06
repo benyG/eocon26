@@ -18,6 +18,9 @@ model CFPSubmission {
   format         String?
   abstract       String    @db.Text
   bio            String?   @db.Text
+  linkedin       String?
+  twitter        String?
+  whatsapp       String?
   langPresentation String? @default("fr")
   // Pipeline: submitted | reviewing | accepted | rejected | onboarding | confirmed | scheduled
   status         String    @default("pending")
@@ -43,6 +46,10 @@ model VolunteerApplication {
   role            String?
   experience      String?   @db.Text
   motivation      String    @db.Text
+  linkedin        String?
+  twitter         String?
+  whatsapp        String?
+  hoursPerWeek    String?
   langExpression  String?   @default("fr")
   status          String    @default("pending")
   assignedRole    String?

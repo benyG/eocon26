@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef, createContext, useContext } f
 import { useRouter } from "next/navigation";
 import { ADMIN_PROFILES } from "@/lib/adminProfiles";
 import PipelineKanban from "@/components/admin/PipelineKanban";
+import VolunteerKanban from "@/components/admin/VolunteerKanban";
 import CountrySelect from "@/components/CountrySelect";
 import AdminProfilesPanel from "@/components/admin/AdminProfilesPanel";
 import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
@@ -4584,6 +4585,11 @@ export default function AdminDashboard() {
           {tab === "volunteers" && (
             <div>
               <h1 className="text-2xl font-black text-white mb-6">{t.benevoles} ({(data.volunteers || []).length})</h1>
+              <div className="mb-8">
+                <VolunteerKanban />
+              </div>
+              <div className="border-t border-gray-800 pt-6">
+                <h2 className="text-sm font-bold text-gray-400 font-mono mb-4 uppercase tracking-wider">Toutes les candidatures</h2>
               {(() => {
                 const volunteerList = (data.volunteers || []) as Record<string, unknown>[];
                 const existingRoles = Array.from(new Set(volunteerList.map(v => v.role as string).filter(Boolean))).sort();
@@ -4663,6 +4669,7 @@ export default function AdminDashboard() {
               </div>
                 );
               })()}
+              </div>
             </div>
           )}
 

@@ -3,9 +3,9 @@ import { useState, useEffect, useCallback, useRef, createContext, useContext } f
 import { useRouter } from "next/navigation";
 import { ADMIN_PROFILES } from "@/lib/adminProfiles";
 import PipelineKanban from "@/components/admin/PipelineKanban";
-import VolunteerKanban from "@/components/admin/VolunteerKanban";
 import CountrySelect from "@/components/CountrySelect";
 import AdminProfilesPanel from "@/components/admin/AdminProfilesPanel";
+import ConfirmModal, { useConfirm } from "@/components/admin/ConfirmModal";
 import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
 
 const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; setLang: (l: AdminLang) => void }>({
@@ -15,7 +15,7 @@ const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; 
 });
 const useAdminT = () => useContext(AdminLangContext);
 
-type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf";
+type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -137,7 +137,7 @@ function MfaSetupModal({ setup, onClose, onSuccess }: { setup: MfaSetupState; on
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
       <div className="cyber-card rounded-xl p-6 max-w-sm w-full">
         <h3 className="text-white font-bold mb-2">🔐 Activer MFA — {setup.userName}</h3>
         {done ? (
@@ -177,6 +177,7 @@ function MfaSetupModal({ setup, onClose, onSuccess }: { setup: MfaSetupState; on
 
 function AdminUsersPanel() {
   const { t } = useAdminT();
+  const confirm = useConfirm();
   const [users, setUsers] = useState<Record<string, unknown>[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ profileId: "coordinateur_cfp" });
@@ -237,7 +238,7 @@ function AdminUsersPanel() {
   };
 
   const disableMfa = async (id: number) => {
-    if (!confirm("Désactiver le MFA pour cet utilisateur ?")) return;
+    if (!(await confirm({ message: "Désactiver le MFA pour cet utilisateur ?", danger: true }))) return;
     const res = await fetch("/api/admin/mfa/setup", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -269,7 +270,7 @@ function AdminUsersPanel() {
       )}
 
       {created && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <div className="cyber-card rounded-xl p-6 max-w-md w-full">
             <h3 className="text-white font-bold mb-4">✅ Utilisateur créé</h3>
             <p className="text-gray-400 text-sm mb-4">Un email a été envoyé à <strong className="text-white">{created.email}</strong> avec les identifiants.</p>
@@ -423,21 +424,11 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
   const [apolloKeywords, setApolloKeywords] = useState("cybersecurity,technology,telecom,finance");
   const [placesQuery, setPlacesQuery] = useState("");
   const [searching, setSearching] = useState(false);
+  const [emailTarget, setEmailTarget] = useState<Record<string, unknown> | null>(null);
+  const [emailResult, setEmailResult] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
+  const [generatingEmail, setGeneratingEmail] = useState(false);
   const [packages, setPackages] = useState<Record<string, unknown>[]>([]);
-  const [view, setView] = useState<"leads" | "pipeline">("leads");
-
-  // Selection for batch scoring
-  const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [scoring, setScoring] = useState(false);
-
-  // Contact modal
-  const [contactTarget, setContactTarget] = useState<Record<string, unknown> | null>(null);
-  const [contactLang, setContactLang] = useState<"fr" | "en">("fr");
-  const [contactSubject, setContactSubject] = useState("");
-  const [contactBody, setContactBody] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [sendResult, setSendResult] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | "pending" | "added">("all");
 
   useEffect(() => {
     fetch("/api/admin/sponsor-packages").then(r => r.json()).then(setPackages).catch(() => {});
@@ -445,7 +436,11 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
 
   const runApolloSearch = async () => {
     setSearching(true);
-    await fetch("/api/admin/ai/apollo-search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keywords: apolloKeywords.split(",").map(k => k.trim()).filter(Boolean) }) });
+    await fetch("/api/admin/ai/apollo-search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keywords: apolloKeywords.split(",").map(k => k.trim()).filter(Boolean) }),
+    });
     await onRefresh();
     setSearching(false);
   };
@@ -453,9 +448,61 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
   const runPlacesSearch = async () => {
     if (!placesQuery.trim()) return;
     setSearching(true);
-    await fetch("/api/admin/ai/places-search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: placesQuery }) });
+    await fetch("/api/admin/ai/places-search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: placesQuery }),
+    });
     await onRefresh();
     setSearching(false);
+  };
+
+  const generateEmail = async (lead: Record<string, unknown>) => {
+    setEmailTarget(lead);
+    setEmailResult(null);
+    setGeneratingEmail(true);
+    const pkg = packages.find(p => p.tier === lead.recommendedPackage);
+    const res = await fetch("/api/admin/ai/sponsor-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        org: lead.org,
+        contact: lead.contactName,
+        contactTitle: lead.contactTitle,
+        package: lead.recommendedPackage,
+        packagePrice: pkg ? `${(pkg.price as number).toLocaleString("fr-FR")} FCFA` : undefined,
+        sector: lead.sector,
+        mode: "prospect",
+      }),
+    });
+    if (res.ok) setEmailResult(await res.json());
+    setGeneratingEmail(false);
+  };
+
+  const addToPipeline = async (lead: Record<string, unknown>) => {
+    // Mark lead as added
+    await fetch("/api/admin/ai/prospect-leads", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: lead.id, addedToPipeline: true }),
+    });
+    // Create prospect entry with status "prospect"
+    await fetch("/api/admin/sponsor-prospects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        org: lead.org,
+        contact: lead.contactName || null,
+        email: lead.contactEmail || null,
+        phone: lead.phone || null,
+        package: lead.recommendedPackage || null,
+        notes: lead.aiScoreReason || null,
+        status: "prospect",
+      }),
+    });
+    setEmailTarget(null);
+    setEmailResult(null);
+    onRefresh();
   };
 
   const scoreColor = (s: number | null | undefined) => {
@@ -463,81 +510,6 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
     return s >= 7 ? "#00ff9d" : s >= 5 ? "#ffaa00" : "#ff0066";
   };
 
-  const scoreSelected = async () => {
-    const ids = Array.from(selected);
-    if (ids.length === 0 || ids.length > 10) return;
-    setScoring(true);
-    const res = await fetch("/api/admin/ai/score-prospects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
-    if (res.ok) {
-      const { leads: updated } = await res.json() as { leads: Record<string, unknown>[]; scored: number };
-      // Merge updated scores back without full refresh
-      updated.forEach(u => {
-        const lead = leads.find(l => l.id === u.id);
-        if (lead) { lead.aiScore = u.aiScore; lead.aiScoreReason = u.aiScoreReason; lead.recommendedPackage = u.recommendedPackage; }
-      });
-      onRefresh();
-    }
-    setSelected(new Set());
-    setScoring(false);
-  };
-
-  const addToPipeline = async (lead: Record<string, unknown>, status = "prospect") => {
-    await fetch("/api/admin/ai/prospect-leads", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: lead.id, addedToPipeline: true }) });
-    await fetch("/api/admin/sponsor-prospects", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ org: lead.org, contact: lead.contactName || null, email: lead.contactEmail || null, phone: lead.phone || null, package: lead.recommendedPackage || null, notes: lead.aiScoreReason || null, status }),
-    });
-    onRefresh();
-  };
-
-  const deleteLead = async (lead: Record<string, unknown>) => {
-    if (!confirm(`Supprimer définitivement "${lead.org}" ?`)) return;
-    await fetch("/api/admin/ai/prospect-leads", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: lead.id }) });
-    onRefresh();
-  };
-
-  const openContactModal = (lead: Record<string, unknown>) => {
-    setContactTarget(lead);
-    setContactLang("fr");
-    setContactSubject("");
-    setContactBody("");
-    setSendResult(null);
-    setGenerating(false);
-  };
-
-  const generateContactEmail = async () => {
-    if (!contactTarget) return;
-    setGenerating(true);
-    const pkg = packages.find(p => p.tier === contactTarget.recommendedPackage);
-    const res = await fetch("/api/admin/ai/sponsor-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ org: contactTarget.org, contact: contactTarget.contactName, contactTitle: contactTarget.contactTitle, package: contactTarget.recommendedPackage, packagePrice: pkg ? `${(pkg.price as number).toLocaleString("fr-FR")} FCFA` : undefined, sector: contactTarget.sector, mode: "prospect" }),
-    });
-    if (res.ok) {
-      const data = await res.json() as { subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string };
-      setContactSubject(contactLang === "fr" ? data.subjectFr : data.subjectEn);
-      setContactBody(contactLang === "fr" ? data.bodyFr : data.bodyEn);
-    }
-    setGenerating(false);
-  };
-
-  const sendContactEmail = async () => {
-    if (!contactTarget || !contactSubject || !contactBody) return;
-    const to = contactTarget.contactEmail as string;
-    if (!to) { setSendResult("❌ Aucun email de contact disponible pour ce prospect."); return; }
-    setSending(true);
-    const res = await fetch("/api/admin/ai/prospect-email-send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to, subject: contactSubject, body: contactBody, org: contactTarget.org }),
-    });
-    setSendResult(res.ok ? "✓ Email envoyé avec succès." : "❌ Erreur lors de l'envoi.");
-    setSending(false);
-  };
-
-  // Deduplicate
   const seen = new Set<string>();
   const deduped = leads.filter(l => {
     const key = (l.org as string).toLowerCase().trim();
@@ -546,92 +518,61 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
     return true;
   });
 
-  const pendingLeads = deduped.filter(l => !l.addedToPipeline).sort((a, b) => ((b.aiScore as number) || 0) - ((a.aiScore as number) || 0));
-  const pipelineLeads = deduped.filter(l => !!l.addedToPipeline).sort((a, b) => ((b.aiScore as number) || 0) - ((a.aiScore as number) || 0));
+  const filtered = deduped.filter(l => {
+    if (filter === "pending") return !l.addedToPipeline;
+    if (filter === "added") return !!l.addedToPipeline;
+    return true;
+  });
 
-  // Selection helpers
-  const canSelect = (lead: Record<string, unknown>) => lead.aiScore === null || lead.aiScore === undefined;
-  const toggleSelect = (id: number, lead: Record<string, unknown>) => {
-    if (!canSelect(lead)) return; // already scored — block
-    const next = new Set(selected);
-    if (next.has(id)) next.delete(id); else if (next.size < 10) next.add(id);
-    setSelected(next);
-  };
-  const selectedCount = selected.size;
+  const pending = deduped.filter(l => !l.addedToPipeline).length;
+  const added = deduped.filter(l => !!l.addedToPipeline).length;
 
   return (
     <div>
-      {/* Contact modal */}
-      {contactTarget && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl font-black text-white">Prospection Sponsors IA</h1>
+        <p className="text-gray-500 text-xs mt-1">Workflow : Recherche → Leads → Scoring IA → Email personnalisé → Pipeline</p>
+      </div>
+
+      {emailTarget && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-white font-bold">{contactTarget.org as string}</h3>
-                <p className="text-gray-500 text-xs">{contactTarget.sector as string} · {contactTarget.contactEmail as string || "Pas d'email"}</p>
+                <h3 className="text-white font-bold">{emailTarget.org as string}</h3>
+                <p className="text-gray-500 text-xs">{emailTarget.sector as string} · Package recommandé : <span style={{ color: "#00ff9d" }}>{(emailTarget.recommendedPackage as string) || "—"}</span></p>
               </div>
-              <button onClick={() => setContactTarget(null)} className="text-gray-500 hover:text-white text-xl">✕</button>
+              <button onClick={() => { setEmailTarget(null); setEmailResult(null); }} className="text-gray-500 hover:text-white text-xl">✕</button>
             </div>
-
-            {/* Lang + generate */}
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-xs text-gray-500">Langue :</span>
-              {(["fr", "en"] as const).map(l => (
-                <button key={l} onClick={() => setContactLang(l)}
-                  className={`text-xs px-3 py-1 rounded border transition-all ${contactLang === l ? "bg-neon-green/10 text-neon-green border-neon-green/30" : "text-gray-500 border-gray-700"}`}>
-                  {l === "fr" ? "🇫🇷 Français" : "🇬🇧 English"}
+            {generatingEmail && <p className="text-gray-500 text-xs text-center py-8">Génération de l&apos;email personnalisé...</p>}
+            {emailResult && (
+              <div className="space-y-4">
+                {[
+                  { lang: "Français", subject: emailResult.subjectFr, body: emailResult.bodyFr },
+                  { lang: "English", subject: emailResult.subjectEn, body: emailResult.bodyEn },
+                ].map(e => (
+                  <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold text-gray-400 uppercase">{e.lang}</span>
+                      <button onClick={() => navigator.clipboard.writeText(`Objet : ${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>Copier</button>
+                    </div>
+                    <p className="text-white text-xs font-bold mb-2">Objet : {e.subject}</p>
+                    <p className="text-gray-400 text-xs whitespace-pre-wrap leading-relaxed">{e.body}</p>
+                  </div>
+                ))}
+                <button
+                  onClick={() => addToPipeline(emailTarget)}
+                  className="w-full py-2 rounded text-sm font-bold transition-all"
+                  style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}
+                >
+                  + Ajouter au pipeline sponsors
                 </button>
-              ))}
-              <button onClick={generateContactEmail} disabled={generating}
-                className="ml-auto text-xs px-4 py-1.5 rounded transition-all"
-                style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}>
-                {generating ? "Génération…" : "✨ Générer"}
-              </button>
-            </div>
-
-            {/* Editable subject */}
-            <div className="mb-3">
-              <label className="text-xs text-gray-500 block mb-1">Objet</label>
-              <input
-                className="cyber-input w-full px-3 py-2 rounded text-xs text-white"
-                value={contactSubject}
-                onChange={e => setContactSubject(e.target.value)}
-                placeholder="Objet de l'email…"
-              />
-            </div>
-
-            {/* Editable body */}
-            <div className="mb-4">
-              <label className="text-xs text-gray-500 block mb-1">Corps du message</label>
-              <textarea
-                className="cyber-input w-full px-3 py-2 rounded text-xs text-white leading-relaxed"
-                rows={12}
-                value={contactBody}
-                onChange={e => setContactBody(e.target.value)}
-                placeholder="Corps de l'email…"
-              />
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button onClick={sendContactEmail} disabled={sending || !contactSubject || !contactBody}
-                className="btn-neon px-5 py-2 rounded text-xs disabled:opacity-50">
-                {sending ? "Envoi…" : "📤 Envoyer"}
-              </button>
-              <span className="text-xs text-gray-600">Reply-To : contact@eyesopensecurity.com</span>
-            </div>
-            {sendResult && (
-              <p className="mt-3 text-xs font-mono" style={{ color: sendResult.startsWith("✓") ? "#00ff9d" : "#ff0066" }}>{sendResult}</p>
+              </div>
             )}
           </div>
         </div>
       )}
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-black text-white">Prospection Sponsors IA</h1>
-        <p className="text-gray-500 text-xs mt-1">Workflow : Recherche → Leads → Scoring IA → Pipeline → Contacter</p>
-      </div>
-
-      {/* Search */}
       <div className="cyber-card rounded-xl p-5 mb-5">
         <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#00ff9d" }}>
           Étape 1 — Recherche de prospects
@@ -664,151 +605,99 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
             </button>
           </div>
         )}
-        <p className="text-gray-700 text-xs mt-2">Apollo.io couvre les entreprises de +50 employés en Afrique · Google Places couvre les PME locales de Douala</p>
+        <p className="text-gray-700 text-xs mt-2">
+          Apollo.io couvre les entreprises de +50 employés en Afrique · Google Places couvre les PME locales de Douala
+        </p>
       </div>
 
-      {/* View tabs */}
-      <div className="flex items-center gap-3 mb-4">
-        {(["leads", "pipeline"] as const).map(v => (
-          <button key={v} onClick={() => setView(v)}
-            className={`text-xs px-4 py-2 rounded border transition-all ${view === v ? "bg-neon-green/10 text-neon-green border-neon-green/30" : "text-gray-600 border-gray-800"}`}>
-            {v === "leads" ? `📋 Leads (${pendingLeads.length})` : `🎯 En pipeline (${pipelineLeads.length})`}
-          </button>
-        ))}
-      </div>
-
-      {/* LEADS VIEW */}
-      {view === "leads" && (
-        <div className="cyber-card rounded-xl p-5 mb-5">
-          {/* Scoring toolbar */}
-          <div className="flex items-center gap-3 mb-4">
-            <span className="text-xs text-gray-500">{selectedCount} sélectionné{selectedCount > 1 ? "s" : ""} (max 10)</span>
-            <button
-              onClick={scoreSelected}
-              disabled={selectedCount === 0 || scoring}
-              className="text-xs px-4 py-1.5 rounded transition-all disabled:opacity-40"
-              style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}
-            >
-              {scoring ? "Analyse IA…" : "✨ Scorer avec IA"}
-            </button>
-            {selectedCount > 0 && (
-              <button onClick={() => setSelected(new Set())} className="text-xs text-gray-600 hover:text-gray-400">Tout déselectionner</button>
-            )}
-          </div>
-
-          {pendingLeads.length === 0 && (
-            <p className="text-gray-600 text-xs py-8 text-center">Aucun prospect. Lancez une recherche ci-dessus ou tous les leads sont déjà en pipeline.</p>
-          )}
-
-          <div className="space-y-3">
-            {pendingLeads.map(lead => {
-              const id = lead.id as number;
-              const isSelected = selected.has(id);
-              const isScored = lead.aiScore !== null && lead.aiScore !== undefined;
-              return (
-                <div key={id} className={`border rounded-xl p-4 transition-all ${isSelected ? "border-blue-500/50 bg-blue-500/5" : "border-gray-700 hover:border-gray-500"}`}>
-                  <div className="flex items-start gap-3">
-                    {/* Checkbox */}
-                    <div className="pt-0.5 shrink-0">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        disabled={isScored}
-                        onChange={() => toggleSelect(id, lead)}
-                        title={isScored ? "Déjà scoré — scoring IA non nécessaire" : "Sélectionner pour scorer"}
-                        className="w-3.5 h-3.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
-                      />
-                    </div>
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: lead.source === "apollo" ? "#0066ff15" : "#cc00ff15", color: lead.source === "apollo" ? "#0066ff" : "#cc00ff" }}>
-                          {lead.source as string}
-                        </span>
-                        {isScored ? (
-                          <span className="text-xs px-2 py-0.5 rounded font-mono font-bold" style={{ background: scoreColor(lead.aiScore as number) + "20", color: scoreColor(lead.aiScore as number) }}>
-                            ✨ {(lead.aiScore as number).toFixed(1)}/10
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-700 font-mono">— non scoré</span>
-                        )}
-                        {!!(lead.recommendedPackage as string) && (
-                          <span className="text-xs px-2 py-0.5 rounded border" style={{ borderColor: "#ffaa0040", color: "#ffaa00" }}>{lead.recommendedPackage as string}</span>
-                        )}
-                      </div>
-                      <p className="text-white font-bold text-sm">{lead.org as string}</p>
-                      {(!!lead.sector || !!lead.city) && <p className="text-gray-500 text-xs mt-0.5">{lead.sector as string}{lead.city ? ` · ${lead.city}` : ""}</p>}
-                      {!!lead.contactName && <p className="text-xs mt-1" style={{ color: "#00ff9d" }}>👤 {lead.contactName as string}{lead.contactTitle ? ` — ${lead.contactTitle}` : ""}</p>}
-                      {!!lead.contactEmail && <p className="text-gray-400 text-xs">✉ {lead.contactEmail as string}</p>}
-                      {!!lead.website && <a href={lead.website as string} target="_blank" rel="noreferrer" className="text-xs hover:underline block mt-0.5" style={{ color: "#0066ff" }}>🌐 {lead.website as string}</a>}
-                      {!lead.contactEmail && lead.source === "google_places" && <p className="text-gray-700 text-xs mt-0.5 italic">Email non disponible via Google Places — consulter le site web</p>}
-                      {!!lead.aiScoreReason && <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>}
-                    </div>
-                    {/* Actions */}
-                    <div className="flex flex-col gap-1.5 shrink-0">
-                      <button onClick={() => addToPipeline(lead, "prospect")}
-                        className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
-                        style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>
-                        + Pipeline
-                      </button>
-                      <button onClick={() => addToPipeline(lead, "abandoned")}
-                        className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
-                        style={{ background: "#88888815", color: "#888", border: "1px solid #88888830" }}>
-                        Abandonner
-                      </button>
-                      <button onClick={() => deleteLead(lead)}
-                        className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
-                        style={{ background: "#ff006615", color: "#ff0066", border: "1px solid #ff006630" }}>
-                        ✕ Supprimer
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* PIPELINE VIEW */}
-      {view === "pipeline" && (
-        <div className="cyber-card rounded-xl p-5 mb-5">
-          {pipelineLeads.length === 0 && (
-            <p className="text-gray-600 text-xs py-8 text-center">Aucun prospect en pipeline. Ajoutez des leads depuis l&apos;onglet Leads.</p>
-          )}
-          <div className="space-y-3">
-            {pipelineLeads.map(lead => (
-              <div key={lead.id as number} className="border border-gray-700 rounded-xl p-4 flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: lead.source === "apollo" ? "#0066ff15" : "#cc00ff15", color: lead.source === "apollo" ? "#0066ff" : "#cc00ff" }}>{lead.source as string}</span>
-                    {lead.aiScore !== null && lead.aiScore !== undefined && (
-                      <span className="text-xs px-2 py-0.5 rounded font-mono font-bold" style={{ background: scoreColor(lead.aiScore as number) + "20", color: scoreColor(lead.aiScore as number) }}>
-                        ✨ {(lead.aiScore as number).toFixed(1)}/10
-                      </span>
-                    )}
-                    {!!(lead.recommendedPackage as string) && (
-                      <span className="text-xs px-2 py-0.5 rounded border" style={{ borderColor: "#ffaa0040", color: "#ffaa00" }}>{lead.recommendedPackage as string}</span>
-                    )}
-                    <span className="text-xs text-neon-green">✓ En pipeline</span>
-                  </div>
-                  <p className="text-white font-bold text-sm">{lead.org as string}</p>
-                  {(!!lead.sector || !!lead.city) && <p className="text-gray-500 text-xs mt-0.5">{lead.sector as string}{lead.city ? ` · ${lead.city}` : ""}</p>}
-                  {!!lead.contactName && <p className="text-xs mt-1" style={{ color: "#00ff9d" }}>👤 {lead.contactName as string}{lead.contactTitle ? ` — ${lead.contactTitle}` : ""}</p>}
-                  {!!lead.contactEmail && <p className="text-gray-400 text-xs">✉ {lead.contactEmail as string}</p>}
-                  {!!lead.website && <a href={lead.website as string} target="_blank" rel="noreferrer" className="text-xs hover:underline block mt-0.5" style={{ color: "#0066ff" }}>🌐 {lead.website as string}</a>}
-                  {!!lead.aiScoreReason && <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>}
-                </div>
-                <button onClick={() => openContactModal(lead)}
-                  className="text-xs px-4 py-2 rounded whitespace-nowrap transition-all shrink-0"
-                  style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}>
-                  ✉ Contacter le prospect
-                </button>
-              </div>
+      <div className="cyber-card rounded-xl p-5 mb-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xs font-bold uppercase tracking-widest" style={{ color: "#0066ff" }}>
+            Étapes 2 &amp; 3 — Leads ({deduped.length}) · Scoring IA
+          </h2>
+          <div className="flex gap-2">
+            {(["all", "pending", "added"] as const).map(f => (
+              <button key={f} onClick={() => setFilter(f)} className={`text-xs px-3 py-1 rounded transition-all ${filter === f ? "bg-white/10 text-white" : "text-gray-600 hover:text-gray-400"}`}>
+                {f === "all" ? `Tous (${deduped.length})` : f === "pending" ? `À traiter (${pending})` : `En pipeline (${added})`}
+              </button>
             ))}
           </div>
         </div>
-      )}
+
+        {filtered.length === 0 && (
+          <p className="text-gray-600 text-xs py-8 text-center">
+            {deduped.length === 0 ? "Aucun prospect. Lancez une recherche ci-dessus." : "Aucun prospect dans ce filtre."}
+          </p>
+        )}
+
+        <div className="space-y-3">
+          {filtered.sort((a, b) => ((b.aiScore as number) || 0) - ((a.aiScore as number) || 0)).map(lead => (
+            <div key={lead.id as number} className={`border rounded-xl p-4 transition-all ${lead.addedToPipeline ? "border-gray-800 opacity-60" : "border-gray-700 hover:border-gray-500"}`}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: lead.source === "apollo" ? "#0066ff15" : "#cc00ff15", color: lead.source === "apollo" ? "#0066ff" : "#cc00ff" }}>
+                      {lead.source as string}
+                    </span>
+                    {lead.aiScore !== null && lead.aiScore !== undefined && (
+                      <span className="text-xs px-2 py-0.5 rounded font-mono font-bold" style={{ background: scoreColor(lead.aiScore as number) + "20", color: scoreColor(lead.aiScore as number) }}>
+                        Score {(lead.aiScore as number).toFixed(1)}/10
+                      </span>
+                    )}
+                    {!!(lead.recommendedPackage as string) && (
+                      <span className="text-xs px-2 py-0.5 rounded border" style={{ borderColor: "#ffaa0040", color: "#ffaa00" }}>
+                        {lead.recommendedPackage as string}
+                      </span>
+                    )}
+                    {!!lead.addedToPipeline && <span className="text-xs text-neon-green">✓ En pipeline</span>}
+                  </div>
+                  <p className="text-white font-bold text-sm">{lead.org as string}</p>
+                  {(!!lead.sector || !!lead.city) && (
+                    <p className="text-gray-500 text-xs mt-0.5">{lead.sector as string}{lead.city ? ` · ${lead.city}` : ""}</p>
+                  )}
+                  {!!lead.contactName && (
+                    <p className="text-xs mt-1" style={{ color: "#00ff9d" }}>
+                      👤 {lead.contactName as string}{lead.contactTitle ? ` — ${lead.contactTitle}` : ""}
+                    </p>
+                  )}
+                  {!!lead.contactEmail && (
+                    <p className="text-gray-400 text-xs">✉ {lead.contactEmail as string}</p>
+                  )}
+                  {!!lead.website && (
+                    <a href={lead.website as string} target="_blank" rel="noreferrer" className="text-xs hover:underline block mt-0.5" style={{ color: "#0066ff" }}>
+                      🌐 {lead.website as string}
+                    </a>
+                  )}
+                  {!lead.contactEmail && lead.source === "google_places" && (
+                    <p className="text-gray-700 text-xs mt-0.5 italic">Email non disponible via Google Places — consulter le site web</p>
+                  )}
+                  {!!lead.aiScoreReason && (
+                    <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>
+                  )}
+                </div>
+                {!lead.addedToPipeline && (
+                  <div className="flex flex-col gap-2 shrink-0">
+                    <button
+                      onClick={() => generateEmail(lead)}
+                      className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
+                      style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}
+                    >
+                      ✉ Générer email
+                    </button>
+                    <button
+                      onClick={() => addToPipeline(lead)}
+                      className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
+                      style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}
+                    >
+                      + Pipeline
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {packages.length > 0 && (
         <div className="cyber-card rounded-xl p-5">
@@ -939,13 +828,14 @@ function CommunicationPanel() {
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
   const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
-  // Posts by date for calendar dots
-  const postsByDate: Record<string, number> = {};
+  // Posts by date for calendar
+  const postsByDate: Record<string, Record<string, unknown>[]> = {};
   linkedinPosts.forEach(p => {
     const d = p.scheduledAt || p.publishedAt;
     if (d) {
       const key = new Date(d as string).toISOString().slice(0, 10);
-      postsByDate[key] = (postsByDate[key] || 0) + 1;
+      if (!postsByDate[key]) postsByDate[key] = [];
+      postsByDate[key].push(p);
     }
   });
 
@@ -1173,27 +1063,26 @@ function CommunicationPanel() {
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;
               const dateKey = `${currentYear}-${String(currentMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-              const hasPost = postsByDate[dateKey] || 0;
+              const dayPosts = postsByDate[dateKey] || [];
               const isToday = today.getDate() === day && today.getMonth() === currentMonth && today.getFullYear() === currentYear;
               const isSelected = selectedDay?.getDate() === day && selectedDay?.getMonth() === currentMonth && selectedDay?.getFullYear() === currentYear;
               return (
                 <button
                   key={day}
                   onClick={() => handleDayClick(day)}
-                  className={`relative aspect-square rounded-lg text-xs flex flex-col items-center justify-center transition-all ${
+                  className={`relative rounded-lg text-xs flex flex-col items-start justify-start p-1 transition-all min-h-[40px] ${
                     isSelected ? "bg-neon-green/20 text-neon-green border border-neon-green/50" :
                     isToday ? "bg-white/10 text-white border border-white/20" :
                     "text-gray-500 hover:bg-white/[0.05] hover:text-gray-300"
                   }`}
                 >
-                  <span>{day}</span>
-                  {hasPost > 0 && (
-                    <div className="flex gap-0.5 mt-0.5">
-                      {Array.from({ length: Math.min(hasPost, 3) }).map((_, di) => (
-                        <div key={di} className="w-1 h-1 rounded-full" style={{ background: "#0066ff" }} />
-                      ))}
-                    </div>
-                  )}
+                  <span className="w-full text-center">{day}</span>
+                  {dayPosts.slice(0, 2).map((p, i) => (
+                    <span key={i} className="block text-left truncate text-gray-500 leading-tight mt-0.5 w-full" style={{ fontSize: "9px" }}>
+                      {p.platform === "linkedin" ? "in" : p.platform === "twitter" ? "𝕏" : "ig"} {(p.content as string).substring(0, 25)}…
+                    </span>
+                  ))}
+                  {dayPosts.length > 2 && <span style={{ fontSize: "9px" }} className="text-gray-600">+{dayPosts.length - 2}</span>}
                 </button>
               );
             })}
@@ -1470,56 +1359,94 @@ function CommunicationPanel() {
         )}
       </div>
 
-      {/* Scheduled/published posts list */}
+      {/* Day-selected posts view */}
       <div className="cyber-card rounded-xl p-5">
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#0066ff" }}>Posts planifiés & publiés</h3>
-        {linkedinPosts.length === 0 && <p className="text-gray-600 text-xs text-center py-4">Aucun post. Cliquez sur un jour du calendrier pour créer.</p>}
-        <div className="space-y-2">
-          {linkedinPosts.map(post => {
-            const color = statusColors[post.status as string] || "#888";
-            return (
-              <div key={post.id as number} className="border border-gray-800 rounded-lg p-3 flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={{ background: color + "20", color }}>{post.status as string}</span>
-                    <span className="text-xs text-gray-600 capitalize">{post.platform as string} · {post.lang as string}</span>
-                    {!!post.scheduledAt && <span className="text-xs text-gray-600">📅 {new Date(post.scheduledAt as string).toLocaleDateString("fr-FR")}</span>}
-                  </div>
-                  <p className="text-gray-400 text-xs line-clamp-2">{post.content as string}</p>
-                  {!!post.imageUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={post.imageUrl as string} alt="" className="mt-1 h-12 w-20 object-cover rounded" />
-                  )}
-                </div>
-                <div className="flex gap-1 shrink-0">
-                  {post.status === "draft" && (
-                    <>
-                      <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
-                        {publishing === (post.id as number) ? "..." : "▶"}
-                      </button>
-                      <button onClick={() => { setScheduleId(post.id as number); setScheduleDate(""); }} className="text-xs px-2 py-1 rounded" style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0030" }}>🕐</button>
-                    </>
-                  )}
-                  {post.status === "published" && !!post.linkedinPostId && (
-                    <a
-                      href={post.platform === "twitter"
-                        ? `https://x.com/i/web/status/${post.linkedinPostId as string}`
-                        : `https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`}
-                      target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded" style={{ color: "#00ff9d" }}
-                    >↗</a>
-                  )}
-                  {scheduleId === (post.id as number) && (
-                    <div className="flex gap-1 items-center">
-                      <input type="datetime-local" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="cyber-input text-xs rounded px-1 py-0.5 w-36" />
-                      <button onClick={() => schedulePost(post.id as number)} className="btn-neon text-xs px-2 py-1 rounded">OK</button>
-                      <button onClick={() => setScheduleId(null)} className="text-gray-500 text-xs">✕</button>
-                    </div>
-                  )}
-                </div>
+        {!selectedDay ? (
+          <>
+            <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#0066ff" }}>Posts planifiés & publiés</h3>
+            <p className="text-gray-600 text-xs text-center py-4">Cliquez sur un jour pour voir les posts planifiés</p>
+          </>
+        ) : (() => {
+          const dateKey = `${selectedDay.getFullYear()}-${String(selectedDay.getMonth()+1).padStart(2,"0")}-${String(selectedDay.getDate()).padStart(2,"0")}`;
+          const dayPostsList = postsByDate[dateKey] || [];
+          return (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: "#0066ff" }}>
+                  Posts du {selectedDay.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                </h3>
+                <button onClick={() => setSelectedDay(null)} className="text-gray-600 hover:text-gray-400 text-xs">✕ Fermer</button>
               </div>
-            );
-          })}
-        </div>
+              {dayPostsList.length === 0 && <p className="text-gray-600 text-xs text-center py-4">Aucun post ce jour. Cliquez sur le calendrier pour créer.</p>}
+              <div className="space-y-3">
+                {dayPostsList.map(post => {
+                  const color = statusColors[post.status as string] || "#888";
+                  const platformColor = post.platform === "linkedin" ? "#0066ff" : post.platform === "twitter" ? "#00ccff" : "#cc00ff";
+                  return (
+                    <div key={post.id as number} className="border border-gray-800 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={{ background: platformColor + "20", color: platformColor }}>{post.platform as string}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded font-mono uppercase" style={{ background: "#ffffff10", color: "#aaa" }}>{post.lang as string}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={{ background: color + "20", color }}>{post.status as string}</span>
+                        {!!post.scheduledAt && <span className="text-xs text-gray-600">📅 {new Date(post.scheduledAt as string).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>}
+                      </div>
+                      <textarea
+                        readOnly
+                        value={post.content as string}
+                        className="cyber-input w-full text-xs rounded p-2 h-24 resize-none text-gray-300"
+                      />
+                      {!!post.imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={post.imageUrl as string} alt="" className="h-12 w-20 object-cover rounded" />
+                      )}
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          onClick={() => { handleDayClick(selectedDay.getDate()); }}
+                          className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white transition-colors"
+                        >✏️ Modifier</button>
+                        {post.status === "scheduled" && (
+                          <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
+                            {publishing === (post.id as number) ? "..." : "▶️ Publier maintenant"}
+                          </button>
+                        )}
+                        {post.status === "draft" && (
+                          <>
+                            <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
+                              {publishing === (post.id as number) ? "..." : "▶️ Publier maintenant"}
+                            </button>
+                            <button onClick={() => { setScheduleId(post.id as number); setScheduleDate(""); }} className="text-xs px-2 py-1 rounded" style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0030" }}>🕐 Planifier</button>
+                          </>
+                        )}
+                        {post.status === "published" && !!post.linkedinPostId && (
+                          <a
+                            href={post.platform === "twitter"
+                              ? `https://x.com/i/web/status/${post.linkedinPostId as string}`
+                              : `https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`}
+                            target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded" style={{ color: "#00ff9d" }}
+                          >↗ Voir</a>
+                        )}
+                        <button
+                          onClick={async () => {
+                            await fetch("/api/admin/ai/social-posts", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: post.id }) });
+                            await loadLinkedinPosts();
+                          }}
+                          className="text-xs px-2 py-1 rounded border border-red-800/50 text-red-500 hover:bg-red-900/20 transition-colors"
+                        >🗑️ Supprimer</button>
+                        {scheduleId === (post.id as number) && (
+                          <div className="flex gap-1 items-center w-full mt-1">
+                            <input type="datetime-local" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="cyber-input text-xs rounded px-1 py-0.5 w-36" />
+                            <button onClick={() => schedulePost(post.id as number)} className="btn-neon text-xs px-2 py-1 rounded">OK</button>
+                            <button onClick={() => setScheduleId(null)} className="text-gray-500 text-xs">✕</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       </>}
@@ -1685,60 +1612,34 @@ const PROSPECT_STATUSES = [
 
 function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<string, unknown>[]; onRefresh: () => void }) {
   const { t, lang } = useAdminT();
+  const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ status: "prospect" });
+  const [aiEmail, setAiEmail] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
+  const [aiEmailTarget, setAiEmailTarget] = useState<{ org: string; id: number } | null>(null);
+  const [generatingFor, setGeneratingFor] = useState<number | null>(null);
 
-  // Contact modal state
-  const [contactTarget, setContactTarget] = useState<Record<string, unknown> | null>(null);
-  const [contactLang, setContactLang] = useState<"fr" | "en">("fr");
-  const [contactSubject, setContactSubject] = useState("");
-  const [contactBody, setContactBody] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [sendResult, setSendResult] = useState<string | null>(null);
-
-  const openContact = (p: Record<string, unknown>) => {
-    setContactTarget(p);
-    setContactLang("fr");
-    setContactSubject("");
-    setContactBody("");
-    setSendResult(null);
-  };
-
-  const generateEmail = async () => {
-    if (!contactTarget) return;
-    setGenerating(true);
+  const generateFollowupEmail = async (p: Record<string, unknown>) => {
+    setGeneratingFor(p.id as number);
+    setAiEmailTarget({ org: p.org as string, id: p.id as number });
     const res = await fetch("/api/admin/ai/sponsor-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ org: contactTarget.org, contact: contactTarget.contact, package: contactTarget.package, status: contactTarget.status, notes: contactTarget.notes, mode: "followup" }),
+      body: JSON.stringify({ org: p.org, contact: p.contact, package: p.package, status: p.status, notes: p.notes, mode: "followup" }),
     });
-    if (res.ok) {
-      const data = await res.json() as { subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string };
-      setContactSubject(contactLang === "fr" ? data.subjectFr : data.subjectEn);
-      setContactBody(contactLang === "fr" ? data.bodyFr : data.bodyEn);
-    }
-    setGenerating(false);
+    if (res.ok) setAiEmail(await res.json());
+    setGeneratingFor(null);
   };
 
-  const sendEmail = async () => {
-    if (!contactTarget || !contactSubject || !contactBody) return;
-    const to = contactTarget.email as string;
-    if (!to) { setSendResult("❌ Aucun email de contact disponible."); return; }
-    setSending(true);
-    const res = await fetch("/api/admin/ai/prospect-email-send", {
-      method: "POST",
+  const markContacted = async (id: number) => {
+    await fetch(`/api/admin/sponsor-prospects/${id}`, {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to, subject: contactSubject, body: contactBody, org: contactTarget.org }),
+      body: JSON.stringify({ status: "contacted" }),
     });
-    if (res.ok) {
-      setSendResult("✓ Email envoyé.");
-      await fetch(`/api/admin/sponsor-prospects/${contactTarget.id as number}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "contacted" }) });
-      onRefresh();
-    } else {
-      setSendResult("❌ Erreur lors de l'envoi.");
-    }
-    setSending(false);
+    setAiEmail(null);
+    setAiEmailTarget(null);
+    onRefresh();
   };
 
   const save = async () => {
@@ -1748,11 +1649,40 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
 
   const updateStatus = async (id: number, status: string) => {
     await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    if (status === "concluded") {
+      const sponsor = prospects.find(p => p.id === id);
+      if (sponsor) {
+        // Auto-add to active sponsors list
+        await fetch("/api/admin/sponsors", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: sponsor.org || sponsor.name,
+            logoUrl: sponsor.logoUrl || "",
+            website: sponsor.website || "",
+            tier: sponsor.package || sponsor.tier || "BRONZE",
+            isVisible: true,
+          }),
+        }).catch(() => {});
+        // Auto-generate announcement post in FR and EN
+        await fetch("/api/admin/social/posts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            platform: "linkedin",
+            lang: "fr",
+            content: `🎉 [EOCON 2026 · Sponsor ${sponsor.package || sponsor.tier || "BRONZE"}] Nous sommes ravis d'accueillir ${sponsor.org || sponsor.name} comme partenaire ${sponsor.package || sponsor.tier || "BRONZE"} d'EOCON 2026 ! 🙏\n\nMerci pour votre soutien à la communauté cybersécurité africaine.\n\n📅 28 Novembre 2026 · Hotel Onomo, Douala\n🔗 Inscriptions : https://eyesopensecurity.com/#inscription\n\n#EOCON2026 #Cybersecurity #Cameroun`,
+            scheduledAt: null,
+            status: "draft",
+          }),
+        }).catch(() => {});
+      }
+    }
     onRefresh();
   };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer ce prospect ?")) return;
+    if (!(await confirm({ message: "Supprimer ce prospect ?", danger: true, confirmLabel: "Supprimer" }))) return;
     await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "DELETE" });
     onRefresh();
   };
@@ -1764,53 +1694,37 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
         <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">{t.addProspect}</button>
       </div>
 
-      {/* Contact modal */}
-      {contactTarget && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      {/* AI Email Modal */}
+      {aiEmail && aiEmailTarget && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between mb-4">
-              <div>
-                <h3 className="text-white font-bold">{contactTarget.org as string}</h3>
-                <p className="text-gray-500 text-xs">{(contactTarget.email as string) || "Pas d'email"} · Package : {(contactTarget.package as string) || "—"}</p>
-              </div>
-              <button onClick={() => setContactTarget(null)} className="text-gray-500 hover:text-white text-xl">✕</button>
+              <h3 className="text-white font-bold">Email — {aiEmailTarget.org}</h3>
+              <button onClick={() => { setAiEmail(null); setAiEmailTarget(null); }} className="text-gray-500 hover:text-white">✕</button>
             </div>
-
-            {/* Lang + generate */}
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-xs text-gray-500">Langue :</span>
-              {(["fr", "en"] as const).map(l => (
-                <button key={l} onClick={() => setContactLang(l)}
-                  className={`text-xs px-3 py-1 rounded border transition-all ${contactLang === l ? "bg-neon-green/10 text-neon-green border-neon-green/30" : "text-gray-500 border-gray-700"}`}>
-                  {l === "fr" ? "🇫🇷 Français" : "🇬🇧 English"}
-                </button>
+            <div className="space-y-4">
+              {[
+                { lang: "FR", subject: aiEmail.subjectFr, body: aiEmail.bodyFr },
+                { lang: "EN", subject: aiEmail.subjectEn, body: aiEmail.bodyEn },
+              ].map(e => (
+                <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-bold text-gray-400">{e.lang}</span>
+                    <button onClick={() => navigator.clipboard.writeText(`${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>Copier</button>
+                  </div>
+                  <p className="text-white text-xs font-bold mb-2">Objet: {e.subject}</p>
+                  <p className="text-gray-400 text-xs whitespace-pre-wrap">{e.body}</p>
+                </div>
               ))}
-              <button onClick={generateEmail} disabled={generating}
-                className="ml-auto text-xs px-4 py-1.5 rounded transition-all"
-                style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}>
-                {generating ? "Génération…" : "✨ Générer relance"}
+            </div>
+            <div className="mt-4 pt-4 border-t border-gray-800">
+              <button
+                onClick={() => markContacted(aiEmailTarget.id)}
+                className="w-full text-xs px-4 py-2 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-all"
+              >
+                {t.markContacted}
               </button>
             </div>
-
-            <div className="mb-3">
-              <label className="text-xs text-gray-500 block mb-1">Objet</label>
-              <input className="cyber-input w-full px-3 py-2 rounded text-xs text-white" value={contactSubject} onChange={e => setContactSubject(e.target.value)} placeholder="Objet…" />
-            </div>
-            <div className="mb-4">
-              <label className="text-xs text-gray-500 block mb-1">Corps du message</label>
-              <textarea className="cyber-input w-full px-3 py-2 rounded text-xs text-white leading-relaxed" rows={12} value={contactBody} onChange={e => setContactBody(e.target.value)} placeholder="Corps…" />
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button onClick={sendEmail} disabled={sending || !contactSubject || !contactBody}
-                className="btn-neon px-5 py-2 rounded text-xs disabled:opacity-50">
-                {sending ? "Envoi…" : "📤 Envoyer"}
-              </button>
-              <span className="text-xs text-gray-600">Reply-To : contact@eyesopensecurity.com</span>
-            </div>
-            {sendResult && (
-              <p className="mt-3 text-xs font-mono" style={{ color: sendResult.startsWith("✓") ? "#00ff9d" : "#ff0066" }}>{sendResult}</p>
-            )}
           </div>
         </div>
       )}
@@ -1881,11 +1795,12 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
                       )}
                       <div className="flex items-center gap-1 mt-2 flex-wrap">
                         <button
-                          onClick={() => openContact(p)}
-                          className="text-xs px-2 py-0.5 rounded transition-all"
+                          onClick={() => generateFollowupEmail(p)}
+                          disabled={generatingFor === (p.id as number)}
+                          className="text-xs px-1.5 py-0.5 rounded transition-all disabled:opacity-50"
                           style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}
                         >
-                          ✉
+                          {generatingFor === (p.id as number) ? "…" : "✨"}
                         </button>
                         <select
                           className="cyber-input text-xs px-1 py-0.5 rounded flex-1 min-w-0"
@@ -1924,40 +1839,11 @@ const BUDGET_COST_LABELS = [
 
 interface AutoRevenue { label: string; value: number; color: string; }
 
-const BUDGET_STATUS_COLORS: Record<string, string> = {
-  paid: "#00ff9d",
-  pending: "#ffaa00",
-  cancelled: "#666666",
-};
-
 function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; onRefresh: () => void }) {
+  const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ category: "costs", planned: 0, actual: 0, status: "pending" });
   const [autoRevenues, setAutoRevenues] = useState<AutoRevenue[]>([]);
-  const [capitalDepart, setCapitalDepart] = useState<number>(0);
-  const [capitalInput, setCapitalInput] = useState<string>("0");
-  const [teamMembers, setTeamMembers] = useState<Array<{ id: number; name: string }>>([]);
-
-  // Fetch capital setting and team members
-  useEffect(() => {
-    async function loadMeta() {
-      const [settingsRes, teamRes] = await Promise.all([
-        fetch("/api/admin/settings"),
-        fetch("/api/admin/team"),
-      ]);
-      if (settingsRes.ok) {
-        const s = await settingsRes.json() as Record<string, string>;
-        const cap = parseFloat(s.capitalDepart || "0") || 0;
-        setCapitalDepart(cap);
-        setCapitalInput(String(cap));
-      }
-      if (teamRes.ok) {
-        const members = await teamRes.json() as Array<{ id: number; name: string }>;
-        setTeamMembers(members);
-      }
-    }
-    loadMeta();
-  }, []);
 
   // Fetch auto-calculated revenues from ticket sales + sponsor packages
   useEffect(() => {
@@ -1997,7 +1883,7 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
   };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer ?")) return;
+    if (!(await confirm({ message: "Supprimer ?", danger: true, confirmLabel: "Supprimer" }))) return;
     await fetch(`/api/admin/budget/${id}`, { method: "DELETE" });
     onRefresh();
   };
@@ -2017,13 +1903,6 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
   const totalPlannedCost = costs.reduce((s, i) => s + ((i.planned as number) || 0), 0);
   const totalActualCost = costs.reduce((s, i) => s + ((i.actual as number) || 0), 0);
   const balance = totalActualRev - totalActualCost;
-  const capitalRestant = capitalDepart - totalActualCost;
-  const capitalDepasse = capitalDepart > 0 && totalActualCost > capitalDepart;
-
-  const saveCapital = async (val: number) => {
-    setCapitalDepart(val);
-    await fetch("/api/admin/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ capitalDepart: String(val) }) });
-  };
 
   // Histogram data: revenues vs costs by category
   const histogramItems: { label: string; value: number; color: string; maxVal: number }[] = [
@@ -2034,7 +1913,7 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
 
   const maxAbsVal = Math.max(...histogramItems.map(i => Math.abs(i.value)), 1);
 
-  const renderTable = (rows: Record<string, unknown>[], title: string, color: string, showResponsable = false) => (
+  const renderTable = (rows: Record<string, unknown>[], title: string, color: string) => (
     <div className="cyber-card rounded-xl p-5 mb-6">
       <h3 className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color }}>{title}</h3>
       <table className="w-full text-xs">
@@ -2044,56 +1923,36 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
             <th className="text-right py-2 px-2 font-normal">Prévu (FCFA)</th>
             <th className="text-right py-2 px-2 font-normal">Réel (FCFA)</th>
             <th className="text-left py-2 px-2 font-normal">Statut</th>
-            {showResponsable && <th className="text-left py-2 px-2 font-normal">Responsable</th>}
             <th className="py-2 px-2" />
           </tr>
         </thead>
         <tbody>
-          {rows.map(r => {
-            const statusColor = BUDGET_STATUS_COLORS[r.status as string] || "#888";
-            return (
-              <tr key={r.id as number} className="border-b border-gray-900 hover:bg-white/[0.01]" style={{ borderLeft: `3px solid ${statusColor}20` }}>
-                <td className="py-2 px-2 text-white">{r.label as string}</td>
-                <td className="py-2 px-2 text-right">
-                  <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
-                    defaultValue={(r.planned as number) || 0}
-                    onBlur={e => update(r.id as number, { planned: parseFloat(e.target.value) || 0 })} />
-                </td>
-                <td className="py-2 px-2 text-right">
-                  <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
-                    defaultValue={(r.actual as number) || 0}
-                    onBlur={e => update(r.id as number, { actual: parseFloat(e.target.value) || 0 })} />
-                </td>
-                <td className="py-2 px-2">
-                  <select
-                    className="cyber-input text-xs px-2 py-1 rounded font-bold"
-                    style={{ color: statusColor, borderColor: statusColor + "60" }}
-                    value={r.status as string}
-                    onChange={e => update(r.id as number, { status: e.target.value })}>
-                    <option value="pending" style={{ color: BUDGET_STATUS_COLORS.pending }}>En attente</option>
-                    <option value="paid" style={{ color: BUDGET_STATUS_COLORS.paid }}>Payé</option>
-                    <option value="cancelled" style={{ color: BUDGET_STATUS_COLORS.cancelled }}>Annulé</option>
-                  </select>
-                </td>
-                {showResponsable && (
-                  <td className="py-2 px-2">
-                    <select
-                      className="cyber-input text-xs px-2 py-1 rounded w-36"
-                      defaultValue={(r.responsable as string) || ""}
-                      onChange={e => update(r.id as number, { responsable: e.target.value || null })}>
-                      <option value="">— aucun —</option>
-                      {teamMembers.map(m => (
-                        <option key={m.id} value={m.name}>{m.name}</option>
-                      ))}
-                    </select>
-                  </td>
-                )}
-                <td className="py-2 px-2">
-                  <button onClick={() => del(r.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>
-                </td>
-              </tr>
-            );
-          })}
+          {rows.map(r => (
+            <tr key={r.id as number} className="border-b border-gray-900 hover:bg-white/[0.01]">
+              <td className="py-2 px-2 text-white">{r.label as string}</td>
+              <td className="py-2 px-2 text-right">
+                <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
+                  defaultValue={(r.planned as number) || 0}
+                  onBlur={e => update(r.id as number, { planned: parseFloat(e.target.value) || 0 })} />
+              </td>
+              <td className="py-2 px-2 text-right">
+                <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
+                  defaultValue={(r.actual as number) || 0}
+                  onBlur={e => update(r.id as number, { actual: parseFloat(e.target.value) || 0 })} />
+              </td>
+              <td className="py-2 px-2">
+                <select className="cyber-input text-xs px-2 py-1 rounded" value={r.status as string}
+                  onChange={e => update(r.id as number, { status: e.target.value })}>
+                  <option value="pending">En attente</option>
+                  <option value="paid">Payé</option>
+                  <option value="cancelled">Annulé</option>
+                </select>
+              </td>
+              <td className="py-2 px-2">
+                <button onClick={() => del(r.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
       {!rows.length && <p className="text-gray-600 text-xs py-4 text-center">Aucun élément</p>}
@@ -2110,42 +1969,16 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
         </div>
       </div>
 
-      {/* Capital de départ */}
-      <div className="cyber-card rounded-xl p-4 mb-4 flex items-center gap-4">
-        <div className="text-xs text-gray-400 uppercase tracking-widest whitespace-nowrap">Capital de départ</div>
-        <input
-          type="number"
-          className="cyber-input px-3 py-1.5 rounded text-sm font-mono flex-1 max-w-[220px]"
-          value={capitalInput}
-          onChange={e => setCapitalInput(e.target.value)}
-          onBlur={e => saveCapital(parseFloat(e.target.value) || 0)}
-        />
-        <span className="text-xs text-gray-500">XAF</span>
-        {capitalDepart > 0 && (
-          <span className="text-xs text-gray-400 ml-2">
-            Capital restant : <span className="font-mono font-bold" style={{ color: capitalRestant >= 0 ? "#00ff9d" : "#ff4444" }}>{capitalRestant.toLocaleString("fr-FR")} XAF</span>
-          </span>
-        )}
-      </div>
-
-      {capitalDepasse && (
-        <div className="rounded-xl px-4 py-3 mb-4 text-sm font-bold flex items-center gap-2" style={{ background: "#ff006620", border: "1px solid #ff0066", color: "#ff4444" }}>
-          ⚠ Les dépenses réelles ({totalActualCost.toLocaleString("fr-FR")} XAF) dépassent le capital de départ ({capitalDepart.toLocaleString("fr-FR")} XAF) de {(totalActualCost - capitalDepart).toLocaleString("fr-FR")} XAF
-        </div>
-      )}
-
       {/* KPI Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { label: "Capital départ", value: capitalDepart, color: "#00ccff" },
-          { label: "Capital restant", value: capitalRestant, color: capitalRestant >= 0 ? "#00ccff" : "#ff4444" },
           { label: "Revenus projetés", value: totalPlannedRev, color: "#00ff9d" },
           { label: "Revenus réels", value: totalActualRev, color: "#00ff9d" },
           { label: "Dépenses prévues", value: totalPlannedCost, color: "#ff4444" },
           { label: "Solde net", value: balance, color: balance >= 0 ? "#00ff9d" : "#ff4444" },
         ].map(s => (
           <div key={s.label} className="cyber-card rounded-xl p-4 text-center">
-            <div className="text-lg font-black font-mono" style={{ color: s.color, fontFamily: "'Share Tech Mono', monospace" }}>{s.value.toLocaleString("fr-FR")}</div>
+            <div className="text-xl font-black font-mono" style={{ color: s.color, fontFamily: "'Share Tech Mono', monospace" }}>{s.value.toLocaleString("fr-FR")} XAF</div>
             <div className="text-gray-500 text-xs mt-1">{s.label}</div>
           </div>
         ))}
@@ -2245,7 +2078,7 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
         </div>
       )}
       {renderTable(manualRevenues, "Revenus additionnels (manuels)", "#00ff9d")}
-      {renderTable(costs, "Dépenses", "#ff4444", true)}
+      {renderTable(costs, "Dépenses", "#ff4444")}
     </div>
   );
 }
@@ -2266,6 +2099,7 @@ const LOGISTICS_SEED_CATEGORIES = [
 ];
 
 function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]; onRefresh: () => void }) {
+  const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ done: false });
 
@@ -2280,7 +2114,7 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
   };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer ?")) return;
+    if (!(await confirm({ message: "Supprimer ?", danger: true, confirmLabel: "Supprimer" }))) return;
     await fetch(`/api/admin/logistics/${id}`, { method: "DELETE" });
     onRefresh();
   };
@@ -2406,19 +2240,15 @@ interface TicketTypeRow {
   priceFr: number; priceEn: number; perksFr: string; perksEn: string;
   earlyBirdPriceFr: number | null; earlyBirdPriceEn: number | null;
   earlyBirdUntil: string | null; color: string; isFeatured: boolean;
-  isVisible: boolean; ctfAccess: boolean; includesCTF: boolean; maxCapacity: number; sortOrder: number; sold: number;
+  isVisible: boolean; ctfAccess: boolean; maxCapacity: number; sortOrder: number; sold: number;
 }
 
-const TICKET_DEFAULT_FORM = { slug: "", nameFr: "", nameEn: "", priceFr: 0, priceEn: 0, color: "#00ff9d", isFeatured: false, isVisible: true, ctfAccess: false, maxCapacity: 200, sortOrder: 0, perksFrArr: [] as string[], perksEnArr: [] as string[] };
-
 function TicketsPanel() {
+  const confirm = useConfirm();
   const [tickets, setTickets] = useState<TicketTypeRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Partial<TicketTypeRow> & { perksFrArr?: string[]; perksEnArr?: string[] }>({});
-  const [showCreate, setShowCreate] = useState(false);
-  const [createForm, setCreateForm] = useState({ ...TICKET_DEFAULT_FORM });
-  const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2450,26 +2280,13 @@ function TicketsPanel() {
   };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer ce type de billet ?")) return;
+    if (!(await confirm({ message: "Supprimer ce type de billet ?", danger: true, confirmLabel: "Supprimer" }))) return;
     await fetch(`/api/admin/ticket-types/${id}`, { method: "DELETE" });
     load();
   };
 
   const toggleVisible = async (t: TicketTypeRow) => {
     await fetch(`/api/admin/ticket-types/${t.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isVisible: !t.isVisible }) });
-    load();
-  };
-
-  const createTicket = async () => {
-    if (!createForm.slug || !createForm.nameFr || !createForm.nameEn) return;
-    setCreating(true);
-    await fetch("/api/admin/ticket-types", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...createForm, perksFr: createForm.perksFrArr, perksEn: createForm.perksEnArr }),
-    });
-    setShowCreate(false);
-    setCreateForm({ ...TICKET_DEFAULT_FORM });
-    setCreating(false);
     load();
   };
 
@@ -2495,69 +2312,7 @@ function TicketsPanel() {
           <h1 className="text-2xl font-black text-white">Billets & Tarifs</h1>
           <p className="text-gray-500 text-xs mt-1">Gérez les types de billets affichés sur le portail d&apos;inscription</p>
         </div>
-        <button onClick={() => setShowCreate(v => !v)} className="btn-neon px-4 py-2 rounded text-xs">+ Créer billet</button>
       </div>
-
-      {showCreate && (
-        <div className="cyber-card rounded-xl p-5 mb-6">
-          <h3 className="text-sm font-bold text-neon-green mb-4">Nouveau type de billet</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Slug (identifiant unique)</label>
-              <input value={createForm.slug} onChange={e => setCreateForm(f => ({ ...f, slug: e.target.value }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" placeholder="ex: vip-ctf" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Nom FR</label>
-              <input value={createForm.nameFr} onChange={e => setCreateForm(f => ({ ...f, nameFr: e.target.value }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Nom EN</label>
-              <input value={createForm.nameEn} onChange={e => setCreateForm(f => ({ ...f, nameEn: e.target.value }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Couleur</label>
-              <input type="color" value={createForm.color} onChange={e => setCreateForm(f => ({ ...f, color: e.target.value }))} style={{ width: "100%", height: "34px", border: "none", borderRadius: "6px", cursor: "pointer" }} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Prix XAF</label>
-              <input type="number" value={createForm.priceFr} onChange={e => setCreateForm(f => ({ ...f, priceFr: parseInt(e.target.value) || 0 }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Prix USD</label>
-              <input type="number" value={createForm.priceEn} onChange={e => setCreateForm(f => ({ ...f, priceEn: parseInt(e.target.value) || 0 }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Capacité max</label>
-              <input type="number" value={createForm.maxCapacity} onChange={e => setCreateForm(f => ({ ...f, maxCapacity: parseInt(e.target.value) || 200 }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Ordre d&apos;affichage</label>
-              <input type="number" value={createForm.sortOrder} onChange={e => setCreateForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
-            </div>
-          </div>
-          <div className="flex items-center gap-4 mb-4 flex-wrap">
-            <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-              <input type="checkbox" checked={createForm.isVisible} onChange={e => setCreateForm(f => ({ ...f, isVisible: e.target.checked }))} />
-              Visible sur le portail
-            </label>
-            <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-              <input type="checkbox" checked={createForm.isFeatured} onChange={e => setCreateForm(f => ({ ...f, isFeatured: e.target.checked }))} />
-              Recommandé
-            </label>
-            <label className="flex items-center gap-2 text-xs font-bold cursor-pointer" style={{ color: "#00ccff" }}>
-              <input type="checkbox" checked={createForm.ctfAccess} onChange={e => setCreateForm(f => ({ ...f, ctfAccess: e.target.checked }))} />
-              ⚡ Accès CTF inclus
-            </label>
-          </div>
-          <div className="flex gap-3">
-            <button onClick={createTicket} disabled={creating || !createForm.slug || !createForm.nameFr} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
-              {creating ? "Création…" : "Créer le billet"}
-            </button>
-            <button onClick={() => setShowCreate(false)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
-          </div>
-        </div>
-      )}
-
       <div className="space-y-4">
         {tickets.map(t => {
           const sold = t.sold || 0;
@@ -2647,10 +2402,6 @@ function TicketsPanel() {
                       <input type="checkbox" checked={!!editForm.ctfAccess} onChange={e => setEditForm(f => ({ ...f, ctfAccess: e.target.checked }))} />
                       ⚡ Accès CTF
                     </label>
-                    <label className="flex items-center gap-2 text-xs cursor-pointer font-bold" style={{ color: "#00ff9d" }}>
-                      <input type="checkbox" checked={!!editForm.includesCTF} onChange={e => setEditForm(f => ({ ...f, includesCTF: e.target.checked }))} />
-                      Accès CTF inclus ⚡
-                    </label>
                     <div className="flex items-center gap-2">
                       <label className="text-xs text-gray-500">Ordre</label>
                       <input type="number" value={editForm.sortOrder ?? 0} onChange={e => setEditForm(f => ({ ...f, sortOrder: parseInt(e.target.value) }))} className="cyber-input text-xs rounded px-2 py-1 w-16" />
@@ -2672,7 +2423,6 @@ function TicketsPanel() {
                           {t.isFeatured && <span className="text-xs px-2 py-0.5 rounded" style={{ background: t.color + "20", color: t.color }}>★ Recommandé</span>}
                           {!t.isVisible && <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-500">Masqué</span>}
                           {t.ctfAccess && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}>⚡ CTF</span>}
-                          {t.includesCTF && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>⚡ CTF inclus</span>}
                         </div>
                         <div className="text-xs text-gray-400 mt-0.5 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
                           <span style={{ color: t.color }}>{t.priceFr.toLocaleString("fr-FR")} XAF</span>
@@ -2712,8 +2462,117 @@ function TicketsPanel() {
   );
 }
 
+function AnalyticsPanel({ data }: { data: Record<string, unknown> | null }) {
+  if (!data) return <p className="text-gray-600 text-xs py-8 text-center">Chargement...</p>;
+
+  const curve = data.registrationCurve as { date: string; count: number }[];
+  const byTicket = data.byTicket as Record<string, number>;
+  const topCountries = data.topCountries as { country: string; count: number }[];
+  const total = data.totalRegistrations as number;
+  const maxCount = Math.max(...curve.map(c => c.count), 1);
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-black text-white">Analytics</h1>
+
+      {/* KPI row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: "Inscriptions", value: data.totalRegistrations as number, color: "#00ff9d" },
+          { label: "Check-ins", value: data.checkedIn as number, color: "#0066ff" },
+          { label: "Taux CFP", value: `${data.cfpRate}%`, color: "#ff6600" },
+          { label: "Taux bénévoles", value: `${data.volRate}%`, color: "#cc00ff" },
+        ].map(k => (
+          <div key={k.label} className="cyber-card rounded-xl p-4 text-center">
+            <div className="text-2xl font-black font-mono" style={{ color: k.color, fontFamily: "'Share Tech Mono', monospace" }}>{k.value}</div>
+            <div className="text-gray-500 text-xs uppercase tracking-wider mt-1">{k.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Registration curve */}
+      <div className="cyber-card rounded-xl p-5">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Courbe d&apos;inscriptions</h2>
+        {curve.length === 0 ? (
+          <p className="text-gray-600 text-xs text-center py-4">Aucune donnée</p>
+        ) : (
+          <div className="flex items-end gap-1 h-32">
+            {curve.map(c => (
+              <div key={c.date} className="flex flex-col items-center flex-1 min-w-0 group" title={`${c.date}: ${c.count}`}>
+                <div
+                  className="w-full rounded-t transition-all"
+                  style={{ height: `${Math.round((c.count / maxCount) * 100)}%`, background: "#00ff9d", minHeight: 2, opacity: 0.8 }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex justify-between text-gray-700 text-xs mt-1">
+          <span>{curve[0]?.date || ""}</span>
+          <span>{total} total</span>
+          <span>{curve[curve.length - 1]?.date || ""}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* By ticket type */}
+        <div className="cyber-card rounded-xl p-5">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Par type de billet</h2>
+          <div className="space-y-2">
+            {Object.entries(byTicket).map(([type, count]) => (
+              <div key={type} className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 w-24 shrink-0">{type}</span>
+                <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full bg-neon-green/60" style={{ width: `${total > 0 ? Math.round((count / total) * 100) : 0}%` }} />
+                </div>
+                <span className="text-xs font-mono text-neon-green w-8 text-right">{count}</span>
+              </div>
+            ))}
+            {!Object.keys(byTicket).length && <p className="text-gray-600 text-xs">Aucune donnée</p>}
+          </div>
+        </div>
+
+        {/* Top countries */}
+        <div className="cyber-card rounded-xl p-5">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Top pays</h2>
+          <div className="space-y-2">
+            {topCountries.map(c => (
+              <div key={c.country} className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 w-24 shrink-0 truncate">{c.country}</span>
+                <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full bg-neon-blue/60" style={{ width: `${total > 0 ? Math.round((c.count / total) * 100) : 0}%` }} />
+                </div>
+                <span className="text-xs font-mono text-neon-blue w-8 text-right" style={{ color: "#0066ff" }}>{c.count}</span>
+              </div>
+            ))}
+            {!topCountries.length && <p className="text-gray-600 text-xs">Aucune donnée</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* CFP funnel */}
+      <div className="cyber-card rounded-xl p-5">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Funnel CFP</h2>
+        <div className="flex gap-6 items-center">
+          {[
+            { label: "Soumis", value: data.cfpTotal as number, color: "#888" },
+            { label: "Acceptés", value: data.cfpAccepted as number, color: "#00ff9d" },
+            { label: "Taux", value: `${data.cfpRate}%`, color: "#ff6600" },
+          ].map(f => (
+            <div key={f.label} className="text-center">
+              <div className="text-2xl font-black font-mono" style={{ color: f.color, fontFamily: "'Share Tech Mono', monospace" }}>{f.value}</div>
+              <div className="text-gray-500 text-xs mt-1">{f.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CertificatesPanel() {
   const { t } = useAdminT();
+  const confirm = useConfirm();
   const [subTab, setSubTab] = useState<"issue" | "list" | "keys">("issue");
   const [badges, setBadges] = useState<Record<string, unknown>[]>([]);
   const [filterType, setFilterType] = useState("");
@@ -2786,6 +2645,14 @@ function CertificatesPanel() {
     } else setStatus("Error");
   };
 
+  const issueSingle = async () => {
+    if (!form.recipientName || !form.recipientEmail) return;
+    setStatus("Issuing…");
+    const r = await fetch("/api/admin/badges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "issue", ...form, subtype: form.subtype || null }) });
+    if (r.ok) { setStatus("Badge issued."); setForm({ badgeType: "participant", recipientName: "", recipientEmail: "", subtype: "" }); }
+    else setStatus("Error issuing badge");
+  };
+
   const sendBadge = async (id: number) => {
     setStatus(`Sending badge #${id}…`);
     const r = await fetch("/api/admin/badges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "send", id }) });
@@ -2794,13 +2661,13 @@ function CertificatesPanel() {
   };
 
   const revokeBadge = async (id: number) => {
-    if (!confirm("Revoke this badge? This cannot be undone.")) return;
+    if (!(await confirm({ message: "Revoke this badge? This cannot be undone.", danger: true, confirmLabel: "Revoke" }))) return;
     await fetch("/api/admin/badges", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
     loadBadges();
   };
 
   const genKeys = async () => {
-    if (!confirm("Generate a new keypair? This will invalidate all previously signed badges.")) return;
+    if (!(await confirm({ message: "Generate a new keypair? This will invalidate all previously signed badges.", danger: true }))) return;
     setKeyLoading(true);
     const r = await fetch("/api/admin/badges/generate-keys", { method: "POST" });
     if (r.ok) setKeys(await r.json());
@@ -2985,6 +2852,7 @@ interface SponsorPkg {
 }
 
 function SponsorPackageEditor({ pkg, onSave, onDelete }: { pkg: SponsorPkg; onSave: (data: Partial<SponsorPkg>) => Promise<void>; onDelete: () => Promise<void> }) {
+  const confirm = useConfirm();
   const [draft, setDraft] = useState<SponsorPkg>({ ...pkg });
   const [perksFr, setPerksFr] = useState<string[]>(() => { try { return JSON.parse(pkg.perksFr || "[]"); } catch { return []; } });
   const [perksEn, setPerksEn] = useState<string[]>(() => { try { return JSON.parse(pkg.perksEn || "[]"); } catch { return []; } });
@@ -3091,7 +2959,7 @@ function SponsorPackageEditor({ pkg, onSave, onDelete }: { pkg: SponsorPkg; onSa
               {draft.isVisible ? "Visible ✓" : "Masqué"}
             </button>
             <div className="flex gap-2">
-              <button onClick={() => { if (confirm("Supprimer ce package ?")) onDelete(); }} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10">Supprimer</button>
+              <button onClick={async () => { if (await confirm({ message: "Supprimer ce package ?", danger: true, confirmLabel: "Supprimer" })) onDelete(); }} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10">Supprimer</button>
               <button onClick={save} disabled={saving} className="btn-neon px-4 py-1.5 rounded text-xs">{saving ? "..." : "Enregistrer"}</button>
             </div>
           </div>
@@ -3102,6 +2970,7 @@ function SponsorPackageEditor({ pkg, onSave, onDelete }: { pkg: SponsorPkg; onSa
 }
 
 function SponsorPackagesPanel() {
+  const confirm = useConfirm();
   const [packages, setPackages] = useState<SponsorPkg[]>([]);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -3341,435 +3210,9 @@ function EventSettingsPanel() {
 }
 
 
-
-// ---- CTF Panel ----
-const CTF_CATEGORIES = ["Web", "Crypto", "Forensics", "Reverse", "Pwn", "OSINT", "Misc"];
-const CTF_CATEGORY_COLORS: Record<string, string> = {
-  Web: "#00ccff", Crypto: "#ffaa00", Forensics: "#cc00ff",
-  Reverse: "#ff6600", Pwn: "#ff0066", OSINT: "#00ff9d", Misc: "#888",
-};
-const CTF_STAGES = [
-  { key: "idea", label: "Idée" },
-  { key: "in_progress", label: "En cours" },
-  { key: "testing", label: "En test" },
-  { key: "validated", label: "Validé" },
-  { key: "published", label: "Publié CTFd" },
-];
-
-function levenshtein(a: string, b: string): number {
-  const dp = Array.from({ length: a.length + 1 }, (_, i) =>
-    Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
-  );
-  for (let i = 1; i <= a.length; i++)
-    for (let j = 1; j <= b.length; j++)
-      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-  return dp[a.length][b.length];
-}
-
-function CTFPanel() {
-  const [subTab, setSubTab] = useState<"config" | "challenges" | "participants" | "emails">("config");
-  const [config, setConfig] = useState({ ctfdUrl: "", ctfdApiKey: "", ctfDefaultPassword: "", ctfEnabled: "false" });
-  const [configSaving, setConfigSaving] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
-
-  const [challenges, setChallenges] = useState<Record<string, unknown>[]>([]);
-  const [addForm, setAddForm] = useState({ title: "", category: "Web", difficulty: "medium", points: 100, author: "", notes: "" });
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [dragId, setDragId] = useState<number | null>(null);
-
-  const [participants, setParticipants] = useState<Record<string, unknown>[]>([]);
-  const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<string | null>(null);
-  const [reconcileTeam, setReconcileTeam] = useState<{ team1: string; team2: string } | null>(null);
-  const [reconcileTo, setReconcileTo] = useState("");
-
-  useEffect(() => {
-    fetch("/api/admin/settings").then(r => r.json()).then((s: Record<string, string>) => {
-      setConfig({ ctfdUrl: s.ctfdUrl || "", ctfdApiKey: s.ctfdApiKey || "", ctfDefaultPassword: s.ctfDefaultPassword || "", ctfEnabled: s.ctfEnabled || "false" });
-    });
-  }, []);
-
-  const loadChallenges = useCallback(async () => {
-    const r = await fetch("/api/admin/ctf/challenges");
-    if (r.ok) setChallenges(await r.json());
-  }, []);
-
-  const loadParticipants = useCallback(async () => {
-    const r = await fetch("/api/admin/ctf/participants");
-    if (r.ok) setParticipants(await r.json());
-  }, []);
-
-  useEffect(() => {
-    if (subTab === "challenges") loadChallenges();
-    if (subTab === "participants") loadParticipants();
-  }, [subTab, loadChallenges, loadParticipants]);
-
-  const saveConfig = async () => {
-    setConfigSaving(true);
-    await fetch("/api/admin/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
-    setConfigSaving(false);
-  };
-
-  const testConnection = async () => {
-    setTestResult("Test en cours…");
-    try {
-      const url = config.ctfdUrl.replace(/\/$/, "");
-      const r = await fetch(`${url}/api/v1/users`, { headers: { "Authorization": `Token ${config.ctfdApiKey}` } });
-      setTestResult(r.ok ? "✓ Connexion CTFd réussie" : `✗ Erreur ${r.status}`);
-    } catch {
-      setTestResult("✗ Impossible de joindre CTFd");
-    }
-  };
-
-  const addChallenge = async () => {
-    if (!addForm.title) return;
-    await fetch("/api/admin/ctf/challenges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(addForm) });
-    setAddForm({ title: "", category: "Web", difficulty: "medium", points: 100, author: "", notes: "" });
-    setShowAddForm(false);
-    loadChallenges();
-  };
-
-  const moveChallenge = async (id: number, status: string) => {
-    await fetch(`/api/admin/ctf/challenges/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
-    loadChallenges();
-  };
-
-  const deleteChallenge = async (id: number) => {
-    if (!confirm("Supprimer ce challenge ?")) return;
-    await fetch(`/api/admin/ctf/challenges/${id}`, { method: "DELETE" });
-    loadChallenges();
-  };
-
-  const syncAll = async () => {
-    setSyncing(true); setSyncResult(null);
-    const r = await fetch("/api/admin/ctf/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "sync_all" }) });
-    const j = await r.json();
-    const ok = j.results?.filter((x: Record<string, unknown>) => x.success).length ?? 0;
-    const fail = j.results?.filter((x: Record<string, unknown>) => !x.success).length ?? 0;
-    setSyncResult(r.ok ? `✓ ${ok} comptes créés${fail > 0 ? `, ${fail} erreurs` : ""}` : `✗ ${j.error}`);
-    setSyncing(false); loadParticipants();
-  };
-
-  const syncOne = async (id: number) => {
-    await fetch("/api/admin/ctf/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create_account", registrationIds: [id] }) });
-    loadParticipants();
-  };
-
-  // Detect team name conflicts (Levenshtein ≤ 2)
-  const teamNames = Array.from(new Set(participants.map(p => p.ctfTeamName as string).filter(Boolean)));
-  const teamConflicts: { team1: string; team2: string }[] = [];
-  for (let i = 0; i < teamNames.length; i++)
-    for (let j = i + 1; j < teamNames.length; j++)
-      if (levenshtein(teamNames[i].toLowerCase(), teamNames[j].toLowerCase()) <= 2)
-        teamConflicts.push({ team1: teamNames[i], team2: teamNames[j] });
-
-  const reconcileTeams = async () => {
-    if (!reconcileTeam || !reconcileTo) return;
-    const oldName = reconcileTo === reconcileTeam.team1 ? reconcileTeam.team2 : reconcileTeam.team1;
-    // Update all participants with old team name to new
-    const toUpdate = participants.filter(p => p.ctfTeamName === oldName);
-    for (const p of toUpdate) {
-      await fetch("/api/admin/submissions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "ctf-team", id: p.id, ctfTeamName: reconcileTo }) });
-    }
-    setReconcileTeam(null); setReconcileTo(""); loadParticipants();
-  };
-
-  const subTabs = [
-    { key: "config", label: "⚙ Config" },
-    { key: "challenges", label: "🏁 Challenges" },
-    { key: "participants", label: "👤 Participants" },
-    { key: "emails", label: "✉ Emails" },
-  ] as const;
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-black text-white">⚡ EyesOpen CTF</h1>
-        <a href="/ctf" target="_blank" rel="noreferrer" className="text-xs text-gray-500 hover:text-neon-green transition-colors">→ Page publique scoreboard</a>
-      </div>
-
-      <div className="flex gap-1 mb-6 border-b border-gray-800 pb-0">
-        {subTabs.map(st => (
-          <button key={st.key} onClick={() => setSubTab(st.key)}
-            className={`text-xs px-4 py-2 border-b-2 transition-all ${subTab === st.key ? "border-neon-green text-neon-green" : "border-transparent text-gray-500 hover:text-gray-300"}`}>
-            {st.label}
-          </button>
-        ))}
-      </div>
-
-      {subTab === "config" && (
-        <div className="max-w-lg space-y-4">
-          <div className="cyber-card rounded-xl p-5">
-            <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">Connexion CTFd</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-gray-500 block mb-1">URL CTFd</label>
-                <input value={config.ctfdUrl} onChange={e => setConfig(c => ({ ...c, ctfdUrl: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="https://ctf.eyesopensecurity.com" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 block mb-1">Clé API CTFd</label>
-                <input type="password" value={config.ctfdApiKey} onChange={e => setConfig(c => ({ ...c, ctfdApiKey: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="ctfd_…" />
-              </div>
-              <div className="flex items-center gap-3">
-                <button onClick={testConnection} className="px-3 py-1.5 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">Tester la connexion</button>
-                {testResult && <span className={`text-xs ${testResult.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{testResult}</span>}
-              </div>
-            </div>
-          </div>
-          <div className="cyber-card rounded-xl p-5">
-            <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">Paramètres CTF</h3>
-            <div className="space-y-3">
-              <p className="text-xs text-gray-500">Les mots de passe sont générés automatiquement — 7 caractères uniques par compétiteur, 7 caractères uniques par équipe. Ils sont envoyés aux participants par email.</p>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <div className={`w-10 h-5 rounded-full transition-colors relative ${config.ctfEnabled === "true" ? "bg-neon-green/30" : "bg-gray-700"}`}>
-                  <div className={`absolute top-0.5 w-4 h-4 rounded-full transition-all ${config.ctfEnabled === "true" ? "right-0.5 bg-neon-green" : "left-0.5 bg-gray-500"}`} />
-                </div>
-                <input type="checkbox" className="sr-only" checked={config.ctfEnabled === "true"} onChange={e => setConfig(c => ({ ...c, ctfEnabled: e.target.checked ? "true" : "false" }))} />
-                <span className="text-sm text-gray-300">CTF activé (scoreboard public visible)</span>
-              </label>
-            </div>
-          </div>
-          <button onClick={saveConfig} disabled={configSaving} className="btn-neon px-4 py-2 rounded text-xs">
-            {configSaving ? "Sauvegarde…" : "Sauvegarder"}
-          </button>
-        </div>
-      )}
-
-      {subTab === "challenges" && (
-        <div>
-          {/* KPI bar */}
-          <div className="flex gap-3 flex-wrap mb-5">
-            {CTF_CATEGORIES.map(cat => {
-              const count = challenges.filter(c => c.category === cat).length;
-              return count > 0 ? (
-                <span key={cat} className="text-xs px-2 py-1 rounded font-mono" style={{ background: CTF_CATEGORY_COLORS[cat] + "20", color: CTF_CATEGORY_COLORS[cat], border: `1px solid ${CTF_CATEGORY_COLORS[cat]}40` }}>
-                  {cat} × {count}
-                </span>
-              ) : null;
-            })}
-            <span className="text-xs px-2 py-1 rounded bg-gray-800 text-gray-400 font-mono">Total: {challenges.length}</span>
-            <span className="text-xs px-2 py-1 rounded font-mono" style={{ background: "#00ff9d20", color: "#00ff9d" }}>
-              ✓ {challenges.filter(c => c.status === "validated" || c.status === "published").length} prêts
-            </span>
-            <button onClick={() => setShowAddForm(v => !v)} className="btn-neon px-3 py-1 rounded text-xs ml-auto">+ Ajouter challenge</button>
-          </div>
-
-          {showAddForm && (
-            <div className="cyber-card rounded-xl p-4 mb-5">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-                <div className="md:col-span-2">
-                  <label className="text-xs text-gray-500 block mb-1">Titre</label>
-                  <input value={addForm.title} onChange={e => setAddForm(f => ({ ...f, title: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Catégorie</label>
-                  <select value={addForm.category} onChange={e => setAddForm(f => ({ ...f, category: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
-                    {CTF_CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Difficulté</label>
-                  <select value={addForm.difficulty} onChange={e => setAddForm(f => ({ ...f, difficulty: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
-                    <option value="easy">Easy</option>
-                    <option value="medium">Medium</option>
-                    <option value="hard">Hard</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Points</label>
-                  <input type="number" value={addForm.points} onChange={e => setAddForm(f => ({ ...f, points: parseInt(e.target.value) || 0 }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Auteur</label>
-                  <input value={addForm.author} onChange={e => setAddForm(f => ({ ...f, author: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
-                </div>
-              </div>
-              <div className="flex gap-2 mt-2">
-                <button onClick={addChallenge} className="btn-neon px-3 py-1.5 rounded text-xs">Ajouter</button>
-                <button onClick={() => setShowAddForm(false)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
-              </div>
-            </div>
-          )}
-
-          {/* Kanban */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {CTF_STAGES.map(stage => {
-              const cards = challenges.filter(c => c.status === stage.key);
-              return (
-                <div key={stage.key} className="cyber-card rounded-xl p-3"
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={() => { if (dragId !== null) { moveChallenge(dragId, stage.key); setDragId(null); } }}>
-                  <div className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3 flex items-center justify-between">
-                    {stage.label} <span className="text-gray-600">{cards.length}</span>
-                  </div>
-                  <div className="space-y-2 min-h-[80px]">
-                    {cards.map(c => (
-                      <div key={c.id as number} draggable onDragStart={() => setDragId(c.id as number)}
-                        className="rounded-lg p-2.5 cursor-grab active:cursor-grabbing"
-                        style={{ background: (CTF_CATEGORY_COLORS[c.category as string] || "#888") + "15", border: `1px solid ${(CTF_CATEGORY_COLORS[c.category as string] || "#888")}40` }}>
-                        <div className="text-xs font-bold text-white mb-1">{c.title as string}</div>
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: (CTF_CATEGORY_COLORS[c.category as string] || "#888") + "30", color: CTF_CATEGORY_COLORS[c.category as string] || "#888" }}>{c.category as string}</span>
-                          <span className="text-xs text-gray-500">{c.difficulty as string}</span>
-                          <span className="text-xs text-gray-400 ml-auto">{c.points as number}pts</span>
-                        </div>
-                        {!!c.author && <div className="text-xs text-gray-600 mt-1">{c.author as string}</div>}
-                        <button onClick={() => deleteChallenge(c.id as number)} className="text-red-800 hover:text-red-400 text-xs mt-1">✗</button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {subTab === "participants" && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <div className="text-xs text-gray-500">{participants.length} participant(s) CTF</div>
-            <div className="flex gap-2 items-center">
-              {syncResult && <span className={`text-xs ${syncResult.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{syncResult}</span>}
-              <button onClick={syncAll} disabled={syncing} className="btn-neon px-3 py-1.5 rounded text-xs disabled:opacity-50">
-                {syncing ? "Sync…" : "⚡ Tout synchroniser sur CTFd"}
-              </button>
-            </div>
-          </div>
-
-          {teamConflicts.length > 0 && (
-            <div className="cyber-card rounded-xl p-4 mb-4" style={{ border: "1px solid #ffaa0040", background: "#ffaa0008" }}>
-              <div className="text-xs font-bold text-yellow-400 mb-2">⚠ Conflits de noms d&apos;équipe détectés</div>
-              {teamConflicts.map((c, i) => (
-                <div key={i} className="flex items-center gap-3 text-xs mb-2">
-                  <span className="text-gray-300 font-mono">&quot;{c.team1}&quot;</span>
-                  <span className="text-gray-600">≈</span>
-                  <span className="text-gray-300 font-mono">&quot;{c.team2}&quot;</span>
-                  <button onClick={() => { setReconcileTeam(c); setReconcileTo(c.team1); }} className="px-2 py-0.5 rounded text-xs border border-yellow-600 text-yellow-400 hover:bg-yellow-900/20">
-                    Réconcilier
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {reconcileTeam && (
-            <div className="cyber-card rounded-xl p-4 mb-4">
-              <div className="text-xs font-bold text-white mb-3">Réconcilier &quot;{reconcileTeam.team1}&quot; et &quot;{reconcileTeam.team2}&quot;</div>
-              <div className="flex gap-2 mb-3">
-                {[reconcileTeam.team1, reconcileTeam.team2].map(name => (
-                  <button key={name} onClick={() => setReconcileTo(name)}
-                    className={`px-3 py-1.5 rounded text-xs border transition-all ${reconcileTo === name ? "border-neon-green text-neon-green bg-neon-green/10" : "border-gray-700 text-gray-400"}`}>
-                    Garder &quot;{name}&quot;
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <button onClick={reconcileTeams} className="btn-neon px-3 py-1.5 rounded text-xs">Confirmer</button>
-                <button onClick={() => setReconcileTeam(null)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
-              </div>
-            </div>
-          )}
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-gray-800 text-gray-500">
-                  <th className="text-left py-2 px-3 font-normal">Participant</th>
-                  <th className="text-left py-2 px-3 font-normal">Pseudo CTF</th>
-                  <th className="text-left py-2 px-3 font-normal">Équipe</th>
-                  <th className="text-left py-2 px-3 font-normal">Ticket</th>
-                  <th className="text-left py-2 px-3 font-normal">Compte CTFd</th>
-                  <th className="py-2 px-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {participants.map(p => (
-                  <tr key={p.id as number} className="border-b border-gray-900 hover:bg-white/[0.01]">
-                    <td className="py-2 px-3 text-white">{p.fname as string} {p.lname as string}<br /><span className="text-gray-500">{p.email as string}</span></td>
-                    <td className="py-2 px-3 font-mono text-neon-green">{(p.ctfCompetitorName as string) || <span className="text-gray-600">—</span>}</td>
-                    <td className="py-2 px-3 font-mono text-cyan-400">{(p.ctfTeamName as string) || <span className="text-gray-600">solo</span>}</td>
-                    <td className="py-2 px-3 text-gray-400">{p.ticketType as string}</td>
-                    <td className="py-2 px-3">
-                      {p.ctfAccountCreated
-                        ? <span className="text-neon-green text-xs">✓ Créé</span>
-                        : <span className="text-gray-600 text-xs">En attente</span>}
-                    </td>
-                    <td className="py-2 px-3">
-                      {!p.ctfAccountCreated && (
-                        <button onClick={() => syncOne(p.id as number)} className="text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">
-                          Créer compte
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!participants.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun participant CTF (inscriptions avec ticket CTF validées)</p>}
-          </div>
-        </div>
-      )}
-
-      {subTab === "emails" && (
-        <div className="max-w-2xl">
-          <p className="text-xs text-gray-500 mb-4">Les emails sont envoyés automatiquement dans la langue choisie par le participant (FR ou EN).</p>
-          {[
-            { key: "ctf_account_created", label: "Accès CTFd — identifiants de connexion", desc: "Envoyé après création du compte CTFd" },
-            { key: "ctf_no_teammate", label: "Participation sans équipe", desc: "Participant sans binôme — joue en solo" },
-            { key: "ctf_reminder", label: "Rappel CTF — J-1", desc: "Rappel envoyé la veille" },
-          ].map(tpl => (
-            <CTFEmailTemplate key={tpl.key} templateKey={tpl.key} label={tpl.label} desc={tpl.desc} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CTFEmailTemplate({ templateKey, label, desc }: { templateKey: string; label: string; desc: string }) {
-  const [tpl, setTpl] = useState({ subjectFr: "", bodyFr: "", subjectEn: "", bodyEn: "" });
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/admin/settings").then(r => r.json()).then((s: Record<string, string>) => {
-      try { const v = JSON.parse(s[`emailTemplate_${templateKey}`] || "{}"); setTpl(v); } catch { /* ignore */ }
-    });
-  }, [templateKey]);
-
-  const save = async () => {
-    setSaving(true);
-    await fetch("/api/admin/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [`emailTemplate_${templateKey}`]: JSON.stringify(tpl) }) });
-    setSaving(false);
-  };
-
-  return (
-    <div className="cyber-card rounded-xl p-5 mb-4">
-      <div className="mb-3">
-        <div className="text-sm font-bold text-white">{label}</div>
-        <div className="text-xs text-gray-500">{desc}</div>
-      </div>
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <label className="text-xs text-gray-500 block mb-1">Objet FR</label>
-          <input value={tpl.subjectFr} onChange={e => setTpl(t => ({ ...t, subjectFr: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-xs mb-2" />
-          <label className="text-xs text-gray-500 block mb-1">Corps FR</label>
-          <textarea rows={5} value={tpl.bodyFr} onChange={e => setTpl(t => ({ ...t, bodyFr: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-xs" />
-        </div>
-        <div>
-          <label className="text-xs text-gray-500 block mb-1">Subject EN</label>
-          <input value={tpl.subjectEn} onChange={e => setTpl(t => ({ ...t, subjectEn: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-xs mb-2" />
-          <label className="text-xs text-gray-500 block mb-1">Body EN</label>
-          <textarea rows={5} value={tpl.bodyEn} onChange={e => setTpl(t => ({ ...t, bodyEn: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-xs" />
-        </div>
-      </div>
-      <button onClick={save} disabled={saving} className="btn-neon px-3 py-1.5 rounded text-xs mt-3">{saving ? "Sauvegarde…" : "Sauvegarder"}</button>
-    </div>
-  );
-}
-
 function AuditPanel() {
   const { t } = useAdminT();
+  const confirm = useConfirm();
   const [logs, setLogs] = useState<Record<string, unknown>[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -3801,7 +3244,7 @@ function AuditPanel() {
   useEffect(() => { load(page, resource, action); }, [page, resource, action]);
 
   const purge = async () => {
-    if (!confirm(t.confirmPurge)) return;
+    if (!(await confirm({ message: t.confirmPurge, danger: true }))) return;
     setPurging(true);
     const r = await fetch("/api/admin/audit", { method: "DELETE" });
     if (r.ok) { const j = await r.json(); alert(`${j.deleted} ${t.deletedEntries}`); load(1, resource, action); }
@@ -3870,309 +3313,17 @@ function AuditPanel() {
   );
 }
 
-// ---- Domain Health Dashboard ----
-
-interface DashboardExtra {
-  budget: { category: string; planned: number; actual: number }[];
-  logistics: { done: boolean; deadline: string | null }[];
-  sessions: { date: string | null }[];
-  socialPosts: { status: string }[];
-  sponsorProspects: { status: string }[];
-  speakerOnboarding: { completed: boolean }[];
-  cfpDetailed: { status: string; scheduledInProgramme: boolean }[];
-  registrationsPending: number;
-  registrationsValidated: number;
-}
-
-function HealthDot({ color }: { color: "green" | "orange" | "red" | "grey" }) {
-  const map = { green: "#00ff9d", orange: "#ffaa00", red: "#ff0066", grey: "#555" };
-  return <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ background: map[color], boxShadow: `0 0 6px ${map[color]}` }} />;
-}
-
-function MiniBar({ value, total, color, danger }: { value: number; total: number; color: string; danger?: boolean }) {
-  const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
-  const barColor = danger && pct >= 100 ? "#ff0066" : color;
-  return (
-    <div className="mt-2">
-      <div className="flex justify-between text-xs text-gray-600 mb-1">
-        <span>{value} / {total}</span>
-        <span>{pct}%</span>
-      </div>
-      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
-      </div>
-    </div>
-  );
-}
-
-function DomainCard({
-  title, color, health, onNavigate, children, borderTop,
-}: {
-  title: string; color: string; health: "green" | "orange" | "red" | "grey";
-  onNavigate: () => void; children: React.ReactNode; borderTop?: boolean;
-}) {
-  return (
-    <div
-      className="cyber-card rounded-xl p-5"
-      style={{ borderLeft: `4px solid ${color}`, ...(borderTop ? { borderTop: `1px solid ${color}30` } : {}) }}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <HealthDot color={health} />
-          <span className="font-bold text-white text-sm">{title}</span>
-        </div>
-        <button
-          onClick={onNavigate}
-          className="text-xs px-2 py-0.5 rounded border transition-all hover:brightness-125"
-          style={{ color, borderColor: color + "50", background: color + "12" }}
-        >
-          → Voir
-        </button>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function MetricRow({ label, value, color }: { label: string; value: string | number; color?: string }) {
-  return (
-    <div className="text-center">
-      <div className="text-lg font-black font-mono" style={{ color: color || "#aaa", fontFamily: "'Share Tech Mono', monospace" }}>{value}</div>
-      <div className="text-gray-600 text-xs mt-0.5 uppercase tracking-wider leading-tight">{label}</div>
-    </div>
-  );
-}
-
-function DashboardHealthPanel({
-  stats, extra, analyticsData, onNavigate,
-}: {
-  stats: Record<string, number>;
-  extra: DashboardExtra;
-  analyticsData: Record<string, unknown> | null;
-  onNavigate: (tab: Tab) => void;
-}) {
-  // ── CFP ──
-  const cfpTotal = stats.cfp || 0;
-  const cfpAccepted = extra.cfpDetailed.filter(s => s.status === "accepted" || s.status === "onboarding" || s.status === "confirmed" || s.status === "scheduled").length;
-  const cfpConfirmed = extra.cfpDetailed.filter(s => s.status === "confirmed" || s.status === "scheduled").length;
-  const cfpScheduled = extra.cfpDetailed.filter(s => s.scheduledInProgramme).length;
-  const cfpHealth: "green" | "orange" | "red" =
-    cfpConfirmed === 0 ? "red" :
-    cfpScheduled < cfpConfirmed * 0.5 ? "orange" : "green";
-
-  // ── Programme ──
-  const sessTotal = extra.sessions.length;
-  const sessScheduled = extra.sessions.filter(s => !!s.date).length;
-  const sessBacklog = sessTotal - sessScheduled;
-  const sessHealth: "green" | "orange" | "red" =
-    sessTotal === 0 || sessScheduled / Math.max(sessTotal, 1) < 0.3 ? "red" :
-    sessScheduled / Math.max(sessTotal, 1) < 0.7 ? "orange" : "green";
-
-  // ── Speakers ──
-  const speakerTotal = stats.speakers || 0;
-  const speakerVisible = speakerTotal; // approximation — visible count from stats
-  const onboardingPending = extra.speakerOnboarding.filter(o => !o.completed).length;
-  const speakerHealth: "green" | "orange" | "red" =
-    speakerTotal === 0 ? "red" : onboardingPending > 0 ? "orange" : "green";
-
-  // ── Inscriptions ──
-  const validated = extra.registrationsValidated;
-  const pendingPay = extra.registrationsPending;
-  const regTotal = validated + pendingPay;
-  const capacity = 200;
-  const fillPct = Math.round((validated / capacity) * 100);
-  const inscHealth: "green" | "orange" | "red" =
-    validated === 0 ? "red" : fillPct < 50 ? "orange" : "green";
-
-  // ── Budget ──
-  const capital = extra.budget.filter(b => b.category === "revenue").reduce((a, b) => a + b.planned, 0);
-  const depenses = extra.budget.filter(b => b.category === "costs").reduce((a, b) => a + b.actual, 0);
-  const solde = capital - depenses;
-  const remaining = capital - depenses;
-  const budgetHealth: "green" | "orange" | "red" =
-    depenses > capital ? "red" : remaining < capital * 0.2 ? "orange" : "green";
-
-  // ── Sponsors ──
-  const sponsorConfirmed = stats.sponsors || 0;
-  const prospectsByStage: Record<string, number> = {};
-  for (const p of extra.sponsorProspects) {
-    prospectsByStage[p.status] = (prospectsByStage[p.status] || 0) + 1;
-  }
-  const sponsorHealth: "green" | "orange" | "red" =
-    sponsorConfirmed === 0 ? "red" : sponsorConfirmed < 3 ? "orange" : "green";
-
-  // ── Bénévoles ──
-  const volTotal = stats.volunteers || 0;
-  const volAccepted = (analyticsData?.volAccepted as number) || 0;
-  const volWithRole = extra.registrationsPending; // rough — we don't have this separately; show 0
-  const volHealth: "green" | "orange" | "red" =
-    volAccepted < 5 ? "red" : volAccepted < 10 ? "orange" : "green";
-
-  // ── Logistique ──
-  const taskTotal = extra.logistics.length;
-  const taskDone = extra.logistics.filter(t => t.done).length;
-  const now = new Date();
-  const taskOverdue = extra.logistics.filter(t => !t.done && t.deadline && new Date(t.deadline) < now).length;
-  const logHealth: "green" | "orange" | "red" =
-    taskOverdue > 0 ? "red" : taskDone < taskTotal * 0.5 ? "orange" : "green";
-
-  // ── Communication ──
-  const postsFailed = extra.socialPosts.filter(p => p.status === "failed").length;
-  const postsScheduled = extra.socialPosts.filter(p => p.status === "scheduled").length;
-  const postsPublished = extra.socialPosts.filter(p => p.status === "published").length;
-  const commHealth: "green" | "orange" | "red" =
-    postsFailed > 0 ? "red" : postsScheduled === 0 ? "orange" : "green";
-
-  // ── Check-in ──
-  const checkedIn = stats.checkedIn || 0;
-  const checkinRate = validated > 0 ? Math.round((checkedIn / validated) * 100) : 0;
-
-  const fmt = (n: number) => n.toLocaleString("fr-FR");
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-      {/* CFP */}
-      <DomainCard title="CFP" color="#cc00ff" health={cfpHealth} onNavigate={() => onNavigate("cfp" as Tab)}>
-        {/* Funnel */}
-        <div className="flex items-center gap-1 mb-3">
-          {[
-            { label: "Soumis", val: cfpTotal },
-            { label: "Acceptés", val: cfpAccepted },
-            { label: "Confirmés", val: cfpConfirmed },
-            { label: "Programmés", val: cfpScheduled },
-          ].map((step, i) => (
-            <div key={step.label} className="flex items-center gap-1 flex-1">
-              <div className="flex-1 rounded-lg p-1.5 text-center" style={{ background: "#cc00ff15", border: "1px solid #cc00ff30" }}>
-                <div className="text-base font-black font-mono" style={{ color: "#cc00ff", fontFamily: "'Share Tech Mono', monospace" }}>{step.val}</div>
-                <div className="text-gray-600 text-xs leading-tight">{step.label}</div>
-              </div>
-              {i < 3 && <span className="text-gray-700 text-xs shrink-0">›</span>}
-            </div>
-          ))}
-        </div>
-      </DomainCard>
-
-      {/* Programme */}
-      <DomainCard title="Programme" color="#00ccff" health={sessHealth} onNavigate={() => onNavigate("pipeline")}>
-        <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Programmées" value={sessScheduled} color="#00ccff" />
-          <MetricRow label="Total sessions" value={sessTotal} color="#aaa" />
-          <MetricRow label="Backlog" value={sessBacklog} color={sessBacklog > 0 ? "#ffaa00" : "#555"} />
-        </div>
-        <MiniBar value={sessScheduled} total={Math.max(sessTotal, 1)} color="#00ccff" />
-      </DomainCard>
-
-      {/* Speakers */}
-      <DomainCard title="Speakers" color="#00ff9d" health={speakerHealth} onNavigate={() => onNavigate("pipeline")}>
-        <div className="grid grid-cols-3 gap-3">
-          <MetricRow label="Total" value={speakerTotal} color="#00ff9d" />
-          <MetricRow label="Visibles" value={speakerVisible} color="#aaa" />
-          <MetricRow label="Onboarding en attente" value={onboardingPending} color={onboardingPending > 0 ? "#ffaa00" : "#555"} />
-        </div>
-      </DomainCard>
-
-      {/* Inscriptions */}
-      <DomainCard title="Inscriptions" color="#ff6600" health={inscHealth} onNavigate={() => onNavigate("registrations")}>
-        <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Validées" value={validated} color="#ff6600" />
-          <MetricRow label="En attente" value={pendingPay} color="#ffaa00" />
-          <MetricRow label="Capacité" value={`${fillPct}%`} color={fillPct >= 80 ? "#00ff9d" : fillPct >= 50 ? "#ffaa00" : "#ff0066"} />
-        </div>
-        <MiniBar value={validated} total={capacity} color="#ff6600" />
-      </DomainCard>
-
-      {/* Budget */}
-      <DomainCard title="Budget" color="#ffaa00" health={budgetHealth} onNavigate={() => onNavigate("budget")}>
-        <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Capital" value={capital > 0 ? `${fmt(Math.round(capital / 1000))}k` : "—"} color="#aaa" />
-          <MetricRow label="Dépenses réelles" value={depenses > 0 ? `${fmt(Math.round(depenses / 1000))}k` : "—"} color={depenses > capital ? "#ff0066" : "#ffaa00"} />
-          <MetricRow label="Solde net" value={capital > 0 ? `${solde >= 0 ? "+" : ""}${fmt(Math.round(solde / 1000))}k` : "—"} color={solde >= 0 ? "#00ff9d" : "#ff0066"} />
-        </div>
-        <MiniBar value={depenses} total={Math.max(capital, 1)} color="#ffaa00" danger />
-      </DomainCard>
-
-      {/* Sponsors */}
-      <DomainCard title="Sponsors" color="#ffaa00" health={sponsorHealth} onNavigate={() => onNavigate("sponsors")}>
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <MetricRow label="Confirmés" value={sponsorConfirmed} color="#ffaa00" />
-          <MetricRow label="Pipeline total" value={extra.sponsorProspects.length} color="#aaa" />
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {["contacted", "meeting", "positive", "concluded"].map(stage => (
-            prospectsByStage[stage] ? (
-              <span key={stage} className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: "#ffaa0015", color: "#ffaa00" }}>
-                {stage}: {prospectsByStage[stage]}
-              </span>
-            ) : null
-          ))}
-        </div>
-      </DomainCard>
-
-      {/* Bénévoles */}
-      <DomainCard title="Bénévoles" color="#0066ff" health={volHealth} onNavigate={() => onNavigate("volunteers")}>
-        <div className="grid grid-cols-3 gap-3">
-          <MetricRow label="Candidatures" value={volTotal} color="#aaa" />
-          <MetricRow label="Acceptés" value={volAccepted} color="#0066ff" />
-          <MetricRow label="Rôles assignés" value={volWithRole} color="#00ff9d" />
-        </div>
-      </DomainCard>
-
-      {/* Logistique */}
-      <DomainCard title="Logistique" color="#ff6600" health={logHealth} onNavigate={() => onNavigate("logistics")}>
-        <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Faites" value={taskDone} color="#00ff9d" />
-          <MetricRow label="Total" value={taskTotal} color="#aaa" />
-          <MetricRow label="En retard" value={taskOverdue} color={taskOverdue > 0 ? "#ff0066" : "#555"} />
-        </div>
-        <MiniBar value={taskDone} total={Math.max(taskTotal, 1)} color="#ff6600" />
-      </DomainCard>
-
-      {/* Communication */}
-      <DomainCard title="Communication" color="#cc00ff" health={commHealth} onNavigate={() => onNavigate("communication")}>
-        <div className="grid grid-cols-3 gap-3">
-          <MetricRow label="Planifiés" value={postsScheduled} color="#ffaa00" />
-          <MetricRow label="Publiés" value={postsPublished} color="#00ff9d" />
-          <MetricRow label="Échoués" value={postsFailed} color={postsFailed > 0 ? "#ff0066" : "#555"} />
-        </div>
-      </DomainCard>
-
-      {/* Check-in */}
-      <DomainCard title="Check-in" color="#00ccff" health="grey" onNavigate={() => onNavigate("registrations")}>
-        <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Enregistrés" value={checkedIn} color="#00ccff" />
-          <MetricRow label="Validés total" value={validated} color="#aaa" />
-          <MetricRow label="Taux" value={`${checkinRate}%`} color={checkinRate >= 50 ? "#00ff9d" : "#888"} />
-        </div>
-        <MiniBar value={checkedIn} total={Math.max(validated, 1)} color="#00ccff" />
-      </DomainCard>
-
-    </div>
-  );
-}
-
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [stats, setStats] = useState<Record<string, number>>({});
   const [data, setData] = useState<Record<string, unknown[]>>({});
   const [loading, setLoading] = useState(false);
-  const [dashboardExtra, setDashboardExtra] = useState<DashboardExtra>({
-    budget: [],
-    logistics: [],
-    sessions: [],
-    socialPosts: [],
-    sponsorProspects: [],
-    speakerOnboarding: [],
-    cfpDetailed: [],
-    registrationsPending: 0,
-    registrationsValidated: 0,
-  });
   const [form, setForm] = useState<Record<string, unknown>>({});
   const [editing, setEditing] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [cfpNotes, setCfpNotes] = useState<Record<number, string>>({});
   const [onboarding, setOnboarding] = useState<Record<number, Record<string, boolean | string>>>({});
-  const [detail, setDetail] = useState<{ type: string; item: Record<string, unknown> } | null>(null);
+  const confirm = useConfirm();
   const [lang, setLang] = useState<AdminLang>(() => {
     if (typeof window !== "undefined") return (localStorage.getItem("admin_lang") as AdminLang) || "fr";
     return "fr";
@@ -4239,57 +3390,6 @@ export default function AdminDashboard() {
   useEffect(() => { fetchData("dashboard"); }, [fetchData]);
   useEffect(() => { if (tab !== "dashboard") fetchData(tab); }, [tab, fetchData]);
 
-  // Fetch extra data for domain health dashboard
-  useEffect(() => {
-    const load = async () => {
-      const [budgetRes, logRes, sessRes, postsRes, prospectsRes, obRes, cfpRes, regRes] = await Promise.allSettled([
-        fetch("/api/admin/budget"),
-        fetch("/api/admin/logistics"),
-        fetch("/api/admin/sessions"),
-        fetch("/api/admin/ai/social-posts"),
-        fetch("/api/admin/sponsor-prospects"),
-        fetch("/api/admin/profiles?type=onboarding"),
-        fetch("/api/admin/submissions?type=cfp"),
-        fetch("/api/admin/submissions?type=registration"),
-      ]);
-      const safeJson = async (r: PromiseSettledResult<Response>): Promise<unknown[]> => {
-        if (r.status === "fulfilled" && r.value.ok) { try { return await r.value.json(); } catch { return []; } }
-        return [];
-      };
-      const budget = (await safeJson(budgetRes)) as { category: string; planned: number; actual: number }[];
-      const logistics = (await safeJson(logRes)) as { done: boolean; deadline: string | null }[];
-      const sessions = (await safeJson(sessRes)) as { date: string | null }[];
-      const socialPosts = (await safeJson(postsRes)) as { status: string }[];
-      const sponsorProspects = (await safeJson(prospectsRes)) as { status: string }[];
-      const cfpRaw = (await safeJson(cfpRes)) as { status: string; pipelineStage?: string }[];
-      const cfpDetailed = cfpRaw.map(c => ({
-        status: c.status,
-        scheduledInProgramme: c.pipelineStage === "scheduled" || c.status === "scheduled",
-      }));
-      const regRaw = (await safeJson(regRes)) as { status: string }[];
-      const registrationsValidated = regRaw.filter(r => r.status === "validated" || r.status === "paid").length;
-      const registrationsPending = regRaw.filter(r => r.status === "pending").length;
-
-      // Onboarding: fetch speakers and check if they have talkTitle (basic completion proxy)
-      let speakerOnboarding: { completed: boolean }[] = [];
-      try {
-        const spRes = await fetch("/api/admin/speakers");
-        if (spRes.ok) {
-          const spData = await spRes.json() as { talkTitle?: string; photoUrl?: string; bio?: string }[];
-          speakerOnboarding = spData.map(s => ({
-            completed: !!(s.talkTitle && s.photoUrl && s.bio),
-          }));
-        }
-      } catch { /* ignore */ }
-
-      setDashboardExtra({
-        budget, logistics, sessions, socialPosts, sponsorProspects,
-        speakerOnboarding, cfpDetailed, registrationsPending, registrationsValidated,
-      });
-    };
-    load();
-  }, []);
-
   const save = async (endpoint: string) => {
     const method = editing ? "PUT" : "POST";
     const url = editing ? `${endpoint}/${editing}` : endpoint;
@@ -4298,7 +3398,7 @@ export default function AdminDashboard() {
   };
 
   const del = async (endpoint: string, id: number) => {
-    if (!confirm("Supprimer ?")) return;
+    if (!(await confirm({ message: "Supprimer ?", danger: true, confirmLabel: "Supprimer" }))) return;
     await fetch(`${endpoint}/${id}`, { method: "DELETE" });
     fetchData(tab);
     fetchStats();
@@ -4391,13 +3491,6 @@ export default function AdminDashboard() {
       ],
     },
     {
-      label: "CTF",
-      icon: "⚡",
-      tabs: [
-        { id: "ctf", label: "⚡ EyesOpen CTF" },
-      ],
-    },
-    {
       label: t.communication,
       icon: "◉",
       tabs: [
@@ -4440,8 +3533,6 @@ export default function AdminDashboard() {
   return (
     <AdminLangContext.Provider value={{ lang, t, setLang: changeLang }}>
     <div className="min-h-screen bg-dark-900" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-      {/* Detail drawer */}
-      {detail && <DetailDrawer item={detail.item} type={detail.type} onClose={() => setDetail(null)} />}
       {/* Top bar */}
       <div className="border-b border-neon-green/20 bg-black/80 px-6 py-3 flex items-center justify-between sticky top-0 z-40">
         <span className="text-neon-green font-mono text-sm font-bold">&gt; EOCON_ADMIN</span>
@@ -4491,20 +3582,131 @@ export default function AdminDashboard() {
           {/* DASHBOARD */}
           {tab === "dashboard" && (
             <div>
-              <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-black text-white">{t.dashboardTitle}</h1>
-                <div className="flex items-center gap-3 text-xs text-gray-600">
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-400 inline-block" />OK</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ background: "#ffaa00" }} />Attention</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ background: "#ff0066" }} />Critique</span>
-                </div>
+              <h1 className="text-2xl font-black text-white mb-6">{t.dashboardTitle}</h1>
+              {/* Stat cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6">
+                <StatCard label={t.speakers} value={stats.speakers || 0} />
+                <StatCard label={t.sponsors} value={stats.sponsors || 0} color="#ffd700" />
+                <StatCard label={t.sessionsLabel} value={stats.sessions || 0} color="#0066ff" />
+                <StatCard label={t.cfp} value={stats.cfp || 0} color="#cc00ff" />
+                <StatCard label={t.benevoles} value={stats.volunteers || 0} color="#ff6600" />
+                <StatCard label={t.inscriptions} value={stats.registrations || 0} color="#ff0066" />
+                <StatCard label={t.newsletterLabel} value={stats.subscribers || 0} color="#ffaa00" />
+                <StatCard label={t.equipe} value={stats.team || 0} color="#00ccff" />
               </div>
-              <DashboardHealthPanel
-                stats={stats}
-                extra={dashboardExtra}
-                analyticsData={(data.analytics?.[0] as Record<string, unknown>) || null}
-                onNavigate={setTab}
-              />
+              {/* Analytics section inlined */}
+              {(data.analytics?.[0] as Record<string, unknown> | undefined) && (() => {
+                const ad = data.analytics![0] as Record<string, unknown>;
+                const curve = (ad.registrationCurve as { date: string; count: number }[]) || [];
+                const byTicket = (ad.byTicket as Record<string, number>) || {};
+                const topCountries = (ad.topCountries as { country: string; count: number }[]) || [];
+                const totalRegs = (ad.totalRegistrations as number) || 0;
+                const maxCount = Math.max(...curve.map(c => c.count), 1);
+                return (
+                  <>
+                    {/* CFP breakdown + check-in */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                      {[
+                        { label: "CFP Total", value: ad.cfpTotal as number, color: "#888" },
+                        { label: "CFP Acceptés", value: ad.cfpAccepted as number, color: "#00ff9d" },
+                        { label: "Taux CFP", value: `${ad.cfpRate}%`, color: "#ff6600" },
+                        { label: "Check-ins", value: ad.checkedIn as number, color: "#0066ff" },
+                      ].map(k => (
+                        <div key={k.label} className="cyber-card rounded-xl p-4 text-center">
+                          <div className="text-2xl font-black font-mono" style={{ color: k.color, fontFamily: "'Share Tech Mono', monospace" }}>{k.value ?? 0}</div>
+                          <div className="text-gray-500 text-xs uppercase tracking-wider mt-1">{k.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Registration curve */}
+                    {curve.length > 0 && (
+                      <div className="cyber-card rounded-xl p-5 mb-6">
+                        <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Courbe d&apos;inscriptions</h2>
+                        <div className="flex items-end gap-1 h-32">
+                          {curve.map(c => (
+                            <div key={c.date} className="flex flex-col items-center flex-1 min-w-0" title={`${c.date}: ${c.count}`}>
+                              <div className="w-full rounded-t transition-all" style={{ height: `${Math.round((c.count / maxCount) * 100)}%`, background: "#00ff9d", minHeight: 2, opacity: 0.8 }} />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex justify-between text-gray-700 text-xs mt-1">
+                          <span>{curve[0]?.date || ""}</span>
+                          <span>{totalRegs} total</span>
+                          <span>{curve[curve.length - 1]?.date || ""}</span>
+                        </div>
+                      </div>
+                    )}
+                    {/* Ticket breakdown + top countries */}
+                    {(Object.keys(byTicket).length > 0 || topCountries.length > 0) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div className="cyber-card rounded-xl p-5">
+                          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Par type de billet</h2>
+                          <div className="space-y-2">
+                            {Object.entries(byTicket).map(([type, count]) => (
+                              <div key={type} className="flex items-center gap-2">
+                                <span className="text-xs text-gray-400 w-24 shrink-0">{type}</span>
+                                <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full bg-neon-green/60" style={{ width: `${totalRegs > 0 ? Math.round((count / totalRegs) * 100) : 0}%` }} />
+                                </div>
+                                <span className="text-xs font-mono text-neon-green w-8 text-right">{count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="cyber-card rounded-xl p-5">
+                          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Top pays</h2>
+                          <div className="space-y-2">
+                            {topCountries.map(c => (
+                              <div key={c.country} className="flex items-center gap-2">
+                                <span className="text-xs text-gray-400 w-24 shrink-0 truncate">{c.country}</span>
+                                <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full" style={{ width: `${totalRegs > 0 ? Math.round((c.count / totalRegs) * 100) : 0}%`, background: "#0066ff" }} />
+                                </div>
+                                <span className="text-xs font-mono w-8 text-right" style={{ color: "#0066ff" }}>{c.count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {/* CFP funnel + volunteer rates */}
+                    <div className="cyber-card rounded-xl p-5 mb-6">
+                      <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Funnel CFP &amp; Bénévoles</h2>
+                      <div className="flex gap-8 items-center flex-wrap">
+                        {[
+                          { label: "CFP Soumis", value: ad.cfpTotal as number, color: "#888" },
+                          { label: "CFP Acceptés", value: ad.cfpAccepted as number, color: "#00ff9d" },
+                          { label: "Taux CFP", value: `${ad.cfpRate}%`, color: "#ff6600" },
+                          { label: "Taux Bénévoles", value: `${ad.volRate}%`, color: "#cc00ff" },
+                        ].map(f => (
+                          <div key={f.label} className="text-center">
+                            <div className="text-2xl font-black font-mono" style={{ color: f.color, fontFamily: "'Share Tech Mono', monospace" }}>{f.value ?? 0}</div>
+                            <div className="text-gray-500 text-xs mt-1">{f.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+              {/* Quick action cards */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                {[
+                  { tab: "speakers", label: "Gérer les Speakers", desc: "Ajouter, éditer et ordonner les intervenants 2026" },
+                  { tab: "sponsors", label: "Gérer les Sponsors", desc: "Logos, tiers et liens des sponsors" },
+                  { tab: "pipeline", label: "Éditer le Programme", desc: "Planifier les sessions dans le pipeline speakers (onglet Programme)" },
+                  { tab: "cfp", label: "Propositions de Talks", desc: "Examiner et statuer sur les CFP reçus" },
+                  { tab: "volunteers", label: "Candidatures Bénévoles", desc: "Gérer les candidatures reçues" },
+                  { tab: "registrations", label: "Inscriptions", desc: "Liste complète des participants inscrits" },
+                  { tab: "team", label: "Équipe d'organisation", desc: "Gérer les membres de l'équipe organisatrice" },
+                  { tab: "past-speakers", label: "Anciens Intervenants", desc: "Archive des intervenants des éditions précédentes" },
+                ].map(item => (
+                  <button key={item.tab} onClick={() => setTab(item.tab as Tab)} className="cyber-card rounded-xl p-5 text-left hover:border-neon-green/50 transition-all">
+                    <div className="text-neon-green font-bold text-sm mb-1">{item.label}</div>
+                    <div className="text-gray-500 text-xs">{item.desc}</div>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -4567,7 +3769,6 @@ export default function AdminDashboard() {
                             {!s.isVisible && <span className="text-xs text-gray-600">Masqué</span>}
                           </div>
                           <div className="flex gap-2 shrink-0">
-                            <button onClick={() => setDetail({ type: "sponsor", item: s })} className="text-xs text-gray-400 hover:text-white px-2 py-1 border border-gray-700 rounded">Détails</button>
                             <button onClick={() => { setForm({ ...s }); setEditing(s.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">Éditer</button>
                             <button onClick={() => del("/api/admin/sponsors", s.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">Suppr.</button>
                           </div>
@@ -4585,27 +3786,17 @@ export default function AdminDashboard() {
           {tab === "volunteers" && (
             <div>
               <h1 className="text-2xl font-black text-white mb-6">{t.benevoles} ({(data.volunteers || []).length})</h1>
-              <div className="mb-8">
-                <VolunteerKanban />
-              </div>
-              <div className="border-t border-gray-800 pt-6">
-                <h2 className="text-sm font-bold text-gray-400 font-mono mb-4 uppercase tracking-wider">Toutes les candidatures</h2>
-              {(() => {
-                const volunteerList = (data.volunteers || []) as Record<string, unknown>[];
-                const existingRoles = Array.from(new Set(volunteerList.map(v => v.role as string).filter(Boolean))).sort();
-                return (
               <div className="space-y-3">
-                {volunteerList.map(v => (
+                {((data.volunteers || []) as Record<string, unknown>[]).map(v => (
                   <div key={v.id as number} className="cyber-card rounded-xl p-5">
                     <div className="flex items-start justify-between gap-4 mb-3">
                       <div>
                         <p className="text-white font-bold">{v.name as string} <span className="text-gray-500 font-normal text-sm">— {v.email as string}</span></p>
                         {!!v.role && <p className="text-neon-green/70 text-sm">Rôle souhaité : {v.role as string}</p>}
                         {!!v.city && <p className="text-gray-500 text-xs">{v.city as string}</p>}
-                        <p className="text-gray-400 text-xs mt-2 line-clamp-2">{v.motivation as string}</p>
+                        <p className="text-gray-400 text-xs mt-2">{v.motivation as string}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => setDetail({ type: "volunteer", item: v })} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">Détails</button>
                         <Badge status={v.status as string} />
                         <select className="cyber-input text-xs px-2 py-1 rounded bg-transparent" value={v.status as string}
                           onChange={e => updateStatus("volunteer", v.id as number, e.target.value)}>
@@ -4619,22 +3810,19 @@ export default function AdminDashboard() {
                       <div className="border-t border-gray-800 pt-3 mt-2">
                         <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Affectation</p>
                         <div className="flex gap-2 flex-wrap">
-                          <select
-                            className="cyber-input text-xs rounded px-2 py-1 flex-1 min-w-[140px]"
+                          <input
+                            type="text"
+                            placeholder="Rôle assigné"
                             defaultValue={(v.assignedRole as string) || ""}
-                            onChange={async (e) => {
+                            className="cyber-input text-xs rounded px-2 py-1 flex-1 min-w-[120px]"
+                            onBlur={async (e) => {
                               await fetch("/api/admin/submissions", {
                                 method: "PATCH",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ type: "volunteer-assign", id: v.id, assignedRole: e.target.value }),
                               });
                             }}
-                          >
-                            <option value="">— Rôle assigné —</option>
-                            {existingRoles.map(r => (
-                              <option key={r} value={r}>{r}</option>
-                            ))}
-                          </select>
+                          />
                           <input
                             type="datetime-local"
                             defaultValue={(v.shiftStart as string)?.slice(0, 16) || ""}
@@ -4665,10 +3853,7 @@ export default function AdminDashboard() {
                     <p className="text-gray-600 text-xs mt-2">{new Date(v.createdAt as string).toLocaleDateString("fr-FR")}</p>
                   </div>
                 ))}
-                {!volunteerList.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune candidature</p>}
-              </div>
-                );
-              })()}
+                {!data.volunteers?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune candidature</p>}
               </div>
             </div>
           )}
@@ -4681,14 +3866,9 @@ export default function AdminDashboard() {
                   <h1 className="text-2xl font-black text-white">{t.registrationsTitle} ({(data.registrations || []).length})</h1>
                   <p className="text-gray-500 text-xs mt-1">Validez le paiement pour envoyer le billet avec QR code</p>
                 </div>
-                <div className="flex gap-2">
-                  <a href="/checkin/scan" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">
-                    📷 Scanner QR →
-                  </a>
-                  <a href="/admin/checkin" target="_blank" rel="noreferrer" className="px-4 py-2 rounded text-sm border border-gray-700 text-gray-300 hover:text-white transition-colors">
-                    📋 Liste check-in →
-                  </a>
-                </div>
+                <a href="/admin/checkin" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">
+                  📱 Ouvrir Check-in J-Day →
+                </a>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
@@ -4716,28 +3896,25 @@ export default function AdminDashboard() {
                         </td>
                         <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleDateString("fr-FR")}</td>
                         <td className="py-2 px-3">
-                          <div className="flex gap-2 flex-wrap items-center">
-                            <button onClick={() => setDetail({ type: "registration", item: r })} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">Détails</button>
-                            {(r.status as string) === "pending" && (
-                              <button
-                                className="text-xs px-3 py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/20 hover:bg-neon-green/20 transition-colors"
-                                onClick={async () => {
-                                  if (!confirm(`Valider le paiement de ${r.fname} ${r.lname} et envoyer le billet ?`)) return;
-                                  const res = await fetch("/api/admin/submissions", {
-                                    method: "PATCH",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ type: "registration", action: "validate", id: r.id }),
-                                  });
-                                  if (res.ok) fetchData("registrations");
-                                }}
-                              >
-                                {t.validateAndSend}
-                              </button>
-                            )}
-                            {(r.status as string) === "validated" && (
-                              <span className="text-xs text-neon-green/60 font-mono">Billet envoyé ✓</span>
-                            )}
-                          </div>
+                          {(r.status as string) === "pending" && (
+                            <button
+                              className="text-xs px-3 py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/20 hover:bg-neon-green/20 transition-colors"
+                              onClick={async () => {
+                                if (!(await confirm({ message: `Valider le paiement de ${r.fname} ${r.lname} et envoyer le billet ?`, confirmLabel: "Valider & Envoyer" }))) return;
+                                const res = await fetch("/api/admin/submissions", {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ type: "registration", action: "validate", id: r.id }),
+                                });
+                                if (res.ok) fetchData("registrations");
+                              }}
+                            >
+                              {t.validateAndSend}
+                            </button>
+                          )}
+                          {(r.status as string) === "validated" && (
+                            <span className="text-xs text-neon-green/60 font-mono">Billet envoyé ✓</span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -5004,12 +4181,8 @@ export default function AdminDashboard() {
             />
           )}
 
-          {/* CTF */}
-          {tab === "ctf" && <CTFPanel />}
-
           {/* TICKETS */}
           {tab === "tickets" && <TicketsPanel />}
-          {tab === "ctf" && <CTFPanel />}
 
           {/* CERTIFICATES */}
           {tab === "certificates" && (
@@ -5046,100 +4219,8 @@ export default function AdminDashboard() {
 
         </main>
       </div>
+      <ConfirmModal />
     </div>
     </AdminLangContext.Provider>
-  );
-}
-
-// ── Detail drawer ─────────────────────────────────────────────────────────────
-function DetailDrawer({ item, type, onClose }: { item: Record<string, unknown>; type: string; onClose: () => void }) {
-  const fmt = (v: unknown) => {
-    if (v === null || v === undefined || v === "") return <span className="text-gray-600">—</span>;
-    if (typeof v === "boolean") return <span className={v ? "text-neon-green" : "text-gray-500"}>{v ? "Oui" : "Non"}</span>;
-    if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v)) return new Date(v).toLocaleString("fr-FR");
-    if (typeof v === "string" && (v.startsWith("http://") || v.startsWith("https://")))
-      return <a href={v} target="_blank" rel="noreferrer" className="text-cyan-400 underline break-all">{v}</a>;
-    if (typeof v === "string" && v.startsWith("linkedin")) return <a href={`https://${v}`} target="_blank" rel="noreferrer" className="text-cyan-400 underline">{v}</a>;
-    return <span className="text-white break-words">{String(v)}</span>;
-  };
-
-  const sections: Record<string, { label: string; fields: { key: string; label: string }[] }[]> = {
-    volunteer: [
-      { label: "Identité", fields: [{ key: "name", label: "Nom" }, { key: "email", label: "Email" }, { key: "phone", label: "Téléphone" }, { key: "city", label: "Ville" }] },
-      { label: "Réseaux", fields: [{ key: "linkedin", label: "LinkedIn" }, { key: "twitter", label: "X / Twitter" }, { key: "whatsapp", label: "WhatsApp" }] },
-      { label: "Candidature", fields: [{ key: "role", label: "Rôle souhaité" }, { key: "hoursPerWeek", label: "Heures / semaine" }, { key: "langExpression", label: "Langue" }, { key: "status", label: "Statut" }] },
-      { label: "Motivation", fields: [{ key: "motivation", label: "Motivation" }, { key: "experience", label: "Expérience" }] },
-      { label: "Affectation", fields: [{ key: "assignedRole", label: "Rôle assigné" }, { key: "shiftStart", label: "Début shift" }, { key: "shiftEnd", label: "Fin shift" }] },
-      { label: "Meta", fields: [{ key: "createdAt", label: "Soumis le" }] },
-    ],
-    registration: [
-      { label: "Participant", fields: [{ key: "fname", label: "Prénom" }, { key: "lname", label: "Nom" }, { key: "email", label: "Email" }, { key: "org", label: "Organisation" }, { key: "country", label: "Pays" }] },
-      { label: "Réseaux", fields: [{ key: "linkedin", label: "LinkedIn" }, { key: "whatsapp", label: "WhatsApp" }] },
-      { label: "Billet", fields: [{ key: "ticketType", label: "Type billet" }, { key: "ticketRef", label: "Référence" }, { key: "status", label: "Statut" }, { key: "langExpression", label: "Langue" }] },
-      { label: "Check-in", fields: [{ key: "checkedInAt", label: "Heure check-in" }, { key: "checkedInBy", label: "Par" }] },
-      { label: "CTF", fields: [{ key: "ctfCompetitorName", label: "Pseudo CTF" }, { key: "ctfTeamName", label: "Équipe CTF" }, { key: "ctfAccountCreated", label: "Compte CTFd créé" }] },
-      { label: "Meta", fields: [{ key: "createdAt", label: "Inscrit le" }] },
-    ],
-    sponsor: [
-      { label: "Sponsor", fields: [{ key: "name", label: "Nom" }, { key: "tier", label: "Tier" }, { key: "website", label: "Site web" }, { key: "logoUrl", label: "Logo URL" }] },
-      { label: "Visibilité", fields: [{ key: "isVisible", label: "Visible" }, { key: "sortOrder", label: "Ordre" }] },
-      { label: "Meta", fields: [{ key: "createdAt", label: "Créé le" }] },
-    ],
-    cfp: [
-      { label: "Speaker", fields: [{ key: "name", label: "Nom" }, { key: "email", label: "Email" }, { key: "org", label: "Organisation" }, { key: "country", label: "Pays" }] },
-      { label: "Réseaux", fields: [{ key: "linkedin", label: "LinkedIn" }, { key: "twitter", label: "X / Twitter" }, { key: "whatsapp", label: "WhatsApp" }] },
-      { label: "Proposition", fields: [{ key: "talkTitle", label: "Titre" }, { key: "format", label: "Format" }, { key: "langPresentation", label: "Langue" }, { key: "pipelineStage", label: "Étape" }, { key: "status", label: "Statut" }] },
-      { label: "Abstract", fields: [{ key: "abstract", label: "Abstract" }] },
-      { label: "Bio", fields: [{ key: "bio", label: "Bio" }] },
-      { label: "Analyse IA", fields: [{ key: "aiScore", label: "Score IA" }, { key: "aiAnalysis", label: "Analyse IA" }] },
-      { label: "Meta", fields: [{ key: "createdAt", label: "Soumis le" }, { key: "decisionSentAt", label: "Décision envoyée" }, { key: "notes", label: "Notes admin" }] },
-    ],
-    session: [
-      { label: "Session", fields: [{ key: "title", label: "Titre" }, { key: "type", label: "Type" }, { key: "speakerName", label: "Intervenant" }, { key: "room", label: "Salle" }] },
-      { label: "Horaires", fields: [{ key: "date", label: "Date" }, { key: "time", label: "Début" }, { key: "endTime", label: "Fin" }] },
-      { label: "Contenu", fields: [{ key: "description", label: "Description" }] },
-      { label: "Visibilité", fields: [{ key: "isVisible", label: "Visible" }, { key: "sortOrder", label: "Ordre" }] },
-    ],
-  };
-
-  const secs = sections[type] || Object.keys(item).map(key => ({ label: "", fields: [{ key, label: key }] }));
-  const typeLabels: Record<string, string> = { volunteer: "Bénévole", registration: "Inscription", sponsor: "Sponsor", cfp: "Soumission CFP", session: "Session" };
-
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/60 z-50" onClick={onClose} />
-      <div className="fixed top-0 right-0 h-full w-full max-w-lg bg-dark-900 border-l border-neon-green/20 z-50 overflow-y-auto" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-        <div className="sticky top-0 bg-dark-900 border-b border-neon-green/10 px-6 py-4 flex items-center justify-between">
-          <div>
-            <p className="text-neon-green text-xs uppercase tracking-widest">{typeLabels[type] || type}</p>
-            <h2 className="text-white font-bold text-lg mt-0.5">
-              {(item.name as string) || (item.fname ? `${item.fname} ${item.lname}` : `#${item.id}`)}
-            </h2>
-          </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white text-2xl leading-none px-2">×</button>
-        </div>
-
-        <div className="px-6 py-4 space-y-6">
-          {secs.map((sec, si) => (
-            <div key={si}>
-              {sec.label && <p className="text-neon-green/60 text-xs uppercase tracking-widest mb-3 border-b border-neon-green/10 pb-1">{sec.label}</p>}
-              <div className="space-y-3">
-                {sec.fields.map(({ key, label }) => {
-                  const val = item[key];
-                  if (val === null || val === undefined || val === "") return null;
-                  const isLong = typeof val === "string" && val.length > 120;
-                  return (
-                    <div key={key} className={isLong ? "" : "flex gap-3"}>
-                      <span className="text-gray-500 text-xs shrink-0 w-32">{label}</span>
-                      <div className={`text-sm ${isLong ? "mt-1 text-gray-300 leading-relaxed whitespace-pre-wrap bg-black/20 rounded p-3" : ""}`}>{fmt(val)}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </>
   );
 }

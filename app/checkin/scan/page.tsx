@@ -24,6 +24,18 @@ export default function QRScannerPage() {
   const [error, setError] = useState<string>("");
   const [supported, setSupported] = useState(true);
   const [scanCount, setScanCount] = useState(0);
+  const [cameraAvailable, setCameraAvailable] = useState(true);
+
+  useEffect(() => {
+    // mediaDevices requires a secure context (HTTPS or localhost)
+    if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraAvailable(false);
+      const isHttp = typeof window !== "undefined" && window.location.protocol === "http:" && window.location.hostname !== "localhost";
+      setError(isHttp
+        ? "La caméra nécessite HTTPS. Accédez à cette page via https://"
+        : "Caméra non disponible sur ce navigateur.");
+    }
+  }, []);
 
   const resetScan = useCallback(() => {
     setTimeout(() => {
@@ -39,7 +51,6 @@ export default function QRScannerPage() {
     cooldownRef.current = true;
     lastScannedRef.current = url;
 
-    // Extract token from URL or use directly as payload
     let payload = url;
     const match = url.match(/\/checkin\/(.+)$/);
     if (match) payload = decodeURIComponent(match[1]);
@@ -68,6 +79,7 @@ export default function QRScannerPage() {
   }, [resetScan]);
 
   const startCamera = useCallback(async () => {
+    if (!cameraAvailable) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -81,7 +93,7 @@ export default function QRScannerPage() {
     } catch (e) {
       setError(`Impossible d'accéder à la caméra: ${e instanceof Error ? e.message : String(e)}`);
     }
-  }, []);
+  }, [cameraAvailable]);
 
   const stopCamera = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -90,7 +102,6 @@ export default function QRScannerPage() {
     setState("idle");
   }, []);
 
-  // Scan loop using BarcodeDetector (Chrome/Safari 17+) with canvas fallback
   useEffect(() => {
     if (state !== "scanning") return;
     if (!videoRef.current || !canvasRef.current) return;
@@ -100,14 +111,10 @@ export default function QRScannerPage() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Check BarcodeDetector support
     const hasBarcodeDetector = "BarcodeDetector" in window;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const detector = hasBarcodeDetector ? new (window as any).BarcodeDetector({ formats: ["qr_code"] }) : null;
-
-    if (!hasBarcodeDetector) {
-      setSupported(false);
-    }
+    if (!hasBarcodeDetector) setSupported(false);
 
     let active = true;
 
@@ -137,22 +144,17 @@ export default function QRScannerPage() {
     };
 
     rafRef.current = requestAnimationFrame(scan);
-    return () => {
-      active = false;
-      cancelAnimationFrame(rafRef.current);
-    };
+    return () => { active = false; cancelAnimationFrame(rafRef.current); };
   }, [state, processUrl]);
 
-  useEffect(() => {
-    return () => stopCamera();
-  }, [stopCamera]);
+  useEffect(() => { return () => stopCamera(); }, [stopCamera]);
 
   const statusConfig = {
-    idle: { bg: "#050a0e", border: "#1a2a3a", color: "#00ccff", icon: "📷", title: "Scanner QR Check-in" },
-    scanning: { bg: "#050a0e", border: "#00ff9d40", color: "#00ff9d", icon: "", title: "" },
-    success: { bg: "#001a0d", border: "#00ff9d", color: "#00ff9d", icon: "✓", title: "CHECK-IN VALIDÉ" },
+    idle:      { bg: "#050a0e", border: "#1a2a3a", color: "#00ccff", icon: "📷", title: "Scanner QR Check-in" },
+    scanning:  { bg: "#050a0e", border: "#00ff9d40", color: "#00ff9d", icon: "", title: "" },
+    success:   { bg: "#001a0d", border: "#00ff9d", color: "#00ff9d", icon: "✓", title: "CHECK-IN VALIDÉ" },
     duplicate: { bg: "#1a0d00", border: "#ff6600", color: "#ff6600", icon: "⚠", title: "DÉJÀ ENREGISTRÉ" },
-    error: { bg: "#1a0000", border: "#ff0066", color: "#ff0066", icon: "✗", title: "QR INVALIDE" },
+    error:     { bg: "#1a0000", border: "#ff0066", color: "#ff0066", icon: "✗", title: "QR INVALIDE" },
   }[state];
 
   return (
@@ -174,21 +176,13 @@ export default function QRScannerPage() {
       <div style={{ width: "100%", maxWidth: 480, background: statusConfig.bg, border: `2px solid ${statusConfig.border}`, borderRadius: 20, overflow: "hidden", boxShadow: `0 0 40px ${statusConfig.border}40`, transition: "all 0.3s ease" }}>
 
         {/* Camera view */}
-        {(state === "scanning") && (
+        {state === "scanning" && (
           <div style={{ position: "relative", width: "100%", aspectRatio: "4/3", background: "#000" }}>
-            <video
-              ref={videoRef}
-              playsInline
-              muted
-              autoPlay
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            />
+            <video ref={videoRef} playsInline muted autoPlay style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             <canvas ref={canvasRef} style={{ display: "none" }} />
-            {/* Targeting overlay */}
             <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
               <div style={{ width: 200, height: 200, position: "relative" }}>
-                {/* Corner markers */}
-                {[["0,0","0deg"],["auto,0","90deg"],["0,auto","270deg"],["auto,auto","180deg"]].map(([pos, rot], i) => {
+                {[["0,0"], ["auto,0"], ["0,auto"], ["auto,auto"]].map(([pos], i) => {
                   const [l, t] = pos.split(",");
                   return (
                     <div key={i} style={{
@@ -200,24 +194,21 @@ export default function QRScannerPage() {
                       borderBottom: t !== "0" ? "3px solid #00ff9d" : "none",
                       borderLeft: l === "0" ? "3px solid #00ff9d" : "none",
                       borderRight: l !== "0" ? "3px solid #00ff9d" : "none",
-                      transform: `rotate(${rot})`,
                     }} />
                   );
                 })}
-                {/* Scan line animation */}
                 <div style={{ position: "absolute", left: 4, right: 4, height: 2, background: "linear-gradient(90deg, transparent, #00ff9d, transparent)", animation: "scanline 1.5s ease-in-out infinite", top: "50%" }} />
               </div>
             </div>
-            {/* Scan label */}
             <div style={{ position: "absolute", bottom: 16, left: 0, right: 0, textAlign: "center" }}>
               <span style={{ background: "#000000aa", color: "#00ff9d", fontSize: 11, padding: "4px 12px", borderRadius: 20, letterSpacing: 2 }}>
-                {!supported ? "BarcodeDetector non supporté — mise à jour Chrome requise" : "Pointez vers le QR code"}
+                {!supported ? "BarcodeDetector non supporté — Chrome requis" : "Pointez vers le QR code"}
               </span>
             </div>
           </div>
         )}
 
-        {/* Result overlay (non-scanning states) */}
+        {/* Result / idle states */}
         {state !== "scanning" && (
           <div style={{ padding: 32, textAlign: "center", minHeight: 240, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
             {state === "idle" && (
@@ -226,13 +217,24 @@ export default function QRScannerPage() {
                 <p style={{ color: "#666", fontSize: 12, marginBottom: 24, lineHeight: 1.6 }}>
                   Scannez les QR codes des billets pour valider le check-in automatiquement.
                 </p>
-                {error && <p style={{ color: "#ff4444", fontSize: 11, marginBottom: 16 }}>{error}</p>}
-                <button
-                  onClick={startCamera}
-                  style={{ background: "#00ff9d", color: "#000", border: "none", padding: "14px 32px", borderRadius: 12, fontSize: 14, fontWeight: "bold", cursor: "pointer", fontFamily: "inherit", letterSpacing: 2 }}
-                >
-                  DÉMARRER LE SCANNER
-                </button>
+                {error && (
+                  <div style={{ background: "#1a0000", border: "1px solid #ff006640", borderRadius: 10, padding: "12px 16px", marginBottom: 16, maxWidth: 360 }}>
+                    <p style={{ color: "#ff4444", fontSize: 12, margin: 0, lineHeight: 1.5 }}>{error}</p>
+                    {!cameraAvailable && window?.location?.protocol === "http:" && window?.location?.hostname !== "localhost" && (
+                      <p style={{ color: "#666", fontSize: 11, margin: "8px 0 0", lineHeight: 1.5 }}>
+                        Utilisez la saisie manuelle ci-dessous, ou accédez via HTTPS.
+                      </p>
+                    )}
+                  </div>
+                )}
+                {cameraAvailable && (
+                  <button
+                    onClick={startCamera}
+                    style={{ background: "#00ff9d", color: "#000", border: "none", padding: "14px 32px", borderRadius: 12, fontSize: 14, fontWeight: "bold", cursor: "pointer", fontFamily: "inherit", letterSpacing: 2 }}
+                  >
+                    DÉMARRER LE SCANNER
+                  </button>
+                )}
               </>
             )}
 
@@ -283,12 +285,10 @@ export default function QRScannerPage() {
         )}
       </div>
 
-      {/* Manual input fallback */}
-      {state === "scanning" && (
-        <div style={{ width: "100%", maxWidth: 480, marginTop: 12 }}>
-          <ManualInput onSubmit={processUrl} />
-        </div>
-      )}
+      {/* Manual input — always visible */}
+      <div style={{ width: "100%", maxWidth: 480, marginTop: 12 }}>
+        <ManualInput onSubmit={processUrl} />
+      </div>
 
       {/* Navigation */}
       <div style={{ marginTop: 20, display: "flex", gap: 16 }}>

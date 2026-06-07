@@ -30,3 +30,15 @@ export async function uploadToGCS(
   //     --member=allUsers --role=roles/storage.objectViewer
   return `https://storage.googleapis.com/${BUCKET}/${filename}`;
 }
+
+export async function listGCSFiles(): Promise<{ name: string; url: string }[]> {
+  const [files] = await getStorage().bucket(BUCKET).getFiles({ prefix: "library/" });
+  return files.map((f) => ({
+    name: f.name,
+    url: `https://storage.googleapis.com/${BUCKET}/${f.name}`,
+  }));
+}
+
+export async function deleteGCSFile(name: string): Promise<void> {
+  await getStorage().bucket(BUCKET).file(name).delete();
+}

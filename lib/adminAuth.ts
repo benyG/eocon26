@@ -41,3 +41,22 @@ export async function isAdminAuthenticated(): Promise<boolean> {
   if (!token) return false;
   return isValidToken(token);
 }
+
+// Signs a per-user token encoding the userId and bound to the passwordHash so
+// it's invalidated on password change.
+export function signUserToken(userId: number, passwordHash: string): string {
+  const payload = `${userId}:${passwordHash}:${dailyNonce()}`;
+  const sig = createHmac("sha256", getSecret()).update(payload).digest("hex");
+  return `${userId}.${sig}`;
+}
+
+export async function getAuthenticatedUserId(): Promise<number | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_token")?.value;
+  if (!token) return null;
+  const dot = token.indexOf(".");
+  if (dot === -1) return null;
+  const userId = Number(token.slice(0, dot));
+  if (!Number.isInteger(userId) || userId <= 0) return null;
+  return userId;
+}

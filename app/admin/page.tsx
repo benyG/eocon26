@@ -7,6 +7,7 @@ import VolunteerKanban from "@/components/admin/VolunteerKanban";
 import CountrySelect from "@/components/CountrySelect";
 import AdminProfilesPanel from "@/components/admin/AdminProfilesPanel";
 import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
+import MediaLibraryModal from "@/components/admin/MediaLibraryModal";
 
 const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; setLang: (l: AdminLang) => void }>({
   lang: "fr",
@@ -15,7 +16,7 @@ const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; 
 });
 const useAdminT = () => useContext(AdminLangContext);
 
-type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf";
+type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -840,6 +841,118 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
 }
 
 
+// ---- Library Panel ----
+function LibraryPanel() {
+  const [files, setFiles] = useState<{ name: string; url: string; size: number; updated: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch("/api/admin/library");
+    if (res.ok) setFiles(await res.json());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const upload = async (file: File) => {
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    await fetch("/api/admin/library", { method: "POST", body: fd });
+    await load();
+    setUploading(false);
+  };
+
+  const deleteFile = async (name: string) => {
+    if (!confirm(`Supprimer "${name.split("/").pop()}" ?`)) return;
+    setDeleting(name);
+    await fetch("/api/admin/library", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    setFiles(prev => prev.filter(f => f.name !== name));
+    setDeleting(null);
+  };
+
+  const fmt = (b: number) => b < 1024 ? `${b} B` : b < 1048576 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1048576).toFixed(1)} MB`;
+  const filtered = files.filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black text-white">📁 Library</h1>
+          <p className="text-gray-500 text-xs mt-1">Images hébergées sur Google Cloud Storage · réutilisables dans tous les posts</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="Rechercher…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="cyber-input text-xs px-3 py-1.5 rounded w-44"
+          />
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="text-xs px-4 py-1.5 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono transition-colors disabled:opacity-50"
+          >
+            {uploading ? "⏳ Import…" : "⬆ Importer"}
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+            className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }}
+          />
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-64 text-gray-600 font-mono text-xs">Chargement…</div>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-64 text-gray-600 font-mono text-xs gap-3">
+          <span>{search ? "Aucun résultat pour cette recherche" : "Aucune image importée"}</span>
+          {!search && (
+            <button onClick={() => fileRef.current?.click()} className="text-neon-green text-xs underline">
+              Importer votre première image
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          <p className="text-xs text-gray-600 mb-3 font-mono">{filtered.length} fichier{filtered.length !== 1 ? "s" : ""}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            {filtered.map(f => (
+              <div key={f.name} className="group relative rounded-lg overflow-hidden border border-gray-800 hover:border-gray-600 transition-all">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={f.url} alt={f.name} className="w-full aspect-square object-cover bg-gray-900" loading="lazy" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors" />
+                <button
+                  onClick={() => deleteFile(f.name)}
+                  disabled={deleting === f.name}
+                  className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-600/80 text-white text-xs items-center justify-center hidden group-hover:flex hover:bg-red-500"
+                >✕</button>
+                <div className="absolute bottom-0 inset-x-0 bg-black/70 px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <p className="text-white text-xs truncate leading-tight">{f.name.split("/").pop()}</p>
+                  <p className="text-gray-400 text-xs">{fmt(f.size)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ---- Communication Panel ----
 
 function CommunicationPanel() {
@@ -881,7 +994,7 @@ function CommunicationPanel() {
   } | null>(null);
   const [selectedItem, setSelectedItem] = useState<Record<string, unknown> | null>(null);
   const [postImage, setPostImage] = useState<string | null>(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const [showLibraryPicker, setShowLibraryPicker] = useState(false);
   const [eventSettings, setEventSettings] = useState<Record<string, string>>({});
 
   const generateBriefFromContext = (type: string, item: Record<string, unknown> | null, data: typeof contextData): string => {
@@ -949,18 +1062,6 @@ function CommunicationPanel() {
     }
   });
 
-  const uploadImage = async (file: File) => {
-    setUploadingImage(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("folder", "socials");
-    const res = await fetch("/api/upload", { method: "POST", body: fd });
-    if (res.ok) {
-      const { url } = await res.json() as { url: string };
-      setPostImage(url);
-    }
-    setUploadingImage(false);
-  };
 
   const handleDayClick = (day: number) => {
     const date = new Date(currentYear, currentMonth, day);
@@ -1386,16 +1487,18 @@ function CommunicationPanel() {
                   >✕</button>
                 </div>
               ) : (
-                <label className="flex items-center gap-2 cursor-pointer border border-dashed border-gray-700 rounded-lg px-3 py-2 hover:border-gray-500 transition-colors">
-                  <span className="text-gray-600 text-xs">{uploadingImage ? "Upload en cours..." : "📎 Ajouter une image (jpg, png, webp)"}</span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(f); e.target.value = ""; }}
-                    disabled={uploadingImage}
-                  />
-                </label>
+                <button
+                  onClick={() => setShowLibraryPicker(true)}
+                  className="w-full flex items-center gap-2 border border-dashed border-gray-700 rounded-lg px-3 py-2 hover:border-neon-green/40 hover:bg-neon-green/5 transition-colors"
+                >
+                  <span className="text-gray-600 text-xs">📎 Ajouter une image (jpg, png, webp)</span>
+                </button>
+              )}
+              {showLibraryPicker && (
+                <MediaLibraryModal
+                  onSelect={url => { setPostImage(url); setShowLibraryPicker(false); }}
+                  onClose={() => setShowLibraryPicker(false)}
+                />
               )}
             </div>
 
@@ -4402,6 +4505,7 @@ export default function AdminDashboard() {
       icon: "◉",
       tabs: [
         { id: "communication", label: t.communicationPosts },
+        { id: "library", label: "📁 Library" },
       ],
     },
     {
@@ -4966,6 +5070,9 @@ export default function AdminDashboard() {
           {tab === "communication" && (
             <CommunicationPanel />
           )}
+
+          {/* LIBRARY */}
+          {tab === "library" && <LibraryPanel />}
 
           {/* SPONSOR PIPELINE */}
           {tab === "sponsor-pipeline" && (

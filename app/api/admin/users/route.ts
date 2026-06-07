@@ -49,8 +49,9 @@ export async function POST(req: NextRequest) {
 
   // Resolve permissions from DB profile or custom
   let resolvedPermissions = permissions || {};
-  if (profileId) {
-    const dbProfile = await prisma.adminProfile.findUnique({ where: { id: Number(profileId) } });
+  const profileIdNum = profileId ? Number(profileId) : null;
+  if (profileIdNum && profileIdNum > 0) {
+    const dbProfile = await prisma.adminProfile.findUnique({ where: { id: profileIdNum } });
     if (dbProfile) {
       try { resolvedPermissions = JSON.parse(dbProfile.permissions); } catch { /* use custom */ }
     }
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
       email,
       passwordHash: hashPassword(tempPassword),
       permissions: JSON.stringify(resolvedPermissions),
-      profileId: profileId || null,
+      profileId: profileIdNum && profileIdNum > 0 ? profileIdNum : null,
     },
     select: { id: true, name: true, email: true, permissions: true, isActive: true, profileId: true, createdAt: true },
   });

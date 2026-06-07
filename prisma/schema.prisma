@@ -45,6 +45,7 @@ model VolunteerApplication {
   motivation      String    @db.Text
   langExpression  String?   @default("fr")
   status          String    @default("pending")
+  volunteerStage  String    @default("submitted")
   assignedRole    String?
   shiftStart      DateTime?
   shiftEnd        DateTime?

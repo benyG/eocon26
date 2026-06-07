@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef, createContext, useContext } f
 import { useRouter } from "next/navigation";
 import { ADMIN_PROFILES } from "@/lib/adminProfiles";
 import PipelineKanban from "@/components/admin/PipelineKanban";
+import VolunteerKanban from "@/components/admin/VolunteerKanban";
 import CountrySelect from "@/components/CountrySelect";
 import AdminProfilesPanel from "@/components/admin/AdminProfilesPanel";
 import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
@@ -2509,6 +2510,7 @@ function CertificatesPanel() {
   const [status, setStatus] = useState<string | null>(null);
   const [keys, setKeys] = useState<{ privateKeyBase64: string; publicKeyBase64: string } | null>(null);
   const [keyLoading, setKeyLoading] = useState(false);
+  const [form, setForm] = useState<{ badgeType: string; recipientName: string; recipientEmail: string; subtype: string }>({ badgeType: "participant", recipientName: "", recipientEmail: "", subtype: "" });
 
   void t; // used for translation context
 
@@ -3707,76 +3709,8 @@ export default function AdminDashboard() {
           {/* VOLUNTEERS */}
           {tab === "volunteers" && (
             <div>
-              <h1 className="text-2xl font-black text-white mb-6">{t.benevoles} ({(data.volunteers || []).length})</h1>
-              <div className="space-y-3">
-                {((data.volunteers || []) as Record<string, unknown>[]).map(v => (
-                  <div key={v.id as number} className="cyber-card rounded-xl p-5">
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                      <div>
-                        <p className="text-white font-bold">{v.name as string} <span className="text-gray-500 font-normal text-sm">— {v.email as string}</span></p>
-                        {!!v.role && <p className="text-neon-green/70 text-sm">Rôle souhaité : {v.role as string}</p>}
-                        {!!v.city && <p className="text-gray-500 text-xs">{v.city as string}</p>}
-                        <p className="text-gray-400 text-xs mt-2">{v.motivation as string}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge status={v.status as string} />
-                        <select className="cyber-input text-xs px-2 py-1 rounded bg-transparent" value={v.status as string}
-                          onChange={e => updateStatus("volunteer", v.id as number, e.target.value)}>
-                          <option value="pending" className="bg-dark-800">pending</option>
-                          <option value="accepted" className="bg-dark-800">accepted</option>
-                          <option value="rejected" className="bg-dark-800">rejected</option>
-                        </select>
-                      </div>
-                    </div>
-                    {v.status === "accepted" && (
-                      <div className="border-t border-gray-800 pt-3 mt-2">
-                        <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Affectation</p>
-                        <div className="flex gap-2 flex-wrap">
-                          <input
-                            type="text"
-                            placeholder="Rôle assigné"
-                            defaultValue={(v.assignedRole as string) || ""}
-                            className="cyber-input text-xs rounded px-2 py-1 flex-1 min-w-[120px]"
-                            onBlur={async (e) => {
-                              await fetch("/api/admin/submissions", {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ type: "volunteer-assign", id: v.id, assignedRole: e.target.value }),
-                              });
-                            }}
-                          />
-                          <input
-                            type="datetime-local"
-                            defaultValue={(v.shiftStart as string)?.slice(0, 16) || ""}
-                            className="cyber-input text-xs rounded px-2 py-1"
-                            onBlur={async (e) => {
-                              await fetch("/api/admin/submissions", {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ type: "volunteer-assign", id: v.id, shiftStart: e.target.value }),
-                              });
-                            }}
-                          />
-                          <input
-                            type="datetime-local"
-                            defaultValue={(v.shiftEnd as string)?.slice(0, 16) || ""}
-                            className="cyber-input text-xs rounded px-2 py-1"
-                            onBlur={async (e) => {
-                              await fetch("/api/admin/submissions", {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ type: "volunteer-assign", id: v.id, shiftEnd: e.target.value }),
-                              });
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                    <p className="text-gray-600 text-xs mt-2">{new Date(v.createdAt as string).toLocaleDateString("fr-FR")}</p>
-                  </div>
-                ))}
-                {!data.volunteers?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune candidature</p>}
-              </div>
+              <h1 className="text-2xl font-black text-white mb-6">{t.benevoles}</h1>
+              <VolunteerKanban />
             </div>
           )}
 

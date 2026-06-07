@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { rateLimit, getIp } from "@/lib/rateLimit";
 import { signMfaPending } from "@/lib/mfaToken";
+import { signUserSession } from "@/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -51,8 +52,9 @@ export async function POST(req: NextRequest) {
     .update(`${user.id}:${Date.now()}:${Math.random()}`).digest("hex");
   await prisma.adminSession.create({ data: { token: sessionToken, userId: user.id, expiresAt } });
 
+  const cookieValue = signUserSession(user.id, sessionToken);
   const res = NextResponse.json({ success: true, user: { id: user.id, name: user.name, email: user.email } });
-  res.cookies.set("admin_user_token", sessionToken, {
+  res.cookies.set("admin_user_token", cookieValue, {
     httpOnly: true,
     secure: process.env.COOKIE_SECURE !== "false",
     sameSite: "lax",

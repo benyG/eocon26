@@ -4285,7 +4285,10 @@ export default function AdminDashboard() {
   const router = useRouter();
 
   const logout = async () => {
-    await fetch("/api/admin/login", { method: "DELETE" });
+    await Promise.all([
+      fetch("/api/admin/login", { method: "DELETE" }),
+      fetch("/api/admin/auth/logout", { method: "DELETE" }),
+    ]);
     router.push("/admin/login");
   };
 

@@ -3220,6 +3220,432 @@ function EventSettingsPanel() {
 }
 
 
+const CTF_CATEGORIES = ["Web", "Crypto", "Forensics", "Reverse", "Pwn", "OSINT", "Misc"];
+const CTF_CATEGORY_COLORS: Record<string, string> = {
+  Web: "#00ccff", Crypto: "#ffaa00", Forensics: "#cc00ff",
+  Reverse: "#ff6600", Pwn: "#ff0066", OSINT: "#00ff9d", Misc: "#888",
+};
+const CTF_STAGES = [
+  { key: "idea", label: "Idée" },
+  { key: "in_progress", label: "En cours" },
+  { key: "testing", label: "En test" },
+  { key: "validated", label: "Validé" },
+  { key: "published", label: "Publié CTFd" },
+];
+
+function levenshtein(a: string, b: string): number {
+  const dp = Array.from({ length: a.length + 1 }, (_, i) =>
+    Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++)
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+  return dp[a.length][b.length];
+}
+
+function CTFPanel() {
+  const [subTab, setSubTab] = useState<"config" | "challenges" | "participants" | "emails">("config");
+  const [config, setConfig] = useState({ ctfdUrl: "", ctfdApiKey: "", ctfDefaultPassword: "", ctfEnabled: "false" });
+  const [configSaving, setConfigSaving] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
+
+  const [challenges, setChallenges] = useState<Record<string, unknown>[]>([]);
+  const [addForm, setAddForm] = useState({ title: "", category: "Web", difficulty: "medium", points: 100, author: "", notes: "" });
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [dragId, setDragId] = useState<number | null>(null);
+
+  const [participants, setParticipants] = useState<Record<string, unknown>[]>([]);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [reconcileTeam, setReconcileTeam] = useState<{ team1: string; team2: string } | null>(null);
+  const [reconcileTo, setReconcileTo] = useState("");
+
+  useEffect(() => {
+    fetch("/api/admin/settings").then(r => r.json()).then((s: Record<string, string>) => {
+      setConfig({ ctfdUrl: s.ctfdUrl || "", ctfdApiKey: s.ctfdApiKey || "", ctfDefaultPassword: s.ctfDefaultPassword || "", ctfEnabled: s.ctfEnabled || "false" });
+    });
+  }, []);
+
+  const loadChallenges = useCallback(async () => {
+    const r = await fetch("/api/admin/ctf/challenges");
+    if (r.ok) setChallenges(await r.json());
+  }, []);
+
+  const loadParticipants = useCallback(async () => {
+    const r = await fetch("/api/admin/ctf/participants");
+    if (r.ok) setParticipants(await r.json());
+  }, []);
+
+  useEffect(() => {
+    if (subTab === "challenges") loadChallenges();
+    if (subTab === "participants") loadParticipants();
+  }, [subTab, loadChallenges, loadParticipants]);
+
+  const saveConfig = async () => {
+    setConfigSaving(true);
+    await fetch("/api/admin/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
+    setConfigSaving(false);
+  };
+
+  const testConnection = async () => {
+    setTestResult("Test en cours…");
+    try {
+      const url = config.ctfdUrl.replace(/\/$/, "");
+      const r = await fetch(`${url}/api/v1/users`, { headers: { "Authorization": `Token ${config.ctfdApiKey}` } });
+      setTestResult(r.ok ? "✓ Connexion CTFd réussie" : `✗ Erreur ${r.status}`);
+    } catch {
+      setTestResult("✗ Impossible de joindre CTFd");
+    }
+  };
+
+  const addChallenge = async () => {
+    if (!addForm.title) return;
+    await fetch("/api/admin/ctf/challenges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(addForm) });
+    setAddForm({ title: "", category: "Web", difficulty: "medium", points: 100, author: "", notes: "" });
+    setShowAddForm(false);
+    loadChallenges();
+  };
+
+  const moveChallenge = async (id: number, status: string) => {
+    await fetch(`/api/admin/ctf/challenges/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    loadChallenges();
+  };
+
+  const deleteChallenge = async (id: number) => {
+    if (!confirm("Supprimer ce challenge ?")) return;
+    await fetch(`/api/admin/ctf/challenges/${id}`, { method: "DELETE" });
+    loadChallenges();
+  };
+
+  const syncAll = async () => {
+    setSyncing(true); setSyncResult(null);
+    const r = await fetch("/api/admin/ctf/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "sync_all" }) });
+    const j = await r.json();
+    const ok = j.results?.filter((x: Record<string, unknown>) => x.success).length ?? 0;
+    const fail = j.results?.filter((x: Record<string, unknown>) => !x.success).length ?? 0;
+    setSyncResult(r.ok ? `✓ ${ok} comptes créés${fail > 0 ? `, ${fail} erreurs` : ""}` : `✗ ${j.error}`);
+    setSyncing(false); loadParticipants();
+  };
+
+  const syncOne = async (id: number) => {
+    await fetch("/api/admin/ctf/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create_account", registrationIds: [id] }) });
+    loadParticipants();
+  };
+
+  // Detect team name conflicts (Levenshtein ≤ 2)
+  const teamNames = Array.from(new Set(participants.map(p => p.ctfTeamName as string).filter(Boolean)));
+  const teamConflicts: { team1: string; team2: string }[] = [];
+  for (let i = 0; i < teamNames.length; i++)
+    for (let j = i + 1; j < teamNames.length; j++)
+      if (levenshtein(teamNames[i].toLowerCase(), teamNames[j].toLowerCase()) <= 2)
+        teamConflicts.push({ team1: teamNames[i], team2: teamNames[j] });
+
+  const reconcileTeams = async () => {
+    if (!reconcileTeam || !reconcileTo) return;
+    const oldName = reconcileTo === reconcileTeam.team1 ? reconcileTeam.team2 : reconcileTeam.team1;
+    // Update all participants with old team name to new
+    const toUpdate = participants.filter(p => p.ctfTeamName === oldName);
+    for (const p of toUpdate) {
+      await fetch("/api/admin/submissions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "ctf-team", id: p.id, ctfTeamName: reconcileTo }) });
+    }
+    setReconcileTeam(null); setReconcileTo(""); loadParticipants();
+  };
+
+  const subTabs = [
+    { key: "config", label: "⚙ Config" },
+    { key: "challenges", label: "🏁 Challenges" },
+    { key: "participants", label: "👤 Participants" },
+    { key: "emails", label: "✉ Emails" },
+  ] as const;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-black text-white">⚡ EyesOpen CTF</h1>
+        <a href="/ctf" target="_blank" rel="noreferrer" className="text-xs text-gray-500 hover:text-neon-green transition-colors">→ Page publique scoreboard</a>
+      </div>
+
+      <div className="flex gap-1 mb-6 border-b border-gray-800 pb-0">
+        {subTabs.map(st => (
+          <button key={st.key} onClick={() => setSubTab(st.key)}
+            className={`text-xs px-4 py-2 border-b-2 transition-all ${subTab === st.key ? "border-neon-green text-neon-green" : "border-transparent text-gray-500 hover:text-gray-300"}`}>
+            {st.label}
+          </button>
+        ))}
+      </div>
+
+      {subTab === "config" && (
+        <div className="max-w-lg space-y-4">
+          <div className="cyber-card rounded-xl p-5">
+            <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">Connexion CTFd</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">URL CTFd</label>
+                <input value={config.ctfdUrl} onChange={e => setConfig(c => ({ ...c, ctfdUrl: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="https://ctf.eyesopensecurity.com" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Clé API CTFd</label>
+                <input type="password" value={config.ctfdApiKey} onChange={e => setConfig(c => ({ ...c, ctfdApiKey: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="ctfd_…" />
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={testConnection} className="px-3 py-1.5 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">Tester la connexion</button>
+                {testResult && <span className={`text-xs ${testResult.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{testResult}</span>}
+              </div>
+            </div>
+          </div>
+          <div className="cyber-card rounded-xl p-5">
+            <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">Paramètres CTF</h3>
+            <div className="space-y-3">
+              <p className="text-xs text-gray-500">Les mots de passe sont générés automatiquement — 7 caractères uniques par compétiteur, 7 caractères uniques par équipe. Ils sont envoyés aux participants par email.</p>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <div className={`w-10 h-5 rounded-full transition-colors relative ${config.ctfEnabled === "true" ? "bg-neon-green/30" : "bg-gray-700"}`}>
+                  <div className={`absolute top-0.5 w-4 h-4 rounded-full transition-all ${config.ctfEnabled === "true" ? "right-0.5 bg-neon-green" : "left-0.5 bg-gray-500"}`} />
+                </div>
+                <input type="checkbox" className="sr-only" checked={config.ctfEnabled === "true"} onChange={e => setConfig(c => ({ ...c, ctfEnabled: e.target.checked ? "true" : "false" }))} />
+                <span className="text-sm text-gray-300">CTF activé (scoreboard public visible)</span>
+              </label>
+            </div>
+          </div>
+          <button onClick={saveConfig} disabled={configSaving} className="btn-neon px-4 py-2 rounded text-xs">
+            {configSaving ? "Sauvegarde…" : "Sauvegarder"}
+          </button>
+        </div>
+      )}
+
+      {subTab === "challenges" && (
+        <div>
+          {/* KPI bar */}
+          <div className="flex gap-3 flex-wrap mb-5">
+            {CTF_CATEGORIES.map(cat => {
+              const count = challenges.filter(c => c.category === cat).length;
+              return count > 0 ? (
+                <span key={cat} className="text-xs px-2 py-1 rounded font-mono" style={{ background: CTF_CATEGORY_COLORS[cat] + "20", color: CTF_CATEGORY_COLORS[cat], border: `1px solid ${CTF_CATEGORY_COLORS[cat]}40` }}>
+                  {cat} × {count}
+                </span>
+              ) : null;
+            })}
+            <span className="text-xs px-2 py-1 rounded bg-gray-800 text-gray-400 font-mono">Total: {challenges.length}</span>
+            <span className="text-xs px-2 py-1 rounded font-mono" style={{ background: "#00ff9d20", color: "#00ff9d" }}>
+              ✓ {challenges.filter(c => c.status === "validated" || c.status === "published").length} prêts
+            </span>
+            <button onClick={() => setShowAddForm(v => !v)} className="btn-neon px-3 py-1 rounded text-xs ml-auto">+ Ajouter challenge</button>
+          </div>
+
+          {showAddForm && (
+            <div className="cyber-card rounded-xl p-4 mb-5">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                <div className="md:col-span-2">
+                  <label className="text-xs text-gray-500 block mb-1">Titre</label>
+                  <input value={addForm.title} onChange={e => setAddForm(f => ({ ...f, title: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Catégorie</label>
+                  <select value={addForm.category} onChange={e => setAddForm(f => ({ ...f, category: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
+                    {CTF_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Difficulté</label>
+                  <select value={addForm.difficulty} onChange={e => setAddForm(f => ({ ...f, difficulty: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Points</label>
+                  <input type="number" value={addForm.points} onChange={e => setAddForm(f => ({ ...f, points: parseInt(e.target.value) || 0 }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Auteur</label>
+                  <input value={addForm.author} onChange={e => setAddForm(f => ({ ...f, author: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-2">
+                <button onClick={addChallenge} className="btn-neon px-3 py-1.5 rounded text-xs">Ajouter</button>
+                <button onClick={() => setShowAddForm(false)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
+              </div>
+            </div>
+          )}
+
+          {/* Kanban */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {CTF_STAGES.map(stage => {
+              const cards = challenges.filter(c => c.status === stage.key);
+              return (
+                <div key={stage.key} className="cyber-card rounded-xl p-3"
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={() => { if (dragId !== null) { moveChallenge(dragId, stage.key); setDragId(null); } }}>
+                  <div className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3 flex items-center justify-between">
+                    {stage.label} <span className="text-gray-600">{cards.length}</span>
+                  </div>
+                  <div className="space-y-2 min-h-[80px]">
+                    {cards.map(c => (
+                      <div key={c.id as number} draggable onDragStart={() => setDragId(c.id as number)}
+                        className="rounded-lg p-2.5 cursor-grab active:cursor-grabbing"
+                        style={{ background: (CTF_CATEGORY_COLORS[c.category as string] || "#888") + "15", border: `1px solid ${(CTF_CATEGORY_COLORS[c.category as string] || "#888")}40` }}>
+                        <div className="text-xs font-bold text-white mb-1">{c.title as string}</div>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: (CTF_CATEGORY_COLORS[c.category as string] || "#888") + "30", color: CTF_CATEGORY_COLORS[c.category as string] || "#888" }}>{c.category as string}</span>
+                          <span className="text-xs text-gray-500">{c.difficulty as string}</span>
+                          <span className="text-xs text-gray-400 ml-auto">{c.points as number}pts</span>
+                        </div>
+                        {!!c.author && <div className="text-xs text-gray-600 mt-1">{c.author as string}</div>}
+                        <button onClick={() => deleteChallenge(c.id as number)} className="text-red-800 hover:text-red-400 text-xs mt-1">✗</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {subTab === "participants" && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-xs text-gray-500">{participants.length} participant(s) CTF</div>
+            <div className="flex gap-2 items-center">
+              {syncResult && <span className={`text-xs ${syncResult.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{syncResult}</span>}
+              <button onClick={syncAll} disabled={syncing} className="btn-neon px-3 py-1.5 rounded text-xs disabled:opacity-50">
+                {syncing ? "Sync…" : "⚡ Tout synchroniser sur CTFd"}
+              </button>
+            </div>
+          </div>
+
+          {teamConflicts.length > 0 && (
+            <div className="cyber-card rounded-xl p-4 mb-4" style={{ border: "1px solid #ffaa0040", background: "#ffaa0008" }}>
+              <div className="text-xs font-bold text-yellow-400 mb-2">⚠ Conflits de noms d&apos;équipe détectés</div>
+              {teamConflicts.map((c, i) => (
+                <div key={i} className="flex items-center gap-3 text-xs mb-2">
+                  <span className="text-gray-300 font-mono">&quot;{c.team1}&quot;</span>
+                  <span className="text-gray-600">≈</span>
+                  <span className="text-gray-300 font-mono">&quot;{c.team2}&quot;</span>
+                  <button onClick={() => { setReconcileTeam(c); setReconcileTo(c.team1); }} className="px-2 py-0.5 rounded text-xs border border-yellow-600 text-yellow-400 hover:bg-yellow-900/20">
+                    Réconcilier
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {reconcileTeam && (
+            <div className="cyber-card rounded-xl p-4 mb-4">
+              <div className="text-xs font-bold text-white mb-3">Réconcilier &quot;{reconcileTeam.team1}&quot; et &quot;{reconcileTeam.team2}&quot;</div>
+              <div className="flex gap-2 mb-3">
+                {[reconcileTeam.team1, reconcileTeam.team2].map(name => (
+                  <button key={name} onClick={() => setReconcileTo(name)}
+                    className={`px-3 py-1.5 rounded text-xs border transition-all ${reconcileTo === name ? "border-neon-green text-neon-green bg-neon-green/10" : "border-gray-700 text-gray-400"}`}>
+                    Garder &quot;{name}&quot;
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={reconcileTeams} className="btn-neon px-3 py-1.5 rounded text-xs">Confirmer</button>
+                <button onClick={() => setReconcileTeam(null)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
+              </div>
+            </div>
+          )}
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-gray-800 text-gray-500">
+                  <th className="text-left py-2 px-3 font-normal">Participant</th>
+                  <th className="text-left py-2 px-3 font-normal">Pseudo CTF</th>
+                  <th className="text-left py-2 px-3 font-normal">Équipe</th>
+                  <th className="text-left py-2 px-3 font-normal">Ticket</th>
+                  <th className="text-left py-2 px-3 font-normal">Compte CTFd</th>
+                  <th className="py-2 px-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {participants.map(p => (
+                  <tr key={p.id as number} className="border-b border-gray-900 hover:bg-white/[0.01]">
+                    <td className="py-2 px-3 text-white">{p.fname as string} {p.lname as string}<br /><span className="text-gray-500">{p.email as string}</span></td>
+                    <td className="py-2 px-3 font-mono text-neon-green">{(p.ctfCompetitorName as string) || <span className="text-gray-600">—</span>}</td>
+                    <td className="py-2 px-3 font-mono text-cyan-400">{(p.ctfTeamName as string) || <span className="text-gray-600">solo</span>}</td>
+                    <td className="py-2 px-3 text-gray-400">{p.ticketType as string}</td>
+                    <td className="py-2 px-3">
+                      {p.ctfAccountCreated
+                        ? <span className="text-neon-green text-xs">✓ Créé</span>
+                        : <span className="text-gray-600 text-xs">En attente</span>}
+                    </td>
+                    <td className="py-2 px-3">
+                      {!p.ctfAccountCreated && (
+                        <button onClick={() => syncOne(p.id as number)} className="text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">
+                          Créer compte
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!participants.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun participant CTF (inscriptions avec ticket CTF validées)</p>}
+          </div>
+        </div>
+      )}
+
+      {subTab === "emails" && (
+        <div className="max-w-2xl">
+          <p className="text-xs text-gray-500 mb-4">Les emails sont envoyés automatiquement dans la langue choisie par le participant (FR ou EN).</p>
+          {[
+            { key: "ctf_account_created", label: "Accès CTFd — identifiants de connexion", desc: "Envoyé après création du compte CTFd" },
+            { key: "ctf_no_teammate", label: "Participation sans équipe", desc: "Participant sans binôme — joue en solo" },
+            { key: "ctf_reminder", label: "Rappel CTF — J-1", desc: "Rappel envoyé la veille" },
+          ].map(tpl => (
+            <CTFEmailTemplate key={tpl.key} templateKey={tpl.key} label={tpl.label} desc={tpl.desc} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CTFEmailTemplate({ templateKey, label, desc }: { templateKey: string; label: string; desc: string }) {
+  const [tpl, setTpl] = useState({ subjectFr: "", bodyFr: "", subjectEn: "", bodyEn: "" });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/settings").then(r => r.json()).then((s: Record<string, string>) => {
+      try { const v = JSON.parse(s[`emailTemplate_${templateKey}`] || "{}"); setTpl(v); } catch { /* ignore */ }
+    });
+  }, [templateKey]);
+
+  const save = async () => {
+    setSaving(true);
+    await fetch("/api/admin/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [`emailTemplate_${templateKey}`]: JSON.stringify(tpl) }) });
+    setSaving(false);
+  };
+
+  return (
+    <div className="cyber-card rounded-xl p-5 mb-4">
+      <div className="mb-3">
+        <div className="text-sm font-bold text-white">{label}</div>
+        <div className="text-xs text-gray-500">{desc}</div>
+      </div>
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Objet FR</label>
+          <input value={tpl.subjectFr} onChange={e => setTpl(t => ({ ...t, subjectFr: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-xs mb-2" />
+          <label className="text-xs text-gray-500 block mb-1">Corps FR</label>
+          <textarea rows={5} value={tpl.bodyFr} onChange={e => setTpl(t => ({ ...t, bodyFr: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-xs" />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Subject EN</label>
+          <input value={tpl.subjectEn} onChange={e => setTpl(t => ({ ...t, subjectEn: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-xs mb-2" />
+          <label className="text-xs text-gray-500 block mb-1">Body EN</label>
+          <textarea rows={5} value={tpl.bodyEn} onChange={e => setTpl(t => ({ ...t, bodyEn: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-xs" />
+        </div>
+      </div>
+      <button onClick={save} disabled={saving} className="btn-neon px-3 py-1.5 rounded text-xs mt-3">{saving ? "Sauvegarde…" : "Sauvegarder"}</button>
+    </div>
+  );
+}
+
+
 function AuditPanel() {
   const { t } = useAdminT();
   const confirm = useConfirm();

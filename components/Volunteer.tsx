@@ -4,7 +4,8 @@ import { Translations } from "@/lib/i18n";
 
 export default function Volunteer({ t }: { t: Translations }) {
   const [formData, setFormData] = useState({
-    name: "", email: "", phone: "", city: "", role: "", experience: "", motivation: "", lang_expression: "fr"
+    name: "", email: "", phone: "", city: "", role: "", experience: "", motivation: "",
+    linkedin: "", twitter: "", whatsapp: "", hours_per_week: "", lang_expression: "fr"
   });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -134,6 +135,50 @@ export default function Volunteer({ t }: { t: Translations }) {
                   <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.volunteer.form.motivation} *</label>
                   <textarea required rows={3} className="cyber-input w-full px-3 py-2 rounded text-sm resize-none" placeholder={t.volunteer.form.motivation}
                     value={formData.motivation} onChange={e => setFormData({ ...formData, motivation: e.target.value })} />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>LinkedIn</label>
+                    <input className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="linkedin.com/in/…"
+                      value={formData.linkedin} onChange={e => setFormData({ ...formData, linkedin: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>X / Twitter</label>
+                    <input className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="@handle"
+                      value={formData.twitter} onChange={e => setFormData({ ...formData, twitter: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>WhatsApp</label>
+                    <input className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="+237…"
+                      value={formData.whatsapp} onChange={e => setFormData({ ...formData, whatsapp: e.target.value })} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-2 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                    {t.volunteer.form.lang_expression === "fr" ? "Combien d'heures par semaine pouvez-vous consacrer au bénévolat ?" : "How many hours per week can you volunteer?"}
+                  </label>
+                  <div className="space-y-2">
+                    {["1-3h", "3-5h", "5-10h"].map(opt => (
+                      <label key={opt} className="flex items-center gap-3 cursor-pointer group">
+                        <input type="radio" name="hours_per_week" value={opt}
+                          checked={formData.hours_per_week === opt}
+                          onChange={e => setFormData({ ...formData, hours_per_week: e.target.value })}
+                          className="accent-neon-green" />
+                        <span className="text-gray-400 text-sm group-hover:text-gray-200 transition-colors">{opt}</span>
+                      </label>
+                    ))}
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <input type="radio" name="hours_per_week" value="autre"
+                        checked={formData.hours_per_week === "autre" || (!!formData.hours_per_week && !["1-3h","3-5h","5-10h"].includes(formData.hours_per_week))}
+                        onChange={() => setFormData({ ...formData, hours_per_week: "autre" })}
+                        className="accent-neon-green" />
+                      <span className="text-gray-400 text-sm">Autre :</span>
+                      <input type="text" placeholder="préciser…"
+                        className="cyber-input px-2 py-1 rounded text-sm flex-1"
+                        onFocus={() => setFormData({ ...formData, hours_per_week: "" })}
+                        onChange={e => setFormData({ ...formData, hours_per_week: e.target.value })} />
+                    </label>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.volunteer.form.lang_expression}</label>

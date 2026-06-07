@@ -4,6 +4,11 @@ const nextConfig = {
   images: {
     domains: [],
   },
+  experimental: {
+    outputFileTracingIncludes: {
+      "/api/admin/submissions": ["./node_modules/pdfkit/js/data/**/*"],
+    },
+  },
 }
 
 module.exports = nextConfig

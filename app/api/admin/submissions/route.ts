@@ -30,7 +30,12 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json();
-  const { type, id, status, notes, action, assignedRole, shiftStart, shiftEnd } = body;
+  const { type, id, status, notes, action, assignedRole, shiftStart, shiftEnd, ctfTeamName } = body;
+
+  if (type === "ctf-team") {
+    await prisma.registration.update({ where: { id }, data: { ctfTeamName } });
+    return NextResponse.json({ ok: true });
+  }
 
   if (type === "volunteer-assign") {
     const updateData: Record<string, unknown> = {};
@@ -50,7 +55,7 @@ export async function PATCH(req: NextRequest) {
       data: { status: decision, notes: notes ?? undefined, decisionSentAt: new Date() },
     });
     logAction(req, decision === "accepted" ? "ACCEPT" : "REJECT", "cfp", id, { email: submission.email });
-    sendCFPDecision(submission.email, submission.name, submission.talkTitle, decision).catch(e =>
+    sendCFPDecision(submission.email, submission.name, submission.talkTitle, decision, (submission.langPresentation === "en" ? "en" : "fr")).catch(e =>
       console.error("[CFP decision email]", e),
     );
     return NextResponse.json(submission);
@@ -89,7 +94,7 @@ export async function PATCH(req: NextRequest) {
     const updated = await prisma.volunteerApplication.update({ where: { id }, data: { status } });
     logAction(req, "UPDATE", "volunteer", id, { status });
     if (status === "accepted" && vol) {
-      sendVolunteerAccepted(vol.email, vol.name, vol.assignedRole || "À confirmer").catch(e =>
+      sendVolunteerAccepted(vol.email, vol.name, vol.assignedRole || "À confirmer", (vol.langExpression === "en" ? "en" : "fr")).catch(e =>
         console.error("[Volunteer accepted email]", e),
       );
     }

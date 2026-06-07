@@ -7,7 +7,7 @@ import { rateLimit, getIp } from "@/lib/rateLimit";
 import { getEventSettings } from "@/lib/settings";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const VALID_TICKET_TYPES = ["standard", "student", "vip", "sponsor", "online", "early-bird"];
+const FALLBACK_TICKET_TYPES = ["standard", "student", "vip", "sponsor", "online", "early-bird"];
 
 export async function POST(req: NextRequest) {
   if (!rateLimit(`register:${getIp(req)}`, 5, 60 * 60 * 1000)) {
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { fname, lname, email, org, country, ticketType, lang_expression, linkedin, whatsapp } = body;
+    const { fname, lname, email, org, country, ticketType, lang_expression, linkedin, whatsapp, ctfCompetitorName, ctfTeamName } = body;
 
     if (!fname || !lname || !email || !ticketType) {
       return NextResponse.json({ error: "Champs requis manquants" }, { status: 400 });
@@ -24,7 +24,10 @@ export async function POST(req: NextRequest) {
     if (!EMAIL_RE.test(email)) {
       return NextResponse.json({ error: "Email invalide" }, { status: 400 });
     }
-    if (!VALID_TICKET_TYPES.includes(ticketType)) {
+    // Validate ticket type against DB or fallback list
+    const dbTicketTypes = await prisma.ticketType.findMany({ where: { isVisible: true }, select: { slug: true } });
+    const validSlugs = dbTicketTypes.length > 0 ? dbTicketTypes.map(t => t.slug) : FALLBACK_TICKET_TYPES;
+    if (!validSlugs.includes(ticketType)) {
       return NextResponse.json({ error: "Type de billet invalide" }, { status: 400 });
     }
     if (fname.length > 80 || lname.length > 80) {
@@ -45,13 +48,15 @@ export async function POST(req: NextRequest) {
         ticketRef: rawRef,
         linkedin: linkedin?.slice(0, 191) || null,
         whatsapp: whatsapp?.slice(0, 191) || null,
+        ctfCompetitorName: ctfCompetitorName?.slice(0, 191) || null,
+        ctfTeamName: ctfTeamName?.slice(0, 30) || null,
       },
     });
 
     const settings = await getEventSettings().catch(() => ({} as Record<string, string>));
     const paymentUrl = settings.url_inscription || "https://eyesopensecurity.com/#inscription";
 
-    sendRegistrationPending(email, fname, lname, ticketType, ticketRef, paymentUrl).catch(e =>
+    sendRegistrationPending(email, fname, lname, ticketType, ticketRef, paymentUrl, lang_expression === "en" ? "en" : "fr").catch(e =>
       console.error("[Register email]", e),
     );
 

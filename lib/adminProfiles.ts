@@ -19,6 +19,7 @@ export interface AdminPermissions {
   users?: "read" | "write";
   prospection?: "read" | "write";
   certificates?: "read" | "write";
+  ctf?: "read" | "write";
 }
 
 export interface AdminProfile {
@@ -42,6 +43,7 @@ export const ADMIN_PROFILES: AdminProfile[] = [
       budget: "write", logistics: "write", communication: "write",
       team: "write", export: "write", users: "write", prospection: "write",
       certificates: "write",
+      ctf: "write",
     },
   },
   {

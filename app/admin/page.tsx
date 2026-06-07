@@ -6,6 +6,8 @@ import PipelineKanban from "@/components/admin/PipelineKanban";
 import VolunteerKanban from "@/components/admin/VolunteerKanban";
 import CountrySelect from "@/components/CountrySelect";
 import AdminProfilesPanel from "@/components/admin/AdminProfilesPanel";
+import ConfirmModal, { useConfirm } from "@/components/admin/ConfirmModal";
+import MediaLibraryModal from "@/components/admin/MediaLibraryModal";
 import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
 
 const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; setLang: (l: AdminLang) => void }>({
@@ -15,7 +17,7 @@ const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; 
 });
 const useAdminT = () => useContext(AdminLangContext);
 
-type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit";
+type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -137,7 +139,7 @@ function MfaSetupModal({ setup, onClose, onSuccess }: { setup: MfaSetupState; on
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
       <div className="cyber-card rounded-xl p-6 max-w-sm w-full">
         <h3 className="text-white font-bold mb-2">🔐 Activer MFA — {setup.userName}</h3>
         {done ? (
@@ -177,6 +179,7 @@ function MfaSetupModal({ setup, onClose, onSuccess }: { setup: MfaSetupState; on
 
 function AdminUsersPanel() {
   const { t } = useAdminT();
+  const confirm = useConfirm();
   const [users, setUsers] = useState<Record<string, unknown>[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ profileId: "coordinateur_cfp" });
@@ -237,7 +240,7 @@ function AdminUsersPanel() {
   };
 
   const disableMfa = async (id: number) => {
-    if (!confirm("Désactiver le MFA pour cet utilisateur ?")) return;
+    if (!(await confirm({ message: "Désactiver le MFA pour cet utilisateur ?", danger: true }))) return;
     const res = await fetch("/api/admin/mfa/setup", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -269,7 +272,7 @@ function AdminUsersPanel() {
       )}
 
       {created && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <div className="cyber-card rounded-xl p-6 max-w-md w-full">
             <h3 className="text-white font-bold mb-4">✅ Utilisateur créé</h3>
             <p className="text-gray-400 text-sm mb-4">Un email a été envoyé à <strong className="text-white">{created.email}</strong> avec les identifiants.</p>
@@ -534,7 +537,7 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
       </div>
 
       {emailTarget && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -770,6 +773,7 @@ function CommunicationPanel() {
   const [selectedItem, setSelectedItem] = useState<Record<string, unknown> | null>(null);
   const [postImage, setPostImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
   const [eventSettings, setEventSettings] = useState<Record<string, string>>({});
 
   const generateBriefFromContext = (type: string, item: Record<string, unknown> | null, data: typeof contextData): string => {
@@ -827,13 +831,14 @@ function CommunicationPanel() {
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
   const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
-  // Posts by date for calendar dots
-  const postsByDate: Record<string, number> = {};
+  // Posts by date for calendar
+  const postsByDate: Record<string, Record<string, unknown>[]> = {};
   linkedinPosts.forEach(p => {
     const d = p.scheduledAt || p.publishedAt;
     if (d) {
       const key = new Date(d as string).toISOString().slice(0, 10);
-      postsByDate[key] = (postsByDate[key] || 0) + 1;
+      if (!postsByDate[key]) postsByDate[key] = [];
+      postsByDate[key].push(p);
     }
   });
 
@@ -1015,6 +1020,7 @@ function CommunicationPanel() {
   const [commTab, setCommTab] = useState<"social" | "email">("social");
 
   return (
+    <>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-black text-white">Communication</h1>
@@ -1061,27 +1067,26 @@ function CommunicationPanel() {
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;
               const dateKey = `${currentYear}-${String(currentMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-              const hasPost = postsByDate[dateKey] || 0;
+              const dayPosts = postsByDate[dateKey] || [];
               const isToday = today.getDate() === day && today.getMonth() === currentMonth && today.getFullYear() === currentYear;
               const isSelected = selectedDay?.getDate() === day && selectedDay?.getMonth() === currentMonth && selectedDay?.getFullYear() === currentYear;
               return (
                 <button
                   key={day}
                   onClick={() => handleDayClick(day)}
-                  className={`relative aspect-square rounded-lg text-xs flex flex-col items-center justify-center transition-all ${
+                  className={`relative rounded-lg text-xs flex flex-col items-start justify-start p-1 transition-all min-h-[40px] ${
                     isSelected ? "bg-neon-green/20 text-neon-green border border-neon-green/50" :
                     isToday ? "bg-white/10 text-white border border-white/20" :
                     "text-gray-500 hover:bg-white/[0.05] hover:text-gray-300"
                   }`}
                 >
-                  <span>{day}</span>
-                  {hasPost > 0 && (
-                    <div className="flex gap-0.5 mt-0.5">
-                      {Array.from({ length: Math.min(hasPost, 3) }).map((_, di) => (
-                        <div key={di} className="w-1 h-1 rounded-full" style={{ background: "#0066ff" }} />
-                      ))}
-                    </div>
-                  )}
+                  <span className="w-full text-center">{day}</span>
+                  {dayPosts.slice(0, 2).map((p, i) => (
+                    <span key={i} className="block text-left truncate text-gray-500 leading-tight mt-0.5 w-full" style={{ fontSize: "9px" }}>
+                      {p.platform === "linkedin" ? "in" : p.platform === "twitter" ? "𝕏" : "ig"} {(p.content as string).substring(0, 25)}…
+                    </span>
+                  ))}
+                  {dayPosts.length > 2 && <span style={{ fontSize: "9px" }} className="text-gray-600">+{dayPosts.length - 2}</span>}
                 </button>
               );
             })}
@@ -1274,16 +1279,14 @@ function CommunicationPanel() {
                   >✕</button>
                 </div>
               ) : (
-                <label className="flex items-center gap-2 cursor-pointer border border-dashed border-gray-700 rounded-lg px-3 py-2 hover:border-gray-500 transition-colors">
-                  <span className="text-gray-600 text-xs">{uploadingImage ? "Upload en cours..." : "📎 Ajouter une image (jpg, png, webp)"}</span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(f); e.target.value = ""; }}
-                    disabled={uploadingImage}
-                  />
-                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowLibrary(true)}
+                  disabled={uploadingImage}
+                  className="flex items-center gap-2 w-full cursor-pointer border border-dashed border-gray-700 rounded-lg px-3 py-2 hover:border-neon-green/40 transition-colors text-left"
+                >
+                  <span className="text-gray-600 text-xs">📎 Ajouter une image (jpg, png, webp)</span>
+                </button>
               )}
             </div>
 
@@ -1358,56 +1361,94 @@ function CommunicationPanel() {
         )}
       </div>
 
-      {/* Scheduled/published posts list */}
+      {/* Day-selected posts view */}
       <div className="cyber-card rounded-xl p-5">
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#0066ff" }}>Posts planifiés & publiés</h3>
-        {linkedinPosts.length === 0 && <p className="text-gray-600 text-xs text-center py-4">Aucun post. Cliquez sur un jour du calendrier pour créer.</p>}
-        <div className="space-y-2">
-          {linkedinPosts.map(post => {
-            const color = statusColors[post.status as string] || "#888";
-            return (
-              <div key={post.id as number} className="border border-gray-800 rounded-lg p-3 flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={{ background: color + "20", color }}>{post.status as string}</span>
-                    <span className="text-xs text-gray-600 capitalize">{post.platform as string} · {post.lang as string}</span>
-                    {!!post.scheduledAt && <span className="text-xs text-gray-600">📅 {new Date(post.scheduledAt as string).toLocaleDateString("fr-FR")}</span>}
-                  </div>
-                  <p className="text-gray-400 text-xs line-clamp-2">{post.content as string}</p>
-                  {!!post.imageUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={post.imageUrl as string} alt="" className="mt-1 h-12 w-20 object-cover rounded" />
-                  )}
-                </div>
-                <div className="flex gap-1 shrink-0">
-                  {post.status === "draft" && (
-                    <>
-                      <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
-                        {publishing === (post.id as number) ? "..." : "▶"}
-                      </button>
-                      <button onClick={() => { setScheduleId(post.id as number); setScheduleDate(""); }} className="text-xs px-2 py-1 rounded" style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0030" }}>🕐</button>
-                    </>
-                  )}
-                  {post.status === "published" && !!post.linkedinPostId && (
-                    <a
-                      href={post.platform === "twitter"
-                        ? `https://x.com/i/web/status/${post.linkedinPostId as string}`
-                        : `https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`}
-                      target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded" style={{ color: "#00ff9d" }}
-                    >↗</a>
-                  )}
-                  {scheduleId === (post.id as number) && (
-                    <div className="flex gap-1 items-center">
-                      <input type="datetime-local" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="cyber-input text-xs rounded px-1 py-0.5 w-36" />
-                      <button onClick={() => schedulePost(post.id as number)} className="btn-neon text-xs px-2 py-1 rounded">OK</button>
-                      <button onClick={() => setScheduleId(null)} className="text-gray-500 text-xs">✕</button>
-                    </div>
-                  )}
-                </div>
+        {!selectedDay ? (
+          <>
+            <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#0066ff" }}>Posts planifiés & publiés</h3>
+            <p className="text-gray-600 text-xs text-center py-4">Cliquez sur un jour pour voir les posts planifiés</p>
+          </>
+        ) : (() => {
+          const dateKey = `${selectedDay.getFullYear()}-${String(selectedDay.getMonth()+1).padStart(2,"0")}-${String(selectedDay.getDate()).padStart(2,"0")}`;
+          const dayPostsList = postsByDate[dateKey] || [];
+          return (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: "#0066ff" }}>
+                  Posts du {selectedDay.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                </h3>
+                <button onClick={() => setSelectedDay(null)} className="text-gray-600 hover:text-gray-400 text-xs">✕ Fermer</button>
               </div>
-            );
-          })}
-        </div>
+              {dayPostsList.length === 0 && <p className="text-gray-600 text-xs text-center py-4">Aucun post ce jour. Cliquez sur le calendrier pour créer.</p>}
+              <div className="space-y-3">
+                {dayPostsList.map(post => {
+                  const color = statusColors[post.status as string] || "#888";
+                  const platformColor = post.platform === "linkedin" ? "#0066ff" : post.platform === "twitter" ? "#00ccff" : "#cc00ff";
+                  return (
+                    <div key={post.id as number} className="border border-gray-800 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={{ background: platformColor + "20", color: platformColor }}>{post.platform as string}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded font-mono uppercase" style={{ background: "#ffffff10", color: "#aaa" }}>{post.lang as string}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={{ background: color + "20", color }}>{post.status as string}</span>
+                        {!!post.scheduledAt && <span className="text-xs text-gray-600">📅 {new Date(post.scheduledAt as string).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>}
+                      </div>
+                      <textarea
+                        readOnly
+                        value={post.content as string}
+                        className="cyber-input w-full text-xs rounded p-2 h-24 resize-none text-gray-300"
+                      />
+                      {!!post.imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={post.imageUrl as string} alt="" className="h-12 w-20 object-cover rounded" />
+                      )}
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          onClick={() => { handleDayClick(selectedDay.getDate()); }}
+                          className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white transition-colors"
+                        >✏️ Modifier</button>
+                        {post.status === "scheduled" && (
+                          <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
+                            {publishing === (post.id as number) ? "..." : "▶️ Publier maintenant"}
+                          </button>
+                        )}
+                        {post.status === "draft" && (
+                          <>
+                            <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
+                              {publishing === (post.id as number) ? "..." : "▶️ Publier maintenant"}
+                            </button>
+                            <button onClick={() => { setScheduleId(post.id as number); setScheduleDate(""); }} className="text-xs px-2 py-1 rounded" style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0030" }}>🕐 Planifier</button>
+                          </>
+                        )}
+                        {post.status === "published" && !!post.linkedinPostId && (
+                          <a
+                            href={post.platform === "twitter"
+                              ? `https://x.com/i/web/status/${post.linkedinPostId as string}`
+                              : `https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`}
+                            target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded" style={{ color: "#00ff9d" }}
+                          >↗ Voir</a>
+                        )}
+                        <button
+                          onClick={async () => {
+                            await fetch("/api/admin/ai/social-posts", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: post.id }) });
+                            await loadLinkedinPosts();
+                          }}
+                          className="text-xs px-2 py-1 rounded border border-red-800/50 text-red-500 hover:bg-red-900/20 transition-colors"
+                        >🗑️ Supprimer</button>
+                        {scheduleId === (post.id as number) && (
+                          <div className="flex gap-1 items-center w-full mt-1">
+                            <input type="datetime-local" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="cyber-input text-xs rounded px-1 py-0.5 w-36" />
+                            <button onClick={() => schedulePost(post.id as number)} className="btn-neon text-xs px-2 py-1 rounded">OK</button>
+                            <button onClick={() => setScheduleId(null)} className="text-gray-500 text-xs">✕</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       </>}
@@ -1555,6 +1596,13 @@ function CommunicationPanel() {
 
       </>}
     </div>
+    {showLibrary && (
+      <MediaLibraryModal
+        onSelect={url => { setPostImage(url); setShowLibrary(false); }}
+        onClose={() => setShowLibrary(false)}
+      />
+    )}
+    </>
   );
 }
 
@@ -1573,6 +1621,7 @@ const PROSPECT_STATUSES = [
 
 function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<string, unknown>[]; onRefresh: () => void }) {
   const { t, lang } = useAdminT();
+  const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ status: "prospect" });
   const [aiEmail, setAiEmail] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
@@ -1609,11 +1658,40 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
 
   const updateStatus = async (id: number, status: string) => {
     await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    if (status === "concluded") {
+      const sponsor = prospects.find(p => p.id === id);
+      if (sponsor) {
+        // Auto-add to active sponsors list
+        await fetch("/api/admin/sponsors", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: sponsor.org || sponsor.name,
+            logoUrl: sponsor.logoUrl || "",
+            website: sponsor.website || "",
+            tier: sponsor.package || sponsor.tier || "BRONZE",
+            isVisible: true,
+          }),
+        }).catch(() => {});
+        // Auto-generate announcement post in FR and EN
+        await fetch("/api/admin/social/posts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            platform: "linkedin",
+            lang: "fr",
+            content: `🎉 [EOCON 2026 · Sponsor ${sponsor.package || sponsor.tier || "BRONZE"}] Nous sommes ravis d'accueillir ${sponsor.org || sponsor.name} comme partenaire ${sponsor.package || sponsor.tier || "BRONZE"} d'EOCON 2026 ! 🙏\n\nMerci pour votre soutien à la communauté cybersécurité africaine.\n\n📅 28 Novembre 2026 · Hotel Onomo, Douala\n🔗 Inscriptions : https://eyesopensecurity.com/#inscription\n\n#EOCON2026 #Cybersecurity #Cameroun`,
+            scheduledAt: null,
+            status: "draft",
+          }),
+        }).catch(() => {});
+      }
+    }
     onRefresh();
   };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer ce prospect ?")) return;
+    if (!(await confirm({ message: "Supprimer ce prospect ?", danger: true, confirmLabel: "Supprimer" }))) return;
     await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "DELETE" });
     onRefresh();
   };
@@ -1627,7 +1705,7 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
 
       {/* AI Email Modal */}
       {aiEmail && aiEmailTarget && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between mb-4">
               <h3 className="text-white font-bold">Email — {aiEmailTarget.org}</h3>
@@ -1771,6 +1849,7 @@ const BUDGET_COST_LABELS = [
 interface AutoRevenue { label: string; value: number; color: string; }
 
 function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; onRefresh: () => void }) {
+  const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ category: "costs", planned: 0, actual: 0, status: "pending" });
   const [autoRevenues, setAutoRevenues] = useState<AutoRevenue[]>([]);
@@ -1813,7 +1892,7 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
   };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer ?")) return;
+    if (!(await confirm({ message: "Supprimer ?", danger: true, confirmLabel: "Supprimer" }))) return;
     await fetch(`/api/admin/budget/${id}`, { method: "DELETE" });
     onRefresh();
   };
@@ -2029,6 +2108,7 @@ const LOGISTICS_SEED_CATEGORIES = [
 ];
 
 function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]; onRefresh: () => void }) {
+  const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ done: false });
 
@@ -2043,7 +2123,7 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
   };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer ?")) return;
+    if (!(await confirm({ message: "Supprimer ?", danger: true, confirmLabel: "Supprimer" }))) return;
     await fetch(`/api/admin/logistics/${id}`, { method: "DELETE" });
     onRefresh();
   };
@@ -2173,6 +2253,7 @@ interface TicketTypeRow {
 }
 
 function TicketsPanel() {
+  const confirm = useConfirm();
   const [tickets, setTickets] = useState<TicketTypeRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -2208,7 +2289,7 @@ function TicketsPanel() {
   };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer ce type de billet ?")) return;
+    if (!(await confirm({ message: "Supprimer ce type de billet ?", danger: true, confirmLabel: "Supprimer" }))) return;
     await fetch(`/api/admin/ticket-types/${id}`, { method: "DELETE" });
     load();
   };
@@ -2500,6 +2581,7 @@ function AnalyticsPanel({ data }: { data: Record<string, unknown> | null }) {
 
 function CertificatesPanel() {
   const { t } = useAdminT();
+  const confirm = useConfirm();
   const [subTab, setSubTab] = useState<"issue" | "list" | "keys">("issue");
   const [badges, setBadges] = useState<Record<string, unknown>[]>([]);
   const [filterType, setFilterType] = useState("");
@@ -2508,9 +2590,9 @@ function CertificatesPanel() {
   const [regsLoading, setRegsLoading] = useState(false);
   const [issuingId, setIssuingId] = useState<number | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [form, setForm] = useState<{ badgeType: string; recipientName: string; recipientEmail: string; subtype: string }>({ badgeType: "participant", recipientName: "", recipientEmail: "", subtype: "" });
   const [keys, setKeys] = useState<{ privateKeyBase64: string; publicKeyBase64: string } | null>(null);
   const [keyLoading, setKeyLoading] = useState(false);
-  const [form, setForm] = useState<{ badgeType: string; recipientName: string; recipientEmail: string; subtype: string }>({ badgeType: "participant", recipientName: "", recipientEmail: "", subtype: "" });
 
   void t; // used for translation context
 
@@ -2589,13 +2671,13 @@ function CertificatesPanel() {
   };
 
   const revokeBadge = async (id: number) => {
-    if (!confirm("Revoke this badge? This cannot be undone.")) return;
+    if (!(await confirm({ message: "Revoke this badge? This cannot be undone.", danger: true, confirmLabel: "Revoke" }))) return;
     await fetch("/api/admin/badges", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
     loadBadges();
   };
 
   const genKeys = async () => {
-    if (!confirm("Generate a new keypair? This will invalidate all previously signed badges.")) return;
+    if (!(await confirm({ message: "Generate a new keypair? This will invalidate all previously signed badges.", danger: true }))) return;
     setKeyLoading(true);
     const r = await fetch("/api/admin/badges/generate-keys", { method: "POST" });
     if (r.ok) setKeys(await r.json());
@@ -2780,6 +2862,7 @@ interface SponsorPkg {
 }
 
 function SponsorPackageEditor({ pkg, onSave, onDelete }: { pkg: SponsorPkg; onSave: (data: Partial<SponsorPkg>) => Promise<void>; onDelete: () => Promise<void> }) {
+  const confirm = useConfirm();
   const [draft, setDraft] = useState<SponsorPkg>({ ...pkg });
   const [perksFr, setPerksFr] = useState<string[]>(() => { try { return JSON.parse(pkg.perksFr || "[]"); } catch { return []; } });
   const [perksEn, setPerksEn] = useState<string[]>(() => { try { return JSON.parse(pkg.perksEn || "[]"); } catch { return []; } });
@@ -2886,7 +2969,7 @@ function SponsorPackageEditor({ pkg, onSave, onDelete }: { pkg: SponsorPkg; onSa
               {draft.isVisible ? "Visible ✓" : "Masqué"}
             </button>
             <div className="flex gap-2">
-              <button onClick={() => { if (confirm("Supprimer ce package ?")) onDelete(); }} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10">Supprimer</button>
+              <button onClick={async () => { if (await confirm({ message: "Supprimer ce package ?", danger: true, confirmLabel: "Supprimer" })) onDelete(); }} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10">Supprimer</button>
               <button onClick={save} disabled={saving} className="btn-neon px-4 py-1.5 rounded text-xs">{saving ? "..." : "Enregistrer"}</button>
             </div>
           </div>
@@ -2897,6 +2980,7 @@ function SponsorPackageEditor({ pkg, onSave, onDelete }: { pkg: SponsorPkg; onSa
 }
 
 function SponsorPackagesPanel() {
+  const confirm = useConfirm();
   const [packages, setPackages] = useState<SponsorPkg[]>([]);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -3138,6 +3222,7 @@ function EventSettingsPanel() {
 
 function AuditPanel() {
   const { t } = useAdminT();
+  const confirm = useConfirm();
   const [logs, setLogs] = useState<Record<string, unknown>[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -3169,7 +3254,7 @@ function AuditPanel() {
   useEffect(() => { load(page, resource, action); }, [page, resource, action]);
 
   const purge = async () => {
-    if (!confirm(t.confirmPurge)) return;
+    if (!(await confirm({ message: t.confirmPurge, danger: true }))) return;
     setPurging(true);
     const r = await fetch("/api/admin/audit", { method: "DELETE" });
     if (r.ok) { const j = await r.json(); alert(`${j.deleted} ${t.deletedEntries}`); load(1, resource, action); }
@@ -3248,6 +3333,7 @@ export default function AdminDashboard() {
   const [showForm, setShowForm] = useState(false);
   const [cfpNotes, setCfpNotes] = useState<Record<number, string>>({});
   const [onboarding, setOnboarding] = useState<Record<number, Record<string, boolean | string>>>({});
+  const confirm = useConfirm();
   const [lang, setLang] = useState<AdminLang>(() => {
     if (typeof window !== "undefined") return (localStorage.getItem("admin_lang") as AdminLang) || "fr";
     return "fr";
@@ -3322,7 +3408,7 @@ export default function AdminDashboard() {
   };
 
   const del = async (endpoint: string, id: number) => {
-    if (!confirm("Supprimer ?")) return;
+    if (!(await confirm({ message: "Supprimer ?", danger: true, confirmLabel: "Supprimer" }))) return;
     await fetch(`${endpoint}/${id}`, { method: "DELETE" });
     fetchData(tab);
     fetchStats();
@@ -3419,6 +3505,7 @@ export default function AdminDashboard() {
       icon: "◉",
       tabs: [
         { id: "communication", label: t.communicationPosts },
+        { id: "library", label: "📁 Library" },
       ],
     },
     {
@@ -3756,7 +3843,7 @@ export default function AdminDashboard() {
                             <button
                               className="text-xs px-3 py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/20 hover:bg-neon-green/20 transition-colors"
                               onClick={async () => {
-                                if (!confirm(`Valider le paiement de ${r.fname} ${r.lname} et envoyer le billet ?`)) return;
+                                if (!(await confirm({ message: `Valider le paiement de ${r.fname} ${r.lname} et envoyer le billet ?`, confirmLabel: "Valider & Envoyer" }))) return;
                                 const res = await fetch("/api/admin/submissions", {
                                   method: "PATCH",
                                   headers: { "Content-Type": "application/json" },
@@ -4045,6 +4132,9 @@ export default function AdminDashboard() {
             <CertificatesPanel />
           )}
 
+          {/* MEDIA LIBRARY */}
+          {tab === "library" && <LibraryPanel />}
+
           {/* AUDIT LOG — super_admin only */}
           {tab === "audit" && <AuditPanel />}
 
@@ -4075,7 +4165,105 @@ export default function AdminDashboard() {
 
         </main>
       </div>
+      <ConfirmModal />
     </div>
     </AdminLangContext.Provider>
+  );
+}
+
+// ─── Media Library Panel ────────────────────────────────────────────────────
+function LibraryPanel() {
+  const [files, setFiles] = useState<{ name: string; url: string; size: number; updated: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [copied, setCopied] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch("/api/admin/library");
+    if (res.ok) setFiles(await res.json());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const upload = async (file: File) => {
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/admin/library", { method: "POST", body: fd });
+    if (res.ok) await load();
+    setUploading(false);
+  };
+
+  const del = async (name: string) => {
+    if (!confirm(`Supprimer "${name.split("/").pop()}" ?`)) return;
+    setDeleting(name);
+    await fetch("/api/admin/library", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+    setFiles(prev => prev.filter(f => f.name !== name));
+    setDeleting(null);
+  };
+
+  const copy = (url: string) => {
+    navigator.clipboard.writeText(url).then(() => { setCopied(url); setTimeout(() => setCopied(null), 1500); });
+  };
+
+  const fmt = (b: number) => b < 1024 ? `${b}B` : b < 1048576 ? `${(b / 1024).toFixed(0)}KB` : `${(b / 1048576).toFixed(1)}MB`;
+
+  const filtered = files.filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black text-white">📁 Library</h1>
+          <p className="text-xs text-gray-500 font-mono mt-1">{files.length} fichier{files.length !== 1 ? "s" : ""} · Google Cloud Storage</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <input type="text" placeholder="Rechercher…" value={search} onChange={e => setSearch(e.target.value)} className="cyber-input text-xs px-3 py-2 rounded w-48" />
+          <button onClick={() => fileRef.current?.click()} disabled={uploading} className="text-xs px-4 py-2 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono disabled:opacity-50">
+            {uploading ? "⏳ Upload…" : "⬆ Importer une image"}
+          </button>
+          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }} />
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="text-gray-600 font-mono text-xs py-12 text-center">Chargement…</div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 text-gray-600 font-mono text-sm">
+          {search ? "Aucun résultat" : "Aucune image dans la library"}
+          {!search && <div className="mt-4"><button onClick={() => fileRef.current?.click()} className="text-neon-green underline text-xs">Importer votre première image</button></div>}
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+          {filtered.map(f => (
+            <div key={f.name} className="group relative rounded-lg overflow-hidden border border-gray-800 hover:border-gray-600 transition-all bg-gray-900">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={f.url} alt={f.name} className="w-full aspect-square object-cover" loading="lazy" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-colors" />
+              {/* Actions overlay */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => copy(f.url)} className="text-xs px-2 py-1 rounded bg-neon-green/90 text-black font-mono font-bold w-20 text-center">
+                  {copied === f.url ? "✓ Copié" : "Copier URL"}
+                </button>
+                <button onClick={() => del(f.name)} disabled={deleting === f.name} className="text-xs px-2 py-1 rounded bg-red-600/90 text-white font-mono w-20 text-center">
+                  {deleting === f.name ? "…" : "Supprimer"}
+                </button>
+              </div>
+              {/* Info bar */}
+              <div className="p-1.5 border-t border-gray-800">
+                <p className="text-gray-400 text-xs truncate leading-tight">{f.name.split("/").pop()}</p>
+                <p className="text-gray-600 text-xs">{fmt(f.size)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

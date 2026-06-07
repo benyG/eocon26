@@ -3220,6 +3220,134 @@ function EventSettingsPanel() {
 }
 
 
+function CTFPanel() {
+  const [challenges, setChallenges] = useState<Record<string, unknown>[]>([]);
+  const [participants, setParticipants] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editChallenge, setEditChallenge] = useState<Record<string, unknown> | null>(null);
+  const [form, setForm] = useState({ title: "", category: "Web", difficulty: "medium", points: 100, author: "", status: "idea", notes: "" });
+  const confirm = useConfirm();
+
+  const CATEGORIES = ["Web", "Crypto", "Forensics", "Reverse", "Pwn", "OSINT", "Misc"];
+  const DIFFICULTIES = ["easy", "medium", "hard"];
+  const STATUSES = ["idea", "in_progress", "testing", "validated", "published"];
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [cRes, pRes] = await Promise.all([
+      fetch("/api/admin/ctf/challenges"),
+      fetch("/api/admin/registrations?ticketType=ctf"),
+    ]);
+    if (cRes.ok) setChallenges(await cRes.json());
+    if (pRes.ok) {
+      const data = await pRes.json();
+      setParticipants((data.registrations ?? data).filter((r: Record<string, unknown>) => r.ctfCompetitorName || (r.ticketType as string)?.toLowerCase().includes("ctf")));
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async () => {
+    const method = editChallenge ? "PUT" : "POST";
+    const url = editChallenge ? `/api/admin/ctf/challenges/${editChallenge.id}` : "/api/admin/ctf/challenges";
+    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    setEditChallenge(null);
+    setForm({ title: "", category: "Web", difficulty: "medium", points: 100, author: "", status: "idea", notes: "" });
+    load();
+  };
+
+  const del = async (id: unknown) => {
+    if (!await confirm("Supprimer ce challenge ?")) return;
+    await fetch(`/api/admin/ctf/challenges/${id}`, { method: "DELETE" });
+    load();
+  };
+
+  const startEdit = (c: Record<string, unknown>) => {
+    setEditChallenge(c);
+    setForm({ title: c.title as string, category: c.category as string, difficulty: c.difficulty as string, points: c.points as number, author: (c.author as string) ?? "", status: c.status as string, notes: (c.notes as string) ?? "" });
+  };
+
+  const statusColor: Record<string, string> = { idea: "#666", in_progress: "#ff9900", testing: "#00ccff", validated: "#00ff9d", published: "#ff00ff" };
+  const diffColor: Record<string, string> = { easy: "#00ff9d", medium: "#ff9900", hard: "#ff0066" };
+
+  return (
+    <div style={{ padding: 24 }}>
+      <h2 style={{ color: "#00ff9d", fontFamily: "monospace", marginBottom: 24 }}>🏆 CTF — Challenges & Participants</h2>
+
+      {/* Challenge form */}
+      <div style={{ background: "#0a1a0a", border: "1px solid #1a3a1a", borderRadius: 12, padding: 20, marginBottom: 24 }}>
+        <h3 style={{ color: "#00ff9d", fontSize: 14, marginBottom: 16 }}>{editChallenge ? "Modifier le challenge" : "Nouveau challenge"}</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+          <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Titre" style={{ background: "#050a0e", border: "1px solid #1a2a3a", color: "#fff", padding: "8px 12px", borderRadius: 8, fontSize: 13 }} />
+          <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} style={{ background: "#050a0e", border: "1px solid #1a2a3a", color: "#fff", padding: "8px 12px", borderRadius: 8, fontSize: 13 }}>
+            {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+          </select>
+          <select value={form.difficulty} onChange={e => setForm(f => ({ ...f, difficulty: e.target.value }))} style={{ background: "#050a0e", border: "1px solid #1a2a3a", color: "#fff", padding: "8px 12px", borderRadius: 8, fontSize: 13 }}>
+            {DIFFICULTIES.map(d => <option key={d}>{d}</option>)}
+          </select>
+          <input type="number" value={form.points} onChange={e => setForm(f => ({ ...f, points: Number(e.target.value) }))} placeholder="Points" style={{ background: "#050a0e", border: "1px solid #1a2a3a", color: "#fff", padding: "8px 12px", borderRadius: 8, fontSize: 13 }} />
+          <input value={form.author} onChange={e => setForm(f => ({ ...f, author: e.target.value }))} placeholder="Auteur" style={{ background: "#050a0e", border: "1px solid #1a2a3a", color: "#fff", padding: "8px 12px", borderRadius: 8, fontSize: 13 }} />
+          <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} style={{ background: "#050a0e", border: "1px solid #1a2a3a", color: "#fff", padding: "8px 12px", borderRadius: 8, fontSize: 13 }}>
+            {STATUSES.map(s => <option key={s}>{s}</option>)}
+          </select>
+        </div>
+        <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Notes internes…" rows={2} style={{ width: "100%", background: "#050a0e", border: "1px solid #1a2a3a", color: "#aaa", padding: "8px 12px", borderRadius: 8, fontSize: 12, resize: "vertical", boxSizing: "border-box" }} />
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <button onClick={save} style={{ background: "#00ff9d", color: "#000", border: "none", padding: "8px 20px", borderRadius: 8, fontWeight: "bold", cursor: "pointer", fontSize: 13 }}>{editChallenge ? "Enregistrer" : "Ajouter"}</button>
+          {editChallenge && <button onClick={() => { setEditChallenge(null); setForm({ title: "", category: "Web", difficulty: "medium", points: 100, author: "", status: "idea", notes: "" }); }} style={{ background: "transparent", border: "1px solid #333", color: "#aaa", padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>Annuler</button>}
+        </div>
+      </div>
+
+      {/* Challenges list */}
+      <div style={{ marginBottom: 32 }}>
+        <h3 style={{ color: "#aaa", fontSize: 13, marginBottom: 12 }}>Challenges ({challenges.length})</h3>
+        {loading ? <p style={{ color: "#555" }}>Chargement…</p> : (
+          <div style={{ display: "grid", gap: 8 }}>
+            {challenges.map(c => (
+              <div key={String(c.id)} style={{ background: "#0a0f0a", border: "1px solid #1a2a1a", borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ color: "#00ff9d", fontWeight: "bold", minWidth: 50, fontSize: 18 }}>{String(c.points)}pts</span>
+                <span style={{ flex: 1, color: "#fff", fontSize: 14 }}>{String(c.title)}</span>
+                <span style={{ color: "#888", fontSize: 12 }}>{String(c.category)}</span>
+                <span style={{ color: diffColor[String(c.difficulty)] ?? "#888", fontSize: 12 }}>{String(c.difficulty)}</span>
+                <span style={{ color: statusColor[String(c.status)] ?? "#888", fontSize: 11, background: "#ffffff10", padding: "2px 8px", borderRadius: 10 }}>{String(c.status)}</span>
+                <button onClick={() => startEdit(c)} style={{ background: "transparent", border: "1px solid #333", color: "#aaa", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11 }}>Éditer</button>
+                <button onClick={() => del(c.id)} style={{ background: "transparent", border: "1px solid #ff006640", color: "#ff4444", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11 }}>Suppr.</button>
+              </div>
+            ))}
+            {challenges.length === 0 && <p style={{ color: "#555", fontSize: 13 }}>Aucun challenge encore.</p>}
+          </div>
+        )}
+      </div>
+
+      {/* CTF Participants */}
+      <div>
+        <h3 style={{ color: "#aaa", fontSize: 13, marginBottom: 12 }}>Participants CTF ({participants.length})</h3>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid #1a2a3a" }}>
+              {["Nom", "Email", "Pseudo CTF", "Équipe", "Ticket"].map(h => <th key={h} style={{ color: "#555", textAlign: "left", padding: "6px 8px", fontWeight: "normal" }}>{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {participants.map(p => (
+              <tr key={String(p.id)} style={{ borderBottom: "1px solid #0a1a0a" }}>
+                <td style={{ color: "#fff", padding: "8px" }}>{String(p.fname)} {String(p.lname)}</td>
+                <td style={{ color: "#888", padding: "8px", fontSize: 12 }}>{String(p.email)}</td>
+                <td style={{ color: "#00ff9d", padding: "8px" }}>{String(p.ctfCompetitorName ?? "—")}</td>
+                <td style={{ color: "#aaa", padding: "8px" }}>{String(p.ctfTeamName ?? "—")}</td>
+                <td style={{ color: "#666", padding: "8px", fontSize: 12 }}>{String(p.ticketType)}</td>
+              </tr>
+            ))}
+            {participants.length === 0 && <tr><td colSpan={5} style={{ color: "#555", padding: 16, textAlign: "center" }}>Aucun participant CTF.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+
 function AuditPanel() {
   const { t } = useAdminT();
   const confirm = useConfirm();

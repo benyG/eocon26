@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { verify } from "otplib";
 import { createHmac } from "crypto";
 import { verifyMfaPending } from "@/lib/mfaToken";
+import { signUserSession } from "@/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -37,8 +38,9 @@ export async function POST(req: NextRequest) {
     .update(`${user.id}:${Date.now()}:${Math.random()}`).digest("hex");
   await prisma.adminSession.create({ data: { token: sessionToken, userId: user.id, expiresAt } });
 
+  const cookieValue = signUserSession(user.id, sessionToken);
   const res = NextResponse.json({ success: true, user: { id: user.id, name: user.name, email: user.email } });
-  res.cookies.set("admin_user_token", sessionToken, {
+  res.cookies.set("admin_user_token", cookieValue, {
     httpOnly: true,
     secure: process.env.COOKIE_SECURE !== "false",
     sameSite: "lax",

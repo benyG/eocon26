@@ -17,7 +17,7 @@ const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; 
 });
 const useAdminT = () => useContext(AdminLangContext);
 
-type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit";
+type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -2579,6 +2579,92 @@ function AnalyticsPanel({ data }: { data: Record<string, unknown> | null }) {
   );
 }
 
+function CTFPanel() {
+  const [participants, setParticipants] = useState<Record<string, unknown>[]>([]);
+  const [syncing, setSyncing] = useState(false);
+  const [sendingAll, setSendingAll] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const r = await fetch("/api/admin/ctf/participants");
+    if (r.ok) setParticipants(await r.json());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const syncAll = async () => {
+    setSyncing(true);
+    setStatus(null);
+    const r = await fetch("/api/admin/ctf/sync", { method: "POST" });
+    const j = await r.json();
+    if (r.ok) { setStatus(`✅ ${j.created} créés, ${j.updated} mis à jour, ${j.skipped} ignorés`); load(); }
+    else setStatus(`❌ ${j.error}`);
+    setSyncing(false);
+  };
+
+  const sendCredentials = async () => {
+    setSendingAll(true);
+    setStatus(null);
+    const r = await fetch("/api/admin/ctf/email", { method: "POST" });
+    const j = await r.json();
+    if (r.ok) setStatus(`✅ ${j.sent} emails envoyés`);
+    else setStatus(`❌ ${j.error}`);
+    setSendingAll(false);
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-black text-white">🏆 CTF — EOCTF 2026</h1>
+        <div className="flex gap-2">
+          <button onClick={syncAll} disabled={syncing} className="btn-neon text-xs px-4 py-2 rounded disabled:opacity-50">
+            {syncing ? "⟳ Synchronisation…" : "⟳ Sync CTFd"}
+          </button>
+          <button onClick={sendCredentials} disabled={sendingAll} className="text-xs px-4 py-2 rounded border border-neon-green/30 text-neon-green/70 hover:text-neon-green disabled:opacity-50">
+            {sendingAll ? "Envoi…" : "📧 Envoyer identifiants"}
+          </button>
+        </div>
+      </div>
+      {status && <p className="text-xs mb-4 px-3 py-2 rounded bg-gray-800 text-gray-300">{status}</p>}
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-neon-green/10 text-gray-500 text-left">
+              <th className="py-2 px-3 font-normal">Participant</th>
+              <th className="py-2 px-3 font-normal">Pseudo CTF</th>
+              <th className="py-2 px-3 font-normal">Équipe</th>
+              <th className="py-2 px-3 font-normal">Ticket</th>
+              <th className="py-2 px-3 font-normal">Compte CTFd</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={5} className="py-8 text-center text-gray-600">Chargement…</td></tr>
+            ) : participants.length === 0 ? (
+              <tr><td colSpan={5} className="py-8 text-center text-gray-600">Aucun participant CTF (billets avec accès CTF validés)</td></tr>
+            ) : participants.map(p => (
+              <tr key={p.id as number} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                <td className="py-2 px-3 text-white">{p.fname as string} {p.lname as string}<br /><span className="text-gray-500">{p.email as string}</span></td>
+                <td className="py-2 px-3 text-neon-green font-mono">{(p.ctfCompetitorName as string) || <span className="text-gray-600">—</span>}</td>
+                <td className="py-2 px-3 text-gray-300">{(p.ctfTeamName as string) || <span className="text-gray-600">solo</span>}</td>
+                <td className="py-2 px-3 text-gray-400">{p.ticketType as string}</td>
+                <td className="py-2 px-3">
+                  {p.ctfAccountCreated
+                    ? <span className="text-neon-green text-xs">✓ Créé</span>
+                    : <span className="text-gray-600 text-xs">En attente</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function CertificatesPanel() {
   const { t } = useAdminT();
   const confirm = useConfirm();
@@ -3480,6 +3566,7 @@ export default function AdminDashboard() {
         { id: "registrations", label: t.registrations, count: stats.registrations },
         { id: "volunteers", label: t.volunteers, count: stats.volunteers },
         { id: "newsletter", label: t.newsletter, count: stats.newsletter },
+        { id: "ctf", label: "🏆 CTF" },
       ],
     },
     {
@@ -3720,6 +3807,9 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+
+          {/* CTF */}
+          {tab === "ctf" && <CTFPanel />}
 
           {/* SPONSORS */}
           {tab === "sponsors" && (

@@ -2,6 +2,8 @@
 set -e
 
 echo "Running Prisma migrations..."
+# Resolve any previously failed migrations so deploy can proceed
+./node_modules/.bin/prisma migrate resolve --rolled-back 20260610000017_ctf_fields 2>/dev/null || true
 ./node_modules/.bin/prisma migrate deploy
 
 # PDFKit AFM fonts are not copied by Next.js standalone tracing — patch the expected path

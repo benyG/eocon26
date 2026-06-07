@@ -16,25 +16,6 @@ function getStorage() {
 
 const BUCKET = process.env.GCS_BUCKET_NAME || "eocon-assets";
 
-export async function listGCSFiles(prefix?: string): Promise<{ name: string; url: string; size: number; updated: string }[]> {
-  const bucket = getStorage().bucket(BUCKET);
-  const [files] = await bucket.getFiles({ prefix: prefix || "" });
-  return files
-    .filter(f => !f.name.endsWith("/"))
-    .map(f => ({
-      name: f.name,
-      url: `https://storage.googleapis.com/${BUCKET}/${f.name}`,
-      size: Number(f.metadata.size) || 0,
-      updated: String(f.metadata.updated || ""),
-    }))
-    .sort((a, b) => b.updated.localeCompare(a.updated));
-}
-
-export async function deleteGCSFile(name: string): Promise<void> {
-  const bucket = getStorage().bucket(BUCKET);
-  await bucket.file(name).delete();
-}
-
 export async function uploadToGCS(
   buffer: Buffer,
   filename: string,

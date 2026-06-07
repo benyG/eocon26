@@ -2591,6 +2591,7 @@ function CertificatesPanel() {
   const [status, setStatus] = useState<string | null>(null);
   const [keys, setKeys] = useState<{ privateKeyBase64: string; publicKeyBase64: string } | null>(null);
   const [keyLoading, setKeyLoading] = useState(false);
+  const [form, setForm] = useState<{ badgeType: string; recipientName: string; recipientEmail: string; subtype: string }>({ badgeType: "participant", recipientName: "", recipientEmail: "", subtype: "" });
 
   void t; // used for translation context
 

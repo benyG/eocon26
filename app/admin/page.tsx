@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef, createContext, useContext } f
 import { useRouter } from "next/navigation";
 import { ADMIN_PROFILES } from "@/lib/adminProfiles";
 import PipelineKanban from "@/components/admin/PipelineKanban";
+import VolunteerKanban from "@/components/admin/VolunteerKanban";
 import CountrySelect from "@/components/CountrySelect";
 import AdminProfilesPanel from "@/components/admin/AdminProfilesPanel";
 import ConfirmModal, { useConfirm } from "@/components/admin/ConfirmModal";
@@ -2589,6 +2590,7 @@ function CertificatesPanel() {
   const [regsLoading, setRegsLoading] = useState(false);
   const [issuingId, setIssuingId] = useState<number | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [form, setForm] = useState<{ badgeType: string; recipientName: string; recipientEmail: string; subtype: string }>({ badgeType: "participant", recipientName: "", recipientEmail: "", subtype: "" });
   const [keys, setKeys] = useState<{ privateKeyBase64: string; publicKeyBase64: string } | null>(null);
   const [keyLoading, setKeyLoading] = useState(false);
   const [form, setForm] = useState<{ badgeType: string; recipientName: string; recipientEmail: string; subtype: string }>({ badgeType: "participant", recipientName: "", recipientEmail: "", subtype: "" });
@@ -3479,6 +3481,7 @@ export default function AdminDashboard() {
         { id: "registrations", label: t.registrations, count: stats.registrations },
         { id: "volunteers", label: t.volunteers, count: stats.volunteers },
         { id: "newsletter", label: t.newsletter, count: stats.newsletter },
+        { id: "ctf", label: "🏆 CTF" },
       ],
     },
     {
@@ -3719,6 +3722,9 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
+
+          {/* CTF */}
+          {tab === "ctf" && <CTFPanel />}
 
           {/* SPONSORS */}
           {tab === "sponsors" && (

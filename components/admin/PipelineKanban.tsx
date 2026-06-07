@@ -111,7 +111,16 @@ export default function PipelineKanban() {
     fetch("/api/admin/settings")
       .then(r => r.json())
       .then((data: Record<string, string>) => {
-        if (data.programme_start_date) setPlanStartDate(data.programme_start_date);
+        if (data.programme_start_date) {
+          setPlanStartDate(data.programme_start_date);
+        } else if (data.event_date) {
+          // Default to Monday of the event week
+          const d = new Date(data.event_date);
+          const dow = d.getDay(); // 0=Sun,1=Mon,...,6=Sat
+          const monday = new Date(d);
+          monday.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+          setPlanStartDate(monday.toISOString().slice(0, 10));
+        }
       })
       .catch(() => {});
   }, []);

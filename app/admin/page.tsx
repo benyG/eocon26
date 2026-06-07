@@ -2590,7 +2590,6 @@ function CertificatesPanel() {
   const [regsLoading, setRegsLoading] = useState(false);
   const [issuingId, setIssuingId] = useState<number | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [form, setForm] = useState<{ badgeType: string; recipientName: string; recipientEmail: string; subtype: string }>({ badgeType: "participant", recipientName: "", recipientEmail: "", subtype: "" });
   const [keys, setKeys] = useState<{ privateKeyBase64: string; publicKeyBase64: string } | null>(null);
   const [keyLoading, setKeyLoading] = useState(false);
   const [form, setForm] = useState<{ badgeType: string; recipientName: string; recipientEmail: string; subtype: string }>({ badgeType: "participant", recipientName: "", recipientEmail: "", subtype: "" });

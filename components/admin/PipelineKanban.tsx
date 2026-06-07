@@ -106,6 +106,24 @@ export default function PipelineKanban() {
 
   // Planning state
   const [planStartDate, setPlanStartDate] = useState<string>("");
+
+  useEffect(() => {
+    fetch("/api/admin/settings")
+      .then(r => r.json())
+      .then((data: Record<string, string>) => {
+        if (data.programme_start_date) setPlanStartDate(data.programme_start_date);
+      })
+      .catch(() => {});
+  }, []);
+
+  const savePlanStartDate = async (date: string) => {
+    setPlanStartDate(date);
+    fetch("/api/admin/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ programme_start_date: date }),
+    }).catch(() => {});
+  };
   type DragItem = { type: "cfp"; id: number; title: string; name: string } | { type: "session"; id: number; title: string };
   const [dragItem, setDragItem] = useState<DragItem | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
@@ -331,18 +349,15 @@ export default function PipelineKanban() {
 
   const unscheduleSession = async (sess: SessionRecord) => {
     if (!(await confirm({ message: `Retirer "${sess.title}" du programme ?`, danger: true }))) return;
-    const linkedCard = sess.speakerId ? cards.find(c => c.speakerId === sess.speakerId && c.pipelineStage === "scheduled") : null;
-    if (linkedCard) {
-      await fetch(`/api/admin/sessions/${sess.id}`, { method: "DELETE" });
-      setSessions(prev => prev.filter(s => s.id !== sess.id));
-      await moveStage(linkedCard.id, "confirmed");
-    } else {
-      const res = await fetch(`/api/admin/sessions/${sess.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: null }),
-      });
-      if (res.ok) setSessions(prev => prev.map(s => s.id === sess.id ? { ...s, date: null } : s));
+    const res = await fetch(`/api/admin/sessions/${sess.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: null }),
+    });
+    if (res.ok) {
+      setSessions(prev => prev.map(s => s.id === sess.id ? { ...s, date: null } : s));
+      const linkedCard = sess.speakerId ? cards.find(c => c.speakerId === sess.speakerId && c.pipelineStage === "scheduled") : null;
+      if (linkedCard) await moveStage(linkedCard.id, "confirmed");
     }
   };
 
@@ -645,7 +660,6 @@ export default function PipelineKanban() {
                   { key: "linkedin", label: "LinkedIn URL", type: "text" },
                   { key: "twitter", label: "X/Twitter URL", type: "text" },
                   { key: "talkTitle", label: "Titre du talk", type: "text" },
-                  { key: "talkFormat", label: "Format (talk/keynote/panel)", type: "text" },
                 ] as const).map(f => (
                   <div key={f.key}>
                     <label className="text-xs text-gray-500 block mb-1">{f.label}</label>
@@ -657,6 +671,22 @@ export default function PipelineKanban() {
                     />
                   </div>
                 ))}
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Format</label>
+                  <select
+                    value={editSpeaker.talkFormat || ""}
+                    onChange={e => setEditSpeaker(prev => prev ? { ...prev, talkFormat: e.target.value } : prev)}
+                    className="cyber-input w-full text-xs rounded px-3 py-2 text-white bg-transparent"
+                  >
+                    <option value="" className="bg-gray-900">— Choisir —</option>
+                    <option value="talk" className="bg-gray-900">Talk (30–45 min)</option>
+                    <option value="keynote" className="bg-gray-900">Keynote</option>
+                    <option value="workshop" className="bg-gray-900">Workshop / Atelier</option>
+                    <option value="panel" className="bg-gray-900">Panel / Table ronde</option>
+                    <option value="lightning" className="bg-gray-900">Lightning Talk (10–15 min)</option>
+                    <option value="autre" className="bg-gray-900">Autre</option>
+                  </select>
+                </div>
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">Pays</label>
                   <CountrySelect
@@ -706,7 +736,7 @@ export default function PipelineKanban() {
               <input
                 type="date"
                 value={planStartDate}
-                onChange={e => setPlanStartDate(e.target.value)}
+                onChange={e => savePlanStartDate(e.target.value)}
                 className="cyber-input text-xs rounded px-3 py-1.5 text-white"
                 style={{ colorScheme: "dark" }}
               />
@@ -774,8 +804,7 @@ export default function PipelineKanban() {
               <div className="flex gap-3" style={{ minWidth: `${7 * 216}px` }}>
                 {planDays.map((day, i) => {
                   const dated = sessions.filter(s => s.date === day);
-                  const undated = i === 5 ? sessions.filter(s => !s.date) : [];
-                  const daySessions = [...dated, ...undated].filter((s, idx, arr) => arr.findIndex(x => x.id === s.id) === idx);
+                  const daySessions = dated;
                   const isDropZone = dropTarget === day;
                   return (
                     <div

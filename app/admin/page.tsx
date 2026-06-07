@@ -3,9 +3,11 @@ import { useState, useEffect, useCallback, useRef, createContext, useContext } f
 import { useRouter } from "next/navigation";
 import { ADMIN_PROFILES } from "@/lib/adminProfiles";
 import PipelineKanban from "@/components/admin/PipelineKanban";
+import VolunteerKanban from "@/components/admin/VolunteerKanban";
 import CountrySelect from "@/components/CountrySelect";
 import AdminProfilesPanel from "@/components/admin/AdminProfilesPanel";
 import ConfirmModal, { useConfirm } from "@/components/admin/ConfirmModal";
+import MediaLibraryModal from "@/components/admin/MediaLibraryModal";
 import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
 
 const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; setLang: (l: AdminLang) => void }>({
@@ -15,7 +17,7 @@ const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; 
 });
 const useAdminT = () => useContext(AdminLangContext);
 
-type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit";
+type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -771,6 +773,7 @@ function CommunicationPanel() {
   const [selectedItem, setSelectedItem] = useState<Record<string, unknown> | null>(null);
   const [postImage, setPostImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
   const [eventSettings, setEventSettings] = useState<Record<string, string>>({});
 
   const generateBriefFromContext = (type: string, item: Record<string, unknown> | null, data: typeof contextData): string => {
@@ -1017,6 +1020,7 @@ function CommunicationPanel() {
   const [commTab, setCommTab] = useState<"social" | "email">("social");
 
   return (
+    <>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-black text-white">Communication</h1>
@@ -1275,16 +1279,14 @@ function CommunicationPanel() {
                   >✕</button>
                 </div>
               ) : (
-                <label className="flex items-center gap-2 cursor-pointer border border-dashed border-gray-700 rounded-lg px-3 py-2 hover:border-gray-500 transition-colors">
-                  <span className="text-gray-600 text-xs">{uploadingImage ? "Upload en cours..." : "📎 Ajouter une image (jpg, png, webp)"}</span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(f); e.target.value = ""; }}
-                    disabled={uploadingImage}
-                  />
-                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowLibrary(true)}
+                  disabled={uploadingImage}
+                  className="flex items-center gap-2 w-full cursor-pointer border border-dashed border-gray-700 rounded-lg px-3 py-2 hover:border-neon-green/40 transition-colors text-left"
+                >
+                  <span className="text-gray-600 text-xs">📎 Ajouter une image (jpg, png, webp)</span>
+                </button>
               )}
             </div>
 
@@ -1594,6 +1596,13 @@ function CommunicationPanel() {
 
       </>}
     </div>
+    {showLibrary && (
+      <MediaLibraryModal
+        onSelect={url => { setPostImage(url); setShowLibrary(false); }}
+        onClose={() => setShowLibrary(false)}
+      />
+    )}
+    </>
   );
 }
 
@@ -3496,6 +3505,7 @@ export default function AdminDashboard() {
       icon: "◉",
       tabs: [
         { id: "communication", label: t.communicationPosts },
+        { id: "library", label: "📁 Library" },
       ],
     },
     {
@@ -3786,76 +3796,8 @@ export default function AdminDashboard() {
           {/* VOLUNTEERS */}
           {tab === "volunteers" && (
             <div>
-              <h1 className="text-2xl font-black text-white mb-6">{t.benevoles} ({(data.volunteers || []).length})</h1>
-              <div className="space-y-3">
-                {((data.volunteers || []) as Record<string, unknown>[]).map(v => (
-                  <div key={v.id as number} className="cyber-card rounded-xl p-5">
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                      <div>
-                        <p className="text-white font-bold">{v.name as string} <span className="text-gray-500 font-normal text-sm">— {v.email as string}</span></p>
-                        {!!v.role && <p className="text-neon-green/70 text-sm">Rôle souhaité : {v.role as string}</p>}
-                        {!!v.city && <p className="text-gray-500 text-xs">{v.city as string}</p>}
-                        <p className="text-gray-400 text-xs mt-2">{v.motivation as string}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge status={v.status as string} />
-                        <select className="cyber-input text-xs px-2 py-1 rounded bg-transparent" value={v.status as string}
-                          onChange={e => updateStatus("volunteer", v.id as number, e.target.value)}>
-                          <option value="pending" className="bg-dark-800">pending</option>
-                          <option value="accepted" className="bg-dark-800">accepted</option>
-                          <option value="rejected" className="bg-dark-800">rejected</option>
-                        </select>
-                      </div>
-                    </div>
-                    {v.status === "accepted" && (
-                      <div className="border-t border-gray-800 pt-3 mt-2">
-                        <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Affectation</p>
-                        <div className="flex gap-2 flex-wrap">
-                          <input
-                            type="text"
-                            placeholder="Rôle assigné"
-                            defaultValue={(v.assignedRole as string) || ""}
-                            className="cyber-input text-xs rounded px-2 py-1 flex-1 min-w-[120px]"
-                            onBlur={async (e) => {
-                              await fetch("/api/admin/submissions", {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ type: "volunteer-assign", id: v.id, assignedRole: e.target.value }),
-                              });
-                            }}
-                          />
-                          <input
-                            type="datetime-local"
-                            defaultValue={(v.shiftStart as string)?.slice(0, 16) || ""}
-                            className="cyber-input text-xs rounded px-2 py-1"
-                            onBlur={async (e) => {
-                              await fetch("/api/admin/submissions", {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ type: "volunteer-assign", id: v.id, shiftStart: e.target.value }),
-                              });
-                            }}
-                          />
-                          <input
-                            type="datetime-local"
-                            defaultValue={(v.shiftEnd as string)?.slice(0, 16) || ""}
-                            className="cyber-input text-xs rounded px-2 py-1"
-                            onBlur={async (e) => {
-                              await fetch("/api/admin/submissions", {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ type: "volunteer-assign", id: v.id, shiftEnd: e.target.value }),
-                              });
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                    <p className="text-gray-600 text-xs mt-2">{new Date(v.createdAt as string).toLocaleDateString("fr-FR")}</p>
-                  </div>
-                ))}
-                {!data.volunteers?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune candidature</p>}
-              </div>
+              <h1 className="text-2xl font-black text-white mb-6">{t.benevoles}</h1>
+              <VolunteerKanban />
             </div>
           )}
 
@@ -4190,6 +4132,9 @@ export default function AdminDashboard() {
             <CertificatesPanel />
           )}
 
+          {/* MEDIA LIBRARY */}
+          {tab === "library" && <LibraryPanel />}
+
           {/* AUDIT LOG — super_admin only */}
           {tab === "audit" && <AuditPanel />}
 
@@ -4223,5 +4168,102 @@ export default function AdminDashboard() {
       <ConfirmModal />
     </div>
     </AdminLangContext.Provider>
+  );
+}
+
+// ─── Media Library Panel ────────────────────────────────────────────────────
+function LibraryPanel() {
+  const [files, setFiles] = useState<{ name: string; url: string; size: number; updated: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [copied, setCopied] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch("/api/admin/library");
+    if (res.ok) setFiles(await res.json());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const upload = async (file: File) => {
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/admin/library", { method: "POST", body: fd });
+    if (res.ok) await load();
+    setUploading(false);
+  };
+
+  const del = async (name: string) => {
+    if (!confirm(`Supprimer "${name.split("/").pop()}" ?`)) return;
+    setDeleting(name);
+    await fetch("/api/admin/library", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+    setFiles(prev => prev.filter(f => f.name !== name));
+    setDeleting(null);
+  };
+
+  const copy = (url: string) => {
+    navigator.clipboard.writeText(url).then(() => { setCopied(url); setTimeout(() => setCopied(null), 1500); });
+  };
+
+  const fmt = (b: number) => b < 1024 ? `${b}B` : b < 1048576 ? `${(b / 1024).toFixed(0)}KB` : `${(b / 1048576).toFixed(1)}MB`;
+
+  const filtered = files.filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black text-white">📁 Library</h1>
+          <p className="text-xs text-gray-500 font-mono mt-1">{files.length} fichier{files.length !== 1 ? "s" : ""} · Google Cloud Storage</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <input type="text" placeholder="Rechercher…" value={search} onChange={e => setSearch(e.target.value)} className="cyber-input text-xs px-3 py-2 rounded w-48" />
+          <button onClick={() => fileRef.current?.click()} disabled={uploading} className="text-xs px-4 py-2 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono disabled:opacity-50">
+            {uploading ? "⏳ Upload…" : "⬆ Importer une image"}
+          </button>
+          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }} />
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="text-gray-600 font-mono text-xs py-12 text-center">Chargement…</div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 text-gray-600 font-mono text-sm">
+          {search ? "Aucun résultat" : "Aucune image dans la library"}
+          {!search && <div className="mt-4"><button onClick={() => fileRef.current?.click()} className="text-neon-green underline text-xs">Importer votre première image</button></div>}
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+          {filtered.map(f => (
+            <div key={f.name} className="group relative rounded-lg overflow-hidden border border-gray-800 hover:border-gray-600 transition-all bg-gray-900">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={f.url} alt={f.name} className="w-full aspect-square object-cover" loading="lazy" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/60 transition-colors" />
+              {/* Actions overlay */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => copy(f.url)} className="text-xs px-2 py-1 rounded bg-neon-green/90 text-black font-mono font-bold w-20 text-center">
+                  {copied === f.url ? "✓ Copié" : "Copier URL"}
+                </button>
+                <button onClick={() => del(f.name)} disabled={deleting === f.name} className="text-xs px-2 py-1 rounded bg-red-600/90 text-white font-mono w-20 text-center">
+                  {deleting === f.name ? "…" : "Supprimer"}
+                </button>
+              </div>
+              {/* Info bar */}
+              <div className="p-1.5 border-t border-gray-800">
+                <p className="text-gray-400 text-xs truncate leading-tight">{f.name.split("/").pop()}</p>
+                <p className="text-gray-600 text-xs">{fmt(f.size)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

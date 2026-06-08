@@ -2,22 +2,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
 // Called by external cron daily: GET /api/cron/cyber-watch-cleanup?secret=CRON_SECRET
-// Deletes pending/approved items older than 5 days and auto-fetches when moderation is off.
+// Cleans up expired cyber watch items, old audit logs, and auto-fetches when moderation is off.
 export async function GET(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get("secret");
   if (secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // 1. Purge expired items (expiresAt in the past)
-  const { count } = await prisma.cyberWatchItem.deleteMany({
+  // 1. Purge expired cyber watch items (expiresAt in the past)
+  const { count: watchPurged } = await prisma.cyberWatchItem.deleteMany({
     where: {
       expiresAt: { lte: new Date() },
       status: { in: ["pending", "rejected"] },
     },
   });
 
-  // 2. Auto-fetch + auto-schedule if moderation is disabled
+  // 2. Purge audit logs older than 90 days
+  const auditCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const { count: auditPurged } = await prisma.auditLog.deleteMany({
+    where: { createdAt: { lte: auditCutoff } },
+  });
+
+  // 3. Purge expired/revoked admin sessions older than 7 days
+  const sessionCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const { count: sessionsPurged } = await prisma.adminSession.deleteMany({
+    where: { expiresAt: { lte: sessionCutoff } },
+  });
+
+  // 4. Auto-fetch + auto-schedule if moderation is disabled
   const settingsRow = await prisma.eventSetting.findUnique({ where: { key: "cyber_watch_settings" } });
   const settings = settingsRow ? JSON.parse(settingsRow.value) : {};
 
@@ -68,5 +80,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ purged: count, autoScheduled });
+  return NextResponse.json({ watchPurged, auditPurged, sessionsPurged, autoScheduled });
 }

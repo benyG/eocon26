@@ -431,6 +431,28 @@ model EventSetting {
   @@map("event_settings")
 }
 
+model CyberWatchItem {
+  id           Int       @id @default(autoincrement())
+  sourceId     String    @db.VarChar(50)
+  sourceName   String    @db.VarChar(100)
+  title        String    @db.Text
+  url          String    @db.Text
+  summary      String    @db.LongText
+  aiScore      Float     @default(0)
+  aiReason     String?   @db.Text
+  draftFr      String    @db.LongText
+  draftEn      String    @db.LongText
+  status       String    @default("pending") // pending | approved | rejected | scheduled
+  platforms    String    @default("linkedin") // comma-separated: linkedin,twitter
+  scheduledAt  DateTime?
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+
+  @@index([status])
+  @@index([expiresAt])
+  @@map("cyber_watch_items")
+}
+
 model SponsorPackage {
   id             Int      @id @default(autoincrement())
   tier           String   @unique // PLATINUM | GOLD | SILVER | BRONZE | PARTNER

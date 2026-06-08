@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS `cyber_watch_items` (
+  `id`          INT           NOT NULL AUTO_INCREMENT,
+  `sourceId`    VARCHAR(50)   NOT NULL,
+  `sourceName`  VARCHAR(100)  NOT NULL,
+  `title`       TEXT          NOT NULL,
+  `url`         TEXT          NOT NULL,
+  `summary`     LONGTEXT      NOT NULL,
+  `aiScore`     DOUBLE        NOT NULL DEFAULT 0,
+  `aiReason`    TEXT          NULL,
+  `draftFr`     LONGTEXT      NOT NULL,
+  `draftEn`     LONGTEXT      NOT NULL,
+  `status`      VARCHAR(191)  NOT NULL DEFAULT 'pending',
+  `platforms`   VARCHAR(191)  NOT NULL DEFAULT 'linkedin',
+  `scheduledAt` DATETIME(3)   NULL,
+  `expiresAt`   DATETIME(3)   NOT NULL,
+  `createdAt`   DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  INDEX `cyber_watch_items_status_idx` (`status`),
+  INDEX `cyber_watch_items_expiresAt_idx` (`expiresAt`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

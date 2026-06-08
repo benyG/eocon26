@@ -5,6 +5,7 @@ const nextConfig = {
     domains: [],
   },
   experimental: {
+    instrumentationHook: true,
     outputFileTracingIncludes: {
       "/api/admin/submissions": ["./node_modules/pdfkit/js/data/**/*"],
     },

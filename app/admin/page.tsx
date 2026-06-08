@@ -8,6 +8,7 @@ import CountrySelect from "@/components/CountrySelect";
 import AdminProfilesPanel from "@/components/admin/AdminProfilesPanel";
 import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
 import MediaLibraryModal from "@/components/admin/MediaLibraryModal";
+import CyberWatchPanel from "@/components/admin/CyberWatchPanel";
 
 const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; setLang: (l: AdminLang) => void }>({
   lang: "fr",
@@ -16,7 +17,7 @@ const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; 
 });
 const useAdminT = () => useContext(AdminLangContext);
 
-type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf";
+type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -4509,6 +4510,7 @@ export default function AdminDashboard() {
       tabs: [
         { id: "communication", label: t.communicationPosts },
         { id: "library", label: "📁 Library" },
+        { id: "cyber-watch", label: "📡 Veille cyber" },
       ],
     },
     {
@@ -5076,6 +5078,9 @@ export default function AdminDashboard() {
 
           {/* LIBRARY */}
           {tab === "library" && <LibraryPanel />}
+
+          {/* CYBER WATCH */}
+          {tab === "cyber-watch" && <CyberWatchPanel />}
 
           {/* SPONSOR PIPELINE */}
           {tab === "sponsor-pipeline" && (

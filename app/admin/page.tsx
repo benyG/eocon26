@@ -3440,6 +3440,49 @@ export default function AdminDashboard() {
   const changeLang = (l: AdminLang) => { setLang(l); localStorage.setItem("admin_lang", l); };
   const router = useRouter();
 
+  // Current user identity + permissions
+  const [userInfo, setUserInfo] = useState<{ isLegacy: boolean; name: string; permissions: Record<string, string> } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/me").then(r => r.ok ? r.json() : null).then(info => {
+      if (info) setUserInfo(info);
+    }).catch(() => {});
+  }, []);
+
+  // Tab → required permission key (undefined = always visible)
+  const TAB_PERMISSION: Partial<Record<Tab, string | undefined>> = {
+    dashboard: undefined,        // always visible
+    pipeline: "cfp",
+    sessions: "sessions",
+    "past-speakers": "speakers",
+    registrations: "registrations",
+    volunteers: "volunteers",
+    newsletter: "newsletter",
+    sponsors: "sponsors",
+    "sponsor-pipeline": "sponsor-pipeline",
+    prospection: "prospection",
+    tickets: "registrations",
+    "sponsor-packages": "sponsors",
+    budget: "budget",
+    communication: "communication",
+    logistics: "logistics",
+    team: "team",
+    certificates: "certificates",
+    export: "export",
+    users: "users",
+    profiles: "users",
+    audit: "users",
+    settings: "users",
+  };
+
+  const canSeeTab = (tabId: Tab): boolean => {
+    if (!userInfo) return true; // not loaded yet — show all
+    if (userInfo.isLegacy) return true; // legacy token = full access
+    const permKey = TAB_PERMISSION[tabId];
+    if (permKey === undefined) return true; // always visible
+    return !!userInfo.permissions[permKey as string];
+  };
+
   const logout = async () => {
     await fetch("/api/admin/login", { method: "DELETE" });
     router.push("/admin/login");
@@ -3622,6 +3665,21 @@ export default function AdminDashboard() {
     },
   ];
 
+  // Filter tabGroups based on current user's permissions
+  const visibleTabGroups = tabGroups
+    .map(g => ({ ...g, tabs: g.tabs.filter(t => canSeeTab(t.id)) }))
+    .filter(g => g.tabs.length > 0);
+
+  // If active tab is no longer visible after permissions load, switch to first visible tab
+  useEffect(() => {
+    if (!userInfo) return;
+    const allVisible = visibleTabGroups.flatMap(g => g.tabs).map(t => t.id);
+    if (allVisible.length > 0 && !allVisible.includes(tab)) {
+      setTab(allVisible[0]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userInfo]);
+
   // Group sessions by date
   const sessionsByDate = (() => {
     const sessions = (data.sessions || []) as Record<string, unknown>[];
@@ -3646,6 +3704,9 @@ export default function AdminDashboard() {
       <div className="border-b border-neon-green/20 bg-black/80 px-6 py-3 flex items-center justify-between sticky top-0 z-40">
         <span className="text-neon-green font-mono text-sm font-bold">&gt; EOCON Eventlyx</span>
         <div className="flex items-center gap-4">
+          {userInfo && !userInfo.isLegacy && (
+            <span className="text-gray-500 text-xs font-mono hidden sm:inline">{userInfo.name}</span>
+          )}
           <a href="/" target="_blank" className="text-gray-500 hover:text-neon-green text-xs transition-colors">↗ {t.viewSite}</a>
           <button
             onClick={() => changeLang(lang === "fr" ? "en" : "fr")}
@@ -3660,7 +3721,7 @@ export default function AdminDashboard() {
       <div className="flex">
         {/* Sidebar */}
         <aside className="w-56 min-h-screen border-r border-neon-green/10 bg-black/40 p-3 shrink-0 overflow-y-auto">
-          {tabGroups.map(group => (
+          {visibleTabGroups.map(group => (
             <div key={group.label} className="mb-4">
               <div className="flex items-center gap-1.5 px-2 py-1 mb-1">
                 <span className="text-neon-green/40 text-xs">{group.icon}</span>

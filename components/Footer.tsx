@@ -145,9 +145,18 @@ export default function Footer({ t, eventSettings }: { t: Translations; eventSet
           <p className="text-gray-700 text-xs font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
             © 2026 {t.footer.org}. {t.footer.rights}
           </p>
-          <p className="text-gray-700 text-xs font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-            Designed with ❤ for Africa's cybersecurity community
-          </p>
+          <div className="flex items-center gap-6">
+            <a
+              href="/privacy"
+              className="text-gray-600 hover:text-neon-green text-xs font-mono transition-colors"
+              style={{ fontFamily: "'Share Tech Mono', monospace" }}
+            >
+              &gt; {t.footer.privacy}
+            </a>
+            <p className="text-gray-700 text-xs font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+              Designed with ❤ for Africa's cybersecurity community
+            </p>
+          </div>
         </div>
       </div>
     </footer>

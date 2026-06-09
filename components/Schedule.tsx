@@ -187,7 +187,9 @@ export default function Schedule({ t, lang }: { t: Translations; lang: "en" | "f
       <section id="schedule" className="py-24 px-4 relative">
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-neon-green text-xs font-mono uppercase tracking-widest mb-3" style={{ fontFamily: "'Share Tech Mono', monospace" }}>&gt; CAT PROGRAM.TXT</p>
-          <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">{t.schedule.title}</h2>
+          <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
+            <span className="section-glitch" data-text={t.schedule.title}>{t.schedule.title}</span>
+          </h2>
           <div className="section-line mx-auto mb-6" />
           <p className="text-gray-600 text-sm font-mono mt-8" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
             {lang === "fr" ? "// Programme en cours de construction — revenez bientôt" : "// Programme under construction — check back soon"}
@@ -204,7 +206,9 @@ export default function Schedule({ t, lang }: { t: Translations; lang: "en" | "f
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-16">
           <p className="text-neon-green text-xs font-mono uppercase tracking-widest mb-3" style={{ fontFamily: "'Share Tech Mono', monospace" }}>&gt; CAT PROGRAM.TXT</p>
-          <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">{t.schedule.title}</h2>
+          <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
+            <span className="section-glitch" data-text={t.schedule.title}>{t.schedule.title}</span>
+          </h2>
           <div className="section-line mx-auto mb-6" />
           <p className="text-gray-400">{t.schedule.subtitle}</p>
         </div>

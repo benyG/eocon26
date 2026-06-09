@@ -45,7 +45,9 @@ export default function CFPSection({ t }: { t: Translations }) {
           <p className="text-neon-green text-xs font-mono uppercase tracking-widest mb-3" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
             &gt; OPEN CFP.FORM
           </p>
-          <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">{t.cfp.title}</h2>
+          <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
+            <span className="section-glitch" data-text={t.cfp.title}>{t.cfp.title}</span>
+          </h2>
           <div className="section-line mx-auto mb-6" />
           <p className="text-neon-green/60 text-lg max-w-2xl mx-auto">{t.cfp.subtitle}</p>
           <p className="text-gray-400 text-sm mt-3 max-w-2xl mx-auto">{t.cfp.description}</p>

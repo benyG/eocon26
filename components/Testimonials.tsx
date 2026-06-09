@@ -9,7 +9,9 @@ export default function Testimonials({ t }: { t: Translations }) {
           <p className="text-neon-green text-xs font-mono uppercase tracking-widest mb-3" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
             &gt; GREP "FEEDBACK" ATTENDEES.LOG
           </p>
-          <h2 className="text-3xl font-black text-white">{t.testimonials.title}</h2>
+          <h2 className="text-3xl font-black text-white">
+            <span className="section-glitch" data-text={t.testimonials.title}>{t.testimonials.title}</span>
+          </h2>
           <div className="section-line mx-auto mt-4" />
         </div>
 

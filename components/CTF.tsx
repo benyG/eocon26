@@ -58,16 +58,7 @@ export default function CTF({ t, onOpenModal, ctfSettings = {} }: { t: Translati
             &gt; ./launch_ctf.sh
           </p>
           <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
-            <span
-              className="ctf-glitch-wrap"
-              data-text="EyesOpenCTF"
-              style={{
-                background: "linear-gradient(90deg, #00ff9d, #0066ff, #fff)",
-                WebkitBackgroundClip: "text",
-                backgroundClip: "text",
-                color: "transparent",
-              }}
-            >
+            <span className="ctf-glitch-wrap" data-text="EyesOpenCTF">
               EyesOpenCTF
             </span>
           </h2>

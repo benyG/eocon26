@@ -106,7 +106,9 @@ export default function Sponsors({ t, lang = "fr" }: { t: Translations; lang?: "
           <p className="text-neon-green text-xs font-mono uppercase tracking-widest mb-3" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
             &gt; CAT SPONSORS.MD
           </p>
-          <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">{t.sponsors.title}</h2>
+          <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
+            <span className="section-glitch" data-text={t.sponsors.title}>{t.sponsors.title}</span>
+          </h2>
           <div className="section-line mx-auto mb-6" />
           <p className="text-gray-400 text-lg max-w-2xl mx-auto">{t.sponsors.subtitle}</p>
           <p className="text-gray-500 text-sm mt-2 max-w-2xl mx-auto">{t.sponsors.description}</p>

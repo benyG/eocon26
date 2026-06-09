@@ -39,6 +39,66 @@ body {
   display: inline-block;
 }
 
+/* Section title glitch — inherits the parent text colour */
+.section-glitch {
+  position: relative;
+  display: inline-block;
+}
+.section-glitch::before,
+.section-glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  color: inherit;
+}
+.section-glitch::before {
+  animation: glitch-1 4s infinite linear;
+  clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
+  transform: translateX(-3px);
+  opacity: 0;
+  color: var(--neon-pink);
+}
+.section-glitch::after {
+  animation: glitch-2 4s infinite linear;
+  clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%);
+  transform: translateX(3px);
+  opacity: 0;
+  color: var(--neon-blue);
+}
+
+/* CTF title — neon green glitch */
+.ctf-glitch-wrap {
+  position: relative;
+  display: inline-block;
+  color: #00ff9d;
+}
+.ctf-glitch-wrap::before,
+.ctf-glitch-wrap::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+.ctf-glitch-wrap::before {
+  color: var(--neon-pink);
+  animation: glitch-1 3s infinite linear;
+  clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
+  transform: translateX(-3px);
+  opacity: 0;
+}
+.ctf-glitch-wrap::after {
+  color: var(--neon-blue);
+  animation: glitch-2 3s infinite linear;
+  clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%);
+  transform: translateX(3px);
+  opacity: 0;
+}
+
 .glitch::before,
 .glitch::after {
   content: attr(data-text);

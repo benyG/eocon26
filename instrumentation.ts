@@ -1,32 +1,34 @@
-// This file runs once when the Next.js server starts (Node.js runtime only).
-// It registers in-process cron jobs so the container needs no external scheduler.
+// Runs once at server startup (Node.js runtime only — not Edge, not client).
+// Replaces any external cron service: the container schedules its own jobs.
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
-  // Lazy-import to keep Edge runtime clean
-  const cron = await import("node-cron");
-
-  const secret = process.env.CRON_SECRET;
+  const secret = process.env.CRON_SECRET ?? "";
   const base =
     process.env.NEXT_PUBLIC_BASE_URL ||
     process.env.NEXTAUTH_URL ||
     "http://localhost:3000";
 
   const call = (path: string) =>
-    fetch(`${base}${path}?secret=${secret}`, { method: "GET" }).catch(() => {});
+    fetch(`${base}${path}?secret=${encodeURIComponent(secret)}`)
+      .catch(() => {/* network errors are silently ignored */});
 
-  // Publish scheduled social posts every 5 minutes
-  cron.schedule("*/5 * * * *", () => {
-    call("/api/cron/publish-scheduled");
-  });
+  // ── Every 5 min: publish due social posts ──────────────────────────────────
+  setInterval(() => call("/api/cron/publish-scheduled"), 5 * 60 * 1000);
 
-  // Cyber-watch: cleanup expired items + auto-fetch (if moderation off) every day at 07:00
-  cron.schedule("0 7 * * *", () => {
-    call("/api/cron/cyber-watch-cleanup");
-  });
+  // ── Daily at a fixed hour: cyber-watch cleanup + auto-fetch ───────────────
+  const scheduleDailyAt = (hour: number, job: () => void) => {
+    const msUntilNext = () => {
+      const now = new Date();
+      const next = new Date(now);
+      next.setHours(hour, 0, 0, 0);
+      if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
+      return next.getTime() - now.getTime();
+    };
+    const arm = () => setTimeout(() => { job(); arm(); }, msUntilNext());
+    arm();
+  };
 
-  // Cyber-watch: mid-day refresh at 13:00 (catches breaking news)
-  cron.schedule("0 13 * * *", () => {
-    call("/api/cron/cyber-watch-cleanup");
-  });
+  scheduleDailyAt(7,  () => call("/api/cron/cyber-watch-cleanup"));
+  scheduleDailyAt(13, () => call("/api/cron/cyber-watch-cleanup"));
 }

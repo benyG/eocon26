@@ -20,3 +20,4 @@ next-env.d.ts
 /lib/generated/prisma
 gcs-service-account.json
 *.service-account.json
+.claude/

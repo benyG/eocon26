@@ -3644,7 +3644,7 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-dark-900" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
       {/* Top bar */}
       <div className="border-b border-neon-green/20 bg-black/80 px-6 py-3 flex items-center justify-between sticky top-0 z-40">
-        <span className="text-neon-green font-mono text-sm font-bold">&gt; EOCON_ADMIN</span>
+        <span className="text-neon-green font-mono text-sm font-bold">&gt; EOCON Eventlyx</span>
         <div className="flex items-center gap-4">
           <a href="/" target="_blank" className="text-gray-500 hover:text-neon-green text-xs transition-colors">↗ {t.viewSite}</a>
           <button

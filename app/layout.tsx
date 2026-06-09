@@ -6,6 +6,11 @@ export const metadata: Metadata = {
   description:
     "EOCON 2026 — The premier bilingual cybersecurity conference in Africa. November 28, 2026 at Hotel Onomo, Douala, Cameroon. Expert talks, CTF competition, workshops, and more.",
   keywords: "EOCON, cybersecurity conference, Africa, Douala, Cameroon, CTF, information security, EyesOpen",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+  },
   openGraph: {
     title: "EOCON 2026 — Secure the Future",
     description: "7th edition of the bilingual cybersecurity conference. Nov 28, 2026 · Hotel Onomo, Douala.",

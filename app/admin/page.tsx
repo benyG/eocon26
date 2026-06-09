@@ -3752,7 +3752,20 @@ export default function AdminDashboard() {
           {/* DASHBOARD */}
           {tab === "dashboard" && (
             <div>
-              <h1 className="text-2xl font-black text-white mb-6">{t.dashboardTitle}</h1>
+              <div className="flex items-center justify-between mb-6">
+                <h1 className="text-2xl font-black text-white">{t.dashboardTitle}</h1>
+                {canSeeTab("registrations") && (
+                  <a
+                    href="/checkin/scan"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 px-4 py-2 rounded text-sm font-bold transition-all"
+                    style={{ background: "#00ff9d15", color: "#00ff9d", border: "2px solid #00ff9d", letterSpacing: "0.1em" }}
+                  >
+                    <span>▣</span> SCANNER QR <span>→</span>
+                  </a>
+                )}
+              </div>
               {/* Stat cards */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6">
                 <StatCard label={t.speakers} value={stats.speakers || 0} />

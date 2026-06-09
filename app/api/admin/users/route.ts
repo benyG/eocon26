@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { ADMIN_PROFILES } from "@/lib/adminProfiles";
 import { createHash, randomBytes } from "crypto";
 import { Resend } from "resend";
 
@@ -47,13 +48,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Cet email est déjà utilisé" }, { status: 409 });
   }
 
-  // Resolve permissions from DB profile or custom
+  // Resolve permissions from static profile or custom
   let resolvedPermissions = permissions || {};
   if (profileId) {
-    const dbProfile = await prisma.adminProfile.findUnique({ where: { id: Number(profileId) } });
-    if (dbProfile) {
-      try { resolvedPermissions = JSON.parse(dbProfile.permissions); } catch { /* use custom */ }
-    }
+    const staticProfile = ADMIN_PROFILES.find(p => p.id === profileId);
+    if (staticProfile) resolvedPermissions = staticProfile.permissions;
   }
 
   const tempPassword = generateTempPassword();

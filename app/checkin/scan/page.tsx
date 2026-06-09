@@ -72,6 +72,14 @@ export default function QRScannerPage() {
     resetScan();
   }, [resetScan]);
 
+  // Attach stream once video element is in the DOM (state = scanning)
+  useEffect(() => {
+    if (state !== "scanning") return;
+    if (!streamRef.current || !videoRef.current) return;
+    videoRef.current.srcObject = streamRef.current;
+    videoRef.current.play().catch(() => {});
+  }, [state]);
+
   const startCamera = useCallback(async () => {
     if (!cameraAvailable) return;
     try {
@@ -79,7 +87,7 @@ export default function QRScannerPage() {
         video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
       });
       streamRef.current = stream;
-      if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play(); }
+      // Set state first so the <video> renders, then the effect above attaches the stream
       setState("scanning");
     } catch (e) {
       setError(`Impossible d'accéder à la caméra: ${e instanceof Error ? e.message : String(e)}`);

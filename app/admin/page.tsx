@@ -426,6 +426,9 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
   const [emailTarget, setEmailTarget] = useState<Record<string, unknown> | null>(null);
   const [emailResult, setEmailResult] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
   const [generatingEmail, setGeneratingEmail] = useState(false);
+  const [pitchTarget, setPitchTarget] = useState<Record<string, unknown> | null>(null);
+  const [pitchResult, setPitchResult] = useState<{ accroche: string; valeur: string[]; objection: { question: string; reponse: string }; ouverture: string; brief_complet: string } | null>(null);
+  const [generatingPitch, setGeneratingPitch] = useState(false);
   const [packages, setPackages] = useState<Record<string, unknown>[]>([]);
   const [filter, setFilter] = useState<"all" | "pending" | "added">("all");
 
@@ -476,6 +479,27 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
     });
     if (res.ok) setEmailResult(await res.json());
     setGeneratingEmail(false);
+  };
+
+  const generatePitch = async (lead: Record<string, unknown>) => {
+    setPitchTarget(lead);
+    setPitchResult(null);
+    setGeneratingPitch(true);
+    const res = await fetch("/api/admin/ai/pitch-strategy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        org: lead.org,
+        sector: lead.sector,
+        contactName: lead.contactName,
+        contactTitle: lead.contactTitle,
+        website: lead.website,
+        recommendedPackage: lead.recommendedPackage,
+        aiScoreReason: lead.aiScoreReason,
+      }),
+    });
+    if (res.ok) setPitchResult(await res.json());
+    setGeneratingPitch(false);
   };
 
   const addToPipeline = async (lead: Record<string, unknown>) => {
@@ -564,6 +588,53 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
                 >
                   {t.addToPipeline}
                 </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {pitchTarget && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-white font-bold">🎯 Pitch · {pitchTarget.org as string}</h3>
+                <p className="text-gray-500 text-xs">{pitchTarget.sector as string} · Package : <span style={{ color: "#ff0066" }}>{(pitchTarget.recommendedPackage as string) || "—"}</span></p>
+              </div>
+              <button onClick={() => { setPitchTarget(null); setPitchResult(null); }} className="text-gray-500 hover:text-white text-xl">✕</button>
+            </div>
+            {generatingPitch && <p className="text-gray-500 text-xs text-center py-8">Génération du brief stratégique…</p>}
+            {pitchResult && (
+              <div className="space-y-4">
+                <div className="border rounded-lg p-4" style={{ borderColor: "#ff006640", background: "#ff006610" }}>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#ff0066" }}>Accroche</p>
+                  <p className="text-white text-sm leading-relaxed">{pitchResult.accroche}</p>
+                </div>
+                <div className="border border-gray-800 rounded-lg p-4">
+                  <p className="text-xs font-bold uppercase tracking-widest mb-2 text-gray-400">Valeur concrète</p>
+                  <ul className="space-y-1">
+                    {pitchResult.valeur.map((v, i) => (
+                      <li key={i} className="text-gray-300 text-sm flex gap-2"><span style={{ color: "#00ff9d" }}>▸</span>{v}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="border border-gray-800 rounded-lg p-4">
+                  <p className="text-xs font-bold uppercase tracking-widest mb-2 text-gray-400">Objection probable</p>
+                  <p className="text-sm font-semibold text-white mb-1">❝ {pitchResult.objection.question} ❞</p>
+                  <p className="text-gray-400 text-sm">→ {pitchResult.objection.reponse}</p>
+                </div>
+                <div className="border border-gray-800 rounded-lg p-4">
+                  <p className="text-xs font-bold uppercase tracking-widest mb-2 text-gray-400">Ouverture de réunion</p>
+                  <p className="text-white text-sm italic">❝ {pitchResult.ouverture} ❞</p>
+                </div>
+                <div className="border border-gray-800 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Brief complet</p>
+                    <button onClick={() => navigator.clipboard.writeText(pitchResult!.brief_complet)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>📋 Copier</button>
+                  </div>
+                  <p className="text-gray-300 text-xs whitespace-pre-wrap leading-relaxed">{pitchResult.brief_complet}</p>
+                </div>
               </div>
             )}
           </div>
@@ -680,6 +751,13 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
                       style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}
                     >
                       {t.generateBtn}
+                    </button>
+                    <button
+                      onClick={() => generatePitch(lead)}
+                      className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
+                      style={{ background: "#ff006615", color: "#ff0066", border: "1px solid #ff006640" }}
+                    >
+                      🎯 Pitch
                     </button>
                     <button
                       onClick={() => addToPipeline(lead)}

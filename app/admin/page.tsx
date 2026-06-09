@@ -2433,27 +2433,142 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
 }
 
 // ---- Logistics Panel ----
-const LOGISTICS_SEED_CATEGORIES = [
-  { category: "Production", tasks: ["Production gadjets & impressions"] },
-  { category: "Coordination bénévoles", tasks: ["Briefing équipe bénévoles", "Attribution des rôles"] },
-  { category: "Plan salle", tasks: ["Validation plan salle", "Installation signalétique"] },
-  { category: "Vérification billets", tasks: ["Test scanner QR", "Formation opérateurs check-in"] },
-  { category: "Kit speakers", tasks: ["Préparation kit speakers", "Distribution badges speakers"] },
-  { category: "Animateur", tasks: ["Brief animateur"] },
-  { category: "Discours", tasks: ["Discours d'ouverture", "Discours de clôture"] },
-  { category: "Eau", tasks: ["Commande eau/boissons"] },
-  { category: "Internet", tasks: ["Test connexion salle", "WiFi invités opérationnel"] },
-  { category: "Tests techniques", tasks: ["Tests techniques salle", "Test son & vidéo", "Test retransmission"] },
-  { category: "Caméras", tasks: ["Installation caméras", "Test enregistrement"] },
+const STATUS_COLS = [
+  { id: "todo",        label: "TODO",      color: "#888",    bg: "#88888815" },
+  { id: "in_progress", label: "EN COURS",  color: "#0066ff", bg: "#0066ff15" },
+  { id: "blocked",     label: "BLOQUÉ",    color: "#ff0066", bg: "#ff006615" },
+  { id: "done",        label: "TERMINÉ",   color: "#00ff9d", bg: "#00ff9d15" },
+];
+const PRIORITY_COLORS: Record<string, string> = {
+  critical: "#ff0066", high: "#ff6600", medium: "#ffaa00", low: "#888"
+};
+const PHASES = ["J-90", "J-30", "J-7", "Jour J", "Post-event"] as const;
+type Phase = typeof PHASES[number];
+
+const LOGISTICS_PHASES_SEED: { phase: Phase; category: string; title: string; priority: string }[] = [
+  // J-90
+  { phase: "J-90", category: "Venue & Contrats", title: "Signer contrat venue", priority: "critical" },
+  { phase: "J-90", category: "Venue & Contrats", title: "Valider le plan de salle", priority: "high" },
+  { phase: "J-90", category: "Venue & Contrats", title: "Négocier hébergement préférentiel speakers", priority: "medium" },
+  { phase: "J-90", category: "Budget", title: "Valider budget prévisionnel", priority: "critical" },
+  { phase: "J-90", category: "Budget", title: "Ouvrir compte bancaire événement", priority: "high" },
+  { phase: "J-90", category: "Sponsors", title: "Lancer dossier sponsoring", priority: "high" },
+  { phase: "J-90", category: "Sponsors", title: "Relance sponsors prioritaires", priority: "high" },
+  // J-30
+  { phase: "J-30", category: "Production", title: "Commander gadgets & impressions", priority: "high" },
+  { phase: "J-30", category: "Production", title: "Valider maquettes visuels", priority: "high" },
+  { phase: "J-30", category: "Production", title: "Préparer roll-ups et kakémonos", priority: "medium" },
+  { phase: "J-30", category: "Technique", title: "Test connexion internet salle", priority: "critical" },
+  { phase: "J-30", category: "Technique", title: "Commander équipement son & vidéo", priority: "high" },
+  { phase: "J-30", category: "Technique", title: "Tester retransmission live", priority: "high" },
+  { phase: "J-30", category: "Caméras", title: "Réserver équipe vidéo/photo", priority: "high" },
+  { phase: "J-30", category: "Caméras", title: "Plan de couverture caméras", priority: "medium" },
+  { phase: "J-30", category: "Speakers", title: "Envoyer kit logistique speakers", priority: "high" },
+  { phase: "J-30", category: "Speakers", title: "Confirmer besoins techniques speakers", priority: "high" },
+  { phase: "J-30", category: "Speakers", title: "Réserver transferts aéroport", priority: "medium" },
+  { phase: "J-30", category: "Communication", title: "Publier programme définitif", priority: "high" },
+  { phase: "J-30", category: "Communication", title: "Campagne réseaux sociaux J-30", priority: "medium" },
+  { phase: "J-30", category: "Communication", title: "Envoyer emailings inscrits", priority: "medium" },
+  // J-7
+  { phase: "J-7", category: "Logistique salle", title: "Validation plan salle final", priority: "critical" },
+  { phase: "J-7", category: "Logistique salle", title: "Installation signalétique", priority: "high" },
+  { phase: "J-7", category: "Logistique salle", title: "Préparer badges & kits accueil", priority: "high" },
+  { phase: "J-7", category: "Logistique salle", title: "Test scanner QR check-in", priority: "critical" },
+  { phase: "J-7", category: "Bénévoles", title: "Briefing équipe bénévoles", priority: "critical" },
+  { phase: "J-7", category: "Bénévoles", title: "Attribution des rôles bénévoles", priority: "high" },
+  { phase: "J-7", category: "Bénévoles", title: "Distribuer planning bénévoles", priority: "high" },
+  { phase: "J-7", category: "Technique", title: "Tests techniques salle", priority: "critical" },
+  { phase: "J-7", category: "Technique", title: "Test son & vidéo complet", priority: "critical" },
+  { phase: "J-7", category: "Technique", title: "Test streaming/retransmission", priority: "high" },
+  { phase: "J-7", category: "Animateur", title: "Brief animateur", priority: "high" },
+  { phase: "J-7", category: "Animateur", title: "Valider déroulé de la journée", priority: "critical" },
+  { phase: "J-7", category: "Eau & Catering", title: "Confirmer commande eau/boissons", priority: "high" },
+  { phase: "J-7", category: "Eau & Catering", title: "Valider menu pause-café", priority: "medium" },
+  // Jour J
+  { phase: "Jour J", category: "Ouverture", title: "Accueil équipe technique", priority: "critical" },
+  { phase: "Jour J", category: "Ouverture", title: "Vérification technique finale", priority: "critical" },
+  { phase: "Jour J", category: "Ouverture", title: "Ouverture accueil participants", priority: "critical" },
+  { phase: "Jour J", category: "Déroulé", title: "Discours d'ouverture", priority: "critical" },
+  { phase: "Jour J", category: "Déroulé", title: "Coordination speakers en coulisses", priority: "high" },
+  { phase: "Jour J", category: "Déroulé", title: "Gestion temps sessions", priority: "high" },
+  { phase: "Jour J", category: "CTF", title: "Lancer plateforme CTF", priority: "critical" },
+  { phase: "Jour J", category: "CTF", title: "Support technique CTF", priority: "high" },
+  { phase: "Jour J", category: "Clôture", title: "Discours de clôture", priority: "critical" },
+  { phase: "Jour J", category: "Clôture", title: "Photo groupe", priority: "medium" },
+  { phase: "Jour J", category: "Clôture", title: "Collecte feedback", priority: "medium" },
+  // Post-event
+  { phase: "Post-event", category: "Suivi", title: "Envoyer certificats participants", priority: "high" },
+  { phase: "Post-event", category: "Suivi", title: "Envoyer certificats speakers", priority: "high" },
+  { phase: "Post-event", category: "Suivi", title: "Publication photos/vidéos", priority: "medium" },
+  { phase: "Post-event", category: "Suivi", title: "Rapport post-événement", priority: "high" },
+  { phase: "Post-event", category: "Suivi", title: "Bilan budget final", priority: "high" },
+  { phase: "Post-event", category: "Suivi", title: "Remerciements sponsors", priority: "high" },
 ];
 
+function TaskCard({
+  t,
+  onUpdate,
+  onDelete,
+  showPhase = false,
+}: {
+  t: Record<string, unknown>;
+  onUpdate: (id: number, data: Record<string, unknown>) => void;
+  onDelete: (id: number) => void;
+  showPhase?: boolean;
+}) {
+  const now = new Date();
+  const deadline = t.deadline ? new Date(t.deadline as string) : null;
+  const isOverdue = deadline && deadline < now && t.status !== "done";
+  const priorityColor = PRIORITY_COLORS[(t.priority as string) || "medium"] || "#888";
+
+  return (
+    <div className="cyber-card rounded-lg p-3 mb-2 cursor-pointer">
+      <div className="flex items-start gap-2">
+        <input
+          type="checkbox"
+          checked={t.status === "done" || !!t.done}
+          onChange={e => onUpdate(t.id as number, { status: e.target.checked ? "done" : "todo" })}
+          className="w-4 h-4 accent-neon-green shrink-0 mt-0.5"
+        />
+        <div className="flex-1 min-w-0">
+          <div className={`text-sm font-medium mb-1 ${t.status === "done" ? "line-through text-gray-600" : "text-white"}`}>
+            {t.title as string}
+          </div>
+          <div className="flex flex-wrap items-center gap-1 text-xs">
+            {showPhase && !!t.phase && (
+              <span className="px-1.5 py-0.5 rounded" style={{ background: "#ffffff10", color: "#aaa" }}>{t.phase as string}</span>
+            )}
+            {!!t.category && (
+              <span className="text-gray-500">{t.category as string}</span>
+            )}
+            <span className="px-1.5 py-0.5 rounded font-bold" style={{ color: priorityColor, background: priorityColor + "20" }}>
+              {(t.priority as string || "medium").toUpperCase()}
+            </span>
+            {!!t.assignee && <span className="text-gray-400">@{t.assignee as string}</span>}
+            {deadline && (
+              <span className={isOverdue ? "text-red-400 font-bold" : "text-gray-600"}>
+                {deadline.toLocaleDateString("fr-FR")}
+                {isOverdue && " (retard)"}
+              </span>
+            )}
+          </div>
+          {!!t.notes && <div className="text-xs text-gray-500 mt-1 italic">{t.notes as string}</div>}
+        </div>
+        <button onClick={() => onDelete(t.id as number)} className="text-red-400 text-xs hover:text-red-300 shrink-0">✗</button>
+      </div>
+    </div>
+  );
+}
+
 function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]; onRefresh: () => void }) {
+  const [activeTab, setActiveTab] = useState<"kanban" | "phase" | "overdue" | "all">("kanban");
+  const [activePhase, setActivePhase] = useState<Phase>("J-90");
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<Record<string, unknown>>({ done: false });
+  const [form, setForm] = useState<Record<string, unknown>>({ status: "todo", priority: "medium", phase: "J-30" });
 
   const save = async () => {
     await fetch("/api/admin/logistics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-    setShowForm(false); setForm({ done: false }); onRefresh();
+    setShowForm(false); setForm({ status: "todo", priority: "medium", phase: "J-30" }); onRefresh();
   };
 
   const update = async (id: number, data: Record<string, unknown>) => {
@@ -2467,41 +2582,82 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
     onRefresh();
   };
 
-  const seed = async () => {
-    for (const { category, tasks: ts } of LOGISTICS_SEED_CATEGORIES) {
-      for (let i = 0; i < ts.length; i++) {
-        await fetch("/api/admin/logistics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ category, title: ts[i], sortOrder: i }) });
-      }
+  const seedAll = async () => {
+    for (let i = 0; i < LOGISTICS_PHASES_SEED.length; i++) {
+      const s = LOGISTICS_PHASES_SEED[i];
+      await fetch("/api/admin/logistics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...s, status: "todo", sortOrder: i }) });
     }
     onRefresh();
   };
 
-  const totalDone = tasks.filter(t => t.done).length;
+  const seedPhase = async (phase: Phase) => {
+    const items = LOGISTICS_PHASES_SEED.filter(s => s.phase === phase);
+    for (let i = 0; i < items.length; i++) {
+      await fetch("/api/admin/logistics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...items[i], status: "todo", sortOrder: i }) });
+    }
+    onRefresh();
+  };
+
+  const totalDone = tasks.filter(t => t.status === "done" || t.done).length;
   const total = tasks.length;
   const pct = total ? Math.round((totalDone / total) * 100) : 0;
 
-  const byCategory: Record<string, Record<string, unknown>[]> = {};
-  for (const t of tasks) {
-    const cat = (t.category as string) || "Autre";
-    if (!byCategory[cat]) byCategory[cat] = [];
-    byCategory[cat].push(t);
-  }
+  const now = new Date();
+  const overdueTasks = tasks.filter(t => {
+    if (!t.deadline) return false;
+    return new Date(t.deadline as string) < now && t.status !== "done";
+  });
+
+  const moveStatus = (t: Record<string, unknown>, direction: "prev" | "next") => {
+    const idx = STATUS_COLS.findIndex(c => c.id === t.status);
+    const newIdx = direction === "next" ? Math.min(idx + 1, STATUS_COLS.length - 1) : Math.max(idx - 1, 0);
+    if (newIdx !== idx) update(t.id as number, { status: STATUS_COLS[newIdx].id });
+  };
+
+  const tabs = [
+    { id: "kanban" as const, label: "Vue Kanban" },
+    { id: "phase" as const, label: "Vue Phase" },
+    { id: "overdue" as const, label: "Vue Retards" },
+    { id: "all" as const, label: "Toutes" },
+  ];
 
   return (
     <div>
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-black text-white">Logistique</h1>
         <div className="flex gap-2">
-          {!tasks.length && <button onClick={seed} className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">Pré-remplir tâches</button>}
+          {!tasks.length && (
+            <button onClick={seedAll} className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">
+              Initialiser toutes les tâches
+            </button>
+          )}
           <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter tâche</button>
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 mb-4 border-b border-gray-800 pb-2">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-3 py-1.5 rounded text-xs font-mono transition-colors ${activeTab === tab.id ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 hover:text-white"}`}
+          >
+            {tab.label}
+            {tab.id === "overdue" && overdueTasks.length > 0 && (
+              <span className="ml-1 px-1 rounded bg-red-500/20 text-red-400">{overdueTasks.length}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Progress bar */}
       {total > 0 && (
-        <div className="cyber-card rounded-xl p-4 mb-6">
+        <div className="cyber-card rounded-xl p-4 mb-4">
           <div className="flex justify-between text-xs text-gray-500 mb-2">
             <span>Progression globale</span>
-            <span className="text-neon-green font-bold">{totalDone}/{total} ({pct}%)</span>
+            <span className="font-bold" style={{ color: "#00ff9d" }}>{totalDone}/{total} ({pct}%)</span>
           </div>
           <div className="h-3 bg-gray-900 rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pct === 100 ? "#00ff9d" : "#0066ff" }} />
@@ -2509,6 +2665,7 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
         </div>
       )}
 
+      {/* Add form */}
       {showForm && (
         <div className="cyber-card rounded-xl p-5 mb-6">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -2521,12 +2678,37 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
               <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.title as string) || ""} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
             </div>
             <div>
+              <label className="text-xs text-gray-500 block mb-1">Phase</label>
+              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.phase as string) || "J-30"} onChange={e => setForm(p => ({ ...p, phase: e.target.value }))}>
+                {PHASES.map(ph => <option key={ph} value={ph}>{ph}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Priorité</label>
+              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.priority as string) || "medium"} onChange={e => setForm(p => ({ ...p, priority: e.target.value }))}>
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Statut</label>
+              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.status as string) || "todo"} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
+                {STATUS_COLS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+              </select>
+            </div>
+            <div>
               <label className="text-xs text-gray-500 block mb-1">Responsable</label>
               <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.assignee as string) || ""} onChange={e => setForm(p => ({ ...p, assignee: e.target.value }))} />
             </div>
             <div>
               <label className="text-xs text-gray-500 block mb-1">Échéance</label>
               <input type="date" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.deadline as string) || ""} onChange={e => setForm(p => ({ ...p, deadline: e.target.value }))} />
+            </div>
+            <div className="lg:col-span-3">
+              <label className="text-xs text-gray-500 block mb-1">Notes</label>
+              <textarea className="cyber-input w-full px-3 py-2 rounded text-xs" rows={2} value={(form.notes as string) || ""} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} />
             </div>
           </div>
           <div className="flex gap-2 mt-3">
@@ -2536,49 +2718,224 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
         </div>
       )}
 
-      <div className="space-y-6">
-        {Object.entries(byCategory).map(([cat, catTasks]) => {
-          const catDone = catTasks.filter(t => t.done).length;
-          return (
-            <div key={cat}>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-bold text-neon-green/70 uppercase tracking-widest">{cat}</h3>
-                <span className="text-xs text-gray-600">{catDone}/{catTasks.length}</span>
+      {/* KANBAN TAB */}
+      {activeTab === "kanban" && (
+        <div className="flex overflow-x-auto gap-4 pb-2">
+          {STATUS_COLS.map(col => {
+            const colTasks = tasks.filter(t => (t.status || "todo") === col.id);
+            return (
+              <div key={col.id} className="min-w-[260px] flex-shrink-0 rounded-xl p-3" style={{ background: col.bg, border: `1px solid ${col.color}30` }}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold font-mono tracking-widest" style={{ color: col.color }}>{col.label}</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: col.color + "20", color: col.color }}>{colTasks.length}</span>
+                </div>
+                <div>
+                  {colTasks.map(t => (
+                    <div key={t.id as number} className="cyber-card rounded-lg p-3 mb-2">
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className={`text-sm font-medium mb-1 ${t.status === "done" ? "line-through text-gray-600" : "text-white"}`}>
+                            {t.title as string}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1 text-xs mb-1">
+                            <span className="px-1.5 py-0.5 rounded" style={{ background: "#ffffff10", color: "#aaa" }}>{t.phase as string}</span>
+                            <span className="px-1.5 py-0.5 rounded font-bold" style={{ color: PRIORITY_COLORS[(t.priority as string) || "medium"], background: (PRIORITY_COLORS[(t.priority as string) || "medium"]) + "20" }}>
+                              {(t.priority as string || "medium").toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1 text-xs">
+                            {!!t.category && <span className="text-gray-500">{t.category as string}</span>}
+                            {!!t.assignee && <span className="text-gray-400">@{t.assignee as string}</span>}
+                            {!!t.deadline && (() => {
+                              const dl = new Date(t.deadline as string);
+                              const od = dl < now && t.status !== "done";
+                              return <span className={od ? "text-red-400 font-bold" : "text-gray-600"}>{dl.toLocaleDateString("fr-FR")}</span>;
+                            })()}
+                          </div>
+                        </div>
+                        <button onClick={() => del(t.id as number)} className="text-red-400 text-xs hover:text-red-300 shrink-0">✗</button>
+                      </div>
+                      <div className="flex gap-1 mt-2 justify-end">
+                        <button
+                          onClick={() => moveStatus(t, "prev")}
+                          disabled={STATUS_COLS.findIndex(c => c.id === t.status) === 0}
+                          className="text-xs px-1.5 py-0.5 rounded border border-gray-700 text-gray-400 hover:text-white disabled:opacity-30"
+                        >←</button>
+                        <button
+                          onClick={() => moveStatus(t, "next")}
+                          disabled={STATUS_COLS.findIndex(c => c.id === t.status) === STATUS_COLS.length - 1}
+                          className="text-xs px-1.5 py-0.5 rounded border border-gray-700 text-gray-400 hover:text-white disabled:opacity-30"
+                        >→</button>
+                      </div>
+                    </div>
+                  ))}
+                  {colTasks.length === 0 && (
+                    <div className="text-xs text-gray-700 text-center py-4 italic">Aucune tâche</div>
+                  )}
+                </div>
               </div>
-              <div className="space-y-2">
-                {catTasks.map(t => (
-                  <div key={t.id as number} className="cyber-card rounded-lg p-3 flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={!!t.done}
-                      onChange={e => update(t.id as number, { done: e.target.checked })}
-                      className="w-4 h-4 accent-neon-green shrink-0"
-                    />
-                    <span className={`flex-1 text-sm transition-colors ${t.done ? "line-through text-gray-600" : "text-white"}`}>{t.title as string}</span>
-                    {!!(t.assignee as string) && <span className="text-xs text-gray-500 shrink-0">{t.assignee as string}</span>}
-                    {!!(t.deadline as string) && <span className="text-xs text-gray-600 shrink-0">{new Date(t.deadline as string).toLocaleDateString("fr-FR")}</span>}
-                    <button onClick={() => del(t.id as number)} className="text-red-400 text-xs hover:text-red-300 shrink-0">✗</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-        {!tasks.length && (
-          <div className="text-center py-8">
-            <p className="text-gray-600 text-xs mb-3">Aucune tâche. Initialisez avec les tâches standard.</p>
-            <button
-              onClick={async () => {
-                const res = await fetch("/api/admin/seed", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "logistics" }) });
-                if (res.ok) onRefresh();
-              }}
-              className="btn-neon px-4 py-2 rounded text-xs"
-            >
-              🌱 Initialiser tâches logistiques
-            </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* PHASE TAB */}
+      {activeTab === "phase" && (
+        <div>
+          {/* Phase sub-tabs */}
+          <div className="flex gap-1 mb-4 flex-wrap">
+            {PHASES.map(ph => {
+              const phTasks = tasks.filter(t => t.phase === ph);
+              const phDone = phTasks.filter(t => t.status === "done" || t.done).length;
+              return (
+                <button
+                  key={ph}
+                  onClick={() => setActivePhase(ph)}
+                  className={`px-3 py-1.5 rounded text-xs font-mono transition-colors ${activePhase === ph ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 hover:text-white border border-gray-800"}`}
+                >
+                  {ph} <span className="text-gray-600 ml-1">({phDone}/{phTasks.length})</span>
+                </button>
+              );
+            })}
           </div>
-        )}
-      </div>
+
+          {/* Phase content */}
+          {(() => {
+            const phTasks = tasks.filter(t => t.phase === activePhase);
+            const phDone = phTasks.filter(t => t.status === "done" || t.done).length;
+            const phPct = phTasks.length ? Math.round((phDone / phTasks.length) * 100) : 0;
+
+            if (phTasks.length === 0) {
+              return (
+                <div className="text-center py-8">
+                  <p className="text-gray-600 text-xs mb-3">Aucune tâche pour la phase {activePhase}.</p>
+                  <button
+                    onClick={() => seedPhase(activePhase)}
+                    className="btn-neon px-4 py-2 rounded text-xs"
+                  >
+                    Initialiser cette phase
+                  </button>
+                </div>
+              );
+            }
+
+            // Group by category
+            const byCat: Record<string, Record<string, unknown>[]> = {};
+            for (const t of phTasks) {
+              const cat = (t.category as string) || "Autre";
+              if (!byCat[cat]) byCat[cat] = [];
+              byCat[cat].push(t);
+            }
+
+            return (
+              <div>
+                <div className="cyber-card rounded-xl p-3 mb-4">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>Phase {activePhase}</span>
+                    <span className="font-bold" style={{ color: "#00ff9d" }}>{phDone}/{phTasks.length} ({phPct}%)</span>
+                  </div>
+                  <div className="h-2 bg-gray-900 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${phPct}%`, background: phPct === 100 ? "#00ff9d" : "#0066ff" }} />
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  {Object.entries(byCat).map(([cat, catTasks]) => (
+                    <div key={cat}>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-xs font-bold text-neon-green/70 uppercase tracking-widest">{cat}</h3>
+                        <span className="text-xs text-gray-600">{catTasks.filter(t => t.status === "done" || t.done).length}/{catTasks.length}</span>
+                      </div>
+                      {catTasks.map(t => (
+                        <TaskCard key={t.id as number} t={t} onUpdate={update} onDelete={del} />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* OVERDUE TAB */}
+      {activeTab === "overdue" && (
+        <div>
+          {overdueTasks.length === 0 ? (
+            <div className="text-center py-8 cyber-card rounded-xl">
+              <p className="text-green-400 font-bold">Aucun retard !</p>
+              <p className="text-gray-600 text-xs mt-1">Toutes les tâches avec deadline sont à jour.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="text-xs text-red-400 mb-3 font-bold">{overdueTasks.length} tâche(s) en retard</div>
+              {overdueTasks.map(t => {
+                const dl = new Date(t.deadline as string);
+                const daysLate = Math.floor((now.getTime() - dl.getTime()) / (1000 * 60 * 60 * 24));
+                return (
+                  <div key={t.id as number} className="cyber-card rounded-lg p-3 border border-red-500/20">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-white mb-1">{t.title as string}</div>
+                        <div className="flex flex-wrap gap-1 text-xs">
+                          <span className="text-gray-500">{t.category as string}</span>
+                          <span className="text-gray-500">{t.phase as string}</span>
+                          <span className="px-1.5 py-0.5 rounded font-bold" style={{ color: PRIORITY_COLORS[(t.priority as string) || "medium"], background: (PRIORITY_COLORS[(t.priority as string) || "medium"]) + "20" }}>
+                            {(t.priority as string || "medium").toUpperCase()}
+                          </span>
+                          <span className="text-red-400 font-bold">+{daysLate}j de retard</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => update(t.id as number, { status: "done" })}
+                        className="text-xs px-2 py-1 rounded border border-green-700 text-green-400 hover:bg-green-900/20"
+                      >
+                        Marquer fait
+                      </button>
+                      <button onClick={() => del(t.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ALL TAB */}
+      {activeTab === "all" && (
+        <div className="space-y-6">
+          {(() => {
+            const byCategory: Record<string, Record<string, unknown>[]> = {};
+            for (const t of tasks) {
+              const cat = (t.category as string) || "Autre";
+              if (!byCategory[cat]) byCategory[cat] = [];
+              byCategory[cat].push(t);
+            }
+            return Object.entries(byCategory).map(([cat, catTasks]) => {
+              const catDone = catTasks.filter(t => t.status === "done" || t.done).length;
+              return (
+                <div key={cat}>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xs font-bold text-neon-green/70 uppercase tracking-widest">{cat}</h3>
+                    <span className="text-xs text-gray-600">{catDone}/{catTasks.length}</span>
+                  </div>
+                  {catTasks.map(t => (
+                    <TaskCard key={t.id as number} t={t} onUpdate={update} onDelete={del} showPhase />
+                  ))}
+                </div>
+              );
+            });
+          })()}
+          {!tasks.length && (
+            <div className="text-center py-8">
+              <p className="text-gray-600 text-xs mb-3">Aucune tâche. Initialisez avec les tâches standard.</p>
+              <button onClick={seedAll} className="btn-neon px-4 py-2 rounded text-xs">
+                Initialiser tâches logistiques
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useCheckinAuth } from "@/hooks/useCheckinAuth";
 
 type CheckinResult = {
   success?: boolean;
@@ -12,6 +13,7 @@ type CheckinResult = {
 type ScanState = "idle" | "scanning" | "success" | "duplicate" | "error";
 
 export default function QRScannerPage() {
+  const { state: authState } = useCheckinAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -143,6 +145,18 @@ export default function QRScannerPage() {
     duplicate: { bg: "#1a0000", border: "#ff0066",   color: "#ff0066", icon: "🚨", title: "DÉJÀ ENREGISTRÉ" },
     error:     { bg: "#1a0000", border: "#ff0066",   color: "#ff0066", icon: "✗", title: "QR INVALIDE" },
   }[state];
+
+  if (authState === "loading") return (
+    <div style={{ minHeight: "100vh", background: "#050a0e", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", color: "#00ff9d", fontSize: 13, letterSpacing: 2 }}>
+      VÉRIFICATION ACCÈS…
+    </div>
+  );
+  if (authState === "denied") return (
+    <div style={{ minHeight: "100vh", background: "#050a0e", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "monospace", padding: 32 }}>
+      <div style={{ color: "#ff0066", fontSize: 14, fontWeight: "bold", letterSpacing: 2, marginBottom: 12 }}>ACCÈS REFUSÉ</div>
+      <div style={{ color: "#888", fontSize: 12, textAlign: "center", maxWidth: 300 }}>Votre compte n&apos;a pas les droits sur le check-in.<br/>Contactez l&apos;administrateur.</div>
+    </div>
+  );
 
   return (
     <div style={{ minHeight: "100vh", background: "#050a0e", display: "flex", flexDirection: "column", alignItems: "center", padding: "16px", fontFamily: "'Share Tech Mono', monospace" }}>

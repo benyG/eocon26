@@ -59,12 +59,13 @@ async function isValidUserToken(cookie: string): Promise<boolean> {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  const isAdminPage = pathname.startsWith("/admin") && !pathname.startsWith("/admin/login");
-  const isAdminApi  = pathname.startsWith("/api/admin") &&
+  const isAdminPage   = pathname.startsWith("/admin") && !pathname.startsWith("/admin/login");
+  const isAdminApi    = pathname.startsWith("/api/admin") &&
     pathname !== "/api/admin/login" &&
     !pathname.startsWith("/api/admin/auth/");
+  const isCheckinPage = pathname.startsWith("/checkin");
 
-  if (isAdminPage || isAdminApi) {
+  if (isAdminPage || isAdminApi || isCheckinPage) {
     const adminToken = req.cookies.get("admin_token")?.value;
     const userToken  = req.cookies.get("admin_user_token")?.value;
 
@@ -76,7 +77,10 @@ export async function middleware(req: NextRequest) {
       if (isAdminApi) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
-      return NextResponse.redirect(new URL("/admin/login", req.url));
+      // Redirect checkin pages to login with return URL
+      const loginUrl = new URL("/admin/login", req.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
     }
   }
 
@@ -84,5 +88,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*"],
+  matcher: ["/admin/:path*", "/api/admin/:path*", "/checkin/:path*", "/checkin"],
 };

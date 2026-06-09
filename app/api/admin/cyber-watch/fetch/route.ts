@@ -56,12 +56,38 @@ function parseRSS(xml: string): RawItem[] {
 
 interface AiResult { score: number; reason: string; draft_fr: string; draft_en: string }
 
+// Varied EOCON mentions — picked randomly so posts don't look templated
+const EOCON_MENTIONS_FR = [
+  "C'est exactement ce genre de sujet qu'on adresse à #EOCON — rendez-vous à la prochaine édition.",
+  "On en parle en profondeur à #EOCON. Rejoignez la conversation.",
+  "Un sujet au cœur de ce qu'on construit à #EOCON. La communauté africaine de la cyber a des choses à dire là-dessus.",
+  "La scène cyber africaine grandit vite. #EOCON en est le reflet.",
+  "Ce genre de défi, on l'explore collectivement à #EOCON.",
+  "Pour aller plus loin sur ce sujet, #EOCON est l'espace qu'il vous faut.",
+  "#EOCON rassemble exactement les gens qui travaillent sur ces questions.",
+  "À méditer avant #EOCON — ce type de sujet sera au programme.",
+];
+const EOCON_MENTIONS_EN = [
+  "This is exactly the kind of topic we tackle at #EOCON — see you at the next edition.",
+  "We dig into this deeply at #EOCON. Join the conversation.",
+  "Core to what we build at #EOCON. The African cyber community has a lot to say here.",
+  "The African cyber scene is growing fast. #EOCON is the proof.",
+  "This challenge is something we explore together at #EOCON.",
+  "To go further on this topic, #EOCON is the space you need.",
+  "#EOCON brings together exactly the people working on these questions.",
+  "Worth reflecting on before #EOCON — this kind of subject will be on the agenda.",
+];
+const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+
 async function scoreAndDraft(
   item: RawItem,
   sourceName: string,
   eoconCtx: string,
   openai: ReturnType<typeof getOpenAI>,
 ): Promise<AiResult | null> {
+  const eoconFr = pick(EOCON_MENTIONS_FR);
+  const eoconEn = pick(EOCON_MENTIONS_EN);
+
   const prompt = `Tu es community manager pour EOCON, conférence cybersécurité africaine.
 
 Contexte EOCON : ${eoconCtx}
@@ -74,9 +100,11 @@ Résumé : ${item.summary}
 URL : ${item.url}
 
 Règles :
-- Le post aborde le sujet librement, avec une opinion ou un angle éditorial fort
-- EOCON est mentionné subtilement en fin de post (ex : "C'est exactement le type de sujet qu'on creuse à #EOCON2026")
-- Ne commence PAS par "EOCON" ou le nom de la conférence
+- Le post aborde le sujet librement, avec un angle éditorial fort et une vraie opinion
+- Ne mentionne PAS "EOCON2026" — utilise toujours uniquement "EOCON" (sans année)
+- Ne commence PAS le post par "EOCON" ou le nom de la conférence
+- Intègre naturellement cette phrase de clôture pour le post FR : "${eoconFr}"
+- Intègre naturellement cette phrase de clôture pour le post EN : "${eoconEn}"
 - CTA naturel avec l'URL de l'article
 
 Réponds uniquement en JSON :

@@ -97,6 +97,26 @@ export const ADMIN_PROFILES: AdminProfile[] = [
     },
   },
   {
+    id: "responsable_ctf",
+    name: "Responsable CTF",
+    description: "Gestion complète du CTF : challenges, participants et configuration CTFd",
+    color: "#00ccff",
+    permissions: {
+      ctf: "write",
+      registrations: "read",
+      export: "read",
+    },
+  },
+  {
+    id: "observateur_ctf",
+    name: "Observateur CTF",
+    description: "Lecture seule sur le CTF",
+    color: "#006688",
+    permissions: {
+      ctf: "read",
+    },
+  },
+  {
     id: "observateur",
     name: "Observateur",
     description: "Lecture seule sur toutes les sections",

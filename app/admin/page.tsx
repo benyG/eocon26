@@ -5124,7 +5124,6 @@ export default function AdminDashboard() {
 
           {/* TICKETS */}
           {tab === "tickets" && <TicketsPanel />}
-          {tab === "ctf" && <CTFPanel />}
 
           {/* CERTIFICATES */}
           {tab === "certificates" && (

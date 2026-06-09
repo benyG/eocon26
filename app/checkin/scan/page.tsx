@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useCheckinAuth } from "@/hooks/useCheckinAuth";
 
 type CheckinResult = {
   success?: boolean;
@@ -12,6 +13,7 @@ type CheckinResult = {
 type ScanState = "idle" | "scanning" | "success" | "duplicate" | "error";
 
 export default function QRScannerPage() {
+  const { state: authState } = useCheckinAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -140,9 +142,21 @@ export default function QRScannerPage() {
     idle:      { bg: "#050a0e", border: "#1a2a3a",   color: "#00ccff", icon: "📷", title: "Scanner QR Check-in" },
     scanning:  { bg: "#050a0e", border: "#00ff9d40", color: "#00ff9d", icon: "",   title: "" },
     success:   { bg: "#001a0d", border: "#00ff9d",   color: "#00ff9d", icon: "✓", title: "CHECK-IN VALIDÉ" },
-    duplicate: { bg: "#1a0d00", border: "#ff6600",   color: "#ff6600", icon: "⚠", title: "DÉJÀ ENREGISTRÉ" },
+    duplicate: { bg: "#1a0000", border: "#ff0066",   color: "#ff0066", icon: "🚨", title: "DÉJÀ ENREGISTRÉ" },
     error:     { bg: "#1a0000", border: "#ff0066",   color: "#ff0066", icon: "✗", title: "QR INVALIDE" },
   }[state];
+
+  if (authState === "loading") return (
+    <div style={{ minHeight: "100vh", background: "#050a0e", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", color: "#00ff9d", fontSize: 13, letterSpacing: 2 }}>
+      VÉRIFICATION ACCÈS…
+    </div>
+  );
+  if (authState === "denied") return (
+    <div style={{ minHeight: "100vh", background: "#050a0e", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "monospace", padding: 32 }}>
+      <div style={{ color: "#ff0066", fontSize: 14, fontWeight: "bold", letterSpacing: 2, marginBottom: 12 }}>ACCÈS REFUSÉ</div>
+      <div style={{ color: "#888", fontSize: 12, textAlign: "center", maxWidth: 300 }}>Votre compte n&apos;a pas les droits sur le check-in.<br/>Contactez l&apos;administrateur.</div>
+    </div>
+  );
 
   return (
     <div style={{ minHeight: "100vh", background: "#050a0e", display: "flex", flexDirection: "column", alignItems: "center", padding: "16px", fontFamily: "'Share Tech Mono', monospace" }}>
@@ -197,7 +211,24 @@ export default function QRScannerPage() {
                     <div style={{ color: "#444", fontSize: 11, marginTop: 8 }}>{new Date(result.registration.checkedInAt).toLocaleTimeString("fr-FR")}</div>
                   </>
                 )}
-                {state === "duplicate" && result?.checkedInAt && <div style={{ color: "#888", fontSize: 12 }}>Check-in déjà effectué le {new Date(result.checkedInAt).toLocaleString("fr-FR")}{result.checkedInBy ? ` par ${result.checkedInBy}` : ""}</div>}
+                {state === "duplicate" && (
+                  <>
+                    {result?.checkedInAt && (
+                      <div style={{ color: "#888", fontSize: 12, marginBottom: 12 }}>
+                        Check-in déjà effectué le {new Date(result.checkedInAt).toLocaleString("fr-FR")}{result.checkedInBy ? ` par ${result.checkedInBy}` : ""}
+                      </div>
+                    )}
+                    <div style={{ background: "#2a0000", border: "1px solid #ff006680", borderRadius: 10, padding: "14px 18px", textAlign: "left" }}>
+                      <p style={{ color: "#ff4444", fontSize: 13, fontWeight: "bold", margin: "0 0 8px", letterSpacing: 1 }}>⚠ Tentative de fraude ?</p>
+                      <p style={{ color: "#cc8888", fontSize: 12, margin: "0 0 6px", lineHeight: 1.6 }}>
+                        Une notification a été envoyée à la sécurité.
+                      </p>
+                      <p style={{ color: "#ffaa44", fontSize: 12, margin: 0, fontWeight: "bold", lineHeight: 1.6 }}>
+                        Veuillez notifier également le chef de protocole.
+                      </p>
+                    </div>
+                  </>
+                )}
                 {state === "error" && <div style={{ color: "#aaa", fontSize: 13 }}>{result?.error || "QR code non reconnu"}</div>}
                 <p style={{ color: "#333", fontSize: 11, marginTop: 16 }}>Reprise automatique dans 2.5s…</p>
               </>

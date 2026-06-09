@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useCheckinAuth } from "@/hooks/useCheckinAuth";
 
 type Reg = {
   id: number;
@@ -13,6 +14,7 @@ type Reg = {
 };
 
 export default function CheckinHubPage() {
+  const { state: authState, userName } = useCheckinAuth();
   const [regs, setRegs] = useState<Reg[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -57,6 +59,21 @@ export default function CheckinHubPage() {
     r.status === "validated" &&
     (`${r.fname} ${r.lname} ${r.email}`).toLowerCase().includes(search.toLowerCase())
   );
+
+  if (authState === "loading") return (
+    <div style={{ minHeight: "100vh", background: "#050a0e", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", color: "#00ff9d", fontSize: 13, letterSpacing: 2 }}>
+      VÉRIFICATION ACCÈS…
+    </div>
+  );
+  if (authState === "denied") return (
+    <div style={{ minHeight: "100vh", background: "#050a0e", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "monospace", padding: 32 }}>
+      <div style={{ color: "#ff0066", fontSize: 14, fontWeight: "bold", letterSpacing: 2, marginBottom: 12 }}>ACCÈS REFUSÉ</div>
+      <div style={{ color: "#888", fontSize: 12, textAlign: "center", maxWidth: 300 }}>Votre compte n&apos;a pas les droits sur le check-in.<br/>Contactez l&apos;administrateur.</div>
+    </div>
+  );
+
+  // userName is available for display if needed: {userName}
+  void userName;
 
   return (
     <div style={{ minHeight: "100vh", background: "#050a0e", fontFamily: "'Share Tech Mono', monospace", color: "#e0e0e0", padding: "0" }}>

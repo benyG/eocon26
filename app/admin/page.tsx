@@ -3,12 +3,10 @@ import { useState, useEffect, useCallback, useRef, createContext, useContext } f
 import { useRouter } from "next/navigation";
 import { ADMIN_PROFILES } from "@/lib/adminProfiles";
 import PipelineKanban from "@/components/admin/PipelineKanban";
-import VolunteerKanban from "@/components/admin/VolunteerKanban";
 import CountrySelect from "@/components/CountrySelect";
 import AdminProfilesPanel from "@/components/admin/AdminProfilesPanel";
+import ConfirmModal, { useConfirm } from "@/components/admin/ConfirmModal";
 import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
-import MediaLibraryModal from "@/components/admin/MediaLibraryModal";
-import CyberWatchPanel from "@/components/admin/CyberWatchPanel";
 
 const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; setLang: (l: AdminLang) => void }>({
   lang: "fr",
@@ -17,7 +15,7 @@ const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; 
 });
 const useAdminT = () => useContext(AdminLangContext);
 
-type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "sessions";
+type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "sessions" | "audit";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -139,7 +137,7 @@ function MfaSetupModal({ setup, onClose, onSuccess }: { setup: MfaSetupState; on
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
       <div className="cyber-card rounded-xl p-6 max-w-sm w-full">
         <h3 className="text-white font-bold mb-2">🔐 Activer MFA — {setup.userName}</h3>
         {done ? (
@@ -179,6 +177,7 @@ function MfaSetupModal({ setup, onClose, onSuccess }: { setup: MfaSetupState; on
 
 function AdminUsersPanel() {
   const { t } = useAdminT();
+  const confirm = useConfirm();
   const [users, setUsers] = useState<Record<string, unknown>[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ profileId: "coordinateur_cfp" });
@@ -239,7 +238,7 @@ function AdminUsersPanel() {
   };
 
   const disableMfa = async (id: number) => {
-    if (!confirm("Désactiver le MFA pour cet utilisateur ?")) return;
+    if (!(await confirm({ message: "Désactiver le MFA pour cet utilisateur ?", danger: true }))) return;
     const res = await fetch("/api/admin/mfa/setup", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -271,7 +270,7 @@ function AdminUsersPanel() {
       )}
 
       {created && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <div className="cyber-card rounded-xl p-6 max-w-md w-full">
             <h3 className="text-white font-bold mb-4">✅ Utilisateur créé</h3>
             <p className="text-gray-400 text-sm mb-4">Un email a été envoyé à <strong className="text-white">{created.email}</strong> avec les identifiants.</p>
@@ -421,28 +420,19 @@ function AiScoreBadge({ score, analysis }: { score: number | null; analysis: str
 }
 
 function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>[]; onRefresh: () => void }) {
+  const { t } = useAdminT();
   const [searchTab, setSearchTab] = useState<"apollo" | "places">("apollo");
   const [apolloKeywords, setApolloKeywords] = useState("cybersecurity,technology,telecom,finance");
   const [placesQuery, setPlacesQuery] = useState("");
   const [searching, setSearching] = useState(false);
-  const [packages, setPackages] = useState<Record<string, unknown>[]>([]);
-  const [view, setView] = useState<"leads" | "pipeline">("leads");
-
-  // Selection for batch scoring
-  const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [scoring, setScoring] = useState(false);
-
-  // Contact modal
-  const [contactTarget, setContactTarget] = useState<Record<string, unknown> | null>(null);
-  const [contactLang, setContactLang] = useState<"fr" | "en">("fr");
-  const [contactSubject, setContactSubject] = useState("");
-  const [contactBody, setContactBody] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [sendResult, setSendResult] = useState<string | null>(null);
+  const [emailTarget, setEmailTarget] = useState<Record<string, unknown> | null>(null);
+  const [emailResult, setEmailResult] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
+  const [generatingEmail, setGeneratingEmail] = useState(false);
   const [pitchTarget, setPitchTarget] = useState<Record<string, unknown> | null>(null);
   const [pitchResult, setPitchResult] = useState<{ accroche: string; valeur: string[]; objection: { question: string; reponse: string }; ouverture: string; brief_complet: string } | null>(null);
   const [generatingPitch, setGeneratingPitch] = useState(false);
+  const [packages, setPackages] = useState<Record<string, unknown>[]>([]);
+  const [filter, setFilter] = useState<"all" | "pending" | "added">("all");
 
   useEffect(() => {
     fetch("/api/admin/sponsor-packages").then(r => r.json()).then(setPackages).catch(() => {});
@@ -450,7 +440,11 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
 
   const runApolloSearch = async () => {
     setSearching(true);
-    await fetch("/api/admin/ai/apollo-search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keywords: apolloKeywords.split(",").map(k => k.trim()).filter(Boolean) }) });
+    await fetch("/api/admin/ai/apollo-search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keywords: apolloKeywords.split(",").map(k => k.trim()).filter(Boolean) }),
+    });
     await onRefresh();
     setSearching(false);
   };
@@ -458,74 +452,35 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
   const runPlacesSearch = async () => {
     if (!placesQuery.trim()) return;
     setSearching(true);
-    await fetch("/api/admin/ai/places-search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: placesQuery }) });
+    await fetch("/api/admin/ai/places-search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: placesQuery }),
+    });
     await onRefresh();
     setSearching(false);
   };
 
-  const scoreColor = (s: number | null | undefined) => {
-    if (s === null || s === undefined) return "#555";
-    return s >= 7 ? "#00ff9d" : s >= 5 ? "#ffaa00" : "#ff0066";
-  };
-
-  const scoreSelected = async () => {
-    const ids = Array.from(selected);
-    if (ids.length === 0 || ids.length > 10) return;
-    setScoring(true);
-    const res = await fetch("/api/admin/ai/score-prospects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
-    if (res.ok) {
-      const { leads: updated } = await res.json() as { leads: Record<string, unknown>[]; scored: number };
-      // Merge updated scores back without full refresh
-      updated.forEach(u => {
-        const lead = leads.find(l => l.id === u.id);
-        if (lead) { lead.aiScore = u.aiScore; lead.aiScoreReason = u.aiScoreReason; lead.recommendedPackage = u.recommendedPackage; }
-      });
-      onRefresh();
-    }
-    setSelected(new Set());
-    setScoring(false);
-  };
-
-  const addToPipeline = async (lead: Record<string, unknown>, status = "prospect") => {
-    await fetch("/api/admin/ai/prospect-leads", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: lead.id, addedToPipeline: true }) });
-    await fetch("/api/admin/sponsor-prospects", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ org: lead.org, contact: lead.contactName || null, email: lead.contactEmail || null, phone: lead.phone || null, package: lead.recommendedPackage || null, notes: lead.aiScoreReason || null, status }),
-    });
-    onRefresh();
-  };
-
-  const deleteLead = async (lead: Record<string, unknown>) => {
-    if (!confirm(`Supprimer définitivement "${lead.org}" ?`)) return;
-    await fetch("/api/admin/ai/prospect-leads", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: lead.id }) });
-    onRefresh();
-  };
-
-  const openContactModal = (lead: Record<string, unknown>) => {
-    setContactTarget(lead);
-    setContactLang("fr");
-    setContactSubject("");
-    setContactBody("");
-    setSendResult(null);
-    setGenerating(false);
-  };
-
-  const generateContactEmail = async () => {
-    if (!contactTarget) return;
-    setGenerating(true);
-    const pkg = packages.find(p => p.tier === contactTarget.recommendedPackage);
+  const generateEmail = async (lead: Record<string, unknown>) => {
+    setEmailTarget(lead);
+    setEmailResult(null);
+    setGeneratingEmail(true);
+    const pkg = packages.find(p => p.tier === lead.recommendedPackage);
     const res = await fetch("/api/admin/ai/sponsor-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ org: contactTarget.org, contact: contactTarget.contactName, contactTitle: contactTarget.contactTitle, package: contactTarget.recommendedPackage, packagePrice: pkg ? `${(pkg.price as number).toLocaleString("fr-FR")} FCFA` : undefined, sector: contactTarget.sector, mode: "prospect" }),
+      body: JSON.stringify({
+        org: lead.org,
+        contact: lead.contactName,
+        contactTitle: lead.contactTitle,
+        package: lead.recommendedPackage,
+        packagePrice: pkg ? `${(pkg.price as number).toLocaleString("fr-FR")} FCFA` : undefined,
+        sector: lead.sector,
+        mode: "prospect",
+      }),
     });
-    if (res.ok) {
-      const data = await res.json() as { subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string };
-      setContactSubject(contactLang === "fr" ? data.subjectFr : data.subjectEn);
-      setContactBody(contactLang === "fr" ? data.bodyFr : data.bodyEn);
-    }
-    setGenerating(false);
+    if (res.ok) setEmailResult(await res.json());
+    setGeneratingEmail(false);
   };
 
   const generatePitch = async (lead: Record<string, unknown>) => {
@@ -549,21 +504,35 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
     setGeneratingPitch(false);
   };
 
-  const sendContactEmail = async () => {
-    if (!contactTarget || !contactSubject || !contactBody) return;
-    const to = contactTarget.contactEmail as string;
-    if (!to) { setSendResult("❌ Aucun email de contact disponible pour ce prospect."); return; }
-    setSending(true);
-    const res = await fetch("/api/admin/ai/prospect-email-send", {
+  const addToPipeline = async (lead: Record<string, unknown>) => {
+    // Mark lead as added
+    await fetch("/api/admin/ai/prospect-leads", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: lead.id, addedToPipeline: true }),
+    });
+    // Create prospect entry with status "prospect"
+    await fetch("/api/admin/sponsor-prospects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to, subject: contactSubject, body: contactBody, org: contactTarget.org }),
+      body: JSON.stringify({
+        org: lead.org,
+        contact: lead.contactName || null,
+        email: lead.contactEmail || null,
+        phone: lead.phone || null,
+        package: lead.recommendedPackage || null,
+        notes: lead.aiScoreReason || null,
+        status: "prospect",
+      }),
     });
-    setSendResult(res.ok ? "✓ Email envoyé avec succès." : "❌ Erreur lors de l'envoi.");
-    setSending(false);
+    onRefresh();
   };
 
-  // Deduplicate
+  const scoreColor = (s: number | null | undefined) => {
+    if (s === null || s === undefined) return "#555";
+    return s >= 7 ? "#00ff9d" : s >= 5 ? "#ffaa00" : "#ff0066";
+  };
+
   const seen = new Set<string>();
   const deduped = leads.filter(l => {
     const key = (l.org as string).toLowerCase().trim();
@@ -572,88 +541,63 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
     return true;
   });
 
-  const pendingLeads = deduped.filter(l => !l.addedToPipeline).sort((a, b) => ((b.aiScore as number) || 0) - ((a.aiScore as number) || 0));
-  const pipelineLeads = deduped.filter(l => !!l.addedToPipeline).sort((a, b) => ((b.aiScore as number) || 0) - ((a.aiScore as number) || 0));
+  const filtered = deduped.filter(l => {
+    if (filter === "pending") return !l.addedToPipeline;
+    if (filter === "added") return !!l.addedToPipeline;
+    return true;
+  });
 
-  // Selection helpers
-  const canSelect = (lead: Record<string, unknown>) => lead.aiScore === null || lead.aiScore === undefined;
-  const toggleSelect = (id: number, lead: Record<string, unknown>) => {
-    if (!canSelect(lead)) return; // already scored — block
-    const next = new Set(selected);
-    if (next.has(id)) next.delete(id); else if (next.size < 10) next.add(id);
-    setSelected(next);
-  };
-  const selectedCount = selected.size;
+  const pending = deduped.filter(l => !l.addedToPipeline).length;
+  const added = deduped.filter(l => !!l.addedToPipeline).length;
 
   return (
     <div>
-      {/* Contact modal */}
-      {contactTarget && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl font-black text-white">{t.prospectionTitle}</h1>
+        <p className="text-gray-500 text-xs mt-1">{t.prospectionWorkflow}</p>
+      </div>
+
+      {emailTarget && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-white font-bold">{contactTarget.org as string}</h3>
-                <p className="text-gray-500 text-xs">{contactTarget.sector as string} · {contactTarget.contactEmail as string || "Pas d'email"}</p>
+                <h3 className="text-white font-bold">{emailTarget.org as string}</h3>
+                <p className="text-gray-500 text-xs">{emailTarget.sector as string} · {t.package} : <span style={{ color: "#00ff9d" }}>{(emailTarget.recommendedPackage as string) || "—"}</span></p>
               </div>
-              <button onClick={() => setContactTarget(null)} className="text-gray-500 hover:text-white text-xl">✕</button>
+              <button onClick={() => { setEmailTarget(null); setEmailResult(null); }} className="text-gray-500 hover:text-white text-xl">✕</button>
             </div>
-
-            {/* Lang + generate */}
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-xs text-gray-500">Langue :</span>
-              {(["fr", "en"] as const).map(l => (
-                <button key={l} onClick={() => setContactLang(l)}
-                  className={`text-xs px-3 py-1 rounded border transition-all ${contactLang === l ? "bg-neon-green/10 text-neon-green border-neon-green/30" : "text-gray-500 border-gray-700"}`}>
-                  {l === "fr" ? "🇫🇷 Français" : "🇬🇧 English"}
+            {generatingEmail && <p className="text-gray-500 text-xs text-center py-8">{t.generatingLabel}</p>}
+            {emailResult && (
+              <div className="space-y-4">
+                {[
+                  { lang: "Français", subject: emailResult.subjectFr, body: emailResult.bodyFr },
+                  { lang: "English", subject: emailResult.subjectEn, body: emailResult.bodyEn },
+                ].map(e => (
+                  <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold text-gray-400 uppercase">{e.lang}</span>
+                      <button onClick={() => navigator.clipboard.writeText(`${t.emailSubjectField} : ${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>{t.close}</button>
+                    </div>
+                    <p className="text-white text-xs font-bold mb-2">{t.emailSubjectField} : {e.subject}</p>
+                    <p className="text-gray-400 text-xs whitespace-pre-wrap leading-relaxed">{e.body}</p>
+                  </div>
+                ))}
+                <button
+                  onClick={() => addToPipeline(emailTarget)}
+                  className="w-full py-2 rounded text-sm font-bold transition-all"
+                  style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}
+                >
+                  {t.addToPipeline}
                 </button>
-              ))}
-              <button onClick={generateContactEmail} disabled={generating}
-                className="ml-auto text-xs px-4 py-1.5 rounded transition-all"
-                style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}>
-                {generating ? "Génération…" : "✨ Générer"}
-              </button>
-            </div>
-
-            {/* Editable subject */}
-            <div className="mb-3">
-              <label className="text-xs text-gray-500 block mb-1">Objet</label>
-              <input
-                className="cyber-input w-full px-3 py-2 rounded text-xs text-white"
-                value={contactSubject}
-                onChange={e => setContactSubject(e.target.value)}
-                placeholder="Objet de l'email…"
-              />
-            </div>
-
-            {/* Editable body */}
-            <div className="mb-4">
-              <label className="text-xs text-gray-500 block mb-1">Corps du message</label>
-              <textarea
-                className="cyber-input w-full px-3 py-2 rounded text-xs text-white leading-relaxed"
-                rows={12}
-                value={contactBody}
-                onChange={e => setContactBody(e.target.value)}
-                placeholder="Corps de l'email…"
-              />
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button onClick={sendContactEmail} disabled={sending || !contactSubject || !contactBody}
-                className="btn-neon px-5 py-2 rounded text-xs disabled:opacity-50">
-                {sending ? "Envoi…" : "📤 Envoyer"}
-              </button>
-              <span className="text-xs text-gray-600">Reply-To : contact@eyesopensecurity.com</span>
-            </div>
-            {sendResult && (
-              <p className="mt-3 text-xs font-mono" style={{ color: sendResult.startsWith("✓") ? "#00ff9d" : "#ff0066" }}>{sendResult}</p>
+              </div>
             )}
           </div>
         </div>
       )}
 
       {pitchTarget && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -699,200 +643,142 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
         </div>
       )}
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-black text-white">Prospection Sponsors IA</h1>
-        <p className="text-gray-500 text-xs mt-1">Workflow : Recherche → Leads → Scoring IA → Pipeline → Contacter</p>
-      </div>
-
-      {/* Search */}
       <div className="cyber-card rounded-xl p-5 mb-5">
         <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#00ff9d" }}>
-          Étape 1 — Recherche de prospects
+          {t.prospectionStep1}
         </h2>
         <div className="flex gap-2 mb-4">
-          {(["apollo", "places"] as const).map(t => (
-            <button key={t} onClick={() => setSearchTab(t)} className={`text-xs px-4 py-2 rounded transition-all ${searchTab === t ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 border border-gray-800"}`}>
-              {t === "apollo" ? "🌍 Apollo.io — Grandes entreprises" : "📍 Google Places — PME locales"}
+          {(["apollo", "places"] as const).map(tab => (
+            <button key={tab} onClick={() => setSearchTab(tab)} className={`text-xs px-4 py-2 rounded transition-all ${searchTab === tab ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 border border-gray-800"}`}>
+              {tab === "apollo" ? t.apolloTab : t.placesTab}
             </button>
           ))}
         </div>
         {searchTab === "apollo" ? (
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="text-xs text-gray-500 block mb-1">Secteurs / mots-clés (séparés par virgules)</label>
+              <label className="text-xs text-gray-500 block mb-1">{t.apolloKeywordsLabel}</label>
               <input value={apolloKeywords} onChange={e => setApolloKeywords(e.target.value)} className="cyber-input w-full text-xs rounded px-3 py-2" placeholder="cybersecurity,technology,telecom,finance,banking" />
             </div>
             <button onClick={runApolloSearch} disabled={searching} className="btn-neon px-5 py-2 rounded text-xs self-end shrink-0">
-              {searching ? "Recherche..." : "🔍 Lancer"}
+              {searching ? t.searchingLabel : t.searchBtn}
             </button>
           </div>
         ) : (
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="text-xs text-gray-500 block mb-1">Recherche (ex: entreprise tech Douala, banque Cameroun)</label>
+              <label className="text-xs text-gray-500 block mb-1">{t.placesQueryLabel}</label>
               <input value={placesQuery} onChange={e => setPlacesQuery(e.target.value)} className="cyber-input w-full text-xs rounded px-3 py-2" placeholder="banque Douala, opérateur télécom Cameroun..." onKeyDown={e => e.key === "Enter" && runPlacesSearch()} />
             </div>
             <button onClick={runPlacesSearch} disabled={searching || !placesQuery.trim()} className="btn-neon px-5 py-2 rounded text-xs self-end shrink-0">
-              {searching ? "Recherche..." : "🔍 Lancer"}
+              {searching ? t.searchingLabel : t.searchBtn}
             </button>
           </div>
         )}
-        <p className="text-gray-700 text-xs mt-2">Apollo.io couvre les entreprises de +50 employés en Afrique · Google Places couvre les PME locales de Douala</p>
+        <p className="text-gray-700 text-xs mt-2">
+          {t.apolloHint}
+        </p>
       </div>
 
-      {/* View tabs */}
-      <div className="flex items-center gap-3 mb-4">
-        {(["leads", "pipeline"] as const).map(v => (
-          <button key={v} onClick={() => setView(v)}
-            className={`text-xs px-4 py-2 rounded border transition-all ${view === v ? "bg-neon-green/10 text-neon-green border-neon-green/30" : "text-gray-600 border-gray-800"}`}>
-            {v === "leads" ? `📋 Leads (${pendingLeads.length})` : `🎯 En pipeline (${pipelineLeads.length})`}
-          </button>
-        ))}
-      </div>
-
-      {/* LEADS VIEW */}
-      {view === "leads" && (
-        <div className="cyber-card rounded-xl p-5 mb-5">
-          {/* Scoring toolbar */}
-          <div className="flex items-center gap-3 mb-4">
-            <span className="text-xs text-gray-500">{selectedCount} sélectionné{selectedCount > 1 ? "s" : ""} (max 10)</span>
-            <button
-              onClick={scoreSelected}
-              disabled={selectedCount === 0 || scoring}
-              className="text-xs px-4 py-1.5 rounded transition-all disabled:opacity-40"
-              style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}
-            >
-              {scoring ? "Analyse IA…" : "✨ Scorer avec IA"}
-            </button>
-            {selectedCount > 0 && (
-              <button onClick={() => setSelected(new Set())} className="text-xs text-gray-600 hover:text-gray-400">Tout déselectionner</button>
-            )}
-          </div>
-
-          {pendingLeads.length === 0 && (
-            <p className="text-gray-600 text-xs py-8 text-center">Aucun prospect. Lancez une recherche ci-dessus ou tous les leads sont déjà en pipeline.</p>
-          )}
-
-          <div className="space-y-3">
-            {pendingLeads.map(lead => {
-              const id = lead.id as number;
-              const isSelected = selected.has(id);
-              const isScored = lead.aiScore !== null && lead.aiScore !== undefined;
-              return (
-                <div key={id} className={`border rounded-xl p-4 transition-all ${isSelected ? "border-blue-500/50 bg-blue-500/5" : "border-gray-700 hover:border-gray-500"}`}>
-                  <div className="flex items-start gap-3">
-                    {/* Checkbox */}
-                    <div className="pt-0.5 shrink-0">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        disabled={isScored}
-                        onChange={() => toggleSelect(id, lead)}
-                        title={isScored ? "Déjà scoré — scoring IA non nécessaire" : "Sélectionner pour scorer"}
-                        className="w-3.5 h-3.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
-                      />
-                    </div>
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: lead.source === "apollo" ? "#0066ff15" : "#cc00ff15", color: lead.source === "apollo" ? "#0066ff" : "#cc00ff" }}>
-                          {lead.source as string}
-                        </span>
-                        {isScored ? (
-                          <span className="text-xs px-2 py-0.5 rounded font-mono font-bold" style={{ background: scoreColor(lead.aiScore as number) + "20", color: scoreColor(lead.aiScore as number) }}>
-                            ✨ {(lead.aiScore as number).toFixed(1)}/10
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-700 font-mono">— non scoré</span>
-                        )}
-                        {!!(lead.recommendedPackage as string) && (
-                          <span className="text-xs px-2 py-0.5 rounded border" style={{ borderColor: "#ffaa0040", color: "#ffaa00" }}>{lead.recommendedPackage as string}</span>
-                        )}
-                      </div>
-                      <p className="text-white font-bold text-sm">{lead.org as string}</p>
-                      {(!!lead.sector || !!lead.city) && <p className="text-gray-500 text-xs mt-0.5">{lead.sector as string}{lead.city ? ` · ${lead.city}` : ""}</p>}
-                      {!!lead.contactName && <p className="text-xs mt-1" style={{ color: "#00ff9d" }}>👤 {lead.contactName as string}{lead.contactTitle ? ` — ${lead.contactTitle}` : ""}</p>}
-                      {!!lead.contactEmail && <p className="text-gray-400 text-xs">✉ {lead.contactEmail as string}</p>}
-                      {!!lead.website && <a href={lead.website as string} target="_blank" rel="noreferrer" className="text-xs hover:underline block mt-0.5" style={{ color: "#0066ff" }}>🌐 {lead.website as string}</a>}
-                      {!lead.contactEmail && lead.source === "google_places" && <p className="text-gray-700 text-xs mt-0.5 italic">Email non disponible via Google Places — consulter le site web</p>}
-                      {!!lead.aiScoreReason && <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>}
-                    </div>
-                    {/* Actions */}
-                    <div className="flex flex-col gap-1.5 shrink-0">
-                      <button
-                        onClick={() => generatePitch(lead)}
-                        className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
-                        style={{ background: "#ff006615", color: "#ff0066", border: "1px solid #ff006640" }}
-                      >
-                        🎯 Pitch
-                      </button>
-                      <button onClick={() => addToPipeline(lead, "prospect")}
-                        className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
-                        style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>
-                        + Pipeline
-                      </button>
-                      <button onClick={() => addToPipeline(lead, "abandoned")}
-                        className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
-                        style={{ background: "#88888815", color: "#888", border: "1px solid #88888830" }}>
-                        Abandonner
-                      </button>
-                      <button onClick={() => deleteLead(lead)}
-                        className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
-                        style={{ background: "#ff006615", color: "#ff0066", border: "1px solid #ff006630" }}>
-                        ✕ Supprimer
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* PIPELINE VIEW */}
-      {view === "pipeline" && (
-        <div className="cyber-card rounded-xl p-5 mb-5">
-          {pipelineLeads.length === 0 && (
-            <p className="text-gray-600 text-xs py-8 text-center">Aucun prospect en pipeline. Ajoutez des leads depuis l&apos;onglet Leads.</p>
-          )}
-          <div className="space-y-3">
-            {pipelineLeads.map(lead => (
-              <div key={lead.id as number} className="border border-gray-700 rounded-xl p-4 flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: lead.source === "apollo" ? "#0066ff15" : "#cc00ff15", color: lead.source === "apollo" ? "#0066ff" : "#cc00ff" }}>{lead.source as string}</span>
-                    {lead.aiScore !== null && lead.aiScore !== undefined && (
-                      <span className="text-xs px-2 py-0.5 rounded font-mono font-bold" style={{ background: scoreColor(lead.aiScore as number) + "20", color: scoreColor(lead.aiScore as number) }}>
-                        ✨ {(lead.aiScore as number).toFixed(1)}/10
-                      </span>
-                    )}
-                    {!!(lead.recommendedPackage as string) && (
-                      <span className="text-xs px-2 py-0.5 rounded border" style={{ borderColor: "#ffaa0040", color: "#ffaa00" }}>{lead.recommendedPackage as string}</span>
-                    )}
-                    <span className="text-xs text-neon-green">✓ En pipeline</span>
-                  </div>
-                  <p className="text-white font-bold text-sm">{lead.org as string}</p>
-                  {(!!lead.sector || !!lead.city) && <p className="text-gray-500 text-xs mt-0.5">{lead.sector as string}{lead.city ? ` · ${lead.city}` : ""}</p>}
-                  {!!lead.contactName && <p className="text-xs mt-1" style={{ color: "#00ff9d" }}>👤 {lead.contactName as string}{lead.contactTitle ? ` — ${lead.contactTitle}` : ""}</p>}
-                  {!!lead.contactEmail && <p className="text-gray-400 text-xs">✉ {lead.contactEmail as string}</p>}
-                  {!!lead.website && <a href={lead.website as string} target="_blank" rel="noreferrer" className="text-xs hover:underline block mt-0.5" style={{ color: "#0066ff" }}>🌐 {lead.website as string}</a>}
-                  {!!lead.aiScoreReason && <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>}
-                </div>
-                <button onClick={() => openContactModal(lead)}
-                  className="text-xs px-4 py-2 rounded whitespace-nowrap transition-all shrink-0"
-                  style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}>
-                  ✉ Contacter le prospect
-                </button>
-              </div>
+      <div className="cyber-card rounded-xl p-5 mb-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xs font-bold uppercase tracking-widest" style={{ color: "#0066ff" }}>
+            {t.leadsStep2Heading} ({deduped.length})
+          </h2>
+          <div className="flex gap-2">
+            {(["all", "pending", "added"] as const).map(f => (
+              <button key={f} onClick={() => setFilter(f)} className={`text-xs px-3 py-1 rounded transition-all ${filter === f ? "bg-white/10 text-white" : "text-gray-600 hover:text-gray-400"}`}>
+                {f === "all" ? `${t.filterAll} (${deduped.length})` : f === "pending" ? `${t.filterPending} (${pending})` : `${t.filterAdded} (${added})`}
+              </button>
             ))}
           </div>
         </div>
-      )}
+
+        {filtered.length === 0 && (
+          <p className="text-gray-600 text-xs py-8 text-center">
+            {deduped.length === 0 ? t.noProspectsAll : t.noProspectsFilter}
+          </p>
+        )}
+
+        <div className="space-y-3">
+          {filtered.sort((a, b) => ((b.aiScore as number) || 0) - ((a.aiScore as number) || 0)).map(lead => (
+            <div key={lead.id as number} className={`border rounded-xl p-4 transition-all ${lead.addedToPipeline ? "border-gray-800 opacity-60" : "border-gray-700 hover:border-gray-500"}`}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: lead.source === "apollo" ? "#0066ff15" : "#cc00ff15", color: lead.source === "apollo" ? "#0066ff" : "#cc00ff" }}>
+                      {lead.source as string}
+                    </span>
+                    {lead.aiScore !== null && lead.aiScore !== undefined && (
+                      <span className="text-xs px-2 py-0.5 rounded font-mono font-bold" style={{ background: scoreColor(lead.aiScore as number) + "20", color: scoreColor(lead.aiScore as number) }}>
+                        Score {(lead.aiScore as number).toFixed(1)}/10
+                      </span>
+                    )}
+                    {!!(lead.recommendedPackage as string) && (
+                      <span className="text-xs px-2 py-0.5 rounded border" style={{ borderColor: "#ffaa0040", color: "#ffaa00" }}>
+                        {lead.recommendedPackage as string}
+                      </span>
+                    )}
+                    {!!lead.addedToPipeline && <span className="text-xs text-neon-green">{t.inPipeline}</span>}
+                  </div>
+                  <p className="text-white font-bold text-sm">{lead.org as string}</p>
+                  {(!!lead.sector || !!lead.city) && (
+                    <p className="text-gray-500 text-xs mt-0.5">{lead.sector as string}{lead.city ? ` · ${lead.city}` : ""}</p>
+                  )}
+                  {!!lead.contactName && (
+                    <p className="text-xs mt-1" style={{ color: "#00ff9d" }}>
+                      👤 {lead.contactName as string}{lead.contactTitle ? ` — ${lead.contactTitle}` : ""}
+                    </p>
+                  )}
+                  {!!lead.contactEmail && (
+                    <p className="text-gray-400 text-xs">✉ {lead.contactEmail as string}</p>
+                  )}
+                  {!!lead.website && (
+                    <a href={lead.website as string} target="_blank" rel="noreferrer" className="text-xs hover:underline block mt-0.5" style={{ color: "#0066ff" }}>
+                      🌐 {lead.website as string}
+                    </a>
+                  )}
+                  {!lead.contactEmail && lead.source === "google_places" && (
+                    <p className="text-gray-700 text-xs mt-0.5 italic">{t.noEmailAvailable}</p>
+                  )}
+                  {!!lead.aiScoreReason && (
+                    <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>
+                  )}
+                </div>
+                {!lead.addedToPipeline && (
+                  <div className="flex flex-col gap-2 shrink-0">
+                    <button
+                      onClick={() => generateEmail(lead)}
+                      className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
+                      style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}
+                    >
+                      {t.generateBtn}
+                    </button>
+                    <button
+                      onClick={() => generatePitch(lead)}
+                      className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
+                      style={{ background: "#ff006615", color: "#ff0066", border: "1px solid #ff006640" }}
+                    >
+                      🎯 Pitch
+                    </button>
+                    <button
+                      onClick={() => addToPipeline(lead)}
+                      className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
+                      style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}
+                    >
+                      {t.addToPipeline}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {packages.length > 0 && (
         <div className="cyber-card rounded-xl p-5">
-          <h2 className="text-xs font-bold uppercase tracking-widest mb-4 text-gray-500">Packages de sponsoring disponibles</h2>
+          <h2 className="text-xs font-bold uppercase tracking-widest mb-4 text-gray-500">{t.availablePackages}</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {packages.map(pkg => {
               const perks = JSON.parse((pkg.perksFr as string) || "[]") as string[];
@@ -900,14 +786,14 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
                 <div key={pkg.id as number} className="border border-gray-800 rounded-lg p-3">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold" style={{ color: (pkg.highlightColor as string) || "#888" }}>{pkg.tier as string}</span>
-                    <span className="text-xs font-mono text-white">{(pkg.price as number) > 0 ? `${(pkg.price as number).toLocaleString("fr-FR")} FCFA` : "Échange"}</span>
+                    <span className="text-xs font-mono text-white">{(pkg.price as number) > 0 ? `${(pkg.price as number).toLocaleString("fr-FR")} FCFA` : t.exchangeLabel}</span>
                   </div>
                   <p className="text-gray-500 text-xs mb-2">{pkg.nameFr as string}</p>
                   <ul className="space-y-0.5">
                     {perks.slice(0, 3).map((p, i) => (
                       <li key={i} className="text-gray-600 text-xs flex gap-1"><span style={{ color: (pkg.highlightColor as string) || "#888" }}>·</span>{p}</li>
                     ))}
-                    {perks.length > 3 && <li className="text-gray-700 text-xs">+{perks.length - 3} avantages...</li>}
+                    {perks.length > 3 && <li className="text-gray-700 text-xs">+{perks.length - 3} {t.morePerks}</li>}
                   </ul>
                 </div>
               );
@@ -920,121 +806,10 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
 }
 
 
-// ---- Library Panel ----
-function LibraryPanel() {
-  const [files, setFiles] = useState<{ name: string; url: string; size: number; updated: string }[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [deleting, setDeleting] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    const res = await fetch("/api/admin/library");
-    if (res.ok) setFiles(await res.json());
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  const upload = async (file: File) => {
-    setUploading(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    await fetch("/api/admin/library", { method: "POST", body: fd });
-    await load();
-    setUploading(false);
-  };
-
-  const deleteFile = async (name: string) => {
-    if (!confirm(`Supprimer "${name.split("/").pop()}" ?`)) return;
-    setDeleting(name);
-    await fetch("/api/admin/library", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
-    setFiles(prev => prev.filter(f => f.name !== name));
-    setDeleting(null);
-  };
-
-  const fmt = (b: number) => b < 1024 ? `${b} B` : b < 1048576 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1048576).toFixed(1)} MB`;
-  const filtered = files.filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-black text-white">📁 Library</h1>
-          <p className="text-gray-500 text-xs mt-1">Images hébergées sur Google Cloud Storage · réutilisables dans tous les posts</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            placeholder="Rechercher…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="cyber-input text-xs px-3 py-1.5 rounded w-44"
-          />
-          <button
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            className="text-xs px-4 py-1.5 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono transition-colors disabled:opacity-50"
-          >
-            {uploading ? "⏳ Import…" : "⬆ Importer"}
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
-            className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }}
-          />
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center h-64 text-gray-600 font-mono text-xs">Chargement…</div>
-      ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-64 text-gray-600 font-mono text-xs gap-3">
-          <span>{search ? "Aucun résultat pour cette recherche" : "Aucune image importée"}</span>
-          {!search && (
-            <button onClick={() => fileRef.current?.click()} className="text-neon-green text-xs underline">
-              Importer votre première image
-            </button>
-          )}
-        </div>
-      ) : (
-        <>
-          <p className="text-xs text-gray-600 mb-3 font-mono">{filtered.length} fichier{filtered.length !== 1 ? "s" : ""}</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-            {filtered.map(f => (
-              <div key={f.name} className="group relative rounded-lg overflow-hidden border border-gray-800 hover:border-gray-600 transition-all">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={f.url} alt={f.name} className="w-full aspect-square object-cover bg-gray-900" loading="lazy" />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors" />
-                <button
-                  onClick={() => deleteFile(f.name)}
-                  disabled={deleting === f.name}
-                  className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-600/80 text-white text-xs items-center justify-center hidden group-hover:flex hover:bg-red-500"
-                >✕</button>
-                <div className="absolute bottom-0 inset-x-0 bg-black/70 px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <p className="text-white text-xs truncate leading-tight">{f.name.split("/").pop()}</p>
-                  <p className="text-gray-400 text-xs">{fmt(f.size)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 // ---- Communication Panel ----
 
 function CommunicationPanel() {
+  const { t } = useAdminT();
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
@@ -1073,7 +848,7 @@ function CommunicationPanel() {
   } | null>(null);
   const [selectedItem, setSelectedItem] = useState<Record<string, unknown> | null>(null);
   const [postImage, setPostImage] = useState<string | null>(null);
-  const [showLibraryPicker, setShowLibraryPicker] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [eventSettings, setEventSettings] = useState<Record<string, string>>({});
 
   const generateBriefFromContext = (type: string, item: Record<string, unknown> | null, data: typeof contextData): string => {
@@ -1131,16 +906,29 @@ function CommunicationPanel() {
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
   const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
-  // Posts by date for calendar dots
-  const postsByDate: Record<string, number> = {};
+  // Posts by date for calendar
+  const postsByDate: Record<string, Record<string, unknown>[]> = {};
   linkedinPosts.forEach(p => {
     const d = p.scheduledAt || p.publishedAt;
     if (d) {
       const key = new Date(d as string).toISOString().slice(0, 10);
-      postsByDate[key] = (postsByDate[key] || 0) + 1;
+      if (!postsByDate[key]) postsByDate[key] = [];
+      postsByDate[key].push(p);
     }
   });
 
+  const uploadImage = async (file: File) => {
+    setUploadingImage(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("folder", "socials");
+    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    if (res.ok) {
+      const { url } = await res.json() as { url: string };
+      setPostImage(url);
+    }
+    setUploadingImage(false);
+  };
 
   const handleDayClick = (day: number) => {
     const date = new Date(currentYear, currentMonth, day);
@@ -1304,32 +1092,10 @@ function CommunicationPanel() {
   };
 
   const statusColors: Record<string, string> = { draft: "#888", scheduled: "#ffaa00", published: "#00ff9d", failed: "#ff0066" };
-  const [commTab, setCommTab] = useState<"social" | "email">("social");
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-black text-white">Communication</h1>
-      </div>
-
-      {/* Sub-tab switcher */}
-      <div className="flex gap-1 border-b border-gray-800">
-        {([
-          { key: "social", label: "📱 Réseaux Sociaux" },
-          { key: "email",  label: "✉ Emails & Templates" },
-        ] as const).map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setCommTab(tab.key)}
-            className={`text-xs px-4 py-2 border-b-2 transition-all ${commTab === tab.key ? "border-neon-green text-neon-green" : "border-transparent text-gray-500 hover:text-gray-300"}`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── RÉSEAUX SOCIAUX ── */}
-      {commTab === "social" && <>
+      <h1 className="text-2xl font-black text-white">{t.communicationTitle}</h1>
 
       {/* Calendar + Panel */}
       <div className="flex gap-4">
@@ -1353,32 +1119,31 @@ function CommunicationPanel() {
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;
               const dateKey = `${currentYear}-${String(currentMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-              const hasPost = postsByDate[dateKey] || 0;
+              const dayPosts = postsByDate[dateKey] || [];
               const isToday = today.getDate() === day && today.getMonth() === currentMonth && today.getFullYear() === currentYear;
               const isSelected = selectedDay?.getDate() === day && selectedDay?.getMonth() === currentMonth && selectedDay?.getFullYear() === currentYear;
               return (
                 <button
                   key={day}
                   onClick={() => handleDayClick(day)}
-                  className={`relative aspect-square rounded-lg text-xs flex flex-col items-center justify-center transition-all ${
+                  className={`relative rounded-lg text-xs flex flex-col items-start justify-start p-1 transition-all min-h-[40px] ${
                     isSelected ? "bg-neon-green/20 text-neon-green border border-neon-green/50" :
                     isToday ? "bg-white/10 text-white border border-white/20" :
                     "text-gray-500 hover:bg-white/[0.05] hover:text-gray-300"
                   }`}
                 >
-                  <span>{day}</span>
-                  {hasPost > 0 && (
-                    <div className="flex gap-0.5 mt-0.5">
-                      {Array.from({ length: Math.min(hasPost, 3) }).map((_, di) => (
-                        <div key={di} className="w-1 h-1 rounded-full" style={{ background: "#0066ff" }} />
-                      ))}
-                    </div>
-                  )}
+                  <span className="w-full text-center">{day}</span>
+                  {dayPosts.slice(0, 2).map((p, i) => (
+                    <span key={i} className="block text-left truncate text-gray-500 leading-tight mt-0.5 w-full" style={{ fontSize: "9px" }}>
+                      {p.platform === "linkedin" ? "in" : p.platform === "twitter" ? "𝕏" : "ig"} {(p.content as string).substring(0, 25)}…
+                    </span>
+                  ))}
+                  {dayPosts.length > 2 && <span style={{ fontSize: "9px" }} className="text-gray-600">+{dayPosts.length - 2}</span>}
                 </button>
               );
             })}
           </div>
-          <p className="text-gray-700 text-xs mt-3 text-center">Cliquez sur un jour pour planifier un post</p>
+          <p className="text-gray-700 text-xs mt-3 text-center">{t.clickToScheduleHint}</p>
         </div>
 
         {/* Side panel — fixed layout: sticky header + scrollable body + sticky footer */}
@@ -1396,7 +1161,7 @@ function CommunicationPanel() {
 
             {/* Context type selector */}
             <div className="mb-3">
-              <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Type de contenu</p>
+              <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">{t.contentTypeLabel}</p>
               <div className="grid grid-cols-3 gap-1">
                 {([
                   { key: "speaker", icon: "🎤", label: "Speaker" },
@@ -1431,10 +1196,10 @@ function CommunicationPanel() {
             {contextData && ["speaker", "session", "workshop", "sponsor"].includes(contextType) && (
               <div className="mb-3">
                 <p className="text-xs text-gray-500 mb-1 uppercase tracking-wider">
-                  {contextType === "speaker" ? "Sélectionner un speaker" :
-                   contextType === "session" ? "Sélectionner une session" :
-                   contextType === "workshop" ? "Sélectionner un workshop" :
-                   "Sélectionner un sponsor"}
+                  {contextType === "speaker" ? t.selectSpeakerLabel :
+                   contextType === "session" ? t.selectSessionLabel :
+                   contextType === "workshop" ? t.selectWorkshopLabel :
+                   t.selectSponsorLabel}
                 </p>
                 <select
                   className="cyber-input w-full text-xs rounded px-3 py-2"
@@ -1455,7 +1220,7 @@ function CommunicationPanel() {
                     if (contextType === "speaker" && item?.photoUrl) setPostImage(item.photoUrl as string);
                   }}
                 >
-                  <option value="">-- Choisir --</option>
+                  <option value="">{t.chooseLabel}</option>
                   {(contextType === "speaker" ? contextData.speakers :
                     contextType === "session" ? contextData.sessions :
                     contextType === "workshop" ? contextData.workshops :
@@ -1498,7 +1263,7 @@ function CommunicationPanel() {
 
             {/* Platforms */}
             <div className="mb-3">
-              <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Plateformes</p>
+              <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">{t.platformsLabel}</p>
               <div className="flex gap-3">
                 {(["linkedin", "twitter", "instagram"] as const).map(p => (
                   <label key={p} className="flex items-center gap-1.5 cursor-pointer">
@@ -1511,7 +1276,7 @@ function CommunicationPanel() {
 
             {/* Language */}
             <div className="mb-3">
-              <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Langue</p>
+              <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">{t.languageLabel}</p>
               <div className="flex gap-2">
                 {(["fr", "en", "both"] as const).map(l => (
                   <button key={l} onClick={() => setLang(l)} className={`text-xs px-3 py-1 rounded transition-all ${lang === l ? "bg-neon-green/20 text-neon-green border border-neon-green/40" : "text-gray-500 border border-gray-800"}`}>
@@ -1549,13 +1314,13 @@ function CommunicationPanel() {
 
             {/* Brief */}
             <div className="mb-3">
-              <p className="text-xs text-gray-500 mb-1 uppercase tracking-wider">Brief</p>
-              <textarea value={brief} onChange={e => setBrief(e.target.value)} className="cyber-input w-full text-xs rounded p-2 h-24 resize-none text-white" placeholder="Décrivez le contenu du post..." />
+              <p className="text-xs text-gray-500 mb-1 uppercase tracking-wider">{t.briefLabel}</p>
+              <textarea value={brief} onChange={e => setBrief(e.target.value)} className="cyber-input w-full text-xs rounded p-2 h-24 resize-none text-white" placeholder={t.briefPlaceholder} />
             </div>
 
             {/* Image attachment */}
             <div className="mb-3">
-              <p className="text-xs text-gray-500 mb-1 uppercase tracking-wider">Image (optionnel)</p>
+              <p className="text-xs text-gray-500 mb-1 uppercase tracking-wider">{t.imageOptionalLabel}</p>
               {postImage ? (
                 <div className="relative rounded-lg overflow-hidden border border-gray-700">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1566,29 +1331,27 @@ function CommunicationPanel() {
                   >✕</button>
                 </div>
               ) : (
-                <button
-                  onClick={() => setShowLibraryPicker(true)}
-                  className="w-full flex items-center gap-2 border border-dashed border-gray-700 rounded-lg px-3 py-2 hover:border-neon-green/40 hover:bg-neon-green/5 transition-colors"
-                >
-                  <span className="text-gray-600 text-xs">📎 Ajouter une image (jpg, png, webp)</span>
-                </button>
-              )}
-              {showLibraryPicker && (
-                <MediaLibraryModal
-                  onSelect={url => { setPostImage(url); setShowLibraryPicker(false); }}
-                  onClose={() => setShowLibraryPicker(false)}
-                />
+                <label className="flex items-center gap-2 cursor-pointer border border-dashed border-gray-700 rounded-lg px-3 py-2 hover:border-gray-500 transition-colors">
+                  <span className="text-gray-600 text-xs">{uploadingImage ? t.loading : t.addImageLabel}</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(f); e.target.value = ""; }}
+                    disabled={uploadingImage}
+                  />
+                </label>
               )}
             </div>
 
               <button onClick={generatePosts} disabled={generating || !brief.trim()} className="btn-neon w-full py-2 rounded text-xs">
-                {generating ? "Génération en cours..." : "✨ Générer avec IA"}
+                {generating ? t.generatingPosts : t.generateWithAI}
               </button>
 
               {/* Generated posts preview */}
               {generatedPosts && (
                 <div className="space-y-2">
-                  <p className="text-xs text-gray-500 uppercase tracking-wider">Aperçu des posts</p>
+                  <p className="text-xs text-gray-500 uppercase tracking-wider">{t.postsPreviewLabel}</p>
                   {(["linkedin", "twitter", "instagram"] as const).filter(p => platforms[p]).map(platform => (
                     <div key={platform} className="border border-gray-800 rounded-lg p-3">
                       <p className="text-xs font-bold mb-1 capitalize" style={{ color: platform === "linkedin" ? "#0066ff" : platform === "twitter" ? "#00ccff" : "#cc00ff" }}>{platform}</p>
@@ -1633,7 +1396,7 @@ function CommunicationPanel() {
                     className="py-2 rounded text-xs font-bold transition-all"
                     style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}
                   >
-                    ▶ Poster maintenant
+                    {t.postNowBtn}
                   </button>
                   <button
                     onClick={savePosts}
@@ -1641,113 +1404,146 @@ function CommunicationPanel() {
                     className="py-2 rounded text-xs font-bold transition-all"
                     style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d40" }}
                   >
-                    {saving ? "..." : "📅 Planifier"}
+                    {saving ? "..." : t.schedulePostBtn}
                   </button>
                 </div>
               ) : (
-                <p className="text-gray-700 text-xs text-center">Générez d&apos;abord les posts avec l&apos;IA ↑</p>
+                <p className="text-gray-700 text-xs text-center">{t.generateFirstHint}</p>
               )}
             </div>
           </div>
         )}
       </div>
 
-      {/* Scheduled/published posts list */}
+      {/* Day-selected posts view */}
       <div className="cyber-card rounded-xl p-5">
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#0066ff" }}>Posts planifiés & publiés</h3>
-        {linkedinPosts.length === 0 && <p className="text-gray-600 text-xs text-center py-4">Aucun post. Cliquez sur un jour du calendrier pour créer.</p>}
-        <div className="space-y-2">
-          {linkedinPosts.map(post => {
-            const color = statusColors[post.status as string] || "#888";
-            return (
-              <div key={post.id as number} className="border border-gray-800 rounded-lg p-3 flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={{ background: color + "20", color }}>{post.status as string}</span>
-                    <span className="text-xs text-gray-600 capitalize">{post.platform as string} · {post.lang as string}</span>
-                    {!!post.scheduledAt && <span className="text-xs text-gray-600">📅 {new Date(post.scheduledAt as string).toLocaleDateString("fr-FR")}</span>}
-                  </div>
-                  <p className="text-gray-400 text-xs line-clamp-2">{post.content as string}</p>
-                  {!!post.imageUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={post.imageUrl as string} alt="" className="mt-1 h-12 w-20 object-cover rounded" />
-                  )}
-                </div>
-                <div className="flex gap-1 shrink-0">
-                  {post.status === "draft" && (
-                    <>
-                      <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
-                        {publishing === (post.id as number) ? "..." : "▶"}
-                      </button>
-                      <button onClick={() => { setScheduleId(post.id as number); setScheduleDate(""); }} className="text-xs px-2 py-1 rounded" style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0030" }}>🕐</button>
-                    </>
-                  )}
-                  {post.status === "published" && !!post.linkedinPostId && (
-                    <a
-                      href={post.platform === "twitter"
-                        ? `https://x.com/i/web/status/${post.linkedinPostId as string}`
-                        : `https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`}
-                      target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded" style={{ color: "#00ff9d" }}
-                    >↗</a>
-                  )}
-                  {scheduleId === (post.id as number) && (
-                    <div className="flex gap-1 items-center">
-                      <input type="datetime-local" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="cyber-input text-xs rounded px-1 py-0.5 w-36" />
-                      <button onClick={() => schedulePost(post.id as number)} className="btn-neon text-xs px-2 py-1 rounded">OK</button>
-                      <button onClick={() => setScheduleId(null)} className="text-gray-500 text-xs">✕</button>
-                    </div>
-                  )}
-                </div>
+        {!selectedDay ? (
+          <>
+            <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#0066ff" }}>Posts planifiés & publiés</h3>
+            <p className="text-gray-600 text-xs text-center py-4">Cliquez sur un jour pour voir les posts planifiés</p>
+          </>
+        ) : (() => {
+          const dateKey = `${selectedDay.getFullYear()}-${String(selectedDay.getMonth()+1).padStart(2,"0")}-${String(selectedDay.getDate()).padStart(2,"0")}`;
+          const dayPostsList = postsByDate[dateKey] || [];
+          return (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: "#0066ff" }}>
+                  Posts du {selectedDay.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                </h3>
+                <button onClick={() => setSelectedDay(null)} className="text-gray-600 hover:text-gray-400 text-xs">✕ Fermer</button>
               </div>
-            );
-          })}
-        </div>
+              {dayPostsList.length === 0 && <p className="text-gray-600 text-xs text-center py-4">Aucun post ce jour. Cliquez sur le calendrier pour créer.</p>}
+              <div className="space-y-3">
+                {dayPostsList.map(post => {
+                  const color = statusColors[post.status as string] || "#888";
+                  const platformColor = post.platform === "linkedin" ? "#0066ff" : post.platform === "twitter" ? "#00ccff" : "#cc00ff";
+                  return (
+                    <div key={post.id as number} className="border border-gray-800 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={{ background: platformColor + "20", color: platformColor }}>{post.platform as string}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded font-mono uppercase" style={{ background: "#ffffff10", color: "#aaa" }}>{post.lang as string}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={{ background: color + "20", color }}>{post.status as string}</span>
+                        {!!post.scheduledAt && <span className="text-xs text-gray-600">📅 {new Date(post.scheduledAt as string).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>}
+                      </div>
+                      <textarea
+                        readOnly
+                        value={post.content as string}
+                        className="cyber-input w-full text-xs rounded p-2 h-24 resize-none text-gray-300"
+                      />
+                      {!!post.imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={post.imageUrl as string} alt="" className="h-12 w-20 object-cover rounded" />
+                      )}
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          onClick={() => { handleDayClick(selectedDay.getDate()); }}
+                          className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white transition-colors"
+                        >✏️ Modifier</button>
+                        {post.status === "scheduled" && (
+                          <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
+                            {publishing === (post.id as number) ? "..." : "▶️ Publier maintenant"}
+                          </button>
+                        )}
+                        {post.status === "draft" && (
+                          <>
+                            <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
+                              {publishing === (post.id as number) ? "..." : "▶️ Publier maintenant"}
+                            </button>
+                            <button onClick={() => { setScheduleId(post.id as number); setScheduleDate(""); }} className="text-xs px-2 py-1 rounded" style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0030" }}>🕐 Planifier</button>
+                          </>
+                        )}
+                        {post.status === "published" && !!post.linkedinPostId && (
+                          <a
+                            href={post.platform === "twitter"
+                              ? `https://x.com/i/web/status/${post.linkedinPostId as string}`
+                              : `https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`}
+                            target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded" style={{ color: "#00ff9d" }}
+                          >↗ Voir</a>
+                        )}
+                        <button
+                          onClick={async () => {
+                            await fetch("/api/admin/ai/social-posts", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: post.id }) });
+                            await loadLinkedinPosts();
+                          }}
+                          className="text-xs px-2 py-1 rounded border border-red-800/50 text-red-500 hover:bg-red-900/20 transition-colors"
+                        >🗑️ Supprimer</button>
+                        {scheduleId === (post.id as number) && (
+                          <div className="flex gap-1 items-center w-full mt-1">
+                            <input type="datetime-local" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="cyber-input text-xs rounded px-1 py-0.5 w-36" />
+                            <button onClick={() => schedulePost(post.id as number)} className="btn-neon text-xs px-2 py-1 rounded">OK</button>
+                            <button onClick={() => setScheduleId(null)} className="text-gray-500 text-xs">✕</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          );
+        })()}
       </div>
-
-      </>}
-
-      {/* ── EMAILS & TEMPLATES ── */}
-      {commTab === "email" && <>
 
       {/* Transactional templates */}
       <div className="cyber-card rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Templates Transactionnels</h3>
-          <button onClick={seedTransactionalTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>🔧 Initialiser templates transactionnels</button>
+          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">{t.transactionalTemplatesLabel}</h3>
+          <button onClick={seedTransactionalTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>{t.initTransactionalBtn}</button>
         </div>
         <div className="space-y-3">
-          {templates.filter(t => t.slug).length === 0 && (
-            <p className="text-gray-600 text-xs text-center py-4">Aucun template transactionnel. Cliquez sur &quot;Initialiser&quot; pour créer les 7 templates.</p>
+          {templates.filter(tpl => tpl.slug).length === 0 && (
+            <p className="text-gray-600 text-xs text-center py-4">{t.noTransactionalTemplates}</p>
           )}
-          {templates.filter(t => t.slug).map(t => {
-            const id = t.id as number;
-            const edit = txEdits[id] || { subject: t.subject as string, htmlBody: t.htmlBody as string };
+          {templates.filter(tpl => tpl.slug).map(tpl => {
+            const id = tpl.id as number;
+            const edit = txEdits[id] || { subject: tpl.subject as string, htmlBody: tpl.htmlBody as string };
             let vars: string[] = [];
-            try { vars = JSON.parse(t.variables as string || "[]"); } catch { vars = []; }
+            try { vars = JSON.parse(tpl.variables as string || "[]"); } catch { vars = []; }
             return (
               <div key={id} className="border border-gray-800 rounded-lg p-3">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: "#00ff9d10", color: "#00ff9d", border: "1px solid #00ff9d30" }}>{t.slug as string}</span>
-                  <span className="text-white text-xs font-bold">{t.name as string}</span>
+                  <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: "#00ff9d10", color: "#00ff9d", border: "1px solid #00ff9d30" }}>{tpl.slug as string}</span>
+                  <span className="text-white text-xs font-bold">{tpl.name as string}</span>
                 </div>
                 {vars.length > 0 && (
-                  <p className="text-gray-600 text-xs mb-2">Variables : {vars.map(v => `{{${v}}}`).join(", ")}</p>
+                  <p className="text-gray-600 text-xs mb-2">{t.variablesLabel} {vars.map(v => `{{${v}}}`).join(", ")}</p>
                 )}
                 <input
                   className="cyber-input w-full text-xs rounded px-3 py-2 text-white mb-2"
                   value={edit.subject}
                   onChange={e => setTxEdits(prev => ({ ...prev, [id]: { ...edit, subject: e.target.value } }))}
-                  placeholder="Objet"
+                  placeholder={t.emailSubjectLabelTpl}
                 />
                 <textarea
                   className="cyber-input w-full text-xs rounded px-3 py-2 text-white h-40 resize-none"
                   value={edit.htmlBody}
                   onChange={e => setTxEdits(prev => ({ ...prev, [id]: { ...edit, htmlBody: e.target.value } }))}
-                  placeholder="Corps HTML"
+                  placeholder={t.htmlBodyLabelTpl}
                 />
                 <div className="mt-2 flex justify-end">
                   <button onClick={() => saveTxTemplate(id)} disabled={txSaving === id} className="text-xs px-3 py-1.5 rounded" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>
-                    {txSaving === id ? "..." : "Sauvegarder"}
+                    {txSaving === id ? "..." : t.saveTemplateBtn}
                   </button>
                 </div>
               </div>
@@ -1759,16 +1555,16 @@ function CommunicationPanel() {
       {/* Email templates */}
       <div className="cyber-card rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Templates Email Campagnes</h3>
+          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">{t.campaignTemplatesLabel}</h3>
           <div className="flex gap-2">
-            <button onClick={seedTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>⚡ Seeder</button>
-            <button onClick={() => setShowTemplateForm(!showTemplateForm)} className="btn-neon px-3 py-1.5 rounded text-xs">+ Créer</button>
+            <button onClick={seedTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>{t.seedTemplatesBtn}</button>
+            <button onClick={() => setShowTemplateForm(!showTemplateForm)} className="btn-neon px-3 py-1.5 rounded text-xs">{t.createTemplateBtn}</button>
           </div>
         </div>
         {showTemplateForm && (
           <div className="border border-gray-800 rounded-lg p-4 mb-4 space-y-2">
-            <input placeholder="Nom du template" className="cyber-input w-full text-xs rounded px-3 py-2 text-white" value={(templateForm.name as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, name: e.target.value }))} />
-            <input placeholder="Objet email" className="cyber-input w-full text-xs rounded px-3 py-2 text-white" value={(templateForm.subject as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, subject: e.target.value }))} />
+            <input placeholder={t.templateNamePlaceholder} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" value={(templateForm.name as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, name: e.target.value }))} />
+            <input placeholder={t.emailSubjectLabelTpl} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" value={(templateForm.subject as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, subject: e.target.value }))} />
             <select className="cyber-input w-full text-xs rounded px-3 py-2 text-black" value={(templateForm.segment as string) || "all"} onChange={e => setTemplateForm(f => ({ ...f, segment: e.target.value }))}>
               <option value="all">Tous</option>
               <option value="registered">Inscrits</option>
@@ -1776,50 +1572,50 @@ function CommunicationPanel() {
               <option value="volunteers">Bénévoles acceptés</option>
               <option value="newsletter">Newsletter</option>
             </select>
-            <textarea placeholder="Corps HTML de l'email" className="cyber-input w-full text-xs rounded px-3 py-2 h-32 resize-none text-white" value={(templateForm.htmlBody as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, htmlBody: e.target.value }))} />
+            <textarea placeholder={t.htmlBodyLabelTpl} className="cyber-input w-full text-xs rounded px-3 py-2 h-32 resize-none text-white" value={(templateForm.htmlBody as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, htmlBody: e.target.value }))} />
             <div className="flex gap-2">
-              <button onClick={saveTemplate} className="btn-neon px-3 py-1.5 rounded text-xs">Enregistrer</button>
-              <button onClick={() => setShowTemplateForm(false)} className="text-gray-500 text-xs hover:text-white px-2">Annuler</button>
+              <button onClick={saveTemplate} className="btn-neon px-3 py-1.5 rounded text-xs">{t.saveTemplateBtn}</button>
+              <button onClick={() => setShowTemplateForm(false)} className="text-gray-500 text-xs hover:text-white px-2">{t.cancelTemplateBtn}</button>
             </div>
           </div>
         )}
 
         {/* Preview modal */}
         {previewTemplate && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setPreviewTemplate(null)}>
+          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setPreviewTemplate(null)}>
             <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between p-4 border-b">
                 <div>
                   <p className="font-bold text-gray-900 text-sm">{previewTemplate.name as string}</p>
-                  <p className="text-gray-500 text-xs">Objet : {previewTemplate.subject as string}</p>
+                  <p className="text-gray-500 text-xs">{t.subjectDisplayLabel} {previewTemplate.subject as string}</p>
                 </div>
                 <button onClick={() => setPreviewTemplate(null)} className="text-gray-400 hover:text-gray-900">✕</button>
               </div>
-              <div className="p-4" dangerouslySetInnerHTML={{ __html: `<style>td,p,span,div,a,h1,h2,h3,h4,li,body{color:#111!important}</style>${previewTemplate.htmlBody as string}` }} />
+              <div className="p-4" dangerouslySetInnerHTML={{ __html: previewTemplate.htmlBody as string }} />
             </div>
           </div>
         )}
 
         <div className="space-y-2">
-          {templates.filter(t => !t.slug).length === 0 && (
+          {templates.filter(tpl => !tpl.slug).length === 0 && (
             <div className="text-center py-8">
-              <p className="text-gray-600 text-xs mb-3">Aucun template campagne. Seedez les templates EOCON 2026 ou créez-en un.</p>
-              <button onClick={seedTemplates} className="text-xs px-4 py-2 rounded" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>⚡ Seeder les 7 templates EOCON</button>
+              <p className="text-gray-600 text-xs mb-3">{t.noCampaignTemplates}</p>
+              <button onClick={seedTemplates} className="text-xs px-4 py-2 rounded" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>{t.seedEoconTemplates}</button>
             </div>
           )}
-          {templates.filter(t => !t.slug).map(t => (
-            <div key={t.id as number} className="border border-gray-800 rounded-lg p-3">
+          {templates.filter(tpl => !tpl.slug).map(tpl => (
+            <div key={tpl.id as number} className="border border-gray-800 rounded-lg p-3">
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex-1 min-w-0">
-                  <p className="text-white text-xs font-bold">{t.name as string}</p>
-                  <p className="text-gray-500 text-xs">Objet : {t.subject as string}</p>
-                  <span className="text-xs px-1.5 py-0.5 rounded mt-1 inline-block" style={{ color: "#888", background: "#88888815" }}>{t.segment as string}</span>
-                  {!!t.sentAt && <p className="text-gray-700 text-xs mt-1">Envoyé le {new Date(t.sentAt as string).toLocaleDateString("fr-FR")}</p>}
+                  <p className="text-white text-xs font-bold">{tpl.name as string}</p>
+                  <p className="text-gray-500 text-xs">{t.subjectDisplayLabel} {tpl.subject as string}</p>
+                  <span className="text-xs px-1.5 py-0.5 rounded mt-1 inline-block" style={{ color: "#888", background: "#88888815" }}>{tpl.segment as string}</span>
+                  {!!tpl.sentAt && <p className="text-gray-700 text-xs mt-1">{t.sentOnLabel} {new Date(tpl.sentAt as string).toLocaleDateString("fr-FR")}</p>}
                 </div>
                 <div className="flex gap-1 shrink-0 flex-wrap justify-end">
-                  <button onClick={() => setPreviewTemplate(t)} className="text-xs px-2 py-1 rounded" style={{ color: "#888", border: "1px solid #33333380" }}>👁</button>
-                  <button onClick={() => sendTemplate(t.id as number)} disabled={sending === (t.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>
-                    {sending === (t.id as number) ? "..." : "▶ Envoyer"}
+                  <button onClick={() => setPreviewTemplate(tpl)} className="text-xs px-2 py-1 rounded" style={{ color: "#888", border: "1px solid #33333380" }}>👁</button>
+                  <button onClick={() => sendTemplate(tpl.id as number)} disabled={sending === (tpl.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>
+                    {sending === (tpl.id as number) ? "..." : t.sendCampaignBtn}
                   </button>
                 </div>
               </div>
@@ -1827,27 +1623,25 @@ function CommunicationPanel() {
               <div className="flex gap-2 pt-2 border-t border-gray-800/50">
                 <input
                   type="text"
-                  placeholder="Instructions pour l'IA (optionnel)..."
+                  placeholder={t.refineInstructions}
                   className="cyber-input flex-1 text-xs rounded px-2 py-1 text-white"
                   onFocus={() => setRefineInstructions("")}
                   onChange={e => setRefineInstructions(e.target.value)}
                 />
                 <button
-                  onClick={() => refineTemplate(t.id as number)}
-                  disabled={refining === (t.id as number)}
+                  onClick={() => refineTemplate(tpl.id as number)}
+                  disabled={refining === (tpl.id as number)}
                   className="text-xs px-3 py-1 rounded shrink-0 transition-all"
                   style={{ background: "#cc00ff15", color: "#cc00ff", border: "1px solid #cc00ff30" }}
                 >
-                  {refining === (t.id as number) ? "IA..." : "✨ Améliorer"}
+                  {refining === (tpl.id as number) ? t.improvingLabel : t.improveBtn}
                 </button>
               </div>
             </div>
           ))}
-          {!templates.filter(t => !t.slug).length && <p className="text-gray-700 text-xs text-center py-3">Aucun template campagne. Créez-en un.</p>}
+          {!templates.filter(tpl => !tpl.slug).length && <p className="text-gray-700 text-xs text-center py-3">{t.noCampaignTemplates}</p>}
         </div>
       </div>
-
-      </>}
     </div>
   );
 }
@@ -1867,60 +1661,34 @@ const PROSPECT_STATUSES = [
 
 function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<string, unknown>[]; onRefresh: () => void }) {
   const { t, lang } = useAdminT();
+  const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ status: "prospect" });
+  const [aiEmail, setAiEmail] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
+  const [aiEmailTarget, setAiEmailTarget] = useState<{ org: string; id: number } | null>(null);
+  const [generatingFor, setGeneratingFor] = useState<number | null>(null);
 
-  // Contact modal state
-  const [contactTarget, setContactTarget] = useState<Record<string, unknown> | null>(null);
-  const [contactLang, setContactLang] = useState<"fr" | "en">("fr");
-  const [contactSubject, setContactSubject] = useState("");
-  const [contactBody, setContactBody] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [sendResult, setSendResult] = useState<string | null>(null);
-
-  const openContact = (p: Record<string, unknown>) => {
-    setContactTarget(p);
-    setContactLang("fr");
-    setContactSubject("");
-    setContactBody("");
-    setSendResult(null);
-  };
-
-  const generateEmail = async () => {
-    if (!contactTarget) return;
-    setGenerating(true);
+  const generateFollowupEmail = async (p: Record<string, unknown>) => {
+    setGeneratingFor(p.id as number);
+    setAiEmailTarget({ org: p.org as string, id: p.id as number });
     const res = await fetch("/api/admin/ai/sponsor-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ org: contactTarget.org, contact: contactTarget.contact, package: contactTarget.package, status: contactTarget.status, notes: contactTarget.notes, mode: "followup" }),
+      body: JSON.stringify({ org: p.org, contact: p.contact, package: p.package, status: p.status, notes: p.notes, mode: "followup" }),
     });
-    if (res.ok) {
-      const data = await res.json() as { subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string };
-      setContactSubject(contactLang === "fr" ? data.subjectFr : data.subjectEn);
-      setContactBody(contactLang === "fr" ? data.bodyFr : data.bodyEn);
-    }
-    setGenerating(false);
+    if (res.ok) setAiEmail(await res.json());
+    setGeneratingFor(null);
   };
 
-  const sendEmail = async () => {
-    if (!contactTarget || !contactSubject || !contactBody) return;
-    const to = contactTarget.email as string;
-    if (!to) { setSendResult("❌ Aucun email de contact disponible."); return; }
-    setSending(true);
-    const res = await fetch("/api/admin/ai/prospect-email-send", {
-      method: "POST",
+  const markContacted = async (id: number) => {
+    await fetch(`/api/admin/sponsor-prospects/${id}`, {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to, subject: contactSubject, body: contactBody, org: contactTarget.org }),
+      body: JSON.stringify({ status: "contacted" }),
     });
-    if (res.ok) {
-      setSendResult("✓ Email envoyé.");
-      await fetch(`/api/admin/sponsor-prospects/${contactTarget.id as number}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "contacted" }) });
-      onRefresh();
-    } else {
-      setSendResult("❌ Erreur lors de l'envoi.");
-    }
-    setSending(false);
+    setAiEmail(null);
+    setAiEmailTarget(null);
+    onRefresh();
   };
 
   const save = async () => {
@@ -1930,11 +1698,40 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
 
   const updateStatus = async (id: number, status: string) => {
     await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    if (status === "concluded") {
+      const sponsor = prospects.find(p => p.id === id);
+      if (sponsor) {
+        // Auto-add to active sponsors list
+        await fetch("/api/admin/sponsors", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: sponsor.org || sponsor.name,
+            logoUrl: sponsor.logoUrl || "",
+            website: sponsor.website || "",
+            tier: sponsor.package || sponsor.tier || "BRONZE",
+            isVisible: true,
+          }),
+        }).catch(() => {});
+        // Auto-generate announcement post in FR and EN
+        await fetch("/api/admin/social/posts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            platform: "linkedin",
+            lang: "fr",
+            content: `🎉 [EOCON 2026 · Sponsor ${sponsor.package || sponsor.tier || "BRONZE"}] Nous sommes ravis d'accueillir ${sponsor.org || sponsor.name} comme partenaire ${sponsor.package || sponsor.tier || "BRONZE"} d'EOCON 2026 ! 🙏\n\nMerci pour votre soutien à la communauté cybersécurité africaine.\n\n📅 28 Novembre 2026 · Hotel Onomo, Douala\n🔗 Inscriptions : https://eyesopensecurity.com/#inscription\n\n#EOCON2026 #Cybersecurity #Cameroun`,
+            scheduledAt: null,
+            status: "draft",
+          }),
+        }).catch(() => {});
+      }
+    }
     onRefresh();
   };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer ce prospect ?")) return;
+    if (!(await confirm({ message: "Supprimer ce prospect ?", danger: true, confirmLabel: "Supprimer" }))) return;
     await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "DELETE" });
     onRefresh();
   };
@@ -1946,53 +1743,37 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
         <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">{t.addProspect}</button>
       </div>
 
-      {/* Contact modal */}
-      {contactTarget && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      {/* AI Email Modal */}
+      {aiEmail && aiEmailTarget && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between mb-4">
-              <div>
-                <h3 className="text-white font-bold">{contactTarget.org as string}</h3>
-                <p className="text-gray-500 text-xs">{(contactTarget.email as string) || "Pas d'email"} · Package : {(contactTarget.package as string) || "—"}</p>
-              </div>
-              <button onClick={() => setContactTarget(null)} className="text-gray-500 hover:text-white text-xl">✕</button>
+              <h3 className="text-white font-bold">Email — {aiEmailTarget.org}</h3>
+              <button onClick={() => { setAiEmail(null); setAiEmailTarget(null); }} className="text-gray-500 hover:text-white">✕</button>
             </div>
-
-            {/* Lang + generate */}
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-xs text-gray-500">Langue :</span>
-              {(["fr", "en"] as const).map(l => (
-                <button key={l} onClick={() => setContactLang(l)}
-                  className={`text-xs px-3 py-1 rounded border transition-all ${contactLang === l ? "bg-neon-green/10 text-neon-green border-neon-green/30" : "text-gray-500 border-gray-700"}`}>
-                  {l === "fr" ? "🇫🇷 Français" : "🇬🇧 English"}
-                </button>
+            <div className="space-y-4">
+              {[
+                { lang: "FR", subject: aiEmail.subjectFr, body: aiEmail.bodyFr },
+                { lang: "EN", subject: aiEmail.subjectEn, body: aiEmail.bodyEn },
+              ].map(e => (
+                <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-bold text-gray-400">{e.lang}</span>
+                    <button onClick={() => navigator.clipboard.writeText(`${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>Copier</button>
+                  </div>
+                  <p className="text-white text-xs font-bold mb-2">Objet: {e.subject}</p>
+                  <p className="text-gray-400 text-xs whitespace-pre-wrap">{e.body}</p>
+                </div>
               ))}
-              <button onClick={generateEmail} disabled={generating}
-                className="ml-auto text-xs px-4 py-1.5 rounded transition-all"
-                style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}>
-                {generating ? "Génération…" : "✨ Générer relance"}
+            </div>
+            <div className="mt-4 pt-4 border-t border-gray-800">
+              <button
+                onClick={() => markContacted(aiEmailTarget.id)}
+                className="w-full text-xs px-4 py-2 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-all"
+              >
+                {t.markContacted}
               </button>
             </div>
-
-            <div className="mb-3">
-              <label className="text-xs text-gray-500 block mb-1">Objet</label>
-              <input className="cyber-input w-full px-3 py-2 rounded text-xs text-white" value={contactSubject} onChange={e => setContactSubject(e.target.value)} placeholder="Objet…" />
-            </div>
-            <div className="mb-4">
-              <label className="text-xs text-gray-500 block mb-1">Corps du message</label>
-              <textarea className="cyber-input w-full px-3 py-2 rounded text-xs text-white leading-relaxed" rows={12} value={contactBody} onChange={e => setContactBody(e.target.value)} placeholder="Corps…" />
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button onClick={sendEmail} disabled={sending || !contactSubject || !contactBody}
-                className="btn-neon px-5 py-2 rounded text-xs disabled:opacity-50">
-                {sending ? "Envoi…" : "📤 Envoyer"}
-              </button>
-              <span className="text-xs text-gray-600">Reply-To : contact@eyesopensecurity.com</span>
-            </div>
-            {sendResult && (
-              <p className="mt-3 text-xs font-mono" style={{ color: sendResult.startsWith("✓") ? "#00ff9d" : "#ff0066" }}>{sendResult}</p>
-            )}
           </div>
         </div>
       )}
@@ -2063,11 +1844,12 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
                       )}
                       <div className="flex items-center gap-1 mt-2 flex-wrap">
                         <button
-                          onClick={() => openContact(p)}
-                          className="text-xs px-2 py-0.5 rounded transition-all"
+                          onClick={() => generateFollowupEmail(p)}
+                          disabled={generatingFor === (p.id as number)}
+                          className="text-xs px-1.5 py-0.5 rounded transition-all disabled:opacity-50"
                           style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}
                         >
-                          ✉
+                          {generatingFor === (p.id as number) ? "…" : "✨"}
                         </button>
                         <select
                           className="cyber-input text-xs px-1 py-0.5 rounded flex-1 min-w-0"
@@ -2106,40 +1888,12 @@ const BUDGET_COST_LABELS = [
 
 interface AutoRevenue { label: string; value: number; color: string; }
 
-const BUDGET_STATUS_COLORS: Record<string, string> = {
-  paid: "#00ff9d",
-  pending: "#ffaa00",
-  cancelled: "#666666",
-};
-
 function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; onRefresh: () => void }) {
+  const { t } = useAdminT();
+  const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ category: "costs", planned: 0, actual: 0, status: "pending" });
   const [autoRevenues, setAutoRevenues] = useState<AutoRevenue[]>([]);
-  const [capitalDepart, setCapitalDepart] = useState<number>(0);
-  const [capitalInput, setCapitalInput] = useState<string>("0");
-  const [teamMembers, setTeamMembers] = useState<Array<{ id: number; name: string }>>([]);
-
-  // Fetch capital setting and team members
-  useEffect(() => {
-    async function loadMeta() {
-      const [settingsRes, teamRes] = await Promise.all([
-        fetch("/api/admin/settings"),
-        fetch("/api/admin/team"),
-      ]);
-      if (settingsRes.ok) {
-        const s = await settingsRes.json() as Record<string, string>;
-        const cap = parseFloat(s.capitalDepart || "0") || 0;
-        setCapitalDepart(cap);
-        setCapitalInput(String(cap));
-      }
-      if (teamRes.ok) {
-        const members = await teamRes.json() as Array<{ id: number; name: string }>;
-        setTeamMembers(members);
-      }
-    }
-    loadMeta();
-  }, []);
 
   // Fetch auto-calculated revenues from ticket sales + sponsor packages
   useEffect(() => {
@@ -2151,9 +1905,9 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
       const revenues: AutoRevenue[] = [];
       if (ticketRes.ok) {
         const types = await ticketRes.json() as Array<{ nameFr: string; priceFr: number; sold: number; color: string }>;
-        for (const t of types) {
-          const val = t.priceFr * (t.sold || 0);
-          if (t.sold > 0 || t.priceFr > 0) revenues.push({ label: `Billets — ${t.nameFr}`, value: val, color: t.color });
+        for (const tt of types) {
+          const val = tt.priceFr * (tt.sold || 0);
+          if (tt.sold > 0 || tt.priceFr > 0) revenues.push({ label: `Billets — ${tt.nameFr}`, value: val, color: tt.color });
         }
       }
       if (sponsorRes.ok) {
@@ -2179,7 +1933,7 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
   };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer ?")) return;
+    if (!(await confirm({ message: "Supprimer ?", danger: true, confirmLabel: "Supprimer" }))) return;
     await fetch(`/api/admin/budget/${id}`, { method: "DELETE" });
     onRefresh();
   };
@@ -2199,13 +1953,6 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
   const totalPlannedCost = costs.reduce((s, i) => s + ((i.planned as number) || 0), 0);
   const totalActualCost = costs.reduce((s, i) => s + ((i.actual as number) || 0), 0);
   const balance = totalActualRev - totalActualCost;
-  const capitalRestant = capitalDepart - totalActualCost;
-  const capitalDepasse = capitalDepart > 0 && totalActualCost > capitalDepart;
-
-  const saveCapital = async (val: number) => {
-    setCapitalDepart(val);
-    await fetch("/api/admin/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ capitalDepart: String(val) }) });
-  };
 
   // Histogram data: revenues vs costs by category
   const histogramItems: { label: string; value: number; color: string; maxVal: number }[] = [
@@ -2216,118 +1963,72 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
 
   const maxAbsVal = Math.max(...histogramItems.map(i => Math.abs(i.value)), 1);
 
-  const renderTable = (rows: Record<string, unknown>[], title: string, color: string, showResponsable = false) => (
+  const renderTable = (rows: Record<string, unknown>[], title: string, color: string) => (
     <div className="cyber-card rounded-xl p-5 mb-6">
       <h3 className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color }}>{title}</h3>
       <table className="w-full text-xs">
         <thead>
           <tr className="border-b border-gray-800 text-gray-500">
-            <th className="text-left py-2 px-2 font-normal">Libellé</th>
-            <th className="text-right py-2 px-2 font-normal">Prévu (FCFA)</th>
-            <th className="text-right py-2 px-2 font-normal">Réel (FCFA)</th>
-            <th className="text-left py-2 px-2 font-normal">Statut</th>
-            {showResponsable && <th className="text-left py-2 px-2 font-normal">Responsable</th>}
+            <th className="text-left py-2 px-2 font-normal">{t.label}</th>
+            <th className="text-right py-2 px-2 font-normal">{t.planned} (FCFA)</th>
+            <th className="text-right py-2 px-2 font-normal">{t.actual} (FCFA)</th>
+            <th className="text-left py-2 px-2 font-normal">{t.status}</th>
             <th className="py-2 px-2" />
           </tr>
         </thead>
         <tbody>
-          {rows.map(r => {
-            const statusColor = BUDGET_STATUS_COLORS[r.status as string] || "#888";
-            return (
-              <tr key={r.id as number} className="border-b border-gray-900 hover:bg-white/[0.01]" style={{ borderLeft: `3px solid ${statusColor}20` }}>
-                <td className="py-2 px-2 text-white">{r.label as string}</td>
-                <td className="py-2 px-2 text-right">
-                  <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
-                    defaultValue={(r.planned as number) || 0}
-                    onBlur={e => update(r.id as number, { planned: parseFloat(e.target.value) || 0 })} />
-                </td>
-                <td className="py-2 px-2 text-right">
-                  <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
-                    defaultValue={(r.actual as number) || 0}
-                    onBlur={e => update(r.id as number, { actual: parseFloat(e.target.value) || 0 })} />
-                </td>
-                <td className="py-2 px-2">
-                  <select
-                    className="cyber-input text-xs px-2 py-1 rounded font-bold"
-                    style={{ color: statusColor, borderColor: statusColor + "60" }}
-                    value={r.status as string}
-                    onChange={e => update(r.id as number, { status: e.target.value })}>
-                    <option value="pending" style={{ color: BUDGET_STATUS_COLORS.pending }}>En attente</option>
-                    <option value="paid" style={{ color: BUDGET_STATUS_COLORS.paid }}>Payé</option>
-                    <option value="cancelled" style={{ color: BUDGET_STATUS_COLORS.cancelled }}>Annulé</option>
-                  </select>
-                </td>
-                {showResponsable && (
-                  <td className="py-2 px-2">
-                    <select
-                      className="cyber-input text-xs px-2 py-1 rounded w-36"
-                      defaultValue={(r.responsable as string) || ""}
-                      onChange={e => update(r.id as number, { responsable: e.target.value || null })}>
-                      <option value="">— aucun —</option>
-                      {teamMembers.map(m => (
-                        <option key={m.id} value={m.name}>{m.name}</option>
-                      ))}
-                    </select>
-                  </td>
-                )}
-                <td className="py-2 px-2">
-                  <button onClick={() => del(r.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>
-                </td>
-              </tr>
-            );
-          })}
+          {rows.map(r => (
+            <tr key={r.id as number} className="border-b border-gray-900 hover:bg-white/[0.01]">
+              <td className="py-2 px-2 text-white">{r.label as string}</td>
+              <td className="py-2 px-2 text-right">
+                <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
+                  defaultValue={(r.planned as number) || 0}
+                  onBlur={e => update(r.id as number, { planned: parseFloat(e.target.value) || 0 })} />
+              </td>
+              <td className="py-2 px-2 text-right">
+                <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
+                  defaultValue={(r.actual as number) || 0}
+                  onBlur={e => update(r.id as number, { actual: parseFloat(e.target.value) || 0 })} />
+              </td>
+              <td className="py-2 px-2">
+                <select className="cyber-input text-xs px-2 py-1 rounded" value={r.status as string}
+                  onChange={e => update(r.id as number, { status: e.target.value })}>
+                  <option value="pending">{t.statusPending}</option>
+                  <option value="paid">{t.statusPaid}</option>
+                  <option value="cancelled">{t.statusCancelled}</option>
+                </select>
+              </td>
+              <td className="py-2 px-2">
+                <button onClick={() => del(r.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
-      {!rows.length && <p className="text-gray-600 text-xs py-4 text-center">Aucun élément</p>}
+      {!rows.length && <p className="text-gray-600 text-xs py-4 text-center">{t.noItems}</p>}
     </div>
   );
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-black text-white">Budget</h1>
+        <h1 className="text-2xl font-black text-white">{t.budgetTitle}</h1>
         <div className="flex gap-2">
-          <button onClick={seedCosts} className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">Pré-remplir dépenses</button>
-          <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter ligne</button>
+          <button onClick={seedCosts} className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">{t.prefillCosts}</button>
+          <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">{t.addLine}</button>
         </div>
       </div>
-
-      {/* Capital de départ */}
-      <div className="cyber-card rounded-xl p-4 mb-4 flex items-center gap-4">
-        <div className="text-xs text-gray-400 uppercase tracking-widest whitespace-nowrap">Capital de départ</div>
-        <input
-          type="number"
-          className="cyber-input px-3 py-1.5 rounded text-sm font-mono flex-1 max-w-[220px]"
-          value={capitalInput}
-          onChange={e => setCapitalInput(e.target.value)}
-          onBlur={e => saveCapital(parseFloat(e.target.value) || 0)}
-        />
-        <span className="text-xs text-gray-500">XAF</span>
-        {capitalDepart > 0 && (
-          <span className="text-xs text-gray-400 ml-2">
-            Capital restant : <span className="font-mono font-bold" style={{ color: capitalRestant >= 0 ? "#00ff9d" : "#ff4444" }}>{capitalRestant.toLocaleString("fr-FR")} XAF</span>
-          </span>
-        )}
-      </div>
-
-      {capitalDepasse && (
-        <div className="rounded-xl px-4 py-3 mb-4 text-sm font-bold flex items-center gap-2" style={{ background: "#ff006620", border: "1px solid #ff0066", color: "#ff4444" }}>
-          ⚠ Les dépenses réelles ({totalActualCost.toLocaleString("fr-FR")} XAF) dépassent le capital de départ ({capitalDepart.toLocaleString("fr-FR")} XAF) de {(totalActualCost - capitalDepart).toLocaleString("fr-FR")} XAF
-        </div>
-      )}
 
       {/* KPI Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { label: "Capital départ", value: capitalDepart, color: "#00ccff" },
-          { label: "Capital restant", value: capitalRestant, color: capitalRestant >= 0 ? "#00ccff" : "#ff4444" },
-          { label: "Revenus projetés", value: totalPlannedRev, color: "#00ff9d" },
-          { label: "Revenus réels", value: totalActualRev, color: "#00ff9d" },
-          { label: "Dépenses prévues", value: totalPlannedCost, color: "#ff4444" },
-          { label: "Solde net", value: balance, color: balance >= 0 ? "#00ff9d" : "#ff4444" },
+          { label: t.revenusProjectes, value: totalPlannedRev, color: "#00ff9d" },
+          { label: t.revenusReels, value: totalActualRev, color: "#00ff9d" },
+          { label: t.depensesPlannees, value: totalPlannedCost, color: "#ff4444" },
+          { label: t.soldeNet, value: balance, color: balance >= 0 ? "#00ff9d" : "#ff4444" },
         ].map(s => (
           <div key={s.label} className="cyber-card rounded-xl p-4 text-center">
-            <div className="text-lg font-black font-mono" style={{ color: s.color, fontFamily: "'Share Tech Mono', monospace" }}>{s.value.toLocaleString("fr-FR")}</div>
+            <div className="text-xl font-black font-mono" style={{ color: s.color, fontFamily: "'Share Tech Mono', monospace" }}>{s.value.toLocaleString("fr-FR")} XAF</div>
             <div className="text-gray-500 text-xs mt-1">{s.label}</div>
           </div>
         ))}
@@ -2337,8 +2038,8 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
       {autoRevenues.length > 0 && (
         <div className="cyber-card rounded-xl p-5 mb-6">
           <h3 className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: "#00ff9d" }}>
-            Revenus calculés automatiquement
-            <span className="ml-2 text-xs font-normal text-gray-500">(billets vendus × tarif + sponsors confirmés × package)</span>
+            {t.autoRevenues}
+            <span className="ml-2 text-xs font-normal text-gray-500">{t.autoRevenuesHint}</span>
           </h3>
           <div className="space-y-2">
             {autoRevenues.map((r, i) => (
@@ -2349,7 +2050,7 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
               </div>
             ))}
             <div className="border-t border-gray-800 pt-2 flex justify-between">
-              <span className="text-xs text-gray-500">Total revenus auto</span>
+              <span className="text-xs text-gray-500">{t.totalAutoRevenues}</span>
               <span className="text-xs font-bold font-mono text-neon-green" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{autoTotal.toLocaleString("fr-FR")} XAF</span>
             </div>
           </div>
@@ -2359,7 +2060,7 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
       {/* Horizontal Histogram */}
       {histogramItems.length > 0 && (
         <div className="cyber-card rounded-xl p-5 mb-6">
-          <h3 className="text-sm font-bold uppercase tracking-widest mb-4 text-gray-400">Histogramme revenus / dépenses</h3>
+          <h3 className="text-sm font-bold uppercase tracking-widest mb-4 text-gray-400">{t.histogramLabel}</h3>
           <div className="space-y-2">
             {histogramItems.sort((a, b) => b.value - a.value).map((item, i) => {
               const isPos = item.value >= 0;
@@ -2390,10 +2091,10 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
         <div className="cyber-card rounded-xl p-5 mb-6">
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Catégorie</label>
+              <label className="text-xs text-gray-500 block mb-1">{t.categoryLabel}</label>
               <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.category as string) || "costs"} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
-                <option value="revenue">Revenus</option>
-                <option value="costs">Dépenses</option>
+                <option value="revenue">{t.revenue}</option>
+                <option value="costs">{t.costs}</option>
               </select>
             </div>
             <div className="lg:col-span-2">
@@ -2427,148 +2128,34 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
         </div>
       )}
       {renderTable(manualRevenues, "Revenus additionnels (manuels)", "#00ff9d")}
-      {renderTable(costs, "Dépenses", "#ff4444", true)}
+      {renderTable(costs, "Dépenses", "#ff4444")}
     </div>
   );
 }
 
 // ---- Logistics Panel ----
-const STATUS_COLS = [
-  { id: "todo",        label: "TODO",      color: "#888",    bg: "#88888815" },
-  { id: "in_progress", label: "EN COURS",  color: "#0066ff", bg: "#0066ff15" },
-  { id: "blocked",     label: "BLOQUÉ",    color: "#ff0066", bg: "#ff006615" },
-  { id: "done",        label: "TERMINÉ",   color: "#00ff9d", bg: "#00ff9d15" },
+const LOGISTICS_SEED_CATEGORIES = [
+  { category: "Production", tasks: ["Production gadjets & impressions"] },
+  { category: "Coordination bénévoles", tasks: ["Briefing équipe bénévoles", "Attribution des rôles"] },
+  { category: "Plan salle", tasks: ["Validation plan salle", "Installation signalétique"] },
+  { category: "Vérification billets", tasks: ["Test scanner QR", "Formation opérateurs check-in"] },
+  { category: "Kit speakers", tasks: ["Préparation kit speakers", "Distribution badges speakers"] },
+  { category: "Animateur", tasks: ["Brief animateur"] },
+  { category: "Discours", tasks: ["Discours d'ouverture", "Discours de clôture"] },
+  { category: "Eau", tasks: ["Commande eau/boissons"] },
+  { category: "Internet", tasks: ["Test connexion salle", "WiFi invités opérationnel"] },
+  { category: "Tests techniques", tasks: ["Tests techniques salle", "Test son & vidéo", "Test retransmission"] },
+  { category: "Caméras", tasks: ["Installation caméras", "Test enregistrement"] },
 ];
-const PRIORITY_COLORS: Record<string, string> = {
-  critical: "#ff0066", high: "#ff6600", medium: "#ffaa00", low: "#888"
-};
-const PHASES = ["J-90", "J-30", "J-7", "Jour J", "Post-event"] as const;
-type Phase = typeof PHASES[number];
-
-const LOGISTICS_PHASES_SEED: { phase: Phase; category: string; title: string; priority: string }[] = [
-  // J-90
-  { phase: "J-90", category: "Venue & Contrats", title: "Signer contrat venue", priority: "critical" },
-  { phase: "J-90", category: "Venue & Contrats", title: "Valider le plan de salle", priority: "high" },
-  { phase: "J-90", category: "Venue & Contrats", title: "Négocier hébergement préférentiel speakers", priority: "medium" },
-  { phase: "J-90", category: "Budget", title: "Valider budget prévisionnel", priority: "critical" },
-  { phase: "J-90", category: "Budget", title: "Ouvrir compte bancaire événement", priority: "high" },
-  { phase: "J-90", category: "Sponsors", title: "Lancer dossier sponsoring", priority: "high" },
-  { phase: "J-90", category: "Sponsors", title: "Relance sponsors prioritaires", priority: "high" },
-  // J-30
-  { phase: "J-30", category: "Production", title: "Commander gadgets & impressions", priority: "high" },
-  { phase: "J-30", category: "Production", title: "Valider maquettes visuels", priority: "high" },
-  { phase: "J-30", category: "Production", title: "Préparer roll-ups et kakémonos", priority: "medium" },
-  { phase: "J-30", category: "Technique", title: "Test connexion internet salle", priority: "critical" },
-  { phase: "J-30", category: "Technique", title: "Commander équipement son & vidéo", priority: "high" },
-  { phase: "J-30", category: "Technique", title: "Tester retransmission live", priority: "high" },
-  { phase: "J-30", category: "Caméras", title: "Réserver équipe vidéo/photo", priority: "high" },
-  { phase: "J-30", category: "Caméras", title: "Plan de couverture caméras", priority: "medium" },
-  { phase: "J-30", category: "Speakers", title: "Envoyer kit logistique speakers", priority: "high" },
-  { phase: "J-30", category: "Speakers", title: "Confirmer besoins techniques speakers", priority: "high" },
-  { phase: "J-30", category: "Speakers", title: "Réserver transferts aéroport", priority: "medium" },
-  { phase: "J-30", category: "Communication", title: "Publier programme définitif", priority: "high" },
-  { phase: "J-30", category: "Communication", title: "Campagne réseaux sociaux J-30", priority: "medium" },
-  { phase: "J-30", category: "Communication", title: "Envoyer emailings inscrits", priority: "medium" },
-  // J-7
-  { phase: "J-7", category: "Logistique salle", title: "Validation plan salle final", priority: "critical" },
-  { phase: "J-7", category: "Logistique salle", title: "Installation signalétique", priority: "high" },
-  { phase: "J-7", category: "Logistique salle", title: "Préparer badges & kits accueil", priority: "high" },
-  { phase: "J-7", category: "Logistique salle", title: "Test scanner QR check-in", priority: "critical" },
-  { phase: "J-7", category: "Bénévoles", title: "Briefing équipe bénévoles", priority: "critical" },
-  { phase: "J-7", category: "Bénévoles", title: "Attribution des rôles bénévoles", priority: "high" },
-  { phase: "J-7", category: "Bénévoles", title: "Distribuer planning bénévoles", priority: "high" },
-  { phase: "J-7", category: "Technique", title: "Tests techniques salle", priority: "critical" },
-  { phase: "J-7", category: "Technique", title: "Test son & vidéo complet", priority: "critical" },
-  { phase: "J-7", category: "Technique", title: "Test streaming/retransmission", priority: "high" },
-  { phase: "J-7", category: "Animateur", title: "Brief animateur", priority: "high" },
-  { phase: "J-7", category: "Animateur", title: "Valider déroulé de la journée", priority: "critical" },
-  { phase: "J-7", category: "Eau & Catering", title: "Confirmer commande eau/boissons", priority: "high" },
-  { phase: "J-7", category: "Eau & Catering", title: "Valider menu pause-café", priority: "medium" },
-  // Jour J
-  { phase: "Jour J", category: "Ouverture", title: "Accueil équipe technique", priority: "critical" },
-  { phase: "Jour J", category: "Ouverture", title: "Vérification technique finale", priority: "critical" },
-  { phase: "Jour J", category: "Ouverture", title: "Ouverture accueil participants", priority: "critical" },
-  { phase: "Jour J", category: "Déroulé", title: "Discours d'ouverture", priority: "critical" },
-  { phase: "Jour J", category: "Déroulé", title: "Coordination speakers en coulisses", priority: "high" },
-  { phase: "Jour J", category: "Déroulé", title: "Gestion temps sessions", priority: "high" },
-  { phase: "Jour J", category: "CTF", title: "Lancer plateforme CTF", priority: "critical" },
-  { phase: "Jour J", category: "CTF", title: "Support technique CTF", priority: "high" },
-  { phase: "Jour J", category: "Clôture", title: "Discours de clôture", priority: "critical" },
-  { phase: "Jour J", category: "Clôture", title: "Photo groupe", priority: "medium" },
-  { phase: "Jour J", category: "Clôture", title: "Collecte feedback", priority: "medium" },
-  // Post-event
-  { phase: "Post-event", category: "Suivi", title: "Envoyer certificats participants", priority: "high" },
-  { phase: "Post-event", category: "Suivi", title: "Envoyer certificats speakers", priority: "high" },
-  { phase: "Post-event", category: "Suivi", title: "Publication photos/vidéos", priority: "medium" },
-  { phase: "Post-event", category: "Suivi", title: "Rapport post-événement", priority: "high" },
-  { phase: "Post-event", category: "Suivi", title: "Bilan budget final", priority: "high" },
-  { phase: "Post-event", category: "Suivi", title: "Remerciements sponsors", priority: "high" },
-];
-
-function TaskCard({
-  t,
-  onUpdate,
-  onDelete,
-  showPhase = false,
-}: {
-  t: Record<string, unknown>;
-  onUpdate: (id: number, data: Record<string, unknown>) => void;
-  onDelete: (id: number) => void;
-  showPhase?: boolean;
-}) {
-  const now = new Date();
-  const deadline = t.deadline ? new Date(t.deadline as string) : null;
-  const isOverdue = deadline && deadline < now && t.status !== "done";
-  const priorityColor = PRIORITY_COLORS[(t.priority as string) || "medium"] || "#888";
-
-  return (
-    <div className="cyber-card rounded-lg p-3 mb-2 cursor-pointer">
-      <div className="flex items-start gap-2">
-        <input
-          type="checkbox"
-          checked={t.status === "done" || !!t.done}
-          onChange={e => onUpdate(t.id as number, { status: e.target.checked ? "done" : "todo" })}
-          className="w-4 h-4 accent-neon-green shrink-0 mt-0.5"
-        />
-        <div className="flex-1 min-w-0">
-          <div className={`text-sm font-medium mb-1 ${t.status === "done" ? "line-through text-gray-600" : "text-white"}`}>
-            {t.title as string}
-          </div>
-          <div className="flex flex-wrap items-center gap-1 text-xs">
-            {showPhase && !!t.phase && (
-              <span className="px-1.5 py-0.5 rounded" style={{ background: "#ffffff10", color: "#aaa" }}>{t.phase as string}</span>
-            )}
-            {!!t.category && (
-              <span className="text-gray-500">{t.category as string}</span>
-            )}
-            <span className="px-1.5 py-0.5 rounded font-bold" style={{ color: priorityColor, background: priorityColor + "20" }}>
-              {(t.priority as string || "medium").toUpperCase()}
-            </span>
-            {!!t.assignee && <span className="text-gray-400">@{t.assignee as string}</span>}
-            {deadline && (
-              <span className={isOverdue ? "text-red-400 font-bold" : "text-gray-600"}>
-                {deadline.toLocaleDateString("fr-FR")}
-                {isOverdue && " (retard)"}
-              </span>
-            )}
-          </div>
-          {!!t.notes && <div className="text-xs text-gray-500 mt-1 italic">{t.notes as string}</div>}
-        </div>
-        <button onClick={() => onDelete(t.id as number)} className="text-red-400 text-xs hover:text-red-300 shrink-0">✗</button>
-      </div>
-    </div>
-  );
-}
 
 function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]; onRefresh: () => void }) {
-  const [activeTab, setActiveTab] = useState<"kanban" | "phase" | "overdue" | "all">("kanban");
-  const [activePhase, setActivePhase] = useState<Phase>("J-90");
+  const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<Record<string, unknown>>({ status: "todo", priority: "medium", phase: "J-30" });
+  const [form, setForm] = useState<Record<string, unknown>>({ done: false });
 
   const save = async () => {
     await fetch("/api/admin/logistics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-    setShowForm(false); setForm({ status: "todo", priority: "medium", phase: "J-30" }); onRefresh();
+    setShowForm(false); setForm({ done: false }); onRefresh();
   };
 
   const update = async (id: number, data: Record<string, unknown>) => {
@@ -2577,87 +2164,46 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
   };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer ?")) return;
+    if (!(await confirm({ message: "Supprimer ?", danger: true, confirmLabel: "Supprimer" }))) return;
     await fetch(`/api/admin/logistics/${id}`, { method: "DELETE" });
     onRefresh();
   };
 
-  const seedAll = async () => {
-    for (let i = 0; i < LOGISTICS_PHASES_SEED.length; i++) {
-      const s = LOGISTICS_PHASES_SEED[i];
-      await fetch("/api/admin/logistics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...s, status: "todo", sortOrder: i }) });
+  const seed = async () => {
+    for (const { category, tasks: ts } of LOGISTICS_SEED_CATEGORIES) {
+      for (let i = 0; i < ts.length; i++) {
+        await fetch("/api/admin/logistics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ category, title: ts[i], sortOrder: i }) });
+      }
     }
     onRefresh();
   };
 
-  const seedPhase = async (phase: Phase) => {
-    const items = LOGISTICS_PHASES_SEED.filter(s => s.phase === phase);
-    for (let i = 0; i < items.length; i++) {
-      await fetch("/api/admin/logistics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...items[i], status: "todo", sortOrder: i }) });
-    }
-    onRefresh();
-  };
-
-  const totalDone = tasks.filter(t => t.status === "done" || t.done).length;
+  const totalDone = tasks.filter(t => t.done).length;
   const total = tasks.length;
   const pct = total ? Math.round((totalDone / total) * 100) : 0;
 
-  const now = new Date();
-  const overdueTasks = tasks.filter(t => {
-    if (!t.deadline) return false;
-    return new Date(t.deadline as string) < now && t.status !== "done";
-  });
-
-  const moveStatus = (t: Record<string, unknown>, direction: "prev" | "next") => {
-    const idx = STATUS_COLS.findIndex(c => c.id === t.status);
-    const newIdx = direction === "next" ? Math.min(idx + 1, STATUS_COLS.length - 1) : Math.max(idx - 1, 0);
-    if (newIdx !== idx) update(t.id as number, { status: STATUS_COLS[newIdx].id });
-  };
-
-  const tabs = [
-    { id: "kanban" as const, label: "Vue Kanban" },
-    { id: "phase" as const, label: "Vue Phase" },
-    { id: "overdue" as const, label: "Vue Retards" },
-    { id: "all" as const, label: "Toutes" },
-  ];
+  const byCategory: Record<string, Record<string, unknown>[]> = {};
+  for (const t of tasks) {
+    const cat = (t.category as string) || "Autre";
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(t);
+  }
 
   return (
     <div>
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-black text-white">Logistique</h1>
         <div className="flex gap-2">
-          {!tasks.length && (
-            <button onClick={seedAll} className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">
-              Initialiser toutes les tâches
-            </button>
-          )}
+          {!tasks.length && <button onClick={seed} className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">Pré-remplir tâches</button>}
           <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter tâche</button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-4 border-b border-gray-800 pb-2">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-3 py-1.5 rounded text-xs font-mono transition-colors ${activeTab === tab.id ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 hover:text-white"}`}
-          >
-            {tab.label}
-            {tab.id === "overdue" && overdueTasks.length > 0 && (
-              <span className="ml-1 px-1 rounded bg-red-500/20 text-red-400">{overdueTasks.length}</span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Progress bar */}
       {total > 0 && (
-        <div className="cyber-card rounded-xl p-4 mb-4">
+        <div className="cyber-card rounded-xl p-4 mb-6">
           <div className="flex justify-between text-xs text-gray-500 mb-2">
             <span>Progression globale</span>
-            <span className="font-bold" style={{ color: "#00ff9d" }}>{totalDone}/{total} ({pct}%)</span>
+            <span className="text-neon-green font-bold">{totalDone}/{total} ({pct}%)</span>
           </div>
           <div className="h-3 bg-gray-900 rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pct === 100 ? "#00ff9d" : "#0066ff" }} />
@@ -2665,7 +2211,6 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
         </div>
       )}
 
-      {/* Add form */}
       {showForm && (
         <div className="cyber-card rounded-xl p-5 mb-6">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -2678,37 +2223,12 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
               <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.title as string) || ""} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Phase</label>
-              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.phase as string) || "J-30"} onChange={e => setForm(p => ({ ...p, phase: e.target.value }))}>
-                {PHASES.map(ph => <option key={ph} value={ph}>{ph}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Priorité</label>
-              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.priority as string) || "medium"} onChange={e => setForm(p => ({ ...p, priority: e.target.value }))}>
-                <option value="critical">Critical</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Statut</label>
-              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.status as string) || "todo"} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
-                {STATUS_COLS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-              </select>
-            </div>
-            <div>
               <label className="text-xs text-gray-500 block mb-1">Responsable</label>
               <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.assignee as string) || ""} onChange={e => setForm(p => ({ ...p, assignee: e.target.value }))} />
             </div>
             <div>
               <label className="text-xs text-gray-500 block mb-1">Échéance</label>
               <input type="date" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.deadline as string) || ""} onChange={e => setForm(p => ({ ...p, deadline: e.target.value }))} />
-            </div>
-            <div className="lg:col-span-3">
-              <label className="text-xs text-gray-500 block mb-1">Notes</label>
-              <textarea className="cyber-input w-full px-3 py-2 rounded text-xs" rows={2} value={(form.notes as string) || ""} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} />
             </div>
           </div>
           <div className="flex gap-2 mt-3">
@@ -2718,224 +2238,49 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
         </div>
       )}
 
-      {/* KANBAN TAB */}
-      {activeTab === "kanban" && (
-        <div className="flex overflow-x-auto gap-4 pb-2">
-          {STATUS_COLS.map(col => {
-            const colTasks = tasks.filter(t => (t.status || "todo") === col.id);
-            return (
-              <div key={col.id} className="min-w-[260px] flex-shrink-0 rounded-xl p-3" style={{ background: col.bg, border: `1px solid ${col.color}30` }}>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold font-mono tracking-widest" style={{ color: col.color }}>{col.label}</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: col.color + "20", color: col.color }}>{colTasks.length}</span>
-                </div>
-                <div>
-                  {colTasks.map(t => (
-                    <div key={t.id as number} className="cyber-card rounded-lg p-3 mb-2">
-                      <div className="flex items-start gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className={`text-sm font-medium mb-1 ${t.status === "done" ? "line-through text-gray-600" : "text-white"}`}>
-                            {t.title as string}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-1 text-xs mb-1">
-                            <span className="px-1.5 py-0.5 rounded" style={{ background: "#ffffff10", color: "#aaa" }}>{t.phase as string}</span>
-                            <span className="px-1.5 py-0.5 rounded font-bold" style={{ color: PRIORITY_COLORS[(t.priority as string) || "medium"], background: (PRIORITY_COLORS[(t.priority as string) || "medium"]) + "20" }}>
-                              {(t.priority as string || "medium").toUpperCase()}
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-1 text-xs">
-                            {!!t.category && <span className="text-gray-500">{t.category as string}</span>}
-                            {!!t.assignee && <span className="text-gray-400">@{t.assignee as string}</span>}
-                            {!!t.deadline && (() => {
-                              const dl = new Date(t.deadline as string);
-                              const od = dl < now && t.status !== "done";
-                              return <span className={od ? "text-red-400 font-bold" : "text-gray-600"}>{dl.toLocaleDateString("fr-FR")}</span>;
-                            })()}
-                          </div>
-                        </div>
-                        <button onClick={() => del(t.id as number)} className="text-red-400 text-xs hover:text-red-300 shrink-0">✗</button>
-                      </div>
-                      <div className="flex gap-1 mt-2 justify-end">
-                        <button
-                          onClick={() => moveStatus(t, "prev")}
-                          disabled={STATUS_COLS.findIndex(c => c.id === t.status) === 0}
-                          className="text-xs px-1.5 py-0.5 rounded border border-gray-700 text-gray-400 hover:text-white disabled:opacity-30"
-                        >←</button>
-                        <button
-                          onClick={() => moveStatus(t, "next")}
-                          disabled={STATUS_COLS.findIndex(c => c.id === t.status) === STATUS_COLS.length - 1}
-                          className="text-xs px-1.5 py-0.5 rounded border border-gray-700 text-gray-400 hover:text-white disabled:opacity-30"
-                        >→</button>
-                      </div>
-                    </div>
-                  ))}
-                  {colTasks.length === 0 && (
-                    <div className="text-xs text-gray-700 text-center py-4 italic">Aucune tâche</div>
-                  )}
-                </div>
+      <div className="space-y-6">
+        {Object.entries(byCategory).map(([cat, catTasks]) => {
+          const catDone = catTasks.filter(t => t.done).length;
+          return (
+            <div key={cat}>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-bold text-neon-green/70 uppercase tracking-widest">{cat}</h3>
+                <span className="text-xs text-gray-600">{catDone}/{catTasks.length}</span>
               </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* PHASE TAB */}
-      {activeTab === "phase" && (
-        <div>
-          {/* Phase sub-tabs */}
-          <div className="flex gap-1 mb-4 flex-wrap">
-            {PHASES.map(ph => {
-              const phTasks = tasks.filter(t => t.phase === ph);
-              const phDone = phTasks.filter(t => t.status === "done" || t.done).length;
-              return (
-                <button
-                  key={ph}
-                  onClick={() => setActivePhase(ph)}
-                  className={`px-3 py-1.5 rounded text-xs font-mono transition-colors ${activePhase === ph ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 hover:text-white border border-gray-800"}`}
-                >
-                  {ph} <span className="text-gray-600 ml-1">({phDone}/{phTasks.length})</span>
-                </button>
-              );
-            })}
+              <div className="space-y-2">
+                {catTasks.map(t => (
+                  <div key={t.id as number} className="cyber-card rounded-lg p-3 flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={!!t.done}
+                      onChange={e => update(t.id as number, { done: e.target.checked })}
+                      className="w-4 h-4 accent-neon-green shrink-0"
+                    />
+                    <span className={`flex-1 text-sm transition-colors ${t.done ? "line-through text-gray-600" : "text-white"}`}>{t.title as string}</span>
+                    {!!(t.assignee as string) && <span className="text-xs text-gray-500 shrink-0">{t.assignee as string}</span>}
+                    {!!(t.deadline as string) && <span className="text-xs text-gray-600 shrink-0">{new Date(t.deadline as string).toLocaleDateString("fr-FR")}</span>}
+                    <button onClick={() => del(t.id as number)} className="text-red-400 text-xs hover:text-red-300 shrink-0">✗</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        {!tasks.length && (
+          <div className="text-center py-8">
+            <p className="text-gray-600 text-xs mb-3">Aucune tâche. Initialisez avec les tâches standard.</p>
+            <button
+              onClick={async () => {
+                const res = await fetch("/api/admin/seed", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "logistics" }) });
+                if (res.ok) onRefresh();
+              }}
+              className="btn-neon px-4 py-2 rounded text-xs"
+            >
+              🌱 Initialiser tâches logistiques
+            </button>
           </div>
-
-          {/* Phase content */}
-          {(() => {
-            const phTasks = tasks.filter(t => t.phase === activePhase);
-            const phDone = phTasks.filter(t => t.status === "done" || t.done).length;
-            const phPct = phTasks.length ? Math.round((phDone / phTasks.length) * 100) : 0;
-
-            if (phTasks.length === 0) {
-              return (
-                <div className="text-center py-8">
-                  <p className="text-gray-600 text-xs mb-3">Aucune tâche pour la phase {activePhase}.</p>
-                  <button
-                    onClick={() => seedPhase(activePhase)}
-                    className="btn-neon px-4 py-2 rounded text-xs"
-                  >
-                    Initialiser cette phase
-                  </button>
-                </div>
-              );
-            }
-
-            // Group by category
-            const byCat: Record<string, Record<string, unknown>[]> = {};
-            for (const t of phTasks) {
-              const cat = (t.category as string) || "Autre";
-              if (!byCat[cat]) byCat[cat] = [];
-              byCat[cat].push(t);
-            }
-
-            return (
-              <div>
-                <div className="cyber-card rounded-xl p-3 mb-4">
-                  <div className="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>Phase {activePhase}</span>
-                    <span className="font-bold" style={{ color: "#00ff9d" }}>{phDone}/{phTasks.length} ({phPct}%)</span>
-                  </div>
-                  <div className="h-2 bg-gray-900 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${phPct}%`, background: phPct === 100 ? "#00ff9d" : "#0066ff" }} />
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  {Object.entries(byCat).map(([cat, catTasks]) => (
-                    <div key={cat}>
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-xs font-bold text-neon-green/70 uppercase tracking-widest">{cat}</h3>
-                        <span className="text-xs text-gray-600">{catTasks.filter(t => t.status === "done" || t.done).length}/{catTasks.length}</span>
-                      </div>
-                      {catTasks.map(t => (
-                        <TaskCard key={t.id as number} t={t} onUpdate={update} onDelete={del} />
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-      )}
-
-      {/* OVERDUE TAB */}
-      {activeTab === "overdue" && (
-        <div>
-          {overdueTasks.length === 0 ? (
-            <div className="text-center py-8 cyber-card rounded-xl">
-              <p className="text-green-400 font-bold">Aucun retard !</p>
-              <p className="text-gray-600 text-xs mt-1">Toutes les tâches avec deadline sont à jour.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="text-xs text-red-400 mb-3 font-bold">{overdueTasks.length} tâche(s) en retard</div>
-              {overdueTasks.map(t => {
-                const dl = new Date(t.deadline as string);
-                const daysLate = Math.floor((now.getTime() - dl.getTime()) / (1000 * 60 * 60 * 24));
-                return (
-                  <div key={t.id as number} className="cyber-card rounded-lg p-3 border border-red-500/20">
-                    <div className="flex items-start gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-white mb-1">{t.title as string}</div>
-                        <div className="flex flex-wrap gap-1 text-xs">
-                          <span className="text-gray-500">{t.category as string}</span>
-                          <span className="text-gray-500">{t.phase as string}</span>
-                          <span className="px-1.5 py-0.5 rounded font-bold" style={{ color: PRIORITY_COLORS[(t.priority as string) || "medium"], background: (PRIORITY_COLORS[(t.priority as string) || "medium"]) + "20" }}>
-                            {(t.priority as string || "medium").toUpperCase()}
-                          </span>
-                          <span className="text-red-400 font-bold">+{daysLate}j de retard</span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => update(t.id as number, { status: "done" })}
-                        className="text-xs px-2 py-1 rounded border border-green-700 text-green-400 hover:bg-green-900/20"
-                      >
-                        Marquer fait
-                      </button>
-                      <button onClick={() => del(t.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ALL TAB */}
-      {activeTab === "all" && (
-        <div className="space-y-6">
-          {(() => {
-            const byCategory: Record<string, Record<string, unknown>[]> = {};
-            for (const t of tasks) {
-              const cat = (t.category as string) || "Autre";
-              if (!byCategory[cat]) byCategory[cat] = [];
-              byCategory[cat].push(t);
-            }
-            return Object.entries(byCategory).map(([cat, catTasks]) => {
-              const catDone = catTasks.filter(t => t.status === "done" || t.done).length;
-              return (
-                <div key={cat}>
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-xs font-bold text-neon-green/70 uppercase tracking-widest">{cat}</h3>
-                    <span className="text-xs text-gray-600">{catDone}/{catTasks.length}</span>
-                  </div>
-                  {catTasks.map(t => (
-                    <TaskCard key={t.id as number} t={t} onUpdate={update} onDelete={del} showPhase />
-                  ))}
-                </div>
-              );
-            });
-          })()}
-          {!tasks.length && (
-            <div className="text-center py-8">
-              <p className="text-gray-600 text-xs mb-3">Aucune tâche. Initialisez avec les tâches standard.</p>
-              <button onClick={seedAll} className="btn-neon px-4 py-2 rounded text-xs">
-                Initialiser tâches logistiques
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -2945,19 +2290,15 @@ interface TicketTypeRow {
   priceFr: number; priceEn: number; perksFr: string; perksEn: string;
   earlyBirdPriceFr: number | null; earlyBirdPriceEn: number | null;
   earlyBirdUntil: string | null; color: string; isFeatured: boolean;
-  isVisible: boolean; ctfAccess: boolean; includesCTF: boolean; maxCapacity: number; sortOrder: number; sold: number;
+  isVisible: boolean; ctfAccess: boolean; maxCapacity: number; sortOrder: number; sold: number;
 }
 
-const TICKET_DEFAULT_FORM = { slug: "", nameFr: "", nameEn: "", priceFr: 0, priceEn: 0, color: "#00ff9d", isFeatured: false, isVisible: true, ctfAccess: false, maxCapacity: 200, sortOrder: 0, perksFrArr: [] as string[], perksEnArr: [] as string[] };
-
 function TicketsPanel() {
+  const confirm = useConfirm();
   const [tickets, setTickets] = useState<TicketTypeRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Partial<TicketTypeRow> & { perksFrArr?: string[]; perksEnArr?: string[] }>({});
-  const [showCreate, setShowCreate] = useState(false);
-  const [createForm, setCreateForm] = useState({ ...TICKET_DEFAULT_FORM });
-  const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2989,26 +2330,13 @@ function TicketsPanel() {
   };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer ce type de billet ?")) return;
+    if (!(await confirm({ message: "Supprimer ce type de billet ?", danger: true, confirmLabel: "Supprimer" }))) return;
     await fetch(`/api/admin/ticket-types/${id}`, { method: "DELETE" });
     load();
   };
 
   const toggleVisible = async (t: TicketTypeRow) => {
     await fetch(`/api/admin/ticket-types/${t.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isVisible: !t.isVisible }) });
-    load();
-  };
-
-  const createTicket = async () => {
-    if (!createForm.slug || !createForm.nameFr || !createForm.nameEn) return;
-    setCreating(true);
-    await fetch("/api/admin/ticket-types", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...createForm, perksFr: createForm.perksFrArr, perksEn: createForm.perksEnArr }),
-    });
-    setShowCreate(false);
-    setCreateForm({ ...TICKET_DEFAULT_FORM });
-    setCreating(false);
     load();
   };
 
@@ -3034,69 +2362,7 @@ function TicketsPanel() {
           <h1 className="text-2xl font-black text-white">Billets & Tarifs</h1>
           <p className="text-gray-500 text-xs mt-1">Gérez les types de billets affichés sur le portail d&apos;inscription</p>
         </div>
-        <button onClick={() => setShowCreate(v => !v)} className="btn-neon px-4 py-2 rounded text-xs">+ Créer billet</button>
       </div>
-
-      {showCreate && (
-        <div className="cyber-card rounded-xl p-5 mb-6">
-          <h3 className="text-sm font-bold text-neon-green mb-4">Nouveau type de billet</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Slug (identifiant unique)</label>
-              <input value={createForm.slug} onChange={e => setCreateForm(f => ({ ...f, slug: e.target.value }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" placeholder="ex: vip-ctf" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Nom FR</label>
-              <input value={createForm.nameFr} onChange={e => setCreateForm(f => ({ ...f, nameFr: e.target.value }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Nom EN</label>
-              <input value={createForm.nameEn} onChange={e => setCreateForm(f => ({ ...f, nameEn: e.target.value }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Couleur</label>
-              <input type="color" value={createForm.color} onChange={e => setCreateForm(f => ({ ...f, color: e.target.value }))} style={{ width: "100%", height: "34px", border: "none", borderRadius: "6px", cursor: "pointer" }} />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Prix XAF</label>
-              <input type="number" value={createForm.priceFr} onChange={e => setCreateForm(f => ({ ...f, priceFr: parseInt(e.target.value) || 0 }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Prix USD</label>
-              <input type="number" value={createForm.priceEn} onChange={e => setCreateForm(f => ({ ...f, priceEn: parseInt(e.target.value) || 0 }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Capacité max</label>
-              <input type="number" value={createForm.maxCapacity} onChange={e => setCreateForm(f => ({ ...f, maxCapacity: parseInt(e.target.value) || 200 }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 block mb-1">Ordre d&apos;affichage</label>
-              <input type="number" value={createForm.sortOrder} onChange={e => setCreateForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
-            </div>
-          </div>
-          <div className="flex items-center gap-4 mb-4 flex-wrap">
-            <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-              <input type="checkbox" checked={createForm.isVisible} onChange={e => setCreateForm(f => ({ ...f, isVisible: e.target.checked }))} />
-              Visible sur le portail
-            </label>
-            <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-              <input type="checkbox" checked={createForm.isFeatured} onChange={e => setCreateForm(f => ({ ...f, isFeatured: e.target.checked }))} />
-              Recommandé
-            </label>
-            <label className="flex items-center gap-2 text-xs font-bold cursor-pointer" style={{ color: "#00ccff" }}>
-              <input type="checkbox" checked={createForm.ctfAccess} onChange={e => setCreateForm(f => ({ ...f, ctfAccess: e.target.checked }))} />
-              ⚡ Accès CTF inclus
-            </label>
-          </div>
-          <div className="flex gap-3">
-            <button onClick={createTicket} disabled={creating || !createForm.slug || !createForm.nameFr} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
-              {creating ? "Création…" : "Créer le billet"}
-            </button>
-            <button onClick={() => setShowCreate(false)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
-          </div>
-        </div>
-      )}
-
       <div className="space-y-4">
         {tickets.map(t => {
           const sold = t.sold || 0;
@@ -3186,10 +2452,6 @@ function TicketsPanel() {
                       <input type="checkbox" checked={!!editForm.ctfAccess} onChange={e => setEditForm(f => ({ ...f, ctfAccess: e.target.checked }))} />
                       ⚡ Accès CTF
                     </label>
-                    <label className="flex items-center gap-2 text-xs cursor-pointer font-bold" style={{ color: "#00ff9d" }}>
-                      <input type="checkbox" checked={!!editForm.includesCTF} onChange={e => setEditForm(f => ({ ...f, includesCTF: e.target.checked }))} />
-                      Accès CTF inclus ⚡
-                    </label>
                     <div className="flex items-center gap-2">
                       <label className="text-xs text-gray-500">Ordre</label>
                       <input type="number" value={editForm.sortOrder ?? 0} onChange={e => setEditForm(f => ({ ...f, sortOrder: parseInt(e.target.value) }))} className="cyber-input text-xs rounded px-2 py-1 w-16" />
@@ -3211,7 +2473,6 @@ function TicketsPanel() {
                           {t.isFeatured && <span className="text-xs px-2 py-0.5 rounded" style={{ background: t.color + "20", color: t.color }}>★ Recommandé</span>}
                           {!t.isVisible && <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-500">Masqué</span>}
                           {t.ctfAccess && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}>⚡ CTF</span>}
-                          {t.includesCTF && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>⚡ CTF inclus</span>}
                         </div>
                         <div className="text-xs text-gray-400 mt-0.5 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
                           <span style={{ color: t.color }}>{t.priceFr.toLocaleString("fr-FR")} XAF</span>
@@ -3251,15 +2512,121 @@ function TicketsPanel() {
   );
 }
 
+function AnalyticsPanel({ data }: { data: Record<string, unknown> | null }) {
+  if (!data) return <p className="text-gray-600 text-xs py-8 text-center">Chargement...</p>;
+
+  const curve = data.registrationCurve as { date: string; count: number }[];
+  const byTicket = data.byTicket as Record<string, number>;
+  const topCountries = data.topCountries as { country: string; count: number }[];
+  const total = data.totalRegistrations as number;
+  const maxCount = Math.max(...curve.map(c => c.count), 1);
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-black text-white">Analytics</h1>
+
+      {/* KPI row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: "Inscriptions", value: data.totalRegistrations as number, color: "#00ff9d" },
+          { label: "Check-ins", value: data.checkedIn as number, color: "#0066ff" },
+          { label: "Taux CFP", value: `${data.cfpRate}%`, color: "#ff6600" },
+          { label: "Taux bénévoles", value: `${data.volRate}%`, color: "#cc00ff" },
+        ].map(k => (
+          <div key={k.label} className="cyber-card rounded-xl p-4 text-center">
+            <div className="text-2xl font-black font-mono" style={{ color: k.color, fontFamily: "'Share Tech Mono', monospace" }}>{k.value}</div>
+            <div className="text-gray-500 text-xs uppercase tracking-wider mt-1">{k.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Registration curve */}
+      <div className="cyber-card rounded-xl p-5">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Courbe d&apos;inscriptions</h2>
+        {curve.length === 0 ? (
+          <p className="text-gray-600 text-xs text-center py-4">Aucune donnée</p>
+        ) : (
+          <div className="flex items-end gap-1 h-32">
+            {curve.map(c => (
+              <div key={c.date} className="flex flex-col items-center flex-1 min-w-0 group" title={`${c.date}: ${c.count}`}>
+                <div
+                  className="w-full rounded-t transition-all"
+                  style={{ height: `${Math.round((c.count / maxCount) * 100)}%`, background: "#00ff9d", minHeight: 2, opacity: 0.8 }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex justify-between text-gray-700 text-xs mt-1">
+          <span>{curve[0]?.date || ""}</span>
+          <span>{total} total</span>
+          <span>{curve[curve.length - 1]?.date || ""}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* By ticket type */}
+        <div className="cyber-card rounded-xl p-5">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Par type de billet</h2>
+          <div className="space-y-2">
+            {Object.entries(byTicket).map(([type, count]) => (
+              <div key={type} className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 w-24 shrink-0">{type}</span>
+                <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full bg-neon-green/60" style={{ width: `${total > 0 ? Math.round((count / total) * 100) : 0}%` }} />
+                </div>
+                <span className="text-xs font-mono text-neon-green w-8 text-right">{count}</span>
+              </div>
+            ))}
+            {!Object.keys(byTicket).length && <p className="text-gray-600 text-xs">Aucune donnée</p>}
+          </div>
+        </div>
+
+        {/* Top countries */}
+        <div className="cyber-card rounded-xl p-5">
+          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Top pays</h2>
+          <div className="space-y-2">
+            {topCountries.map(c => (
+              <div key={c.country} className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 w-24 shrink-0 truncate">{c.country}</span>
+                <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full bg-neon-blue/60" style={{ width: `${total > 0 ? Math.round((c.count / total) * 100) : 0}%` }} />
+                </div>
+                <span className="text-xs font-mono text-neon-blue w-8 text-right" style={{ color: "#0066ff" }}>{c.count}</span>
+              </div>
+            ))}
+            {!topCountries.length && <p className="text-gray-600 text-xs">Aucune donnée</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* CFP funnel */}
+      <div className="cyber-card rounded-xl p-5">
+        <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Funnel CFP</h2>
+        <div className="flex gap-6 items-center">
+          {[
+            { label: "Soumis", value: data.cfpTotal as number, color: "#888" },
+            { label: "Acceptés", value: data.cfpAccepted as number, color: "#00ff9d" },
+            { label: "Taux", value: `${data.cfpRate}%`, color: "#ff6600" },
+          ].map(f => (
+            <div key={f.label} className="text-center">
+              <div className="text-2xl font-black font-mono" style={{ color: f.color, fontFamily: "'Share Tech Mono', monospace" }}>{f.value}</div>
+              <div className="text-gray-500 text-xs mt-1">{f.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CertificatesPanel() {
   const { t } = useAdminT();
   const [subTab, setSubTab] = useState<"issue" | "list" | "keys">("issue");
   const [badges, setBadges] = useState<Record<string, unknown>[]>([]);
   const [filterType, setFilterType] = useState("");
   const [loading, setLoading] = useState(false);
-  const [checkedInRegs, setCheckedInRegs] = useState<Record<string, unknown>[]>([]);
-  const [regsLoading, setRegsLoading] = useState(false);
-  const [issuingId, setIssuingId] = useState<number | null>(null);
+  const [form, setForm] = useState({ badgeType: "participant", recipientName: "", recipientEmail: "", subtype: "" });
   const [status, setStatus] = useState<string | null>(null);
   const [keys, setKeys] = useState<{ privateKeyBase64: string; publicKeyBase64: string } | null>(null);
   const [keyLoading, setKeyLoading] = useState(false);
@@ -3284,38 +2651,6 @@ function CertificatesPanel() {
 
   useEffect(() => { if (subTab === "list") loadBadges(); }, [subTab, filterType, loadBadges]);
 
-  const loadCheckedInRegs = useCallback(async () => {
-    setRegsLoading(true);
-    const r = await fetch("/api/admin/submissions?type=registration");
-    if (r.ok) {
-      const data = await r.json();
-      const regs = Array.isArray(data) ? data : data.registrations || [];
-      setCheckedInRegs(regs.filter((x: Record<string, unknown>) => x.checkedInAt && x.status === "validated"));
-    }
-    setRegsLoading(false);
-  }, []);
-
-  useEffect(() => { if (subTab === "issue") loadCheckedInRegs(); }, [subTab, loadCheckedInRegs]);
-
-  const issueForReg = async (reg: Record<string, unknown>) => {
-    setIssuingId(reg.id as number);
-    setStatus("Issuing…");
-    const r = await fetch("/api/admin/badges", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "issue",
-        badgeType: "participant",
-        recipientName: `${reg.fname} ${reg.lname}`,
-        recipientEmail: reg.email,
-        subtype: (reg.ticketType as string)?.toLowerCase() || null,
-      }),
-    });
-    if (r.ok) setStatus(`Badge émis pour ${reg.fname} ${reg.lname}.`);
-    else setStatus("Erreur lors de l'émission du badge");
-    setIssuingId(null);
-  };
-
   const bulkAction = async (action: string) => {
     setStatus("Generating…");
     const r = await fetch("/api/admin/badges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
@@ -3323,6 +2658,14 @@ function CertificatesPanel() {
       const j = await r.json();
       setStatus(`Done: ${j.issued ?? j.sent ?? 0} badge(s) generated/sent.${j.failed ? ` (${j.failed} failed)` : ""}`);
     } else setStatus("Error");
+  };
+
+  const issueSingle = async () => {
+    if (!form.recipientName || !form.recipientEmail) return;
+    setStatus("Issuing…");
+    const r = await fetch("/api/admin/badges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "issue", ...form, subtype: form.subtype || null }) });
+    if (r.ok) { setStatus("Badge issued."); setForm({ badgeType: "participant", recipientName: "", recipientEmail: "", subtype: "" }); }
+    else setStatus("Error issuing badge");
   };
 
   const sendBadge = async (id: number) => {
@@ -3392,39 +2735,38 @@ function CertificatesPanel() {
             </div>
           </div>
 
-          {/* Single badge — checked-in registrants table */}
+          {/* Single badge form */}
           <div>
-            <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">
-              Issue Badge — Participants check-in
-              <span className="text-gray-600 font-normal ml-2">({checkedInRegs.length} checked-in)</span>
-            </h2>
-            {regsLoading ? (
-              <p className="text-gray-600 text-xs font-mono py-4">Chargement…</p>
-            ) : checkedInRegs.length === 0 ? (
-              <div className="cyber-card rounded-xl p-6 text-center text-gray-600 text-xs font-mono">
-                // Aucun participant check-in pour l&apos;instant
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {checkedInRegs.map(r => (
-                  <div key={r.id as number} className="flex items-center gap-3 p-3 rounded bg-white/[0.02] border border-white/[0.04] text-xs">
-                    <span className="flex-1 text-white font-medium">{String(r.fname)} {String(r.lname)}</span>
-                    <span className="text-gray-500 truncate max-w-[160px]">{String(r.email)}</span>
-                    <span className="px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green/70 font-mono shrink-0">{String(r.ticketType)}</span>
-                    <span className="text-neon-green/50 shrink-0 text-xs">
-                      ✓ {new Date(r.checkedInAt as string).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                    <button
-                      onClick={() => issueForReg(r)}
-                      disabled={issuingId === (r.id as number)}
-                      className="text-xs px-3 py-1 rounded border border-neon-green/20 text-neon-green hover:bg-neon-green/10 transition-colors disabled:opacity-50 shrink-0"
-                    >
-                      {issuingId === (r.id as number) ? "…" : "Issue Badge"}
-                    </button>
+            <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Issue Single Badge</h2>
+            <div className="cyber-card rounded-xl p-5 space-y-3">
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Badge Type</label>
+                  <select className="cyber-input w-full px-3 py-2 rounded text-xs"
+                    value={form.badgeType} onChange={e => setForm(f => ({ ...f, badgeType: e.target.value }))}>
+                    {BADGE_TYPES.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
+                  </select>
+                </div>
+                {form.badgeType === "participant" && (
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Ticket Level (subtype)</label>
+                    <input className="cyber-input w-full px-3 py-2 rounded text-xs" placeholder="student / standard / vip"
+                      value={form.subtype} onChange={e => setForm(f => ({ ...f, subtype: e.target.value }))} />
                   </div>
-                ))}
+                )}
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Recipient Name *</label>
+                  <input className="cyber-input w-full px-3 py-2 rounded text-xs"
+                    value={form.recipientName} onChange={e => setForm(f => ({ ...f, recipientName: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Recipient Email *</label>
+                  <input type="email" className="cyber-input w-full px-3 py-2 rounded text-xs"
+                    value={form.recipientEmail} onChange={e => setForm(f => ({ ...f, recipientEmail: e.target.value }))} />
+                </div>
               </div>
-            )}
+              <button onClick={issueSingle} className="btn-neon px-4 py-2 rounded text-xs">Issue Badge</button>
+            </div>
           </div>
         </div>
       )}
@@ -3880,429 +3222,173 @@ function EventSettingsPanel() {
 }
 
 
-
-// ---- CTF Panel ----
-const CTF_CATEGORIES = ["Web", "Crypto", "Forensics", "Reverse", "Pwn", "OSINT", "Misc"];
-const CTF_CATEGORY_COLORS: Record<string, string> = {
-  Web: "#00ccff", Crypto: "#ffaa00", Forensics: "#cc00ff",
-  Reverse: "#ff6600", Pwn: "#ff0066", OSINT: "#00ff9d", Misc: "#888",
-};
-const CTF_STAGES = [
-  { key: "idea", label: "Idée" },
-  { key: "in_progress", label: "En cours" },
-  { key: "testing", label: "En test" },
-  { key: "validated", label: "Validé" },
-  { key: "published", label: "Publié CTFd" },
-];
-
-function levenshtein(a: string, b: string): number {
-  const dp = Array.from({ length: a.length + 1 }, (_, i) =>
-    Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
-  );
-  for (let i = 1; i <= a.length; i++)
-    for (let j = 1; j <= b.length; j++)
-      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-  return dp[a.length][b.length];
-}
-
-function CTFPanel() {
-  const [subTab, setSubTab] = useState<"config" | "challenges" | "participants" | "emails">("config");
-  const [config, setConfig] = useState({ ctfdUrl: "", ctfdApiKey: "", ctfDefaultPassword: "", ctfEnabled: "false" });
-  const [configSaving, setConfigSaving] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
-
-  const [challenges, setChallenges] = useState<Record<string, unknown>[]>([]);
-  const [addForm, setAddForm] = useState({ title: "", category: "Web", difficulty: "medium", points: 100, author: "", notes: "" });
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [dragId, setDragId] = useState<number | null>(null);
-
-  const [participants, setParticipants] = useState<Record<string, unknown>[]>([]);
-  const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<string | null>(null);
-  const [reconcileTeam, setReconcileTeam] = useState<{ team1: string; team2: string } | null>(null);
-  const [reconcileTo, setReconcileTo] = useState("");
-
-  useEffect(() => {
-    fetch("/api/admin/settings").then(r => r.json()).then((s: Record<string, string>) => {
-      setConfig({ ctfdUrl: s.ctfdUrl || "", ctfdApiKey: s.ctfdApiKey || "", ctfDefaultPassword: s.ctfDefaultPassword || "", ctfEnabled: s.ctfEnabled || "false" });
-    });
-  }, []);
-
-  const loadChallenges = useCallback(async () => {
-    const r = await fetch("/api/admin/ctf/challenges");
-    if (r.ok) setChallenges(await r.json());
-  }, []);
-
-  const loadParticipants = useCallback(async () => {
-    const r = await fetch("/api/admin/ctf/participants");
-    if (r.ok) setParticipants(await r.json());
-  }, []);
-
-  useEffect(() => {
-    if (subTab === "challenges") loadChallenges();
-    if (subTab === "participants") loadParticipants();
-  }, [subTab, loadChallenges, loadParticipants]);
-
-  const saveConfig = async () => {
-    setConfigSaving(true);
-    await fetch("/api/admin/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
-    setConfigSaving(false);
-  };
-
-  const testConnection = async () => {
-    setTestResult("Test en cours…");
-    try {
-      const url = config.ctfdUrl.replace(/\/$/, "");
-      const r = await fetch(`${url}/api/v1/users`, { headers: { "Authorization": `Token ${config.ctfdApiKey}` } });
-      setTestResult(r.ok ? "✓ Connexion CTFd réussie" : `✗ Erreur ${r.status}`);
-    } catch {
-      setTestResult("✗ Impossible de joindre CTFd");
-    }
-  };
-
-  const addChallenge = async () => {
-    if (!addForm.title) return;
-    await fetch("/api/admin/ctf/challenges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(addForm) });
-    setAddForm({ title: "", category: "Web", difficulty: "medium", points: 100, author: "", notes: "" });
-    setShowAddForm(false);
-    loadChallenges();
-  };
-
-  const moveChallenge = async (id: number, status: string) => {
-    await fetch(`/api/admin/ctf/challenges/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
-    loadChallenges();
-  };
-
-  const deleteChallenge = async (id: number) => {
-    if (!confirm("Supprimer ce challenge ?")) return;
-    await fetch(`/api/admin/ctf/challenges/${id}`, { method: "DELETE" });
-    loadChallenges();
-  };
-
-  const syncAll = async () => {
-    setSyncing(true); setSyncResult(null);
-    const r = await fetch("/api/admin/ctf/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "sync_all" }) });
-    const j = await r.json();
-    const ok = j.results?.filter((x: Record<string, unknown>) => x.success).length ?? 0;
-    const fail = j.results?.filter((x: Record<string, unknown>) => !x.success).length ?? 0;
-    setSyncResult(r.ok ? `✓ ${ok} comptes créés${fail > 0 ? `, ${fail} erreurs` : ""}` : `✗ ${j.error}`);
-    setSyncing(false); loadParticipants();
-  };
-
-  const syncOne = async (id: number) => {
-    await fetch("/api/admin/ctf/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create_account", registrationIds: [id] }) });
-    loadParticipants();
-  };
-
-  // Detect team name conflicts (Levenshtein ≤ 2)
-  const teamNames = Array.from(new Set(participants.map(p => p.ctfTeamName as string).filter(Boolean)));
-  const teamConflicts: { team1: string; team2: string }[] = [];
-  for (let i = 0; i < teamNames.length; i++)
-    for (let j = i + 1; j < teamNames.length; j++)
-      if (levenshtein(teamNames[i].toLowerCase(), teamNames[j].toLowerCase()) <= 2)
-        teamConflicts.push({ team1: teamNames[i], team2: teamNames[j] });
-
-  const reconcileTeams = async () => {
-    if (!reconcileTeam || !reconcileTo) return;
-    const oldName = reconcileTo === reconcileTeam.team1 ? reconcileTeam.team2 : reconcileTeam.team1;
-    // Update all participants with old team name to new
-    const toUpdate = participants.filter(p => p.ctfTeamName === oldName);
-    for (const p of toUpdate) {
-      await fetch("/api/admin/submissions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "ctf-team", id: p.id, ctfTeamName: reconcileTo }) });
-    }
-    setReconcileTeam(null); setReconcileTo(""); loadParticipants();
-  };
-
-  const subTabs = [
-    { key: "config", label: "⚙ Config" },
-    { key: "challenges", label: "🏁 Challenges" },
-    { key: "participants", label: "👤 Participants" },
-    { key: "emails", label: "✉ Emails" },
-  ] as const;
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-black text-white">⚡ EyesOpen CTF</h1>
-        <a href="/ctf" target="_blank" rel="noreferrer" className="text-xs text-gray-500 hover:text-neon-green transition-colors">→ Page publique scoreboard</a>
-      </div>
-
-      <div className="flex gap-1 mb-6 border-b border-gray-800 pb-0">
-        {subTabs.map(st => (
-          <button key={st.key} onClick={() => setSubTab(st.key)}
-            className={`text-xs px-4 py-2 border-b-2 transition-all ${subTab === st.key ? "border-neon-green text-neon-green" : "border-transparent text-gray-500 hover:text-gray-300"}`}>
-            {st.label}
-          </button>
-        ))}
-      </div>
-
-      {subTab === "config" && (
-        <div className="max-w-lg space-y-4">
-          <div className="cyber-card rounded-xl p-5">
-            <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">Connexion CTFd</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-gray-500 block mb-1">URL CTFd</label>
-                <input value={config.ctfdUrl} onChange={e => setConfig(c => ({ ...c, ctfdUrl: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="https://ctf.eyesopensecurity.com" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 block mb-1">Clé API CTFd</label>
-                <input type="password" value={config.ctfdApiKey} onChange={e => setConfig(c => ({ ...c, ctfdApiKey: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="ctfd_…" />
-              </div>
-              <div className="flex items-center gap-3">
-                <button onClick={testConnection} className="px-3 py-1.5 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">Tester la connexion</button>
-                {testResult && <span className={`text-xs ${testResult.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{testResult}</span>}
-              </div>
-            </div>
-          </div>
-          <div className="cyber-card rounded-xl p-5">
-            <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">Paramètres CTF</h3>
-            <div className="space-y-3">
-              <p className="text-xs text-gray-500">Les mots de passe sont générés automatiquement — 7 caractères uniques par compétiteur, 7 caractères uniques par équipe. Ils sont envoyés aux participants par email.</p>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <div className={`w-10 h-5 rounded-full transition-colors relative ${config.ctfEnabled === "true" ? "bg-neon-green/30" : "bg-gray-700"}`}>
-                  <div className={`absolute top-0.5 w-4 h-4 rounded-full transition-all ${config.ctfEnabled === "true" ? "right-0.5 bg-neon-green" : "left-0.5 bg-gray-500"}`} />
-                </div>
-                <input type="checkbox" className="sr-only" checked={config.ctfEnabled === "true"} onChange={e => setConfig(c => ({ ...c, ctfEnabled: e.target.checked ? "true" : "false" }))} />
-                <span className="text-sm text-gray-300">CTF activé (scoreboard public visible)</span>
-              </label>
-            </div>
-          </div>
-          <button onClick={saveConfig} disabled={configSaving} className="btn-neon px-4 py-2 rounded text-xs">
-            {configSaving ? "Sauvegarde…" : "Sauvegarder"}
-          </button>
-        </div>
-      )}
-
-      {subTab === "challenges" && (
-        <div>
-          {/* KPI bar */}
-          <div className="flex gap-3 flex-wrap mb-5">
-            {CTF_CATEGORIES.map(cat => {
-              const count = challenges.filter(c => c.category === cat).length;
-              return count > 0 ? (
-                <span key={cat} className="text-xs px-2 py-1 rounded font-mono" style={{ background: CTF_CATEGORY_COLORS[cat] + "20", color: CTF_CATEGORY_COLORS[cat], border: `1px solid ${CTF_CATEGORY_COLORS[cat]}40` }}>
-                  {cat} × {count}
-                </span>
-              ) : null;
-            })}
-            <span className="text-xs px-2 py-1 rounded bg-gray-800 text-gray-400 font-mono">Total: {challenges.length}</span>
-            <span className="text-xs px-2 py-1 rounded font-mono" style={{ background: "#00ff9d20", color: "#00ff9d" }}>
-              ✓ {challenges.filter(c => c.status === "validated" || c.status === "published").length} prêts
-            </span>
-            <button onClick={() => setShowAddForm(v => !v)} className="btn-neon px-3 py-1 rounded text-xs ml-auto">+ Ajouter challenge</button>
-          </div>
-
-          {showAddForm && (
-            <div className="cyber-card rounded-xl p-4 mb-5">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-                <div className="md:col-span-2">
-                  <label className="text-xs text-gray-500 block mb-1">Titre</label>
-                  <input value={addForm.title} onChange={e => setAddForm(f => ({ ...f, title: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Catégorie</label>
-                  <select value={addForm.category} onChange={e => setAddForm(f => ({ ...f, category: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
-                    {CTF_CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Difficulté</label>
-                  <select value={addForm.difficulty} onChange={e => setAddForm(f => ({ ...f, difficulty: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
-                    <option value="easy">Easy</option>
-                    <option value="medium">Medium</option>
-                    <option value="hard">Hard</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Points</label>
-                  <input type="number" value={addForm.points} onChange={e => setAddForm(f => ({ ...f, points: parseInt(e.target.value) || 0 }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">Auteur</label>
-                  <input value={addForm.author} onChange={e => setAddForm(f => ({ ...f, author: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
-                </div>
-              </div>
-              <div className="flex gap-2 mt-2">
-                <button onClick={addChallenge} className="btn-neon px-3 py-1.5 rounded text-xs">Ajouter</button>
-                <button onClick={() => setShowAddForm(false)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
-              </div>
-            </div>
-          )}
-
-          {/* Kanban */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {CTF_STAGES.map(stage => {
-              const cards = challenges.filter(c => c.status === stage.key);
-              return (
-                <div key={stage.key} className="cyber-card rounded-xl p-3"
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={() => { if (dragId !== null) { moveChallenge(dragId, stage.key); setDragId(null); } }}>
-                  <div className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3 flex items-center justify-between">
-                    {stage.label} <span className="text-gray-600">{cards.length}</span>
-                  </div>
-                  <div className="space-y-2 min-h-[80px]">
-                    {cards.map(c => (
-                      <div key={c.id as number} draggable onDragStart={() => setDragId(c.id as number)}
-                        className="rounded-lg p-2.5 cursor-grab active:cursor-grabbing"
-                        style={{ background: (CTF_CATEGORY_COLORS[c.category as string] || "#888") + "15", border: `1px solid ${(CTF_CATEGORY_COLORS[c.category as string] || "#888")}40` }}>
-                        <div className="text-xs font-bold text-white mb-1">{c.title as string}</div>
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: (CTF_CATEGORY_COLORS[c.category as string] || "#888") + "30", color: CTF_CATEGORY_COLORS[c.category as string] || "#888" }}>{c.category as string}</span>
-                          <span className="text-xs text-gray-500">{c.difficulty as string}</span>
-                          <span className="text-xs text-gray-400 ml-auto">{c.points as number}pts</span>
-                        </div>
-                        {!!c.author && <div className="text-xs text-gray-600 mt-1">{c.author as string}</div>}
-                        <button onClick={() => deleteChallenge(c.id as number)} className="text-red-800 hover:text-red-400 text-xs mt-1">✗</button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {subTab === "participants" && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <div className="text-xs text-gray-500">{participants.length} participant(s) CTF</div>
-            <div className="flex gap-2 items-center">
-              {syncResult && <span className={`text-xs ${syncResult.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{syncResult}</span>}
-              <button onClick={syncAll} disabled={syncing} className="btn-neon px-3 py-1.5 rounded text-xs disabled:opacity-50">
-                {syncing ? "Sync…" : "⚡ Tout synchroniser sur CTFd"}
-              </button>
-            </div>
-          </div>
-
-          {teamConflicts.length > 0 && (
-            <div className="cyber-card rounded-xl p-4 mb-4" style={{ border: "1px solid #ffaa0040", background: "#ffaa0008" }}>
-              <div className="text-xs font-bold text-yellow-400 mb-2">⚠ Conflits de noms d&apos;équipe détectés</div>
-              {teamConflicts.map((c, i) => (
-                <div key={i} className="flex items-center gap-3 text-xs mb-2">
-                  <span className="text-gray-300 font-mono">&quot;{c.team1}&quot;</span>
-                  <span className="text-gray-600">≈</span>
-                  <span className="text-gray-300 font-mono">&quot;{c.team2}&quot;</span>
-                  <button onClick={() => { setReconcileTeam(c); setReconcileTo(c.team1); }} className="px-2 py-0.5 rounded text-xs border border-yellow-600 text-yellow-400 hover:bg-yellow-900/20">
-                    Réconcilier
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {reconcileTeam && (
-            <div className="cyber-card rounded-xl p-4 mb-4">
-              <div className="text-xs font-bold text-white mb-3">Réconcilier &quot;{reconcileTeam.team1}&quot; et &quot;{reconcileTeam.team2}&quot;</div>
-              <div className="flex gap-2 mb-3">
-                {[reconcileTeam.team1, reconcileTeam.team2].map(name => (
-                  <button key={name} onClick={() => setReconcileTo(name)}
-                    className={`px-3 py-1.5 rounded text-xs border transition-all ${reconcileTo === name ? "border-neon-green text-neon-green bg-neon-green/10" : "border-gray-700 text-gray-400"}`}>
-                    Garder &quot;{name}&quot;
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <button onClick={reconcileTeams} className="btn-neon px-3 py-1.5 rounded text-xs">Confirmer</button>
-                <button onClick={() => setReconcileTeam(null)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
-              </div>
-            </div>
-          )}
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-gray-800 text-gray-500">
-                  <th className="text-left py-2 px-3 font-normal">Participant</th>
-                  <th className="text-left py-2 px-3 font-normal">Pseudo CTF</th>
-                  <th className="text-left py-2 px-3 font-normal">Équipe</th>
-                  <th className="text-left py-2 px-3 font-normal">Ticket</th>
-                  <th className="text-left py-2 px-3 font-normal">Compte CTFd</th>
-                  <th className="py-2 px-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {participants.map(p => (
-                  <tr key={p.id as number} className="border-b border-gray-900 hover:bg-white/[0.01]">
-                    <td className="py-2 px-3 text-white">{p.fname as string} {p.lname as string}<br /><span className="text-gray-500">{p.email as string}</span></td>
-                    <td className="py-2 px-3 font-mono text-neon-green">{(p.ctfCompetitorName as string) || <span className="text-gray-600">—</span>}</td>
-                    <td className="py-2 px-3 font-mono text-cyan-400">{(p.ctfTeamName as string) || <span className="text-gray-600">solo</span>}</td>
-                    <td className="py-2 px-3 text-gray-400">{p.ticketType as string}</td>
-                    <td className="py-2 px-3">
-                      {p.ctfAccountCreated
-                        ? <span className="text-neon-green text-xs">✓ Créé</span>
-                        : <span className="text-gray-600 text-xs">En attente</span>}
-                    </td>
-                    <td className="py-2 px-3">
-                      {!p.ctfAccountCreated && (
-                        <button onClick={() => syncOne(p.id as number)} className="text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">
-                          Créer compte
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!participants.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun participant CTF (inscriptions avec ticket CTF validées)</p>}
-          </div>
-        </div>
-      )}
-
-      {subTab === "emails" && (
-        <div className="max-w-2xl">
-          <p className="text-xs text-gray-500 mb-4">Les emails sont envoyés automatiquement dans la langue choisie par le participant (FR ou EN).</p>
-          {[
-            { key: "ctf_account_created", label: "Accès CTFd — identifiants de connexion", desc: "Envoyé après création du compte CTFd" },
-            { key: "ctf_no_teammate", label: "Participation sans équipe", desc: "Participant sans binôme — joue en solo" },
-            { key: "ctf_reminder", label: "Rappel CTF — J-1", desc: "Rappel envoyé la veille" },
-          ].map(tpl => (
-            <CTFEmailTemplate key={tpl.key} templateKey={tpl.key} label={tpl.label} desc={tpl.desc} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CTFEmailTemplate({ templateKey, label, desc }: { templateKey: string; label: string; desc: string }) {
-  const [tpl, setTpl] = useState({ subjectFr: "", bodyFr: "", subjectEn: "", bodyEn: "" });
+function SessionsPanel() {
+  const { t } = useAdminT();
+  const [sessions, setSessions] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [seeding, setSeeding] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/admin/settings").then(r => r.json()).then((s: Record<string, string>) => {
-      try { const v = JSON.parse(s[`emailTemplate_${templateKey}`] || "{}"); setTpl(v); } catch { /* ignore */ }
-    });
-  }, [templateKey]);
+  const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
+
+  const load = async () => {
+    setLoading(true);
+    const r = await fetch("/api/admin/sessions");
+    if (r.ok) setSessions(await r.json());
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const seed = async () => {
+    if (!confirm("Initialiser le programme avec les sessions standard ? (Annulé si des sessions existent déjà)")) return;
+    setSeeding(true);
+    const r = await fetch("/api/admin/sessions/seed", { method: "POST" });
+    const j = await r.json();
+    if (!r.ok) alert(j.error || "Erreur");
+    else { alert(`${j.seeded} sessions créées.`); load(); }
+    setSeeding(false);
+  };
+
+  const startEdit = (s: Record<string, unknown> | null) => {
+    setEditingId(s ? Number(s.id) : null);
+    setForm(s ? { ...s } : { time: "09:00", title: "", type: "talk", sortOrder: 100, isVisible: true });
+    setShowForm(true);
+  };
+
+  const closeForm = () => { setShowForm(false); setEditingId(null); };
 
   const save = async () => {
     setSaving(true);
-    await fetch("/api/admin/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [`emailTemplate_${templateKey}`]: JSON.stringify(tpl) }) });
+    const url = editingId ? `/api/admin/sessions/${editingId}` : "/api/admin/sessions";
+    const method = editingId ? "PUT" : "POST";
+    const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    if (r.ok) { closeForm(); load(); }
     setSaving(false);
   };
 
+  const del = async (id: number) => {
+    if (!confirm("Supprimer cette session ?")) return;
+    await fetch(`/api/admin/sessions/${id}`, { method: "DELETE" });
+    load();
+  };
+
+  const typeColor: Record<string, string> = {
+    keynote: "#00ff9d", talk: "#0066ff", workshop: "#ff6600", panel: "#cc00ff", break: "#444", logistics: "#888",
+  };
+
   return (
-    <div className="cyber-card rounded-xl p-5 mb-4">
-      <div className="mb-3">
-        <div className="text-sm font-bold text-white">{label}</div>
-        <div className="text-xs text-gray-500">{desc}</div>
-      </div>
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <label className="text-xs text-gray-500 block mb-1">Objet FR</label>
-          <input value={tpl.subjectFr} onChange={e => setTpl(t => ({ ...t, subjectFr: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-xs mb-2" />
-          <label className="text-xs text-gray-500 block mb-1">Corps FR</label>
-          <textarea rows={5} value={tpl.bodyFr} onChange={e => setTpl(t => ({ ...t, bodyFr: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-xs" />
-        </div>
-        <div>
-          <label className="text-xs text-gray-500 block mb-1">Subject EN</label>
-          <input value={tpl.subjectEn} onChange={e => setTpl(t => ({ ...t, subjectEn: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-xs mb-2" />
-          <label className="text-xs text-gray-500 block mb-1">Body EN</label>
-          <textarea rows={5} value={tpl.bodyEn} onChange={e => setTpl(t => ({ ...t, bodyEn: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-xs" />
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-black text-white">{t.sessionsTitle}</h1>
+        <div className="flex gap-2">
+          <button onClick={seed} disabled={seeding} className="text-xs px-3 py-1.5 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-all disabled:opacity-50">
+            {seeding ? "…" : t.initStandard}
+          </button>
+          <button onClick={() => startEdit(null)} className="text-xs px-3 py-1.5 rounded bg-neon-green/10 text-neon-green border border-neon-green/30 hover:bg-neon-green/20 transition-all">
+            + {t.newSession}
+          </button>
         </div>
       </div>
-      <button onClick={save} disabled={saving} className="btn-neon px-3 py-1.5 rounded text-xs mt-3">{saving ? "Sauvegarde…" : "Sauvegarder"}</button>
+
+      {/* Edit/create form */}
+      {showForm && (
+        <div className="cyber-card rounded-xl p-5 mb-6 border border-neon-green/20">
+          <h2 className="text-sm font-bold text-neon-green mb-4">{editingId ? t.editSession : t.newSession}</h2>
+          <div className="grid sm:grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">{t.sessionTitle}</label>
+              <input className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.title || "")} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">{t.type}</label>
+              <select className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.type || "talk")} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+                {SESSION_TYPES.map(st => <option key={st} value={st}>{st}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">{t.date}</label>
+              <input type="date" className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.date || "")} onChange={e => setForm(f => ({ ...f, date: e.target.value || null }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">{t.startTime}</label>
+              <input type="time" className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.time || "")} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">{t.endTime}</label>
+              <input type="time" className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.endTime || "")} onChange={e => setForm(f => ({ ...f, endTime: e.target.value || null }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">{t.room}</label>
+              <input className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.room || "")} onChange={e => setForm(f => ({ ...f, room: e.target.value || null }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">{t.speakerName}</label>
+              <input className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={String(form.speakerName || "")} onChange={e => setForm(f => ({ ...f, speakerName: e.target.value || null }))} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">{t.sortOrder}</label>
+              <input type="number" className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none"
+                value={Number(form.sortOrder ?? 100)} onChange={e => setForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))} />
+            </div>
+          </div>
+          <div className="mb-3">
+            <label className="text-xs text-gray-500 block mb-1">{t.description}</label>
+            <textarea rows={2} className="w-full bg-black/40 border border-gray-800 rounded px-3 py-2 text-white text-sm focus:border-neon-green/50 outline-none resize-none"
+              value={String(form.description || "")} onChange={e => setForm(f => ({ ...f, description: e.target.value || null }))} />
+          </div>
+          <div className="flex items-center gap-3 mb-4">
+            <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+              <input type="checkbox" checked={Boolean(form.isVisible)} onChange={e => setForm(f => ({ ...f, isVisible: e.target.checked }))} />
+              {t.visibleOnSite}
+            </label>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={save} disabled={saving} className="text-xs px-4 py-2 rounded bg-neon-green/20 text-neon-green border border-neon-green/30 hover:bg-neon-green/30 transition-all disabled:opacity-50">
+              {saving ? "…" : t.save}
+            </button>
+            <button onClick={closeForm} className="text-xs px-4 py-2 rounded border border-gray-800 text-gray-500 hover:text-gray-300 transition-all">
+              {t.cancel}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="text-gray-600 text-sm font-mono">Chargement…</p>
+      ) : sessions.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-gray-600 text-sm font-mono mb-4">{t.noSessions}</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {sessions.map(s => {
+            const color = typeColor[String(s.type)] || "#888";
+            return (
+              <div key={String(s.id)} className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/[0.05] hover:border-neon-green/20 transition-all">
+                <span className="w-14 shrink-0 text-right text-xs font-mono" style={{ color: color + "aa" }}>{String(s.time)}</span>
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                <span className="flex-1 text-sm text-white">{String(s.title)}</span>
+                {!!s.speakerName && <span className="text-xs text-gray-500">{String(s.speakerName)}</span>}
+                <span className="text-xs px-1.5 py-0.5 rounded shrink-0" style={{ color, background: color + "20" }}>{String(s.type)}</span>
+                {!s.isVisible && <span className="text-xs text-gray-600 shrink-0">{t.hidden}</span>}
+                <button onClick={() => startEdit(s)} className="text-xs text-gray-500 hover:text-neon-green transition-colors shrink-0">✎</button>
+                <button onClick={() => del(Number(s.id))} className="text-xs text-gray-600 hover:text-red-400 transition-colors shrink-0">✕</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -4409,309 +3495,16 @@ function AuditPanel() {
   );
 }
 
-// ---- Domain Health Dashboard ----
-
-interface DashboardExtra {
-  budget: { category: string; planned: number; actual: number }[];
-  logistics: { done: boolean; deadline: string | null }[];
-  sessions: { date: string | null }[];
-  socialPosts: { status: string }[];
-  sponsorProspects: { status: string }[];
-  speakerOnboarding: { completed: boolean }[];
-  cfpDetailed: { status: string; scheduledInProgramme: boolean }[];
-  registrationsPending: number;
-  registrationsValidated: number;
-}
-
-function HealthDot({ color }: { color: "green" | "orange" | "red" | "grey" }) {
-  const map = { green: "#00ff9d", orange: "#ffaa00", red: "#ff0066", grey: "#555" };
-  return <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ background: map[color], boxShadow: `0 0 6px ${map[color]}` }} />;
-}
-
-function MiniBar({ value, total, color, danger }: { value: number; total: number; color: string; danger?: boolean }) {
-  const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
-  const barColor = danger && pct >= 100 ? "#ff0066" : color;
-  return (
-    <div className="mt-2">
-      <div className="flex justify-between text-xs text-gray-600 mb-1">
-        <span>{value} / {total}</span>
-        <span>{pct}%</span>
-      </div>
-      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
-      </div>
-    </div>
-  );
-}
-
-function DomainCard({
-  title, color, health, onNavigate, children, borderTop,
-}: {
-  title: string; color: string; health: "green" | "orange" | "red" | "grey";
-  onNavigate: () => void; children: React.ReactNode; borderTop?: boolean;
-}) {
-  return (
-    <div
-      className="cyber-card rounded-xl p-5"
-      style={{ borderLeft: `4px solid ${color}`, ...(borderTop ? { borderTop: `1px solid ${color}30` } : {}) }}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <HealthDot color={health} />
-          <span className="font-bold text-white text-sm">{title}</span>
-        </div>
-        <button
-          onClick={onNavigate}
-          className="text-xs px-2 py-0.5 rounded border transition-all hover:brightness-125"
-          style={{ color, borderColor: color + "50", background: color + "12" }}
-        >
-          → Voir
-        </button>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function MetricRow({ label, value, color }: { label: string; value: string | number; color?: string }) {
-  return (
-    <div className="text-center">
-      <div className="text-lg font-black font-mono" style={{ color: color || "#aaa", fontFamily: "'Share Tech Mono', monospace" }}>{value}</div>
-      <div className="text-gray-600 text-xs mt-0.5 uppercase tracking-wider leading-tight">{label}</div>
-    </div>
-  );
-}
-
-function DashboardHealthPanel({
-  stats, extra, analyticsData, onNavigate,
-}: {
-  stats: Record<string, number>;
-  extra: DashboardExtra;
-  analyticsData: Record<string, unknown> | null;
-  onNavigate: (tab: Tab) => void;
-}) {
-  // ── CFP ──
-  const cfpTotal = stats.cfp || 0;
-  const cfpAccepted = extra.cfpDetailed.filter(s => s.status === "accepted" || s.status === "onboarding" || s.status === "confirmed" || s.status === "scheduled").length;
-  const cfpConfirmed = extra.cfpDetailed.filter(s => s.status === "confirmed" || s.status === "scheduled").length;
-  const cfpScheduled = extra.cfpDetailed.filter(s => s.scheduledInProgramme).length;
-  const cfpHealth: "green" | "orange" | "red" =
-    cfpConfirmed === 0 ? "red" :
-    cfpScheduled < cfpConfirmed * 0.5 ? "orange" : "green";
-
-  // ── Programme ──
-  const sessTotal = extra.sessions.length;
-  const sessScheduled = extra.sessions.filter(s => !!s.date).length;
-  const sessBacklog = sessTotal - sessScheduled;
-  const sessHealth: "green" | "orange" | "red" =
-    sessTotal === 0 || sessScheduled / Math.max(sessTotal, 1) < 0.3 ? "red" :
-    sessScheduled / Math.max(sessTotal, 1) < 0.7 ? "orange" : "green";
-
-  // ── Speakers ──
-  const speakerTotal = stats.speakers || 0;
-  const speakerVisible = speakerTotal; // approximation — visible count from stats
-  const onboardingPending = extra.speakerOnboarding.filter(o => !o.completed).length;
-  const speakerHealth: "green" | "orange" | "red" =
-    speakerTotal === 0 ? "red" : onboardingPending > 0 ? "orange" : "green";
-
-  // ── Inscriptions ──
-  const validated = extra.registrationsValidated;
-  const pendingPay = extra.registrationsPending;
-  const regTotal = validated + pendingPay;
-  const capacity = 200;
-  const fillPct = Math.round((validated / capacity) * 100);
-  const inscHealth: "green" | "orange" | "red" =
-    validated === 0 ? "red" : fillPct < 50 ? "orange" : "green";
-
-  // ── Budget ──
-  const capital = extra.budget.filter(b => b.category === "revenue").reduce((a, b) => a + b.planned, 0);
-  const depenses = extra.budget.filter(b => b.category === "costs").reduce((a, b) => a + b.actual, 0);
-  const solde = capital - depenses;
-  const remaining = capital - depenses;
-  const budgetHealth: "green" | "orange" | "red" =
-    depenses > capital ? "red" : remaining < capital * 0.2 ? "orange" : "green";
-
-  // ── Sponsors ──
-  const sponsorConfirmed = stats.sponsors || 0;
-  const prospectsByStage: Record<string, number> = {};
-  for (const p of extra.sponsorProspects) {
-    prospectsByStage[p.status] = (prospectsByStage[p.status] || 0) + 1;
-  }
-  const sponsorHealth: "green" | "orange" | "red" =
-    sponsorConfirmed === 0 ? "red" : sponsorConfirmed < 3 ? "orange" : "green";
-
-  // ── Bénévoles ──
-  const volTotal = stats.volunteers || 0;
-  const volAccepted = (analyticsData?.volAccepted as number) || 0;
-  const volWithRole = extra.registrationsPending; // rough — we don't have this separately; show 0
-  const volHealth: "green" | "orange" | "red" =
-    volAccepted < 5 ? "red" : volAccepted < 10 ? "orange" : "green";
-
-  // ── Logistique ──
-  const taskTotal = extra.logistics.length;
-  const taskDone = extra.logistics.filter(t => t.done).length;
-  const now = new Date();
-  const taskOverdue = extra.logistics.filter(t => !t.done && t.deadline && new Date(t.deadline) < now).length;
-  const logHealth: "green" | "orange" | "red" =
-    taskOverdue > 0 ? "red" : taskDone < taskTotal * 0.5 ? "orange" : "green";
-
-  // ── Communication ──
-  const postsFailed = extra.socialPosts.filter(p => p.status === "failed").length;
-  const postsScheduled = extra.socialPosts.filter(p => p.status === "scheduled").length;
-  const postsPublished = extra.socialPosts.filter(p => p.status === "published").length;
-  const commHealth: "green" | "orange" | "red" =
-    postsFailed > 0 ? "red" : postsScheduled === 0 ? "orange" : "green";
-
-  // ── Check-in ──
-  const checkedIn = stats.checkedIn || 0;
-  const checkinRate = validated > 0 ? Math.round((checkedIn / validated) * 100) : 0;
-
-  const fmt = (n: number) => n.toLocaleString("fr-FR");
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-      {/* CFP */}
-      <DomainCard title="CFP" color="#cc00ff" health={cfpHealth} onNavigate={() => onNavigate("cfp" as Tab)}>
-        {/* Funnel */}
-        <div className="flex items-center gap-1 mb-3">
-          {[
-            { label: "Soumis", val: cfpTotal },
-            { label: "Acceptés", val: cfpAccepted },
-            { label: "Confirmés", val: cfpConfirmed },
-            { label: "Programmés", val: cfpScheduled },
-          ].map((step, i) => (
-            <div key={step.label} className="flex items-center gap-1 flex-1">
-              <div className="flex-1 rounded-lg p-1.5 text-center" style={{ background: "#cc00ff15", border: "1px solid #cc00ff30" }}>
-                <div className="text-base font-black font-mono" style={{ color: "#cc00ff", fontFamily: "'Share Tech Mono', monospace" }}>{step.val}</div>
-                <div className="text-gray-600 text-xs leading-tight">{step.label}</div>
-              </div>
-              {i < 3 && <span className="text-gray-700 text-xs shrink-0">›</span>}
-            </div>
-          ))}
-        </div>
-      </DomainCard>
-
-      {/* Programme */}
-      <DomainCard title="Programme" color="#00ccff" health={sessHealth} onNavigate={() => onNavigate("pipeline")}>
-        <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Programmées" value={sessScheduled} color="#00ccff" />
-          <MetricRow label="Total sessions" value={sessTotal} color="#aaa" />
-          <MetricRow label="Backlog" value={sessBacklog} color={sessBacklog > 0 ? "#ffaa00" : "#555"} />
-        </div>
-        <MiniBar value={sessScheduled} total={Math.max(sessTotal, 1)} color="#00ccff" />
-      </DomainCard>
-
-      {/* Speakers */}
-      <DomainCard title="Speakers" color="#00ff9d" health={speakerHealth} onNavigate={() => onNavigate("pipeline")}>
-        <div className="grid grid-cols-3 gap-3">
-          <MetricRow label="Total" value={speakerTotal} color="#00ff9d" />
-          <MetricRow label="Visibles" value={speakerVisible} color="#aaa" />
-          <MetricRow label="Onboarding en attente" value={onboardingPending} color={onboardingPending > 0 ? "#ffaa00" : "#555"} />
-        </div>
-      </DomainCard>
-
-      {/* Inscriptions */}
-      <DomainCard title="Inscriptions" color="#ff6600" health={inscHealth} onNavigate={() => onNavigate("registrations")}>
-        <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Validées" value={validated} color="#ff6600" />
-          <MetricRow label="En attente" value={pendingPay} color="#ffaa00" />
-          <MetricRow label="Capacité" value={`${fillPct}%`} color={fillPct >= 80 ? "#00ff9d" : fillPct >= 50 ? "#ffaa00" : "#ff0066"} />
-        </div>
-        <MiniBar value={validated} total={capacity} color="#ff6600" />
-      </DomainCard>
-
-      {/* Budget */}
-      <DomainCard title="Budget" color="#ffaa00" health={budgetHealth} onNavigate={() => onNavigate("budget")}>
-        <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Capital" value={capital > 0 ? `${fmt(Math.round(capital / 1000))}k` : "—"} color="#aaa" />
-          <MetricRow label="Dépenses réelles" value={depenses > 0 ? `${fmt(Math.round(depenses / 1000))}k` : "—"} color={depenses > capital ? "#ff0066" : "#ffaa00"} />
-          <MetricRow label="Solde net" value={capital > 0 ? `${solde >= 0 ? "+" : ""}${fmt(Math.round(solde / 1000))}k` : "—"} color={solde >= 0 ? "#00ff9d" : "#ff0066"} />
-        </div>
-        <MiniBar value={depenses} total={Math.max(capital, 1)} color="#ffaa00" danger />
-      </DomainCard>
-
-      {/* Sponsors */}
-      <DomainCard title="Sponsors" color="#ffaa00" health={sponsorHealth} onNavigate={() => onNavigate("sponsors")}>
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <MetricRow label="Confirmés" value={sponsorConfirmed} color="#ffaa00" />
-          <MetricRow label="Pipeline total" value={extra.sponsorProspects.length} color="#aaa" />
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {["contacted", "meeting", "positive", "concluded"].map(stage => (
-            prospectsByStage[stage] ? (
-              <span key={stage} className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: "#ffaa0015", color: "#ffaa00" }}>
-                {stage}: {prospectsByStage[stage]}
-              </span>
-            ) : null
-          ))}
-        </div>
-      </DomainCard>
-
-      {/* Bénévoles */}
-      <DomainCard title="Bénévoles" color="#0066ff" health={volHealth} onNavigate={() => onNavigate("volunteers")}>
-        <div className="grid grid-cols-3 gap-3">
-          <MetricRow label="Candidatures" value={volTotal} color="#aaa" />
-          <MetricRow label="Acceptés" value={volAccepted} color="#0066ff" />
-          <MetricRow label="Rôles assignés" value={volWithRole} color="#00ff9d" />
-        </div>
-      </DomainCard>
-
-      {/* Logistique */}
-      <DomainCard title="Logistique" color="#ff6600" health={logHealth} onNavigate={() => onNavigate("logistics")}>
-        <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Faites" value={taskDone} color="#00ff9d" />
-          <MetricRow label="Total" value={taskTotal} color="#aaa" />
-          <MetricRow label="En retard" value={taskOverdue} color={taskOverdue > 0 ? "#ff0066" : "#555"} />
-        </div>
-        <MiniBar value={taskDone} total={Math.max(taskTotal, 1)} color="#ff6600" />
-      </DomainCard>
-
-      {/* Communication */}
-      <DomainCard title="Communication" color="#cc00ff" health={commHealth} onNavigate={() => onNavigate("communication")}>
-        <div className="grid grid-cols-3 gap-3">
-          <MetricRow label="Planifiés" value={postsScheduled} color="#ffaa00" />
-          <MetricRow label="Publiés" value={postsPublished} color="#00ff9d" />
-          <MetricRow label="Échoués" value={postsFailed} color={postsFailed > 0 ? "#ff0066" : "#555"} />
-        </div>
-      </DomainCard>
-
-      {/* Check-in */}
-      <DomainCard title="Check-in" color="#00ccff" health="grey" onNavigate={() => onNavigate("registrations")}>
-        <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Enregistrés" value={checkedIn} color="#00ccff" />
-          <MetricRow label="Validés total" value={validated} color="#aaa" />
-          <MetricRow label="Taux" value={`${checkinRate}%`} color={checkinRate >= 50 ? "#00ff9d" : "#888"} />
-        </div>
-        <MiniBar value={checkedIn} total={Math.max(validated, 1)} color="#00ccff" />
-      </DomainCard>
-
-    </div>
-  );
-}
-
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [stats, setStats] = useState<Record<string, number>>({});
   const [data, setData] = useState<Record<string, unknown[]>>({});
   const [loading, setLoading] = useState(false);
-  const [dashboardExtra, setDashboardExtra] = useState<DashboardExtra>({
-    budget: [],
-    logistics: [],
-    sessions: [],
-    socialPosts: [],
-    sponsorProspects: [],
-    speakerOnboarding: [],
-    cfpDetailed: [],
-    registrationsPending: 0,
-    registrationsValidated: 0,
-  });
   const [form, setForm] = useState<Record<string, unknown>>({});
   const [editing, setEditing] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [cfpNotes, setCfpNotes] = useState<Record<number, string>>({});
   const [onboarding, setOnboarding] = useState<Record<number, Record<string, boolean | string>>>({});
-  const [detail, setDetail] = useState<{ type: string; item: Record<string, unknown> } | null>(null);
   const [lang, setLang] = useState<AdminLang>(() => {
     if (typeof window !== "undefined") return (localStorage.getItem("admin_lang") as AdminLang) || "fr";
     return "fr";
@@ -4741,8 +3534,8 @@ export default function AdminDashboard() {
     sponsors: "sponsors",
     "sponsor-pipeline": "sponsor-pipeline",
     prospection: "prospection",
-    tickets: "tickets",
-    "sponsor-packages": "sponsor-packages",
+    tickets: "registrations",
+    "sponsor-packages": "sponsors",
     budget: "budget",
     communication: "communication",
     logistics: "logistics",
@@ -4764,10 +3557,7 @@ export default function AdminDashboard() {
   };
 
   const logout = async () => {
-    await Promise.all([
-      fetch("/api/admin/login", { method: "DELETE" }),
-      fetch("/api/admin/auth/logout", { method: "DELETE" }),
-    ]);
+    await fetch("/api/admin/login", { method: "DELETE" });
     router.push("/admin/login");
   };
 
@@ -4823,57 +3613,6 @@ export default function AdminDashboard() {
   useEffect(() => { fetchStats(); }, [fetchStats]);
   useEffect(() => { fetchData("dashboard"); }, [fetchData]);
   useEffect(() => { if (tab !== "dashboard") fetchData(tab); }, [tab, fetchData]);
-
-  // Fetch extra data for domain health dashboard
-  useEffect(() => {
-    const load = async () => {
-      const [budgetRes, logRes, sessRes, postsRes, prospectsRes, obRes, cfpRes, regRes] = await Promise.allSettled([
-        fetch("/api/admin/budget"),
-        fetch("/api/admin/logistics"),
-        fetch("/api/admin/sessions"),
-        fetch("/api/admin/ai/social-posts"),
-        fetch("/api/admin/sponsor-prospects"),
-        fetch("/api/admin/profiles?type=onboarding"),
-        fetch("/api/admin/submissions?type=cfp"),
-        fetch("/api/admin/submissions?type=registration"),
-      ]);
-      const safeJson = async (r: PromiseSettledResult<Response>): Promise<unknown[]> => {
-        if (r.status === "fulfilled" && r.value.ok) { try { return await r.value.json(); } catch { return []; } }
-        return [];
-      };
-      const budget = (await safeJson(budgetRes)) as { category: string; planned: number; actual: number }[];
-      const logistics = (await safeJson(logRes)) as { done: boolean; deadline: string | null }[];
-      const sessions = (await safeJson(sessRes)) as { date: string | null }[];
-      const socialPosts = (await safeJson(postsRes)) as { status: string }[];
-      const sponsorProspects = (await safeJson(prospectsRes)) as { status: string }[];
-      const cfpRaw = (await safeJson(cfpRes)) as { status: string; pipelineStage?: string }[];
-      const cfpDetailed = cfpRaw.map(c => ({
-        status: c.status,
-        scheduledInProgramme: c.pipelineStage === "scheduled" || c.status === "scheduled",
-      }));
-      const regRaw = (await safeJson(regRes)) as { status: string }[];
-      const registrationsValidated = regRaw.filter(r => r.status === "validated" || r.status === "paid").length;
-      const registrationsPending = regRaw.filter(r => r.status === "pending").length;
-
-      // Onboarding: fetch speakers and check if they have talkTitle (basic completion proxy)
-      let speakerOnboarding: { completed: boolean }[] = [];
-      try {
-        const spRes = await fetch("/api/admin/speakers");
-        if (spRes.ok) {
-          const spData = await spRes.json() as { talkTitle?: string; photoUrl?: string; bio?: string }[];
-          speakerOnboarding = spData.map(s => ({
-            completed: !!(s.talkTitle && s.photoUrl && s.bio),
-          }));
-        }
-      } catch { /* ignore */ }
-
-      setDashboardExtra({
-        budget, logistics, sessions, socialPosts, sponsorProspects,
-        speakerOnboarding, cfpDetailed, registrationsPending, registrationsValidated,
-      });
-    };
-    load();
-  }, []);
 
   const save = async (endpoint: string) => {
     const method = editing ? "PUT" : "POST";
@@ -4945,6 +3684,7 @@ export default function AdminDashboard() {
       icon: "◆",
       tabs: [
         { id: "pipeline", label: t.pipeline, count: stats.cfp },
+        { id: "sessions", label: t.sessions },
         { id: "past-speakers", label: t.pastSpeakers },
       ],
     },
@@ -4976,19 +3716,10 @@ export default function AdminDashboard() {
       ],
     },
     {
-      label: "CTF",
-      icon: "⚡",
-      tabs: [
-        { id: "ctf", label: "⚡ EyesOpen CTF" },
-      ],
-    },
-    {
       label: t.communication,
       icon: "◉",
       tabs: [
         { id: "communication", label: t.communicationPosts },
-        { id: "library", label: "📁 Library" },
-        { id: "cyber-watch", label: "📡 Veille cyber" },
       ],
     },
     {
@@ -5042,8 +3773,6 @@ export default function AdminDashboard() {
   return (
     <AdminLangContext.Provider value={{ lang, t, setLang: changeLang }}>
     <div className="min-h-screen bg-dark-900" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-      {/* Detail drawer */}
-      {detail && <DetailDrawer item={detail.item} type={detail.type} onClose={() => setDetail(null)} />}
       {/* Top bar */}
       <div className="border-b border-neon-green/20 bg-black/80 px-6 py-3 flex items-center justify-between sticky top-0 z-40">
         <span className="text-neon-green font-mono text-sm font-bold">&gt; EOCON Eventlyx</span>
@@ -5109,18 +3838,131 @@ export default function AdminDashboard() {
                     <span>▣</span> SCANNER QR <span>→</span>
                   </a>
                 )}
-                <div className="flex items-center gap-3 text-xs text-gray-600">
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-400 inline-block" />OK</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ background: "#ffaa00" }} />Attention</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ background: "#ff0066" }} />Critique</span>
-                </div>
               </div>
-              <DashboardHealthPanel
-                stats={stats}
-                extra={dashboardExtra}
-                analyticsData={(data.analytics?.[0] as Record<string, unknown>) || null}
-                onNavigate={setTab}
-              />
+              {/* Stat cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6">
+                <StatCard label={t.speakers} value={stats.speakers || 0} />
+                <StatCard label={t.sponsors} value={stats.sponsors || 0} color="#ffd700" />
+                <StatCard label={t.sessionsLabel} value={stats.sessions || 0} color="#0066ff" />
+                <StatCard label={t.cfp} value={stats.cfp || 0} color="#cc00ff" />
+                <StatCard label={t.benevoles} value={stats.volunteers || 0} color="#ff6600" />
+                <StatCard label={t.inscriptions} value={stats.registrations || 0} color="#ff0066" />
+                <StatCard label={t.newsletterLabel} value={stats.subscribers || 0} color="#ffaa00" />
+                <StatCard label={t.equipe} value={stats.team || 0} color="#00ccff" />
+              </div>
+              {/* Analytics section inlined */}
+              {(data.analytics?.[0] as Record<string, unknown> | undefined) && (() => {
+                const ad = data.analytics![0] as Record<string, unknown>;
+                const curve = (ad.registrationCurve as { date: string; count: number }[]) || [];
+                const byTicket = (ad.byTicket as Record<string, number>) || {};
+                const topCountries = (ad.topCountries as { country: string; count: number }[]) || [];
+                const totalRegs = (ad.totalRegistrations as number) || 0;
+                const maxCount = Math.max(...curve.map(c => c.count), 1);
+                return (
+                  <>
+                    {/* CFP breakdown + check-in */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                      {[
+                        { label: "CFP Total", value: ad.cfpTotal as number, color: "#888" },
+                        { label: "CFP Acceptés", value: ad.cfpAccepted as number, color: "#00ff9d" },
+                        { label: "Taux CFP", value: `${ad.cfpRate}%`, color: "#ff6600" },
+                        { label: "Check-ins", value: ad.checkedIn as number, color: "#0066ff" },
+                      ].map(k => (
+                        <div key={k.label} className="cyber-card rounded-xl p-4 text-center">
+                          <div className="text-2xl font-black font-mono" style={{ color: k.color, fontFamily: "'Share Tech Mono', monospace" }}>{k.value ?? 0}</div>
+                          <div className="text-gray-500 text-xs uppercase tracking-wider mt-1">{k.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Registration curve */}
+                    {curve.length > 0 && (
+                      <div className="cyber-card rounded-xl p-5 mb-6">
+                        <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Courbe d&apos;inscriptions</h2>
+                        <div className="flex items-end gap-1 h-32">
+                          {curve.map(c => (
+                            <div key={c.date} className="flex flex-col items-center flex-1 min-w-0" title={`${c.date}: ${c.count}`}>
+                              <div className="w-full rounded-t transition-all" style={{ height: `${Math.round((c.count / maxCount) * 100)}%`, background: "#00ff9d", minHeight: 2, opacity: 0.8 }} />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex justify-between text-gray-700 text-xs mt-1">
+                          <span>{curve[0]?.date || ""}</span>
+                          <span>{totalRegs} total</span>
+                          <span>{curve[curve.length - 1]?.date || ""}</span>
+                        </div>
+                      </div>
+                    )}
+                    {/* Ticket breakdown + top countries */}
+                    {(Object.keys(byTicket).length > 0 || topCountries.length > 0) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div className="cyber-card rounded-xl p-5">
+                          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Par type de billet</h2>
+                          <div className="space-y-2">
+                            {Object.entries(byTicket).map(([type, count]) => (
+                              <div key={type} className="flex items-center gap-2">
+                                <span className="text-xs text-gray-400 w-24 shrink-0">{type}</span>
+                                <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full bg-neon-green/60" style={{ width: `${totalRegs > 0 ? Math.round((count / totalRegs) * 100) : 0}%` }} />
+                                </div>
+                                <span className="text-xs font-mono text-neon-green w-8 text-right">{count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="cyber-card rounded-xl p-5">
+                          <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Top pays</h2>
+                          <div className="space-y-2">
+                            {topCountries.map(c => (
+                              <div key={c.country} className="flex items-center gap-2">
+                                <span className="text-xs text-gray-400 w-24 shrink-0 truncate">{c.country}</span>
+                                <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full" style={{ width: `${totalRegs > 0 ? Math.round((c.count / totalRegs) * 100) : 0}%`, background: "#0066ff" }} />
+                                </div>
+                                <span className="text-xs font-mono w-8 text-right" style={{ color: "#0066ff" }}>{c.count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {/* CFP funnel + volunteer rates */}
+                    <div className="cyber-card rounded-xl p-5 mb-6">
+                      <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-4">Funnel CFP &amp; Bénévoles</h2>
+                      <div className="flex gap-8 items-center flex-wrap">
+                        {[
+                          { label: "CFP Soumis", value: ad.cfpTotal as number, color: "#888" },
+                          { label: "CFP Acceptés", value: ad.cfpAccepted as number, color: "#00ff9d" },
+                          { label: "Taux CFP", value: `${ad.cfpRate}%`, color: "#ff6600" },
+                          { label: "Taux Bénévoles", value: `${ad.volRate}%`, color: "#cc00ff" },
+                        ].map(f => (
+                          <div key={f.label} className="text-center">
+                            <div className="text-2xl font-black font-mono" style={{ color: f.color, fontFamily: "'Share Tech Mono', monospace" }}>{f.value ?? 0}</div>
+                            <div className="text-gray-500 text-xs mt-1">{f.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+              {/* Quick action cards */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                {[
+                  { tab: "speakers", label: "Gérer les Speakers", desc: "Ajouter, éditer et ordonner les intervenants 2026" },
+                  { tab: "sponsors", label: "Gérer les Sponsors", desc: "Logos, tiers et liens des sponsors" },
+                  { tab: "sessions", label: "Éditer le Programme", desc: "Créer et ordonner les sessions par date" },
+                  { tab: "cfp", label: "Propositions de Talks", desc: "Examiner et statuer sur les CFP reçus" },
+                  { tab: "volunteers", label: "Candidatures Bénévoles", desc: "Gérer les candidatures reçues" },
+                  { tab: "registrations", label: "Inscriptions", desc: "Liste complète des participants inscrits" },
+                  { tab: "team", label: "Équipe d'organisation", desc: "Gérer les membres de l'équipe organisatrice" },
+                  { tab: "past-speakers", label: "Anciens Intervenants", desc: "Archive des intervenants des éditions précédentes" },
+                ].map(item => (
+                  <button key={item.tab} onClick={() => setTab(item.tab as Tab)} className="cyber-card rounded-xl p-5 text-left hover:border-neon-green/50 transition-all">
+                    <div className="text-neon-green font-bold text-sm mb-1">{item.label}</div>
+                    <div className="text-gray-500 text-xs">{item.desc}</div>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -5183,7 +4025,6 @@ export default function AdminDashboard() {
                             {!s.isVisible && <span className="text-xs text-gray-600">Masqué</span>}
                           </div>
                           <div className="flex gap-2 shrink-0">
-                            <button onClick={() => setDetail({ type: "sponsor", item: s })} className="text-xs text-gray-400 hover:text-white px-2 py-1 border border-gray-700 rounded">Détails</button>
                             <button onClick={() => { setForm({ ...s }); setEditing(s.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">Éditer</button>
                             <button onClick={() => del("/api/admin/sponsors", s.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">Suppr.</button>
                           </div>
@@ -5201,27 +4042,17 @@ export default function AdminDashboard() {
           {tab === "volunteers" && (
             <div>
               <h1 className="text-2xl font-black text-white mb-6">{t.benevoles} ({(data.volunteers || []).length})</h1>
-              <div className="mb-8">
-                <VolunteerKanban />
-              </div>
-              <div className="border-t border-gray-800 pt-6">
-                <h2 className="text-sm font-bold text-gray-400 font-mono mb-4 uppercase tracking-wider">Toutes les candidatures</h2>
-              {(() => {
-                const volunteerList = (data.volunteers || []) as Record<string, unknown>[];
-                const existingRoles = Array.from(new Set(volunteerList.map(v => v.role as string).filter(Boolean))).sort();
-                return (
               <div className="space-y-3">
-                {volunteerList.map(v => (
+                {((data.volunteers || []) as Record<string, unknown>[]).map(v => (
                   <div key={v.id as number} className="cyber-card rounded-xl p-5">
                     <div className="flex items-start justify-between gap-4 mb-3">
                       <div>
                         <p className="text-white font-bold">{v.name as string} <span className="text-gray-500 font-normal text-sm">— {v.email as string}</span></p>
                         {!!v.role && <p className="text-neon-green/70 text-sm">Rôle souhaité : {v.role as string}</p>}
                         {!!v.city && <p className="text-gray-500 text-xs">{v.city as string}</p>}
-                        <p className="text-gray-400 text-xs mt-2 line-clamp-2">{v.motivation as string}</p>
+                        <p className="text-gray-400 text-xs mt-2">{v.motivation as string}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => setDetail({ type: "volunteer", item: v })} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">Détails</button>
                         <Badge status={v.status as string} />
                         <select className="cyber-input text-xs px-2 py-1 rounded bg-transparent" value={v.status as string}
                           onChange={e => updateStatus("volunteer", v.id as number, e.target.value)}>
@@ -5235,22 +4066,19 @@ export default function AdminDashboard() {
                       <div className="border-t border-gray-800 pt-3 mt-2">
                         <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Affectation</p>
                         <div className="flex gap-2 flex-wrap">
-                          <select
-                            className="cyber-input text-xs rounded px-2 py-1 flex-1 min-w-[140px]"
+                          <input
+                            type="text"
+                            placeholder="Rôle assigné"
                             defaultValue={(v.assignedRole as string) || ""}
-                            onChange={async (e) => {
+                            className="cyber-input text-xs rounded px-2 py-1 flex-1 min-w-[120px]"
+                            onBlur={async (e) => {
                               await fetch("/api/admin/submissions", {
                                 method: "PATCH",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ type: "volunteer-assign", id: v.id, assignedRole: e.target.value }),
                               });
                             }}
-                          >
-                            <option value="">— Rôle assigné —</option>
-                            {existingRoles.map(r => (
-                              <option key={r} value={r}>{r}</option>
-                            ))}
-                          </select>
+                          />
                           <input
                             type="datetime-local"
                             defaultValue={(v.shiftStart as string)?.slice(0, 16) || ""}
@@ -5281,10 +4109,7 @@ export default function AdminDashboard() {
                     <p className="text-gray-600 text-xs mt-2">{new Date(v.createdAt as string).toLocaleDateString("fr-FR")}</p>
                   </div>
                 ))}
-                {!volunteerList.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune candidature</p>}
-              </div>
-                );
-              })()}
+                {!data.volunteers?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune candidature</p>}
               </div>
             </div>
           )}
@@ -5297,14 +4122,9 @@ export default function AdminDashboard() {
                   <h1 className="text-2xl font-black text-white">{t.registrationsTitle} ({(data.registrations || []).length})</h1>
                   <p className="text-gray-500 text-xs mt-1">Validez le paiement pour envoyer le billet avec QR code</p>
                 </div>
-                <div className="flex gap-2">
-                  <a href="/checkin/scan" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">
-                    📷 Scanner QR →
-                  </a>
-                  <a href="/admin/checkin" target="_blank" rel="noreferrer" className="px-4 py-2 rounded text-sm border border-gray-700 text-gray-300 hover:text-white transition-colors">
-                    📋 Liste check-in →
-                  </a>
-                </div>
+                <a href="/admin/checkin" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">
+                  📱 Ouvrir Check-in J-Day →
+                </a>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
@@ -5332,28 +4152,25 @@ export default function AdminDashboard() {
                         </td>
                         <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleDateString("fr-FR")}</td>
                         <td className="py-2 px-3">
-                          <div className="flex gap-2 flex-wrap items-center">
-                            <button onClick={() => setDetail({ type: "registration", item: r })} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">Détails</button>
-                            {(r.status as string) === "pending" && (
-                              <button
-                                className="text-xs px-3 py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/20 hover:bg-neon-green/20 transition-colors"
-                                onClick={async () => {
-                                  if (!confirm(`Valider le paiement de ${r.fname} ${r.lname} et envoyer le billet ?`)) return;
-                                  const res = await fetch("/api/admin/submissions", {
-                                    method: "PATCH",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ type: "registration", action: "validate", id: r.id }),
-                                  });
-                                  if (res.ok) fetchData("registrations");
-                                }}
-                              >
-                                {t.validateAndSend}
-                              </button>
-                            )}
-                            {(r.status as string) === "validated" && (
-                              <span className="text-xs text-neon-green/60 font-mono">Billet envoyé ✓</span>
-                            )}
-                          </div>
+                          {(r.status as string) === "pending" && (
+                            <button
+                              className="text-xs px-3 py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/20 hover:bg-neon-green/20 transition-colors"
+                              onClick={async () => {
+                                if (!confirm(`Valider le paiement de ${r.fname} ${r.lname} et envoyer le billet ?`)) return;
+                                const res = await fetch("/api/admin/submissions", {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ type: "registration", action: "validate", id: r.id }),
+                                });
+                                if (res.ok) fetchData("registrations");
+                              }}
+                            >
+                              {t.validateAndSend}
+                            </button>
+                          )}
+                          {(r.status as string) === "validated" && (
+                            <span className="text-xs text-neon-green/60 font-mono">Billet envoyé ✓</span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -5583,12 +4400,6 @@ export default function AdminDashboard() {
             <CommunicationPanel />
           )}
 
-          {/* LIBRARY */}
-          {tab === "library" && <LibraryPanel />}
-
-          {/* CYBER WATCH */}
-          {tab === "cyber-watch" && <CyberWatchPanel />}
-
           {/* SPONSOR PIPELINE */}
           {tab === "sponsor-pipeline" && (
             <SponsorPipelinePanel
@@ -5626,9 +4437,6 @@ export default function AdminDashboard() {
             />
           )}
 
-          {/* CTF */}
-          {tab === "ctf" && <CTFPanel />}
-
           {/* TICKETS */}
           {tab === "tickets" && <TicketsPanel />}
 
@@ -5636,6 +4444,9 @@ export default function AdminDashboard() {
           {tab === "certificates" && (
             <CertificatesPanel />
           )}
+
+          {/* SESSIONS / PROGRAMME */}
+          {tab === "sessions" && <SessionsPanel />}
 
           {/* AUDIT LOG — super_admin only */}
           {tab === "audit" && <AuditPanel />}
@@ -5668,99 +4479,7 @@ export default function AdminDashboard() {
         </main>
       </div>
     </div>
+    <ConfirmModal />
     </AdminLangContext.Provider>
-  );
-}
-
-// ── Detail drawer ─────────────────────────────────────────────────────────────
-function DetailDrawer({ item, type, onClose }: { item: Record<string, unknown>; type: string; onClose: () => void }) {
-  const fmt = (v: unknown) => {
-    if (v === null || v === undefined || v === "") return <span className="text-gray-600">—</span>;
-    if (typeof v === "boolean") return <span className={v ? "text-neon-green" : "text-gray-500"}>{v ? "Oui" : "Non"}</span>;
-    if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v)) return new Date(v).toLocaleString("fr-FR");
-    if (typeof v === "string" && (v.startsWith("http://") || v.startsWith("https://")))
-      return <a href={v} target="_blank" rel="noreferrer" className="text-cyan-400 underline break-all">{v}</a>;
-    if (typeof v === "string" && v.startsWith("linkedin")) return <a href={`https://${v}`} target="_blank" rel="noreferrer" className="text-cyan-400 underline">{v}</a>;
-    return <span className="text-white break-words">{String(v)}</span>;
-  };
-
-  const sections: Record<string, { label: string; fields: { key: string; label: string }[] }[]> = {
-    volunteer: [
-      { label: "Identité", fields: [{ key: "name", label: "Nom" }, { key: "email", label: "Email" }, { key: "phone", label: "Téléphone" }, { key: "city", label: "Ville" }] },
-      { label: "Réseaux", fields: [{ key: "linkedin", label: "LinkedIn" }, { key: "twitter", label: "X / Twitter" }, { key: "whatsapp", label: "WhatsApp" }] },
-      { label: "Candidature", fields: [{ key: "role", label: "Rôle souhaité" }, { key: "hoursPerWeek", label: "Heures / semaine" }, { key: "langExpression", label: "Langue" }, { key: "status", label: "Statut" }] },
-      { label: "Motivation", fields: [{ key: "motivation", label: "Motivation" }, { key: "experience", label: "Expérience" }] },
-      { label: "Affectation", fields: [{ key: "assignedRole", label: "Rôle assigné" }, { key: "shiftStart", label: "Début shift" }, { key: "shiftEnd", label: "Fin shift" }] },
-      { label: "Meta", fields: [{ key: "createdAt", label: "Soumis le" }] },
-    ],
-    registration: [
-      { label: "Participant", fields: [{ key: "fname", label: "Prénom" }, { key: "lname", label: "Nom" }, { key: "email", label: "Email" }, { key: "org", label: "Organisation" }, { key: "country", label: "Pays" }] },
-      { label: "Réseaux", fields: [{ key: "linkedin", label: "LinkedIn" }, { key: "whatsapp", label: "WhatsApp" }] },
-      { label: "Billet", fields: [{ key: "ticketType", label: "Type billet" }, { key: "ticketRef", label: "Référence" }, { key: "status", label: "Statut" }, { key: "langExpression", label: "Langue" }] },
-      { label: "Check-in", fields: [{ key: "checkedInAt", label: "Heure check-in" }, { key: "checkedInBy", label: "Par" }] },
-      { label: "CTF", fields: [{ key: "ctfCompetitorName", label: "Pseudo CTF" }, { key: "ctfTeamName", label: "Équipe CTF" }, { key: "ctfAccountCreated", label: "Compte CTFd créé" }] },
-      { label: "Meta", fields: [{ key: "createdAt", label: "Inscrit le" }] },
-    ],
-    sponsor: [
-      { label: "Sponsor", fields: [{ key: "name", label: "Nom" }, { key: "tier", label: "Tier" }, { key: "website", label: "Site web" }, { key: "logoUrl", label: "Logo URL" }] },
-      { label: "Visibilité", fields: [{ key: "isVisible", label: "Visible" }, { key: "sortOrder", label: "Ordre" }] },
-      { label: "Meta", fields: [{ key: "createdAt", label: "Créé le" }] },
-    ],
-    cfp: [
-      { label: "Speaker", fields: [{ key: "name", label: "Nom" }, { key: "email", label: "Email" }, { key: "org", label: "Organisation" }, { key: "country", label: "Pays" }] },
-      { label: "Réseaux", fields: [{ key: "linkedin", label: "LinkedIn" }, { key: "twitter", label: "X / Twitter" }, { key: "whatsapp", label: "WhatsApp" }] },
-      { label: "Proposition", fields: [{ key: "talkTitle", label: "Titre" }, { key: "format", label: "Format" }, { key: "langPresentation", label: "Langue" }, { key: "pipelineStage", label: "Étape" }, { key: "status", label: "Statut" }] },
-      { label: "Abstract", fields: [{ key: "abstract", label: "Abstract" }] },
-      { label: "Bio", fields: [{ key: "bio", label: "Bio" }] },
-      { label: "Analyse IA", fields: [{ key: "aiScore", label: "Score IA" }, { key: "aiAnalysis", label: "Analyse IA" }] },
-      { label: "Meta", fields: [{ key: "createdAt", label: "Soumis le" }, { key: "decisionSentAt", label: "Décision envoyée" }, { key: "notes", label: "Notes admin" }] },
-    ],
-    session: [
-      { label: "Session", fields: [{ key: "title", label: "Titre" }, { key: "type", label: "Type" }, { key: "speakerName", label: "Intervenant" }, { key: "room", label: "Salle" }] },
-      { label: "Horaires", fields: [{ key: "date", label: "Date" }, { key: "time", label: "Début" }, { key: "endTime", label: "Fin" }] },
-      { label: "Contenu", fields: [{ key: "description", label: "Description" }] },
-      { label: "Visibilité", fields: [{ key: "isVisible", label: "Visible" }, { key: "sortOrder", label: "Ordre" }] },
-    ],
-  };
-
-  const secs = sections[type] || Object.keys(item).map(key => ({ label: "", fields: [{ key, label: key }] }));
-  const typeLabels: Record<string, string> = { volunteer: "Bénévole", registration: "Inscription", sponsor: "Sponsor", cfp: "Soumission CFP", session: "Session" };
-
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/60 z-50" onClick={onClose} />
-      <div className="fixed top-0 right-0 h-full w-full max-w-lg bg-dark-900 border-l border-neon-green/20 z-50 overflow-y-auto" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-        <div className="sticky top-0 bg-dark-900 border-b border-neon-green/10 px-6 py-4 flex items-center justify-between">
-          <div>
-            <p className="text-neon-green text-xs uppercase tracking-widest">{typeLabels[type] || type}</p>
-            <h2 className="text-white font-bold text-lg mt-0.5">
-              {(item.name as string) || (item.fname ? `${item.fname} ${item.lname}` : `#${item.id}`)}
-            </h2>
-          </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white text-2xl leading-none px-2">×</button>
-        </div>
-
-        <div className="px-6 py-4 space-y-6">
-          {secs.map((sec, si) => (
-            <div key={si}>
-              {sec.label && <p className="text-neon-green/60 text-xs uppercase tracking-widest mb-3 border-b border-neon-green/10 pb-1">{sec.label}</p>}
-              <div className="space-y-3">
-                {sec.fields.map(({ key, label }) => {
-                  const val = item[key];
-                  if (val === null || val === undefined || val === "") return null;
-                  const isLong = typeof val === "string" && val.length > 120;
-                  return (
-                    <div key={key} className={isLong ? "" : "flex gap-3"}>
-                      <span className="text-gray-500 text-xs shrink-0 w-32">{label}</span>
-                      <div className={`text-sm ${isLong ? "mt-1 text-gray-300 leading-relaxed whitespace-pre-wrap bg-black/20 rounded p-3" : ""}`}>{fmt(val)}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </>
   );
 }

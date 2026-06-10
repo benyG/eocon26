@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import CountrySelect from "@/components/CountrySelect";
+import { useConfirm } from "@/components/admin/ConfirmModal";
 
 type Stage = "submitted" | "reviewing" | "accepted" | "onboarding" | "confirmed" | "scheduled";
 
@@ -88,6 +89,7 @@ interface WorkshopRecord {
 type ActiveView = "pipeline" | "speakers" | "programme" | "workshops";
 
 export default function PipelineKanban() {
+  const confirm = useConfirm();
   const [view, setView] = useState<ActiveView>("pipeline");
   const [cards, setCards] = useState<CFPCard[]>([]);
   const [speakers, setSpeakers] = useState<SpeakerRecord[]>([]);
@@ -346,18 +348,19 @@ export default function PipelineKanban() {
   };
 
   const unscheduleSession = async (sess: SessionRecord) => {
-    if (!confirm(`Retirer "${sess.title}" du programme ?`)) return;
-    // Always remove the date (never delete the session — it stays in backlog)
-    const res = await fetch(`/api/admin/sessions/${sess.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date: null }),
-    });
-    if (res.ok) {
-      setSessions(prev => prev.map(s => s.id === sess.id ? { ...s, date: null } : s));
-      // If a CFP card was moved to "scheduled" because of this session, revert it to "confirmed"
-      const linkedCard = sess.speakerId ? cards.find(c => c.speakerId === sess.speakerId && c.pipelineStage === "scheduled") : null;
-      if (linkedCard) await moveStage(linkedCard.id, "confirmed");
+    if (!(await confirm({ message: `Retirer "${sess.title}" du programme ?`, danger: true }))) return;
+    const linkedCard = sess.speakerId ? cards.find(c => c.speakerId === sess.speakerId && c.pipelineStage === "scheduled") : null;
+    if (linkedCard) {
+      await fetch(`/api/admin/sessions/${sess.id}`, { method: "DELETE" });
+      setSessions(prev => prev.filter(s => s.id !== sess.id));
+      await moveStage(linkedCard.id, "confirmed");
+    } else {
+      const res = await fetch(`/api/admin/sessions/${sess.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: null }),
+      });
+      if (res.ok) setSessions(prev => prev.map(s => s.id === sess.id ? { ...s, date: null } : s));
     }
   };
 
@@ -371,7 +374,7 @@ export default function PipelineKanban() {
   };
 
   const seedSessions = async () => {
-    if (!confirm("Initialiser le programme avec les sessions standard ?")) return;
+    if (!(await confirm({ message: "Initialiser le programme avec les sessions standard ?" }))) return;
     setSeeding(true);
     const r = await fetch("/api/admin/sessions/seed", { method: "POST" });
     const j = await r.json();
@@ -511,7 +514,7 @@ export default function PipelineKanban() {
               ))}
               {selectedCard.status !== "rejected" && (
                 <button
-                  onClick={() => { if (confirm(`Rejeter la soumission de ${selectedCard.name} ?`)) rejectCFP(selectedCard.id); }}
+                  onClick={async () => { if (await confirm({ message: `Rejeter la soumission de ${selectedCard.name} ?`, danger: true, confirmLabel: "Rejeter" })) rejectCFP(selectedCard.id); }}
                   className="text-xs px-3 py-1.5 rounded transition-all"
                   style={{ background: "#ff006615", color: "#ff0066", border: "1px solid #ff006640" }}
                 >
@@ -718,7 +721,7 @@ export default function PipelineKanban() {
               </div>
               <div className="flex gap-2 mt-4">
                 <button onClick={() => saveSpeaker(editSpeaker)} className="btn-neon px-4 py-2 rounded text-xs">💾 Sauvegarder</button>
-                <button onClick={async () => { if (confirm(`Supprimer ${editSpeaker.name} ?`)) { await fetch(`/api/admin/speakers/${editSpeaker.id}`, { method: "DELETE" }); setSpeakers(prev => prev.filter(s => s.id !== editSpeaker.id)); setEditSpeaker(null); } }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>Supprimer</button>
+                <button onClick={async () => { if (await confirm({ message: `Supprimer ${editSpeaker.name} ?`, danger: true, confirmLabel: "Supprimer" })) { await fetch(`/api/admin/speakers/${editSpeaker.id}`, { method: "DELETE" }); setSpeakers(prev => prev.filter(s => s.id !== editSpeaker.id)); setEditSpeaker(null); } }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>Supprimer</button>
                 <button onClick={() => setEditSpeaker(null)} className="text-xs text-gray-500 px-3 py-2">Annuler</button>
               </div>
             </div>
@@ -859,7 +862,7 @@ export default function PipelineKanban() {
 
           {/* Drop time picker modal */}
           {pendingDrop && (
-            <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+            <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
               <div className="cyber-card rounded-xl p-6 max-w-sm w-full border-neon-green/30">
                 <h3 className="text-white font-bold mb-1 text-sm">Programmer la session</h3>
                 <p className="text-gray-400 text-xs mb-4">
@@ -947,7 +950,7 @@ export default function PipelineKanban() {
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => saveWorkshop(editWorkshop)} className="btn-neon px-4 py-2 rounded text-xs">💾 Sauvegarder</button>
-                    <button onClick={() => { if (confirm("Supprimer cet atelier ?")) deleteWorkshop(editWorkshop.id); }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>Supprimer</button>
+                    <button onClick={async () => { if (await confirm({ message: "Supprimer cet atelier ?", danger: true, confirmLabel: "Supprimer" })) deleteWorkshop(editWorkshop.id); }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>Supprimer</button>
                     <button onClick={() => setEditWorkshop(null)} className="text-xs text-gray-500 px-3 py-2">Annuler</button>
                   </div>
                 </div>

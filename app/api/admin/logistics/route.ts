@@ -22,6 +22,7 @@ const PRIORITY_ORDER: Record<string, number> = {
 export async function GET() {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const tasks = await prisma.logisticsTask.findMany({ orderBy: [{ sortOrder: "asc" }] });
+  // Sort by phase order, then priority order
   tasks.sort((a, b) => {
     const phaseA = PHASE_ORDER[a.phase] ?? 99;
     const phaseB = PHASE_ORDER[b.phase] ?? 99;
@@ -36,6 +37,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const data = await req.json();
+  // Synchronize done with status
   if (data.status !== undefined) {
     data.done = data.status === "done";
   } else if (data.done !== undefined) {

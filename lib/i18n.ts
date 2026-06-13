@@ -345,7 +345,7 @@ export const translations = {
   fr: {
     nav: {
       about: "À propos",
-      speakers: "Intervenants",
+      speakers: "Conférenciers",
       schedule: "Programme",
       ctf: "CTF",
       workshops: "Ateliers",
@@ -377,7 +377,7 @@ export const translations = {
       stat1_num: "1500+",
       stat1_label: "Participants attendus",
       stat2_num: "35+",
-      stat2_label: "Experts intervenants",
+      stat2_label: "Experts conférenciers",
       stat3_num: "15+",
       stat3_label: "Pays représentés",
       stat4_num: "91%",
@@ -393,12 +393,12 @@ export const translations = {
       pillar4_desc: "Discussions approfondies sur les défis sécuritaires les plus urgents",
     },
     speakers: {
-      title: "Intervenants",
+      title: "Conférenciers",
       subtitle: "Des Experts de Classe Mondiale. Des Insights Concrets.",
-      cta: "Devenir intervenant",
+      cta: "Devenir conférencier",
       tba: "À Annoncer",
-      tba_desc: "La liste des intervenants est en cours de finalisation. Soumettez votre proposition dès maintenant.",
-      past_title: "Intervenants des Éditions Précédentes",
+      tba_desc: "La liste des conférenciers est en cours de finalisation. Soumettez votre proposition dès maintenant.",
+      past_title: "Conférenciers des Éditions Précédentes",
     },
     schedule: {
       title: "Programme",
@@ -485,7 +485,7 @@ export const translations = {
       register: "Réserver ma place",
     },
     cfp: {
-      title: "Appel à Intervenants",
+      title: "Appel à Conférenciers",
       subtitle: "Partagez votre expertise. Façonnez l'avenir.",
       description:
         "Nous recherchons des professionnels, chercheurs et praticiens de la cybersécurité pour intervenir à EOCON 2026 à Douala, Cameroun. Que vous présentiez des recherches de pointe, des études de cas ou des idées novatrices — nous voulons vous entendre.",

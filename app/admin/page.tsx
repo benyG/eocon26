@@ -1752,7 +1752,7 @@ function SponsorFormPanel({
         <div className="sm:col-span-2">
           <label className="block text-xs text-gray-500 mb-1">Logo</label>
           <div className="flex items-center gap-2 flex-wrap">
-            {form.logoUrl && <img src={form.logoUrl as string} alt="logo" className="w-10 h-10 object-contain rounded bg-white/5 p-1 border border-gray-700" />}
+            {!!form.logoUrl && <img src={form.logoUrl as string} alt="logo" className="w-10 h-10 object-contain rounded bg-white/5 p-1 border border-gray-700" />}
             <input className="cyber-input flex-1 px-3 py-2 rounded text-xs min-w-0" placeholder="URL du logo" value={(form.logoUrl as string) || ""} onChange={e => setForm({ ...form, logoUrl: e.target.value })} />
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }} />
             <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="text-xs px-3 py-2 rounded border border-gray-700 hover:border-neon-green text-gray-400 hover:text-neon-green shrink-0">

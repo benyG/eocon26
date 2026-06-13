@@ -119,6 +119,8 @@ model Sponsor {
   name      String
   logoUrl   String?
   website   String?
+  email     String?
+  phone     String?
   tier      String   // PLATINUM | GOLD | SILVER | BRONZE
   isVisible Boolean  @default(true)
   sortOrder Int      @default(0)
@@ -377,6 +379,10 @@ model LogisticsTask {
   assignee  String?
   deadline  DateTime?
   done      Boolean  @default(false)
+  status    String   @default("todo")
+  priority  String   @default("medium")
+  phase     String   @default("J-30")
+  notes     String?  @db.Text
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
 

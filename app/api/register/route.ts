@@ -36,6 +36,8 @@ export async function POST(req: NextRequest) {
 
     const rawRef = generateTicketRef();
     const ticketRef = formatTicketRef(rawRef);
+    const settings = await getEventSettings().catch(() => ({} as Record<string, string>));
+    const officeOpen = settings.ticketOfficeOpen === "true";
     const registration = await prisma.registration.create({
       data: {
         fname: fname.slice(0, 80),
@@ -50,15 +52,37 @@ export async function POST(req: NextRequest) {
         whatsapp: whatsapp?.slice(0, 191) || null,
         ctfCompetitorName: ctfCompetitorName?.slice(0, 191) || null,
         ctfTeamName: ctfTeamName?.slice(0, 30) || null,
+        status: officeOpen ? "pending" : "pre_registered",
       },
     });
 
-    const settings = await getEventSettings().catch(() => ({} as Record<string, string>));
     const paymentUrl = settings.url_inscription || "https://eyesopensecurity.com/#inscription";
 
-    sendRegistrationPending(email, fname, lname, ticketType, ticketRef, paymentUrl, lang_expression === "en" ? "en" : "fr").catch(e =>
-      console.error("[Register email]", e),
-    );
+    if (officeOpen) {
+      sendRegistrationPending(email, fname, lname, ticketType, ticketRef, paymentUrl, lang_expression === "en" ? "en" : "fr").catch(e =>
+        console.error("[Register email]", e),
+      );
+    } else {
+      // Guichet fermé : email de confirmation de pré-inscription
+      const isFr = lang_expression !== "en";
+      const subject = isFr ? "✅ Pré-inscription EOCON 2026 confirmée" : "✅ EOCON 2026 Pre-registration confirmed";
+      const body = isFr
+        ? `<p>Bonjour <strong style="color:#00ff9d">${fname} ${lname}</strong>,</p>
+           <p>Votre pré-inscription à EOCON 2026 a bien été enregistrée. Vous serez notifié(e) par email dès l'ouverture du guichet.</p>
+           <p style="color:#888;font-size:12px;">EOCON 2026 · Hotel Onomo, Douala · 28 Novembre 2026</p>`
+        : `<p>Hello <strong style="color:#00ff9d">${fname} ${lname}</strong>,</p>
+           <p>Your pre-registration for EOCON 2026 has been recorded. You will be notified by email when tickets become available.</p>
+           <p style="color:#888;font-size:12px;">EOCON 2026 · Hotel Onomo, Douala · 28 November 2026</p>`;
+      const { Resend } = await import("resend");
+      const resend = new Resend(process.env.RESEND_API_KEY || "");
+      const FROM = process.env.EMAIL_FROM || "EOCON 2026 <noreply@eyesopensecurity.com>";
+      resend.emails.send({
+        from: FROM,
+        to: email,
+        subject,
+        html: `<!DOCTYPE html><html><body style="background:#030408;color:#fff;font-family:'Courier New',monospace;padding:32px;">${body}</body></html>`,
+      }).catch(e => console.error("[Pre-register email]", e));
+    }
 
     return NextResponse.json({ success: true, id: registration.id }, { status: 201 });
   } catch (err) {

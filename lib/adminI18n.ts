@@ -509,7 +509,7 @@ export const adminI18n = {
     speakerCountryLabel: "Pays",
     speakerEditionLabel: "Édition (ex: 2024)",
     speakerPhotoLabel: "Photo",
-    noPastSpeakers: "Aucun ancien intervenant — cliquez sur + Ajouter",
+    noPastSpeakers: "Aucun ancien conférencier — cliquez sur + Ajouter",
     sponsorNameLabel: "Nom du Sponsor *",
     sponsorWebsiteLabel: "Site Web",
     sponsorLogoLabel: "URL du Logo",

@@ -34,15 +34,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Nom trop long" }, { status: 400 });
     }
 
-    const settings = await getEventSettings().catch(() => ({} as Record<string, string>));
-    const officeOpen = settings.ticketOfficeOpen === "true";
-    const lang: "fr" | "en" = lang_expression === "en" ? "en" : "fr";
-    const isFr = lang === "fr";
-
     const rawRef = generateTicketRef();
     const ticketRef = formatTicketRef(rawRef);
-    const registrationStatus = officeOpen ? "pending" : "pre_registered";
-
     const registration = await prisma.registration.create({
       data: {
         fname: fname.slice(0, 80),
@@ -53,7 +46,6 @@ export async function POST(req: NextRequest) {
         ticketType,
         langExpression: lang_expression || "fr",
         ticketRef: rawRef,
-        status: registrationStatus,
         linkedin: linkedin?.slice(0, 191) || null,
         whatsapp: whatsapp?.slice(0, 191) || null,
         ctfCompetitorName: ctfCompetitorName?.slice(0, 191) || null,
@@ -61,24 +53,14 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    const settings = await getEventSettings().catch(() => ({} as Record<string, string>));
     const paymentUrl = settings.url_inscription || "https://eyesopensecurity.com/#inscription";
 
-    if (officeOpen) {
-      sendRegistrationPending(email, fname, lname, ticketType, ticketRef, paymentUrl, lang).catch(e =>
-        console.error("[Register email]", e),
-      );
-    } else {
-      const { Resend } = await import("resend");
-      const resend = new Resend(process.env.RESEND_API_KEY || "");
-      const FROM = process.env.EMAIL_FROM || "EOCON 2026 <noreply@eyesopensecurity.com>";
-      const subject = isFr ? "✅ Pré-inscription EOCON 2026 confirmée" : "✅ EOCON 2026 pre-registration confirmed";
-      const html = isFr
-        ? `<!DOCTYPE html><html><body style="background:#030408;color:#fff;font-family:'Courier New',monospace;padding:32px;"><p>Bonjour <strong style="color:#00ff9d">${fname} ${lname}</strong>,</p><p>Vous êtes pré-inscrit(e) à EOCON 2026. Le guichet est actuellement fermé.</p><p>Vous serez notifié(e) par email dès l'ouverture du guichet pour finaliser votre inscription.</p><p style="color:#888;font-size:12px;">EOCON 2026 · Hotel Onomo, Douala · 28 Novembre 2026</p></body></html>`
-        : `<!DOCTYPE html><html><body style="background:#030408;color:#fff;font-family:'Courier New',monospace;padding:32px;"><p>Hello <strong style="color:#00ff9d">${fname} ${lname}</strong>,</p><p>You are pre-registered for EOCON 2026. The ticket office is currently closed.</p><p>You will be notified by email as soon as tickets become available.</p><p style="color:#888;font-size:12px;">EOCON 2026 · Hotel Onomo, Douala · 28 November 2026</p></body></html>`;
-      resend.emails.send({ from: FROM, to: email, subject, html }).catch(e => console.error("[Register pre-reg email]", e));
-    }
+    sendRegistrationPending(email, fname, lname, ticketType, ticketRef, paymentUrl, lang_expression === "en" ? "en" : "fr").catch(e =>
+      console.error("[Register email]", e),
+    );
 
-    return NextResponse.json({ success: true, id: registration.id, status: registrationStatus }, { status: 201 });
+    return NextResponse.json({ success: true, id: registration.id }, { status: 201 });
   } catch (err) {
     console.error("[Register]", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

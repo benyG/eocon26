@@ -11,6 +11,8 @@ export interface AdminPermissions {
   newsletter?: "read" | "write";
   sponsors?: "read" | "write";
   "sponsor-pipeline"?: "read" | "write";
+  tickets?: "read" | "write";
+  "sponsor-packages"?: "read" | "write";
   budget?: "read" | "write";
   logistics?: "read" | "write";
   communication?: "read" | "write";
@@ -40,10 +42,10 @@ export const ADMIN_PROFILES: AdminProfile[] = [
       cfp: "write", speakers: "write", onboarding: "write", sessions: "write",
       workshops: "write", volunteers: "write", registrations: "write",
       newsletter: "write", sponsors: "write", "sponsor-pipeline": "write",
-      budget: "write", logistics: "write", communication: "write",
+      tickets: "write", "sponsor-packages": "write", budget: "write",
+      logistics: "write", communication: "write",
       team: "write", export: "write", users: "write", prospection: "write",
-      certificates: "write",
-      ctf: "write",
+      certificates: "write", ctf: "write",
     },
   },
   {
@@ -69,10 +71,11 @@ export const ADMIN_PROFILES: AdminProfile[] = [
   {
     id: "responsable_sponsors",
     name: "Responsable Sponsors",
-    description: "Pipeline sponsors, packages et budget",
+    description: "Pipeline sponsors, packages et budget sponsors",
     color: "#ffaa00",
     permissions: {
-      sponsors: "write", "sponsor-pipeline": "write", budget: "write",
+      sponsors: "write", "sponsor-pipeline": "write",
+      "sponsor-packages": "write",
       prospection: "write", export: "read",
     },
   },
@@ -124,7 +127,8 @@ export const ADMIN_PROFILES: AdminProfile[] = [
     permissions: {
       cfp: "read", speakers: "read", sessions: "read", workshops: "read",
       volunteers: "read", registrations: "read", newsletter: "read",
-      sponsors: "read", budget: "read", logistics: "read",
+      sponsors: "read", tickets: "read", "sponsor-packages": "read",
+      budget: "read", logistics: "read",
     },
   },
 ];

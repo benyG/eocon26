@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef, createContext, useContext } f
 import { useRouter } from "next/navigation";
 import { ADMIN_PROFILES } from "@/lib/adminProfiles";
 import PipelineKanban from "@/components/admin/PipelineKanban";
+import VolunteerKanban from "@/components/admin/VolunteerKanban";
 import CountrySelect from "@/components/CountrySelect";
 import AdminProfilesPanel from "@/components/admin/AdminProfilesPanel";
 import ConfirmModal, { useConfirm } from "@/components/admin/ConfirmModal";

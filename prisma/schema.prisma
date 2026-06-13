@@ -377,10 +377,6 @@ model LogisticsTask {
   assignee  String?
   deadline  DateTime?
   done      Boolean  @default(false)
-  status    String   @default("todo")
-  priority  String   @default("medium")
-  phase     String   @default("J-30")
-  notes     String?  @db.Text
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
 

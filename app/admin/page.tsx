@@ -6,7 +6,6 @@ import PipelineKanban from "@/components/admin/PipelineKanban";
 import CountrySelect from "@/components/CountrySelect";
 import AdminProfilesPanel from "@/components/admin/AdminProfilesPanel";
 import ConfirmModal, { useConfirm } from "@/components/admin/ConfirmModal";
-import MediaLibraryModal from "@/components/admin/MediaLibraryModal";
 import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
 
 const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; setLang: (l: AdminLang) => void }>({
@@ -434,25 +433,10 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
   const [generatingPitch, setGeneratingPitch] = useState(false);
   const [packages, setPackages] = useState<Record<string, unknown>[]>([]);
   const [filter, setFilter] = useState<"all" | "pending" | "added">("all");
-  const [enrichingId, setEnrichingId] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/sponsor-packages").then(r => r.json()).then(setPackages).catch(() => {});
   }, []);
-
-  const enrichLead = async (lead: Record<string, unknown>) => {
-    setEnrichingId(lead.id as number);
-    await fetch("/api/admin/ai/enrich-prospect", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ org: lead.org, website: lead.website }),
-    });
-    await onRefresh();
-    setEnrichingId(null);
-  };
-
-  const hasContact = (lead: Record<string, unknown>) =>
-    !!(lead.contactEmail || lead.phone || lead.contactName);
 
   const runApolloSearch = async () => {
     setSearching(true);
@@ -741,12 +725,6 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
                   {(!!lead.sector || !!lead.city) && (
                     <p className="text-gray-500 text-xs mt-0.5">{lead.sector as string}{lead.city ? ` · ${lead.city}` : ""}</p>
                   )}
-                  <div className="flex gap-1.5 flex-wrap mt-1.5">
-                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.contactEmail ? "#00ff9d20" : "#ff006615", color: lead.contactEmail ? "#00ff9d" : "#ff0066" }}>📧 email</span>
-                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.phone ? "#00ff9d20" : "#ff006615", color: lead.phone ? "#00ff9d" : "#ff0066" }}>📞 tel</span>
-                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.contactName ? "#00ff9d20" : "#ff006615", color: lead.contactName ? "#00ff9d" : "#ff0066" }}>👤 contact</span>
-                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.website ? "#00ff9d20" : "#ff006615", color: lead.website ? "#00ff9d" : "#ff0066" }}>🌐 web</span>
-                  </div>
                   {!!lead.contactName && (
                     <p className="text-xs mt-1" style={{ color: "#00ff9d" }}>
                       👤 {lead.contactName as string}{lead.contactTitle ? ` — ${lead.contactTitle}` : ""}
@@ -755,16 +733,13 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
                   {!!lead.contactEmail && (
                     <p className="text-gray-400 text-xs">✉ {lead.contactEmail as string}</p>
                   )}
-                  {!!lead.phone && (
-                    <p className="text-gray-400 text-xs">📞 {lead.phone as string}</p>
-                  )}
                   {!!lead.website && (
                     <a href={lead.website as string} target="_blank" rel="noreferrer" className="text-xs hover:underline block mt-0.5" style={{ color: "#0066ff" }}>
                       🌐 {lead.website as string}
                     </a>
                   )}
-                  {lead.aiScore !== null && lead.aiScore !== undefined && !hasContact(lead) && (
-                    <p className="text-gray-600 text-xs mt-1 italic line-through">Score {(lead.aiScore as number).toFixed(1)}/10 — Score inutile sans contact</p>
+                  {!lead.contactEmail && lead.source === "google_places" && (
+                    <p className="text-gray-700 text-xs mt-0.5 italic">{t.noEmailAvailable}</p>
                   )}
                   {!!lead.aiScoreReason && (
                     <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>
@@ -772,14 +747,6 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
                 </div>
                 {!lead.addedToPipeline && (
                   <div className="flex flex-col gap-2 shrink-0">
-                    <button
-                      onClick={() => enrichLead(lead)}
-                      disabled={enrichingId === (lead.id as number)}
-                      className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
-                      style={{ background: "#cc00ff15", color: "#cc00ff", border: "1px solid #cc00ff40" }}
-                    >
-                      {enrichingId === (lead.id as number) ? "…" : "🔍 Enrichir"}
-                    </button>
                     <button
                       onClick={() => generateEmail(lead)}
                       className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
@@ -795,19 +762,12 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
                       🎯 Pitch
                     </button>
                     <button
-                      onClick={() => hasContact(lead) ? addToPipeline(lead) : undefined}
-                      disabled={!hasContact(lead)}
-                      title={!hasContact(lead) ? "Enrichissez les données de contact avant de qualifier ce prospect." : undefined}
+                      onClick={() => addToPipeline(lead)}
                       className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
-                      style={hasContact(lead)
-                        ? { background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }
-                        : { background: "#33333320", color: "#555", border: "1px solid #33333340", cursor: "not-allowed" }}
+                      style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}
                     >
                       {t.addToPipeline}
                     </button>
-                    {!hasContact(lead) && (
-                      <p className="text-xs text-gray-600 max-w-[140px] text-center leading-tight">Enrichissez les données de contact</p>
-                    )}
                   </div>
                 )}
               </div>
@@ -1699,93 +1659,6 @@ const PROSPECT_STATUSES = [
   { value: "paused", fr: "En pause", en: "Paused", label: "En pause", color: "#555" },
 ];
 
-function SponsorFormPanel({
-  form,
-  editing,
-  setForm,
-  onSave,
-  onCancel,
-}: {
-  form: Record<string, unknown>;
-  editing: number | null;
-  setForm: (f: Record<string, unknown>) => void;
-  onSave: () => void;
-  onCancel: () => void;
-}) {
-  const [showLibrary, setShowLibrary] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const uploadLogo = async (file: File) => {
-    setUploading(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch("/api/admin/library", { method: "POST", body: fd });
-    if (res.ok) {
-      const { url } = await res.json() as { url: string };
-      setForm({ ...form, logoUrl: url });
-    }
-    setUploading(false);
-  };
-
-  return (
-    <div className="cyber-card rounded-xl p-6 mb-6">
-      {showLibrary && (
-        <MediaLibraryModal
-          onSelect={url => { setForm({ ...form, logoUrl: url }); setShowLibrary(false); }}
-          onClose={() => setShowLibrary(false)}
-        />
-      )}
-      <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier le Sponsor" : "Nouveau Sponsor"}</h3>
-      <div className="grid sm:grid-cols-2 gap-3">
-        {[
-          { key: "name", label: "Nom du Sponsor *" },
-          { key: "website", label: "Site Web" },
-          { key: "email", label: "Email" },
-          { key: "phone", label: "Téléphone" },
-        ].map(f => (
-          <div key={f.key}>
-            <label className="block text-xs text-gray-500 mb-1">{f.label}</label>
-            <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form[f.key] as string) || ""} onChange={e => setForm({ ...form, [f.key]: e.target.value })} />
-          </div>
-        ))}
-        <div className="sm:col-span-2">
-          <label className="block text-xs text-gray-500 mb-1">Logo</label>
-          <div className="flex items-center gap-2 flex-wrap">
-            {!!form.logoUrl && <img src={form.logoUrl as string} alt="logo" className="w-10 h-10 object-contain rounded bg-white/5 p-1 border border-gray-700" />}
-            <input className="cyber-input flex-1 px-3 py-2 rounded text-xs min-w-0" placeholder="URL du logo" value={(form.logoUrl as string) || ""} onChange={e => setForm({ ...form, logoUrl: e.target.value })} />
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }} />
-            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="text-xs px-3 py-2 rounded border border-gray-700 hover:border-neon-green text-gray-400 hover:text-neon-green shrink-0">
-              {uploading ? "Upload…" : "⬆ Upload"}
-            </button>
-            <button type="button" onClick={() => setShowLibrary(true)} className="text-xs px-3 py-2 rounded border border-gray-700 hover:border-neon-green text-gray-400 hover:text-neon-green shrink-0">
-              📂 Library
-            </button>
-          </div>
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Tier</label>
-          <select className="cyber-input w-full px-3 py-2 rounded text-xs bg-transparent" value={(form.tier as string) || "GOLD"} onChange={e => setForm({ ...form, tier: e.target.value })}>
-            {TIER_ORDER.map(t => <option key={t} value={t} className="bg-dark-800">{t}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Ordre</label>
-          <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.sortOrder as number) || 0} onChange={e => setForm({ ...form, sortOrder: Number(e.target.value) })} />
-        </div>
-        <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-          <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
-          Visible sur le site
-        </label>
-      </div>
-      <div className="flex gap-3 mt-4">
-        <button onClick={onSave} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
-        <button onClick={onCancel} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
-      </div>
-    </div>
-  );
-}
-
 function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<string, unknown>[]; onRefresh: () => void }) {
   const { t, lang } = useAdminT();
   const confirm = useConfirm();
@@ -2426,37 +2299,13 @@ function TicketsPanel() {
   const [loading, setLoading] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Partial<TicketTypeRow> & { perksFrArr?: string[]; perksEnArr?: string[] }>({});
-  const [ticketOfficeOpen, setTicketOfficeOpen] = useState<boolean>(false);
-  const [togglingOffice, setTogglingOffice] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [tickRes, settingsRes] = await Promise.all([
-      fetch("/api/admin/ticket-types"),
-      fetch("/api/admin/settings"),
-    ]);
-    if (tickRes.ok) setTickets(await tickRes.json());
-    if (settingsRes.ok) {
-      const s = await settingsRes.json() as Record<string, string>;
-      setTicketOfficeOpen(s.ticketOfficeOpen === "true");
-    }
+    const res = await fetch("/api/admin/ticket-types");
+    if (res.ok) setTickets(await res.json());
     setLoading(false);
   }, []);
-
-  const toggleOffice = async () => {
-    setTogglingOffice(true);
-    const next = !ticketOfficeOpen;
-    await fetch("/api/admin/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ticketOfficeOpen: String(next) }),
-    });
-    if (next) {
-      fetch("/api/admin/tickets/notify-preregistered", { method: "POST" }).catch(() => {});
-    }
-    setTicketOfficeOpen(next);
-    setTogglingOffice(false);
-  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -2514,16 +2363,6 @@ function TicketsPanel() {
           <p className="text-gray-500 text-xs mt-1">Gérez les types de billets affichés sur le portail d&apos;inscription</p>
         </div>
       </div>
-      <button
-        onClick={toggleOffice}
-        disabled={togglingOffice}
-        className="w-full mb-6 py-4 rounded-xl font-black text-sm tracking-widest transition-all border-2"
-        style={ticketOfficeOpen
-          ? { background: "#00ff9d15", color: "#00ff9d", borderColor: "#00ff9d" }
-          : { background: "#ff660015", color: "#ff6600", borderColor: "#ff6600" }}
-      >
-        {ticketOfficeOpen ? "🟢 GUICHET OUVERT — Inscriptions actives" : "🔒 GUICHET FERMÉ — Pré-inscriptions actives"}
-      </button>
       <div className="space-y-4">
         {tickets.map(t => {
           const sold = t.sold || 0;
@@ -4136,13 +3975,35 @@ export default function AdminDashboard() {
               </div>
 
               {showForm && (
-                <SponsorFormPanel
-                  form={form}
-                  editing={editing}
-                  setForm={setForm}
-                  onSave={() => save("/api/admin/sponsors")}
-                  onCancel={cancelForm}
-                />
+                <div className="cyber-card rounded-xl p-6 mb-6">
+                  <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier le Sponsor" : "Nouveau Sponsor"}</h3>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    {[{ key: "name", label: "Nom du Sponsor *" }, { key: "website", label: "Site Web" }, { key: "logoUrl", label: "URL du Logo" }].map(f => (
+                      <div key={f.key}>
+                        <label className="block text-xs text-gray-500 mb-1">{f.label}</label>
+                        <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form[f.key] as string) || ""} onChange={e => setForm({ ...form, [f.key]: e.target.value })} />
+                      </div>
+                    ))}
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Tier</label>
+                      <select className="cyber-input w-full px-3 py-2 rounded text-xs bg-transparent" value={(form.tier as string) || "GOLD"} onChange={e => setForm({ ...form, tier: e.target.value })}>
+                        {TIER_ORDER.map(t => <option key={t} value={t} className="bg-dark-800">{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Ordre</label>
+                      <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.sortOrder as number) || 0} onChange={e => setForm({ ...form, sortOrder: Number(e.target.value) })} />
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                      <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
+                      Visible sur le site
+                    </label>
+                  </div>
+                  <div className="flex gap-3 mt-4">
+                    <button onClick={() => save("/api/admin/sponsors")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
+                    <button onClick={cancelForm} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+                  </div>
+                </div>
               )}
 
               {TIER_ORDER.map(tier => {
@@ -4161,8 +4022,6 @@ export default function AdminDashboard() {
                           <div className="flex-1 min-w-0">
                             <p className="text-white font-bold text-sm">{s.name as string}</p>
                             {!!s.website && <p className="text-gray-500 text-xs truncate">{s.website as string}</p>}
-                            {!!s.email && <p className="text-gray-500 text-xs truncate">✉ {s.email as string}</p>}
-                            {!!s.phone && <p className="text-gray-500 text-xs">📞 {s.phone as string}</p>}
                             {!s.isVisible && <span className="text-xs text-gray-600">Masqué</span>}
                           </div>
                           <div className="flex gap-2 shrink-0">

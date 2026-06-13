@@ -120,8 +120,6 @@ model Sponsor {
   logoUrl   String?
   website   String?
   tier      String   // PLATINUM | GOLD | SILVER | BRONZE
-  email     String?
-  phone     String?
   isVisible Boolean  @default(true)
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())

@@ -22,6 +22,7 @@ export interface AdminPermissions {
   prospection?: "read" | "write";
   certificates?: "read" | "write";
   ctf?: "read" | "write";
+  website?: "read" | "write";
 }
 
 export interface AdminProfile {
@@ -45,7 +46,7 @@ export const ADMIN_PROFILES: AdminProfile[] = [
       tickets: "write", "sponsor-packages": "write", budget: "write",
       logistics: "write", communication: "write",
       team: "write", export: "write", users: "write", prospection: "write",
-      certificates: "write", ctf: "write",
+      certificates: "write", ctf: "write", website: "write",
     },
   },
   {
@@ -128,7 +129,7 @@ export const ADMIN_PROFILES: AdminProfile[] = [
       cfp: "read", speakers: "read", sessions: "read", workshops: "read",
       volunteers: "read", registrations: "read", newsletter: "read",
       sponsors: "read", tickets: "read", "sponsor-packages": "read",
-      budget: "read", logistics: "read",
+      budget: "read", logistics: "read", website: "read",
     },
   },
 ];

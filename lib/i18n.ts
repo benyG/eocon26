@@ -341,6 +341,14 @@ export const translations = {
         { quote: "A truly world-class event happening in Africa. This is the conference we needed.", author: "Cybersecurity Professional" },
       ],
     },
+    videoteque: {
+      title: "Video Library",
+      subtitle: "Watch sessions from past editions",
+      all_editions: "All Editions",
+      all_categories: "All",
+      no_videos: "Videos coming soon.",
+      watch: "Watch",
+    },
   },
   fr: {
     nav: {
@@ -681,6 +689,14 @@ export const translations = {
         { quote: "Énorme travail accompli. Excellente édition. Vivement la prochaine !", author: "Participant EOCON 2024" },
         { quote: "Un événement vraiment de classe mondiale qui se passe en Afrique. C'est la conférence qu'il nous fallait.", author: "Professionnel en Cybersécurité" },
       ],
+    },
+    videoteque: {
+      title: "Vidéothèque",
+      subtitle: "Regardez les sessions des éditions passées",
+      all_editions: "Toutes les éditions",
+      all_categories: "Tous",
+      no_videos: "Les vidéos arrivent bientôt.",
+      watch: "Regarder",
     },
   },
 };

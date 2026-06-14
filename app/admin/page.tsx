@@ -18,7 +18,7 @@ const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; 
 });
 const useAdminT = () => useContext(AdminLangContext);
 
-type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "sessions";
+type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "sessions" | "video";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -175,6 +175,27 @@ function MfaSetupModal({ setup, onClose, onSuccess }: { setup: MfaSetupState; on
         )}
       </div>
     </div>
+  );
+}
+
+function MfaToggle() {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    fetch("/api/admin/settings").then(r => r.json()).then((s: Record<string, string>) => setEnabled(s.mfa_required === "true")).catch(() => setEnabled(false));
+  }, []);
+  const toggle = async () => {
+    setSaving(true);
+    const next = !enabled;
+    await fetch("/api/admin/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mfa_required: String(next) }) });
+    setEnabled(next);
+    setSaving(false);
+  };
+  if (enabled === null) return <div className="text-gray-600 text-xs">…</div>;
+  return (
+    <button onClick={toggle} disabled={saving} className={`shrink-0 px-4 py-2 rounded text-sm font-bold transition-all ${enabled ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"}`}>
+      {saving ? "…" : enabled ? "✓ Activé" : "Désactivé"}
+    </button>
   );
 }
 
@@ -399,6 +420,18 @@ function AdminUsersPanel() {
             );
           })}
           {!users.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun utilisateur créé</p>}
+        </div>
+      </div>
+
+      {/* Sécurité MFA */}
+      <div className="cyber-card rounded-xl p-5 mt-6">
+        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">🔐 Sécurité</h3>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-white text-sm font-bold mb-1">Forcer le MFA pour tous les utilisateurs admin</p>
+            <p className="text-gray-500 text-xs">Les utilisateurs sans MFA seront bloqués à la connexion jusqu&apos;à l&apos;enrollment.</p>
+          </div>
+          <MfaToggle />
         </div>
       </div>
     </div>
@@ -3193,266 +3226,184 @@ function TicketsPanel() {
   );
 }
 
+const CERT_TABS = [
+  { id: "participant", label: "Participants", icon: "🎟", apiPath: "/api/admin/submissions?type=registration", nameField: (r: Record<string,unknown>) => `${r.fname} ${r.lname}`, emailField: "email" },
+  { id: "volunteer", label: "Bénévoles", icon: "🙋", apiPath: "/api/admin/submissions?type=volunteer", nameField: (r: Record<string,unknown>) => r.name as string, emailField: "email" },
+  { id: "speaker", label: "Speakers", icon: "🎤", apiPath: "/api/admin/speakers", nameField: (r: Record<string,unknown>) => r.name as string, emailField: "email" },
+  { id: "ctf_competitor", label: "CTF", icon: "🏁", apiPath: "/api/admin/ctf/participants", nameField: (r: Record<string,unknown>) => (r.ctfCompetitorName || r.fname || r.name) as string, emailField: "email" },
+  { id: "organizer", label: "Organisateurs", icon: "👥", apiPath: "/api/admin/team", nameField: (r: Record<string,unknown>) => r.name as string, emailField: "email" },
+] as const;
+
 function CertificatesPanel() {
-  const { t } = useAdminT();
-  const [subTab, setSubTab] = useState<"issue" | "list" | "keys">("issue");
+  const confirm = useConfirm();
+  const [activeTab, setActiveTab] = useState<typeof CERT_TABS[number]["id"]>("participant");
+  const [people, setPeople] = useState<Record<string, unknown>[]>([]);
   const [badges, setBadges] = useState<Record<string, unknown>[]>([]);
-  const [filterType, setFilterType] = useState("");
   const [loading, setLoading] = useState(false);
-  const [checkedInRegs, setCheckedInRegs] = useState<Record<string, unknown>[]>([]);
-  const [regsLoading, setRegsLoading] = useState(false);
-  const [issuingId, setIssuingId] = useState<number | null>(null);
+  const [issuingId, setIssuingId] = useState<string | null>(null);
+  const [batchIssuing, setBatchIssuing] = useState(false);
+  const [filterUnreceived, setFilterUnreceived] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
-  const [keys, setKeys] = useState<{ privateKeyBase64: string; publicKeyBase64: string } | null>(null);
-  const [keyLoading, setKeyLoading] = useState(false);
 
-  void t; // used for translation context
+  const tabDef = CERT_TABS.find(t => t.id === activeTab)!;
 
-  const BADGE_TYPES = [
-    { value: "participant", label: "Participant", color: "#00ff9d" },
-    { value: "speaker", label: "Speaker", color: "#ff0066" },
-    { value: "volunteer", label: "Volunteer", color: "#ff6600" },
-    { value: "ctf_competitor", label: "CTF Competitor", color: "#00ccff" },
-    { value: "ctf_winner", label: "CTF Winner", color: "#ffd700" },
-    { value: "organizer", label: "Organizer", color: "#cc00ff" },
-  ];
-
-  const loadBadges = useCallback(async () => {
+  const load = useCallback(async () => {
     setLoading(true);
-    const r = await fetch(`/api/admin/badges${filterType ? `?type=${filterType}` : ""}`);
-    if (r.ok) setBadges(await r.json());
-    setLoading(false);
-  }, [filterType]);
-
-  useEffect(() => { if (subTab === "list") loadBadges(); }, [subTab, filterType, loadBadges]);
-
-  const loadCheckedInRegs = useCallback(async () => {
-    setRegsLoading(true);
-    const r = await fetch("/api/admin/submissions?type=registration");
-    if (r.ok) {
-      const data = await r.json();
-      const regs = Array.isArray(data) ? data : data.registrations || [];
-      setCheckedInRegs(regs.filter((x: Record<string, unknown>) => x.checkedInAt && x.status === "validated"));
+    setPeople([]);
+    setBadges([]);
+    try {
+      const [pRes, bRes] = await Promise.all([
+        fetch(tabDef.apiPath),
+        fetch(`/api/admin/badges?type=${activeTab}`),
+      ]);
+      if (pRes.ok) {
+        const raw = await pRes.json();
+        setPeople(Array.isArray(raw) ? raw : raw.registrations || raw.volunteers || []);
+      }
+      if (bRes.ok) setBadges(await bRes.json());
+    } finally {
+      setLoading(false);
     }
-    setRegsLoading(false);
-  }, []);
+  }, [activeTab, tabDef.apiPath]);
 
-  useEffect(() => { if (subTab === "issue") loadCheckedInRegs(); }, [subTab, loadCheckedInRegs]);
+  useEffect(() => { load(); setFilterUnreceived(false); setStatus(null); }, [activeTab]);
 
-  const issueForReg = async (reg: Record<string, unknown>) => {
-    setIssuingId(reg.id as number);
-    setStatus("Issuing…");
-    const r = await fetch("/api/admin/badges", {
+  const hasBadge = (person: Record<string, unknown>) => {
+    const email = person[tabDef.emailField] as string;
+    return badges.some(b => (b.recipientEmail as string)?.toLowerCase() === email?.toLowerCase());
+  };
+
+  const getBadgeDate = (person: Record<string, unknown>) => {
+    const email = person[tabDef.emailField] as string;
+    const b = badges.find(b => (b.recipientEmail as string)?.toLowerCase() === email?.toLowerCase());
+    return b ? new Date(b.createdAt as string).toLocaleDateString("fr-FR") : null;
+  };
+
+  const issueBadge = async (person: Record<string, unknown>, action: "issue" | "resend" = "issue") => {
+    const key = person[tabDef.emailField] as string;
+    setIssuingId(key);
+    await fetch("/api/admin/badges", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        action: "issue",
-        badgeType: "participant",
-        recipientName: `${reg.fname} ${reg.lname}`,
-        recipientEmail: reg.email,
-        subtype: (reg.ticketType as string)?.toLowerCase() || null,
+        action,
+        badgeType: activeTab,
+        recipientName: tabDef.nameField(person),
+        recipientEmail: person[tabDef.emailField],
       }),
     });
-    if (r.ok) setStatus(`Badge émis pour ${reg.fname} ${reg.lname}.`);
-    else setStatus("Erreur lors de l'émission du badge");
+    await load();
     setIssuingId(null);
+    setStatus(`Badge envoyé à ${tabDef.nameField(person)}`);
+    setTimeout(() => setStatus(null), 3000);
   };
 
-  const bulkAction = async (action: string) => {
-    setStatus("Generating…");
-    const r = await fetch("/api/admin/badges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
-    if (r.ok) {
-      const j = await r.json();
-      setStatus(`Done: ${j.issued ?? j.sent ?? 0} badge(s) generated/sent.${j.failed ? ` (${j.failed} failed)` : ""}`);
-    } else setStatus("Error");
+  const batchIssue = async () => {
+    const targets = people.filter(p => !hasBadge(p));
+    if (!targets.length) return;
+    if (!(await confirm({ message: `Émettre ${targets.length} badge(s) pour les non-reçus ?`, confirmLabel: "Émettre" }))) return;
+    setBatchIssuing(true);
+    for (const p of targets) {
+      await fetch("/api/admin/badges", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "issue", badgeType: activeTab, recipientName: tabDef.nameField(p), recipientEmail: p[tabDef.emailField] }),
+      });
+    }
+    await load();
+    setBatchIssuing(false);
+    setStatus(`${targets.length} badge(s) émis !`);
+    setTimeout(() => setStatus(null), 4000);
   };
 
-  const sendBadge = async (id: number) => {
-    setStatus(`Sending badge #${id}…`);
-    const r = await fetch("/api/admin/badges", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "send", id }) });
-    setStatus(r.ok ? "Email sent." : "Error sending");
-    loadBadges();
-  };
-
-  const revokeBadge = async (id: number) => {
-    if (!confirm("Revoke this badge? This cannot be undone.")) return;
-    await fetch("/api/admin/badges", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
-    loadBadges();
-  };
-
-  const genKeys = async () => {
-    if (!confirm("Generate a new keypair? This will invalidate all previously signed badges.")) return;
-    setKeyLoading(true);
-    const r = await fetch("/api/admin/badges/generate-keys", { method: "POST" });
-    if (r.ok) setKeys(await r.json());
-    setKeyLoading(false);
-  };
-
-  const badgeColor = (type: string) => BADGE_TYPES.find(b => b.value === type)?.color || "#888";
+  const displayed = filterUnreceived ? people.filter(p => !hasBadge(p)) : people;
+  const unreceived = people.filter(p => !hasBadge(p)).length;
 
   return (
     <div>
-      <h1 className="text-2xl font-black text-white mb-2">Badges &amp; Certificates</h1>
-      <p className="text-xs text-gray-600 font-mono mb-6">Open Badges V3 · W3C Verifiable Credentials · Ed25519 signed</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black text-white">🎖 Badges & Certificats</h1>
+          <p className="text-gray-500 text-xs mt-1">Émettez et suivez les badges par catégorie</p>
+        </div>
+        {unreceived > 0 && (
+          <button
+            onClick={batchIssue}
+            disabled={batchIssuing}
+            className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green disabled:opacity-50"
+          >
+            {batchIssuing ? "Émission…" : `⚡ Émettre pour ${unreceived} non-reçus`}
+          </button>
+        )}
+      </div>
 
-      {/* Sub-tabs */}
-      <div className="flex gap-2 mb-6 border-b border-gray-800 pb-3">
-        {(["issue", "list", "keys"] as const).map(st => (
-          <button key={st} onClick={() => setSubTab(st)}
-            className={`text-xs px-4 py-1.5 rounded transition-all ${subTab === st ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 border border-gray-800"}`}>
-            {st === "issue" ? "🎫 Issue" : st === "list" ? "📋 Issued" : "🔑 Keys"}
+      {/* Category tabs */}
+      <div className="flex gap-2 flex-wrap mb-6">
+        {CERT_TABS.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-2 rounded text-xs font-mono transition-all ${activeTab === tab.id ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 hover:text-white border border-gray-800"}`}
+          >
+            {tab.icon} {tab.label}
           </button>
         ))}
       </div>
 
-      {status && (
-        <div className="mb-4 p-3 rounded bg-neon-green/10 border border-neon-green/20 text-neon-green text-xs font-mono flex justify-between">
-          <span>{status}</span>
-          <button onClick={() => setStatus(null)} className="text-gray-500 hover:text-white">✕</button>
-        </div>
-      )}
+      {status && <div className="mb-4 px-4 py-2 rounded text-xs text-neon-green border border-neon-green/30 bg-neon-green/5">{status}</div>}
 
-      {/* ISSUE TAB */}
-      {subTab === "issue" && (
-        <div className="space-y-6">
-          {/* Bulk actions */}
-          <div>
-            <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Bulk Generation</h2>
-            <div className="grid sm:grid-cols-2 gap-3">
-              {[
-                { action: "bulk-participants", label: "🎫 All Checked-in Participants", desc: "Issues participant badges for all checked-in registrations", color: "#00ff9d" },
-                { action: "bulk-speakers", label: "🎤 All Speakers", desc: "Issues speaker badges for all 2026 speakers", color: "#ff0066" },
-                { action: "bulk-send", label: "📤 Send All Pending Emails", desc: "Sends badge emails to all recipients who haven't received one yet", color: "#0066ff" },
-              ].map(item => (
-                <button key={item.action} onClick={() => bulkAction(item.action)}
-                  className="cyber-card rounded-xl p-5 text-left hover:opacity-80 transition-opacity"
-                  style={{ borderColor: item.color + "30" }}>
-                  <div className="font-bold text-sm mb-1" style={{ color: item.color }}>{item.label}</div>
-                  <div className="text-xs text-gray-600">{item.desc}</div>
-                </button>
-              ))}
-            </div>
-          </div>
+      {/* Filter */}
+      <div className="flex items-center gap-3 mb-4">
+        <button
+          onClick={() => setFilterUnreceived(!filterUnreceived)}
+          className={`text-xs px-3 py-1.5 rounded border transition-all ${filterUnreceived ? "border-orange-500/50 text-orange-400 bg-orange-500/10" : "border-gray-700 text-gray-500 hover:text-white"}`}
+        >
+          {filterUnreceived ? "⬜ Non reçus seulement" : "📋 Tous"}
+        </button>
+        <span className="text-xs text-gray-600">{displayed.length} / {people.length} • {unreceived} sans badge</span>
+      </div>
 
-          {/* Single badge — checked-in registrants table */}
-          <div>
-            <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">
-              Issue Badge — Participants check-in
-              <span className="text-gray-600 font-normal ml-2">({checkedInRegs.length} checked-in)</span>
-            </h2>
-            {regsLoading ? (
-              <p className="text-gray-600 text-xs font-mono py-4">Chargement…</p>
-            ) : checkedInRegs.length === 0 ? (
-              <div className="cyber-card rounded-xl p-6 text-center text-gray-600 text-xs font-mono">
-                // Aucun participant check-in pour l&apos;instant
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {checkedInRegs.map(r => (
-                  <div key={r.id as number} className="flex items-center gap-3 p-3 rounded bg-white/[0.02] border border-white/[0.04] text-xs">
-                    <span className="flex-1 text-white font-medium">{String(r.fname)} {String(r.lname)}</span>
-                    <span className="text-gray-500 truncate max-w-[160px]">{String(r.email)}</span>
-                    <span className="px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green/70 font-mono shrink-0">{String(r.ticketType)}</span>
-                    <span className="text-neon-green/50 shrink-0 text-xs">
-                      ✓ {new Date(r.checkedInAt as string).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                    <button
-                      onClick={() => issueForReg(r)}
-                      disabled={issuingId === (r.id as number)}
-                      className="text-xs px-3 py-1 rounded border border-neon-green/20 text-neon-green hover:bg-neon-green/10 transition-colors disabled:opacity-50 shrink-0"
-                    >
-                      {issuingId === (r.id as number) ? "…" : "Issue Badge"}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* LIST TAB */}
-      {subTab === "list" && (
-        <div>
-          <div className="flex items-center gap-3 mb-4">
-            <select className="bg-black/40 border border-gray-800 rounded px-3 py-1.5 text-xs text-white outline-none"
-              value={filterType} onChange={e => setFilterType(e.target.value)}>
-              <option value="">— All types</option>
-              {BADGE_TYPES.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
-            </select>
-            <span className="text-xs text-gray-600">{badges.length} badge(s)</span>
-          </div>
-          {loading ? <p className="text-gray-600 text-xs font-mono">Loading…</p> : (
-            <div className="space-y-2">
-              {badges.map(b => {
-                const color = badgeColor(String(b.badgeType));
-                return (
-                  <div key={String(b.id)} className="flex items-center gap-3 p-3 rounded bg-white/[0.02] border border-white/[0.04] text-xs">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                    <span className="flex-1 text-white font-medium">{String(b.recipientName)}</span>
-                    <span className="text-gray-500 truncate max-w-[160px]">{String(b.recipientEmail)}</span>
-                    <span className="px-1.5 py-0.5 rounded font-mono shrink-0" style={{ color, background: color + "20" }}>
-                      {String(b.badgeType)}{b.subtype ? ` / ${b.subtype}` : ""}
-                    </span>
-                    <span className="text-gray-600 shrink-0">{new Date(String(b.issuedAt)).toLocaleDateString()}</span>
-                    {b.revokedAt ? (
-                      <span className="text-red-500 text-xs shrink-0">REVOKED</span>
-                    ) : (
-                      <>
-                        {b.emailSentAt
-                          ? <span className="text-neon-green/50 text-xs shrink-0">✓ sent</span>
-                          : <button onClick={() => sendBadge(Number(b.id))} className="text-xs text-blue-400 hover:text-blue-300 shrink-0 transition-colors">📤 Send</button>
-                        }
-                        <a href={`/verify/${b.uuid}`} target="_blank" className="text-xs text-gray-500 hover:text-neon-green transition-colors shrink-0">🔍</a>
-                        <button onClick={() => revokeBadge(Number(b.id))} className="text-xs text-red-600 hover:text-red-400 shrink-0 transition-colors">✕</button>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-              {badges.length === 0 && <p className="text-gray-600 text-xs font-mono py-4">// No badges issued yet</p>}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* KEYS TAB */}
-      {subTab === "keys" && (
-        <div className="space-y-4">
-          <div className="cyber-card rounded-xl p-5 border border-yellow-500/20">
-            <p className="text-yellow-400 text-xs font-bold mb-2">⚠ Cryptographic Key Setup</p>
-            <p className="text-gray-500 text-xs leading-relaxed mb-4">
-              EOCON badges are signed with an Ed25519 keypair. Generate the keys once, add them to your environment variables, and never regenerate (doing so invalidates all existing badges).
-            </p>
-            <div className="mb-3">
-              <p className="text-xs text-gray-500 mb-1">Status:</p>
-              <p className="text-xs font-mono text-orange-400">
-                Check server .env file for BADGE_PRIVATE_KEY and BADGE_PUBLIC_KEY
-              </p>
-            </div>
-            <button onClick={genKeys} disabled={keyLoading} className="text-xs px-4 py-2 rounded border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 transition-all disabled:opacity-50">
-              {keyLoading ? "Generating…" : "Generate Ed25519 Keypair"}
-            </button>
-          </div>
-
-          {keys && (
-            <div className="cyber-card rounded-xl p-5 space-y-3">
-              <p className="text-neon-green text-xs font-bold">✓ Keys generated — add to .env file:</p>
-              {[
-                { label: "BADGE_PRIVATE_KEY", value: keys.privateKeyBase64, warn: true },
-                { label: "BADGE_PUBLIC_KEY", value: keys.publicKeyBase64, warn: false },
-              ].map(k => (
-                <div key={k.label}>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs text-gray-500">{k.label} {k.warn && <span className="text-red-400">(keep secret!)</span>}</label>
-                    <button onClick={() => navigator.clipboard.writeText(`${k.label}="${k.value}"`)}
-                      className="text-xs text-neon-green hover:underline">Copy</button>
-                  </div>
-                  <div className="bg-black/60 rounded p-2 text-xs font-mono text-gray-500 break-all max-h-16 overflow-y-auto">{k.value}</div>
+      {/* Table */}
+      {loading ? (
+        <p className="text-gray-600 text-xs py-8 text-center">Chargement…</p>
+      ) : (
+        <div className="space-y-2">
+          {displayed.map((p, i) => {
+            const name = tabDef.nameField(p);
+            const email = p[tabDef.emailField] as string;
+            const received = hasBadge(p);
+            const date = getBadgeDate(p);
+            const isIssuing = issuingId === email;
+            return (
+              <div key={i} className="cyber-card rounded-lg px-4 py-3 flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-bold truncate">{name}</p>
+                  <p className="text-gray-500 text-xs">{email}</p>
                 </div>
-              ))}
-            </div>
-          )}
+                <div className="shrink-0 text-center min-w-[120px]">
+                  {received ? (
+                    <div>
+                      <span className="text-neon-green text-xs">✅ Reçu</span>
+                      {date && <p className="text-gray-600 text-xs">{date}</p>}
+                    </div>
+                  ) : (
+                    <span className="text-gray-600 text-xs">⬜ Non reçu</span>
+                  )}
+                </div>
+                <button
+                  onClick={() => issueBadge(p, received ? "resend" : "issue")}
+                  disabled={isIssuing}
+                  className="shrink-0 text-xs px-3 py-1.5 rounded border transition-all disabled:opacity-50"
+                  style={received
+                    ? { borderColor: "#ffffff20", color: "#888" }
+                    : { borderColor: "#00ff9d40", color: "#00ff9d", background: "#00ff9d10" }}
+                >
+                  {isIssuing ? "…" : received ? "Renvoyer" : "Émettre"}
+                </button>
+              </div>
+            );
+          })}
+          {!displayed.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun résultat</p>}
         </div>
       )}
     </div>
@@ -3766,26 +3717,6 @@ function EventSettingsPanel() {
             </div>
           </div>
         ))}
-      </div>
-
-      {/* Security */}
-      <div className="cyber-card rounded-xl p-5 mt-6">
-        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">🔐 Sécurité</h3>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-white text-sm font-bold mb-1">Forcer le MFA pour tous les utilisateurs admin</p>
-            <p className="text-gray-500 text-xs">Les utilisateurs sans MFA seront bloqués à la connexion jusqu&apos;à l&apos;enrollment.</p>
-          </div>
-          <button
-            onClick={() => {
-              const next = settings.mfa_required === "true" ? "false" : "true";
-              handleChange("mfa_required", next);
-            }}
-            className={`shrink-0 px-4 py-2 rounded text-sm font-bold transition-all ${settings.mfa_required === "true" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"}`}
-          >
-            {settings.mfa_required === "true" ? "✓ Activé" : "Désactivé"}
-          </button>
-        </div>
       </div>
 
       {/* Preview */}
@@ -4418,6 +4349,134 @@ function CTFEmailTemplate({ templateKey, label, desc }: { templateKey: string; l
   );
 }
 
+function VideoPanel() {
+  const confirm = useConfirm();
+  const [videos, setVideos] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<number | null>(null);
+  const [form, setForm] = useState<Record<string, unknown>>({ isVisible: true, sortOrder: 0, edition: "2025" });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const r = await fetch("/api/admin/videos");
+    if (r.ok) setVideos(await r.json());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async () => {
+    const method = editing ? "PATCH" : "POST";
+    const url = editing ? `/api/admin/videos/${editing}` : "/api/admin/videos";
+    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    setShowForm(false); setEditing(null); setForm({ isVisible: true, sortOrder: 0, edition: "2025" });
+    load();
+  };
+
+  const del = async (id: number) => {
+    if (!(await confirm({ message: "Supprimer cette vidéo ?", danger: true, confirmLabel: "Supprimer" }))) return;
+    await fetch(`/api/admin/videos/${id}`, { method: "DELETE" });
+    load();
+  };
+
+  const CATEGORIES = ["keynote", "talk", "workshop", "panel"];
+
+  const getYoutubeThumbnail = (url: string) => {
+    const match = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    return match ? `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg` : null;
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black text-white">📹 Vidéothèque</h1>
+          <p className="text-gray-500 text-xs mt-1">Gérez les vidéos des sessions des éditions passées</p>
+        </div>
+        <button onClick={() => { setForm({ isVisible: true, sortOrder: 0, edition: "2025" }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter</button>
+      </div>
+
+      {showForm && (
+        <div className="cyber-card rounded-xl p-6 mb-6">
+          <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier la vidéo" : "Nouvelle vidéo"}</h3>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {[
+              { key: "title", label: "Titre (FR) *" },
+              { key: "titleEn", label: "Title (EN)" },
+              { key: "youtubeUrl", label: "URL YouTube *" },
+              { key: "speaker", label: "Speaker" },
+            ].map(f => (
+              <div key={f.key}>
+                <label className="block text-xs text-gray-500 mb-1">{f.label}</label>
+                <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form[f.key] as string) || ""} onChange={e => setForm({ ...form, [f.key]: e.target.value })} />
+              </div>
+            ))}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Édition</label>
+              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.edition as string) || "2025"} onChange={e => setForm({ ...form, edition: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Catégorie</label>
+              <select className="cyber-input w-full px-3 py-2 rounded text-xs bg-transparent" value={(form.category as string) || ""} onChange={e => setForm({ ...form, category: e.target.value })}>
+                <option value="">— Aucune —</option>
+                {CATEGORIES.map(c => <option key={c} value={c} className="bg-dark-800">{c}</option>)}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs text-gray-500 mb-1">Description (FR)</label>
+              <textarea rows={2} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.description as string) || ""} onChange={e => setForm({ ...form, description: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Ordre</label>
+              <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.sortOrder as number) || 0} onChange={e => setForm({ ...form, sortOrder: Number(e.target.value) })} />
+            </div>
+            <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer mt-5">
+              <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
+              Visible sur le site
+            </label>
+          </div>
+          <div className="flex gap-3 mt-4">
+            <button onClick={save} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
+            <button onClick={() => { setShowForm(false); setEditing(null); }} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? <p className="text-gray-600 text-xs">Chargement…</p> : (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {videos.map(v => {
+            const thumb = getYoutubeThumbnail(v.youtubeUrl as string);
+            return (
+              <div key={v.id as number} className="cyber-card rounded-xl overflow-hidden">
+                {thumb && <img src={thumb} alt={v.title as string} className="w-full h-32 object-cover" />}
+                <div className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-bold truncate">{v.title as string}</p>
+                      {!!(v.speaker) && <p className="text-gray-500 text-xs">{v.speaker as string}</p>}
+                      <div className="flex gap-1.5 mt-1 flex-wrap">
+                        <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "#00ff9d15", color: "#00ff9d" }}>EOCON {v.edition as string}</span>
+                        {!!(v.category) && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-800 text-gray-400">{v.category as string}</span>}
+                        {!v.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-500">Masqué</span>}
+                      </div>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <button onClick={() => { setForm({ ...v }); setEditing(v.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">✏</button>
+                      <button onClick={() => del(v.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">✕</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {!videos.length && !loading && <p className="text-gray-600 text-xs py-8 text-center col-span-3">Aucune vidéo — cliquez sur + Ajouter</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AuditPanel() {
   const { t } = useAdminT();
   const [logs, setLogs] = useState<Record<string, unknown>[]>([]);
@@ -4522,30 +4581,6 @@ function AuditPanel() {
 
 // ---- Domain Health Dashboard ----
 
-interface DashboardExtra {
-  budget: { category: string; planned: number; actual: number }[];
-  logistics: { done: boolean; deadline: string | null }[];
-  sessions: { date: string | null }[];
-  socialPosts: { status: string }[];
-  sponsorProspects: { status: string }[];
-  speakerOnboarding: { completed: boolean }[];
-  cfpDetailed: { status: string; scheduledInProgramme: boolean }[];
-  registrationsPending: number;
-  registrationsValidated: number;
-}
-
-function HealthDot({ color }: { color: "green" | "orange" | "red" | "grey" }) {
-  const map = { green: "#00ff9d", orange: "#ffaa00", red: "#ff0066", grey: "#555" };
-  return <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ background: map[color], boxShadow: `0 0 6px ${map[color]}` }} />;
-}
-
-function MiniBar({ value, total, color, danger }: { value: number; total: number; color: string; danger?: boolean }) {
-  const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
-  const barColor = danger && pct >= 100 ? "#ff0066" : color;
-  return (
-    <div className="mt-2">
-      <div className="flex justify-between text-xs text-gray-600 mb-1">
-        <span>{value} / {total}</span>
         <span>{pct}%</span>
       </div>
       <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
@@ -5056,7 +5091,6 @@ export default function AdminDashboard() {
       icon: "◆",
       tabs: [
         { id: "pipeline", label: t.pipeline, count: stats.cfp },
-        { id: "past-speakers", label: t.pastSpeakers },
       ],
     },
     {
@@ -5107,12 +5141,20 @@ export default function AdminDashboard() {
       icon: "◎",
       tabs: [
         { id: "logistics", label: t.logistics },
-        { id: "team", label: t.team, count: stats.team },
         { id: "certificates", label: t.certificates },
         { id: "export", label: t.exportCsv },
         { id: "users", label: t.users },
         { id: "profiles", label: t.profiles },
         { id: "audit", label: t.auditLog },
+      ],
+    },
+    {
+      label: "Web Site",
+      icon: "🌐",
+      tabs: [
+        { id: "past-speakers", label: t.pastSpeakers },
+        { id: "team", label: t.team, count: stats.team },
+        { id: "video", label: "📹 Vidéothèque" },
         { id: "settings", label: t.eventSettings },
       ],
     },
@@ -5747,6 +5789,9 @@ export default function AdminDashboard() {
           {tab === "certificates" && (
             <CertificatesPanel />
           )}
+
+          {/* VIDEO */}
+          {tab === "video" && <VideoPanel />}
 
           {/* AUDIT LOG — super_admin only */}
           {tab === "audit" && <AuditPanel />}

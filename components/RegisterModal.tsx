@@ -54,6 +54,10 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const pay = t.register.payment;
+  const reasonMsg = (reason?: string) =>
+    reason === "insufficient_funds" ? pay.err_insufficient
+      : reason === "unavailable" ? pay.err_unavailable
+      : pay.err_failed;
 
   useEffect(() => {
     fetch("/api/ticket-types")
@@ -82,13 +86,19 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
       });
       if (!res.ok) throw new Error("Server error");
       const data = await res.json();
-      if (data.isFree) {
+      if (data.preRegistered) {
+        // No tickets on sale → registered interest, will be notified later.
+        setSuccessMsg(pay.pre_registered);
+        setSubmitted(true);
+      } else if (data.isFree) {
         // Free ticket → already confirmed server-side.
         setSuccessMsg(pay.free_confirmed);
         setSubmitted(true);
       } else {
         setRegistrationId(data.id);
-        setAmount(data.amount || 0);
+        // Prefer the selected ticket's active price (already loaded client-side),
+        // fall back to the amount computed server-side.
+        setAmount(selectedTicket?.activePriceFr ?? data.amount ?? 0);
         setStep("payment");
       }
     } catch {
@@ -134,7 +144,7 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
       const data = await res.json();
       if (!res.ok || data.state === "failed") {
         setPayState("failed");
-        setPayError(data.message || data.error || pay.failed);
+        setPayError(reasonMsg(data.reason));
         return;
       }
       if (data.state === "successful") {
@@ -477,13 +487,22 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                   {/* Phone */}
                   <div>
                     <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{pay.phone} *</label>
-                    <input
-                      className="cyber-input w-full px-3 py-2 rounded text-sm"
-                      placeholder={pay.phone_ph}
-                      value={payPhone}
-                      onChange={e => setPayPhone(e.target.value)}
-                      disabled={payState === "processing" || payState === "awaiting"}
-                    />
+                    <div className="flex items-stretch gap-2">
+                      <span
+                        className="flex items-center px-3 rounded text-sm font-mono shrink-0"
+                        style={{ background: "#00ff9d12", border: "1px solid rgba(0,255,157,0.2)", color: "#00ff9d", fontFamily: "'Share Tech Mono', monospace" }}
+                      >
+                        {pay.phone_prefix}
+                      </span>
+                      <input
+                        className="cyber-input flex-1 px-3 py-2 rounded text-sm"
+                        placeholder={pay.phone_ph}
+                        inputMode="numeric"
+                        value={payPhone}
+                        onChange={e => setPayPhone(e.target.value)}
+                        disabled={payState === "processing" || payState === "awaiting"}
+                      />
+                    </div>
                   </div>
 
                   {payState === "awaiting" && (

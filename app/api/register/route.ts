@@ -4,10 +4,8 @@ import { prisma } from "@/lib/db";
 import { sendRegistrationTicket } from "@/lib/email";
 import { generateTicketRef, formatTicketRef } from "@/lib/ticketRef";
 import { rateLimit, getIp } from "@/lib/rateLimit";
-import { getEventSettings } from "@/lib/settings";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const FALLBACK_TICKET_TYPES = ["standard", "student", "vip", "sponsor", "online", "early-bird"];
 
 export async function POST(req: NextRequest) {
   if (!rateLimit(`register:${getIp(req)}`, 5, 60 * 60 * 1000)) {
@@ -24,20 +22,25 @@ export async function POST(req: NextRequest) {
     if (!EMAIL_RE.test(email)) {
       return NextResponse.json({ error: "Email invalide" }, { status: 400 });
     }
-    // Validate ticket type against DB or fallback list
+    // Pre-registration mode: no ticket is on sale (none marked visible). The user
+    // registers their interest and will be notified once tickets are activated.
     const dbTicketTypes = await prisma.ticketType.findMany({ where: { isVisible: true }, select: { slug: true } });
-    const validSlugs = dbTicketTypes.length > 0 ? dbTicketTypes.map(t => t.slug) : FALLBACK_TICKET_TYPES;
-    if (!validSlugs.includes(ticketType)) {
+    const preRegistration = dbTicketTypes.length === 0;
+
+    // When tickets are on sale, the selected type must be a real visible ticket.
+    // In pre-registration mode any selected tier label is accepted (interest only).
+    if (!preRegistration && !dbTicketTypes.map(t => t.slug).includes(ticketType)) {
       return NextResponse.json({ error: "Type de billet invalide" }, { status: 400 });
     }
     if (fname.length > 80 || lname.length > 80) {
       return NextResponse.json({ error: "Nom trop long" }, { status: 400 });
     }
+    if (String(ticketType).length > 80) {
+      return NextResponse.json({ error: "Type de billet invalide" }, { status: 400 });
+    }
 
     const rawRef = generateTicketRef();
     const ticketRef = formatTicketRef(rawRef);
-    const settings = await getEventSettings().catch(() => ({} as Record<string, string>));
-    const officeOpen = settings.ticketOfficeOpen === "true";
 
     // Resolve the active price (early-bird aware) for the selected ticket type.
     const ticketTypeRow = await prisma.ticketType.findUnique({ where: { slug: ticketType } });
@@ -46,7 +49,7 @@ export async function POST(req: NextRequest) {
     const amount = ticketTypeRow
       ? (earlyBirdActive ? (ticketTypeRow.earlyBirdPriceFr ?? ticketTypeRow.priceFr) : ticketTypeRow.priceFr)
       : 0;
-    const isFree = officeOpen && amount === 0;
+    const isFree = !preRegistration && amount === 0;
 
     const registration = await prisma.registration.create({
       data: {
@@ -62,35 +65,22 @@ export async function POST(req: NextRequest) {
         whatsapp: whatsapp?.slice(0, 191) || null,
         ctfCompetitorName: ctfCompetitorName?.slice(0, 191) || null,
         ctfTeamName: ctfTeamName?.slice(0, 30) || null,
-        // Office open: await payment (or confirm immediately if free). Office closed: pre-registration.
-        status: officeOpen ? (isFree ? "paid" : "payment_pending") : "pre_registered",
+        // No tickets on sale → pre_registered. Otherwise await payment (or confirm if free).
+        status: preRegistration ? "pre_registered" : (isFree ? "paid" : "payment_pending"),
         ...(isFree ? { paymentProvider: "free", paidAt: new Date() } : {}),
       },
     });
 
-    if (officeOpen) {
-      // Free ticket → confirmed immediately, send the ticket/badge email.
-      if (isFree) {
-        sendRegistrationTicket(email, fname, lname, ticketType, registration.id, ticketRef, lang_expression === "en" ? "en" : "fr")
-          .catch(e => console.error("[Register free ticket email]", e));
-      }
-      // Paid ticket → no email here; the UI drives the user to the payment step.
-      return NextResponse.json(
-        { success: true, id: registration.id, ticketRef, ticketType, amount, isFree },
-        { status: 201 },
-      );
-    }
-
-    {
-      // Guichet fermé : email de confirmation de pré-inscription
+    // ── No tickets on sale: send the "notify me when tickets are available" email ──
+    if (preRegistration) {
       const isFr = lang_expression !== "en";
       const subject = isFr ? "✅ Pré-inscription EOCON 2026 confirmée" : "✅ EOCON 2026 Pre-registration confirmed";
       const body = isFr
         ? `<p>Bonjour <strong style="color:#00ff9d">${fname} ${lname}</strong>,</p>
-           <p>Votre pré-inscription à EOCON 2026 a bien été enregistrée. Vous serez notifié(e) par email dès l'ouverture du guichet.</p>
+           <p>Votre pré-inscription à EOCON 2026 a bien été enregistrée. Vous serez notifié(e) par email dès la mise en vente des billets.</p>
            <p style="color:#888;font-size:12px;">EOCON 2026 · Hotel Onomo, Douala · 28 Novembre 2026</p>`
         : `<p>Hello <strong style="color:#00ff9d">${fname} ${lname}</strong>,</p>
-           <p>Your pre-registration for EOCON 2026 has been recorded. You will be notified by email when tickets become available.</p>
+           <p>Your pre-registration for EOCON 2026 has been recorded. You will be notified by email when tickets go on sale.</p>
            <p style="color:#888;font-size:12px;">EOCON 2026 · Hotel Onomo, Douala · 28 November 2026</p>`;
       const { Resend } = await import("resend");
       const resend = new Resend(process.env.RESEND_API_KEY || "");
@@ -101,9 +91,22 @@ export async function POST(req: NextRequest) {
         subject,
         html: `<!DOCTYPE html><html><body style="background:#030408;color:#fff;font-family:'Courier New',monospace;padding:32px;">${body}</body></html>`,
       }).catch(e => console.error("[Pre-register email]", e));
+
+      return NextResponse.json({ success: true, id: registration.id, preRegistered: true }, { status: 201 });
     }
 
-    return NextResponse.json({ success: true, id: registration.id }, { status: 201 });
+    // ── Tickets on sale ──
+    // Free ticket → confirmed immediately, send the ticket/badge email.
+    // Paid ticket → no email here; the user is sent to the in-app payment step and
+    // the confirmation email is only sent once the payment is validated.
+    if (isFree) {
+      sendRegistrationTicket(email, fname, lname, ticketType, registration.id, ticketRef, lang_expression === "en" ? "en" : "fr")
+        .catch(e => console.error("[Register free ticket email]", e));
+    }
+    return NextResponse.json(
+      { success: true, id: registration.id, ticketRef, ticketType, amount, isFree },
+      { status: 201 },
+    );
   } catch (err) {
     console.error("[Register]", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

@@ -4581,6 +4581,18 @@ function AuditPanel() {
 
 // ---- Domain Health Dashboard ----
 
+function HealthDot({ color }: { color: "green" | "orange" | "red" | "grey" }) {
+  const map = { green: "#00ff9d", orange: "#ffaa00", red: "#ff0066", grey: "#555" };
+  return <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ background: map[color], boxShadow: `0 0 6px ${map[color]}` }} />;
+}
+
+function MiniBar({ value, total, color, danger }: { value: number; total: number; color: string; danger?: boolean }) {
+  const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
+  const barColor = danger && pct >= 100 ? "#ff0066" : color;
+  return (
+    <div className="mt-2">
+      <div className="flex justify-between text-xs text-gray-600 mb-1">
+        <span>{value} / {total}</span>
         <span>{pct}%</span>
       </div>
       <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">

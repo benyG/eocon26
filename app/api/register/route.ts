@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { sendRegistrationPending } from "@/lib/email";
+import { sendRegistrationTicket } from "@/lib/email";
 import { generateTicketRef, formatTicketRef } from "@/lib/ticketRef";
 import { rateLimit, getIp } from "@/lib/rateLimit";
 import { getEventSettings } from "@/lib/settings";
@@ -38,6 +38,16 @@ export async function POST(req: NextRequest) {
     const ticketRef = formatTicketRef(rawRef);
     const settings = await getEventSettings().catch(() => ({} as Record<string, string>));
     const officeOpen = settings.ticketOfficeOpen === "true";
+
+    // Resolve the active price (early-bird aware) for the selected ticket type.
+    const ticketTypeRow = await prisma.ticketType.findUnique({ where: { slug: ticketType } });
+    const now = new Date();
+    const earlyBirdActive = !!(ticketTypeRow?.earlyBirdUntil && ticketTypeRow.earlyBirdUntil > now && ticketTypeRow.earlyBirdPriceFr);
+    const amount = ticketTypeRow
+      ? (earlyBirdActive ? (ticketTypeRow.earlyBirdPriceFr ?? ticketTypeRow.priceFr) : ticketTypeRow.priceFr)
+      : 0;
+    const isFree = officeOpen && amount === 0;
+
     const registration = await prisma.registration.create({
       data: {
         fname: fname.slice(0, 80),
@@ -52,17 +62,26 @@ export async function POST(req: NextRequest) {
         whatsapp: whatsapp?.slice(0, 191) || null,
         ctfCompetitorName: ctfCompetitorName?.slice(0, 191) || null,
         ctfTeamName: ctfTeamName?.slice(0, 30) || null,
-        status: officeOpen ? "pending" : "pre_registered",
+        // Office open: await payment (or confirm immediately if free). Office closed: pre-registration.
+        status: officeOpen ? (isFree ? "paid" : "payment_pending") : "pre_registered",
+        ...(isFree ? { paymentProvider: "free", paidAt: new Date() } : {}),
       },
     });
 
-    const paymentUrl = settings.url_inscription || "https://eyesopensecurity.com/#inscription";
-
     if (officeOpen) {
-      sendRegistrationPending(email, fname, lname, ticketType, ticketRef, paymentUrl, lang_expression === "en" ? "en" : "fr").catch(e =>
-        console.error("[Register email]", e),
+      // Free ticket → confirmed immediately, send the ticket/badge email.
+      if (isFree) {
+        sendRegistrationTicket(email, fname, lname, ticketType, registration.id, ticketRef, lang_expression === "en" ? "en" : "fr")
+          .catch(e => console.error("[Register free ticket email]", e));
+      }
+      // Paid ticket → no email here; the UI drives the user to the payment step.
+      return NextResponse.json(
+        { success: true, id: registration.id, ticketRef, ticketType, amount, isFree },
+        { status: 201 },
       );
-    } else {
+    }
+
+    {
       // Guichet fermé : email de confirmation de pré-inscription
       const isFr = lang_expression !== "en";
       const subject = isFr ? "✅ Pré-inscription EOCON 2026 confirmée" : "✅ EOCON 2026 Pre-registration confirmed";

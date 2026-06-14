@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Translations } from "@/lib/i18n";
 import CountrySelect from "@/components/CountrySelect";
 
@@ -32,15 +32,28 @@ interface RegisterModalProps {
 }
 
 export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModalProps) {
-  const [step, setStep] = useState<"tiers" | "form">("tiers");
+  const [step, setStep] = useState<"tiers" | "form" | "payment">("tiers");
   const [selectedTier, setSelectedTier] = useState("");
   const [selectedTicket, setSelectedTicket] = useState<TicketTypeData | null>(null);
   const [formData, setFormData] = useState({ fname: "", lname: "", email: "", org: "", country: "", lang_expression: "fr", linkedin: "", whatsapp: "", ctfCompetitorName: "", ctfTeamName: "" });
   const [submitted, setSubmitted] = useState(false);
+  const [successMsg, setSuccessMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [ticketTypes, setTicketTypes] = useState<TicketTypeData[]>([]);
   const [loadingTypes, setLoadingTypes] = useState(true);
+
+  // Payment step state
+  const [registrationId, setRegistrationId] = useState<number | null>(null);
+  const [amount, setAmount] = useState(0);
+  const [payMethod, setPayMethod] = useState<"momo" | "card">("momo");
+  const [operator, setOperator] = useState<"mtn" | "orange">("mtn");
+  const [payPhone, setPayPhone] = useState("");
+  const [payState, setPayState] = useState<"idle" | "processing" | "awaiting" | "failed">("idle");
+  const [payError, setPayError] = useState("");
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const pay = t.register.payment;
 
   useEffect(() => {
     fetch("/api/ticket-types")
@@ -48,6 +61,9 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
       .then(data => { setTicketTypes(data); setLoadingTypes(false); })
       .catch(() => setLoadingTypes(false));
   }, []);
+
+  // Cleanup any in-flight polling on unmount.
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,11 +81,73 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
         }),
       });
       if (!res.ok) throw new Error("Server error");
-      setSubmitted(true);
+      const data = await res.json();
+      if (data.isFree) {
+        // Free ticket → already confirmed server-side.
+        setSuccessMsg(pay.free_confirmed);
+        setSubmitted(true);
+      } else {
+        setRegistrationId(data.id);
+        setAmount(data.amount || 0);
+        setStep("payment");
+      }
     } catch {
       setError("Une erreur est survenue. Veuillez réessayer.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startPolling = (regId: number) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    let attempts = 0;
+    pollRef.current = setInterval(async () => {
+      attempts++;
+      try {
+        const r = await fetch(`/api/payment/netticket/status?registrationId=${regId}`);
+        const d = await r.json();
+        if (d.state === "successful") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          setSuccessMsg(pay.success);
+          setSubmitted(true);
+        }
+      } catch { /* keep polling */ }
+      // Give up after ~4 minutes; user can retry.
+      if (attempts >= 60 && pollRef.current) {
+        clearInterval(pollRef.current);
+        setPayState("failed");
+        setPayError(pay.failed);
+      }
+    }, 4000);
+  };
+
+  const handlePay = async () => {
+    if (!registrationId || !payPhone.trim()) return;
+    setPayState("processing");
+    setPayError("");
+    try {
+      const res = await fetch("/api/payment/netticket/initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registrationId, operator, phone: payPhone }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.state === "failed") {
+        setPayState("failed");
+        setPayError(data.message || data.error || pay.failed);
+        return;
+      }
+      if (data.state === "successful") {
+        setSuccessMsg(pay.success);
+        setSubmitted(true);
+        return;
+      }
+      // Pending → wait for the user to confirm on their phone, then poll.
+      setPayState("awaiting");
+      startPolling(registrationId);
+    } catch {
+      setPayState("failed");
+      setPayError(pay.failed);
     }
   };
 
@@ -103,7 +181,7 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
             <div className="text-center py-12">
               <div className="text-6xl mb-6">🎉</div>
               <p className="text-neon-green font-mono text-lg mb-4" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-                {t.register.form.success}
+                {successMsg || t.register.form.success}
               </p>
               <button onClick={onClose} className="btn-neon px-6 py-2 rounded text-sm mt-4">
                 Close
@@ -204,7 +282,7 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                 </div>
               )}
             </div>
-          ) : (
+          ) : step === "form" ? (
             <div>
               <button
                 onClick={() => setStep("tiers")}
@@ -325,6 +403,116 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                   {loading ? "..." : t.register.form.submit}
                 </button>
               </form>
+            </div>
+          ) : (
+            /* ── Payment step ── */
+            <div>
+              <button
+                onClick={() => { setStep("form"); setPayState("idle"); setPayError(""); }}
+                className="text-gray-500 hover:text-neon-green text-sm mb-6 flex items-center gap-1 font-mono transition-colors"
+                style={{ fontFamily: "'Share Tech Mono', monospace" }}
+              >
+                ← Back
+              </button>
+              <h3 className="text-white font-bold text-xl mb-1">{pay.title}</h3>
+              <p className="text-gray-500 text-sm mb-6">{pay.subtitle}</p>
+
+              {/* Amount */}
+              <div className="p-4 rounded-lg border mb-6 flex items-center justify-between" style={{ background: "#00ff9d08", borderColor: "#00ff9d33" }}>
+                <span className="text-xs text-gray-400 font-mono uppercase" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{pay.amount}</span>
+                <span className="text-2xl font-black" style={{ color: "#00ff9d", fontFamily: "'Share Tech Mono', monospace" }}>
+                  {amount.toLocaleString("fr-FR")} XAF
+                </span>
+              </div>
+
+              {/* Method tabs */}
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <button
+                  onClick={() => setPayMethod("momo")}
+                  className="py-3 rounded-lg border text-sm font-bold transition-all"
+                  style={payMethod === "momo"
+                    ? { borderColor: "#00ff9d", background: "#00ff9d15", color: "#00ff9d" }
+                    : { borderColor: "#ffffff15", color: "#888" }}
+                >
+                  📱 {pay.mobile_money}
+                </button>
+                <button
+                  onClick={() => setPayMethod("card")}
+                  className="py-3 rounded-lg border text-sm font-bold transition-all"
+                  style={payMethod === "card"
+                    ? { borderColor: "#00ccff", background: "#00ccff15", color: "#00ccff" }
+                    : { borderColor: "#ffffff15", color: "#888" }}
+                >
+                  💳 {pay.card}
+                </button>
+              </div>
+
+              {payMethod === "momo" ? (
+                <div className="space-y-4">
+                  {/* Operator */}
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-2 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{pay.operator}</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => setOperator("mtn")}
+                        className="py-3 rounded-lg border text-sm font-bold transition-all"
+                        style={operator === "mtn"
+                          ? { borderColor: "#ffcc00", background: "#ffcc0015", color: "#ffcc00" }
+                          : { borderColor: "#ffffff15", color: "#888" }}
+                      >
+                        MTN MoMo
+                      </button>
+                      <button
+                        onClick={() => setOperator("orange")}
+                        className="py-3 rounded-lg border text-sm font-bold transition-all"
+                        style={operator === "orange"
+                          ? { borderColor: "#ff7900", background: "#ff790015", color: "#ff7900" }
+                          : { borderColor: "#ffffff15", color: "#888" }}
+                      >
+                        Orange Money
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Phone */}
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{pay.phone} *</label>
+                    <input
+                      className="cyber-input w-full px-3 py-2 rounded text-sm"
+                      placeholder={pay.phone_ph}
+                      value={payPhone}
+                      onChange={e => setPayPhone(e.target.value)}
+                      disabled={payState === "processing" || payState === "awaiting"}
+                    />
+                  </div>
+
+                  {payState === "awaiting" && (
+                    <div className="flex items-center gap-3 p-3 rounded-lg" style={{ background: "#ffaa0010", border: "1px solid #ffaa0033" }}>
+                      <span className="inline-block w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: "#ffaa00" }} />
+                      <span className="text-xs text-yellow-400 font-mono">{pay.awaiting}</span>
+                    </div>
+                  )}
+                  {payState === "failed" && (
+                    <p className="text-red-400 text-xs font-mono">{payError || pay.failed}</p>
+                  )}
+
+                  <button
+                    onClick={handlePay}
+                    disabled={!payPhone.trim() || payState === "processing" || payState === "awaiting"}
+                    className="w-full btn-neon-solid py-3 rounded text-sm border-2 border-neon-green disabled:opacity-50"
+                  >
+                    {payState === "processing" ? pay.processing
+                      : payState === "awaiting" ? pay.awaiting
+                      : `${pay.pay} — ${amount.toLocaleString("fr-FR")} XAF`}
+                  </button>
+                </div>
+              ) : (
+                /* Card — placeholder (future Stripe) */
+                <div className="text-center py-10 px-6 rounded-lg border border-dashed" style={{ borderColor: "#00ccff33", background: "#00ccff05" }}>
+                  <div className="text-4xl mb-3">💳</div>
+                  <p className="text-gray-400 text-sm font-mono">{pay.card_soon}</p>
+                </div>
+              )}
             </div>
           )}
         </div>

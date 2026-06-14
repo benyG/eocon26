@@ -15,7 +15,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { slug, nameFr, nameEn, priceFr, priceEn, perksFr, perksEn, earlyBirdPriceFr, earlyBirdPriceEn, earlyBirdUntil, color, isFeatured, isVisible, ctfAccess, includesCTF, maxCapacity, sortOrder } = await req.json();
+  const { slug, nameFr, nameEn, priceFr, priceEn, perksFr, perksEn, earlyBirdPriceFr, earlyBirdPriceEn, earlyBirdUntil, color, isFeatured, isVisible, ctfAccess, includesCTF, maxCapacity, sortOrder, netticketTicketId, stripeProductId } = await req.json();
   if (!slug || !nameFr || !nameEn) return NextResponse.json({ error: "slug, nameFr, nameEn requis" }, { status: 400 });
 
   const t = await prisma.ticketType.create({
@@ -34,6 +34,8 @@ export async function POST(req: NextRequest) {
       includesCTF: !!includesCTF,
       maxCapacity: maxCapacity || 200,
       sortOrder: sortOrder || 0,
+      netticketTicketId: netticketTicketId?.trim() || null,
+      stripeProductId: stripeProductId?.trim() || null,
     },
   });
   return NextResponse.json(t, { status: 201 });

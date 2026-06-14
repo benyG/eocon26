@@ -37,7 +37,7 @@ function StatCard({ label, value, color = "#00ff9d" }: { label: string; value: n
 }
 
 function Badge({ status }: { status: string }) {
-  const colors: Record<string, string> = { pending: "#ffaa00", accepted: "#00ff9d", rejected: "#ff0066" };
+  const colors: Record<string, string> = { pending: "#ffaa00", payment_pending: "#ffaa00", paid: "#00ff9d", validated: "#00ff9d", pre_registered: "#00ccff", accepted: "#00ff9d", rejected: "#ff0066" };
   return (
     <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: (colors[status] || "#888") + "20", color: colors[status] || "#888", fontFamily: "'Share Tech Mono', monospace" }}>
       {status}
@@ -2921,9 +2921,10 @@ interface TicketTypeRow {
   earlyBirdPriceFr: number | null; earlyBirdPriceEn: number | null;
   earlyBirdUntil: string | null; color: string; isFeatured: boolean;
   isVisible: boolean; ctfAccess: boolean; includesCTF: boolean; maxCapacity: number; sortOrder: number; sold: number;
+  netticketTicketId: string | null; stripeProductId: string | null;
 }
 
-const TICKET_DEFAULT_FORM = { slug: "", nameFr: "", nameEn: "", priceFr: 0, priceEn: 0, color: "#00ff9d", isFeatured: false, isVisible: true, ctfAccess: false, maxCapacity: 200, sortOrder: 0, perksFrArr: [] as string[], perksEnArr: [] as string[] };
+const TICKET_DEFAULT_FORM = { slug: "", nameFr: "", nameEn: "", priceFr: 0, priceEn: 0, color: "#00ff9d", isFeatured: false, isVisible: true, ctfAccess: false, maxCapacity: 200, sortOrder: 0, perksFrArr: [] as string[], perksEnArr: [] as string[], netticketTicketId: "", stripeProductId: "" };
 
 function TicketsPanel() {
   const [tickets, setTickets] = useState<TicketTypeRow[]>([]);
@@ -3048,6 +3049,14 @@ function TicketsPanel() {
               <label className="text-xs text-gray-500 block mb-1">Ordre d&apos;affichage</label>
               <input type="number" value={createForm.sortOrder} onChange={e => setCreateForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
             </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">NetTicket ticket_id</label>
+              <input value={createForm.netticketTicketId} onChange={e => setCreateForm(f => ({ ...f, netticketTicketId: e.target.value }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" placeholder="ex: 1842" />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">Stripe product_id</label>
+              <input value={createForm.stripeProductId} onChange={e => setCreateForm(f => ({ ...f, stripeProductId: e.target.value }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" placeholder="prod_… (optionnel)" />
+            </div>
           </div>
           <div className="flex items-center gap-4 mb-4 flex-wrap">
             <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
@@ -3168,6 +3177,16 @@ function TicketsPanel() {
                     <div className="flex items-center gap-2">
                       <label className="text-xs text-gray-500">Ordre</label>
                       <input type="number" value={editForm.sortOrder ?? 0} onChange={e => setEditForm(f => ({ ...f, sortOrder: parseInt(e.target.value) }))} className="cyber-input text-xs rounded px-2 py-1 w-16" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">NetTicket ticket_id</label>
+                      <input value={editForm.netticketTicketId || ""} onChange={e => setEditForm(f => ({ ...f, netticketTicketId: e.target.value }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" placeholder="ex: 1842" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 block mb-1">Stripe product_id</label>
+                      <input value={editForm.stripeProductId || ""} onChange={e => setEditForm(f => ({ ...f, stripeProductId: e.target.value }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" placeholder="prod_… (optionnel)" />
                     </div>
                   </div>
                   <div className="flex gap-3">
@@ -4581,6 +4600,18 @@ function AuditPanel() {
 
 // ---- Domain Health Dashboard ----
 
+function HealthDot({ color }: { color: "green" | "orange" | "red" | "grey" }) {
+  const map = { green: "#00ff9d", orange: "#ffaa00", red: "#ff0066", grey: "#555" };
+  return <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ background: map[color], boxShadow: `0 0 6px ${map[color]}` }} />;
+}
+
+function MiniBar({ value, total, color, danger }: { value: number; total: number; color: string; danger?: boolean }) {
+  const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
+  const barColor = danger && pct >= 100 ? "#ff0066" : color;
+  return (
+    <div className="mt-2">
+      <div className="flex justify-between text-xs text-gray-600 mb-1">
+        <span>{value} / {total}</span>
         <span>{pct}%</span>
       </div>
       <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">

@@ -4600,6 +4600,18 @@ function AuditPanel() {
 
 // ---- Domain Health Dashboard ----
 
+interface DashboardExtra {
+  budget: { category: string; planned: number; actual: number }[];
+  logistics: { done: boolean; deadline: string | null }[];
+  sessions: { date: string | null }[];
+  socialPosts: { status: string }[];
+  sponsorProspects: { status: string }[];
+  speakerOnboarding: { completed: boolean }[];
+  cfpDetailed: { status: string; scheduledInProgramme: boolean }[];
+  registrationsPending: number;
+  registrationsValidated: number;
+}
+
 function HealthDot({ color }: { color: "green" | "orange" | "red" | "grey" }) {
   const map = { green: "#00ff9d", orange: "#ffaa00", red: "#ff0066", grey: "#555" };
   return <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ background: map[color], boxShadow: `0 0 6px ${map[color]}` }} />;

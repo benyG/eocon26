@@ -4477,6 +4477,110 @@ function VideoPanel() {
   );
 }
 
+function AuditPanel() {
+  const { t } = useAdminT();
+  const [logs, setLogs] = useState<Record<string, unknown>[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [resource, setResource] = useState("");
+  const [action, setAction] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [purging, setPurging] = useState(false);
+
+  const RESOURCES = ["", "cfp", "registration", "volunteer", "speaker", "session", "user", "speaker_onboarding"];
+  const ACTIONS = ["", "CREATE", "UPDATE", "DELETE", "VALIDATE", "REJECT", "ACCEPT", "LOGIN"];
+
+  const load = async (p: number, res: string, act: string) => {
+    setLoading(true);
+    const params = new URLSearchParams({ page: String(p) });
+    if (res) params.set("resource", res);
+    if (act) params.set("action", act);
+    const r = await fetch(`/api/admin/audit?${params}`);
+    if (r.ok) {
+      const j = await r.json();
+      setLogs(j.logs);
+      setTotal(j.total);
+      setPage(j.page);
+      setPages(j.pages);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(page, resource, action); }, [page, resource, action]);
+
+  const purge = async () => {
+    if (!confirm(t.confirmPurge)) return;
+    setPurging(true);
+    const r = await fetch("/api/admin/audit", { method: "DELETE" });
+    if (r.ok) { const j = await r.json(); alert(`${j.deleted} ${t.deletedEntries}`); load(1, resource, action); }
+    setPurging(false);
+  };
+
+  const actionColor: Record<string, string> = {
+    CREATE: "#00ff9d", UPDATE: "#0066ff", DELETE: "#ff0066",
+    VALIDATE: "#00ff9d", ACCEPT: "#00ff9d", REJECT: "#ff6600", LOGIN: "#ffaa00",
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black text-white">{t.auditTitle}</h1>
+          <p className="text-xs text-gray-600 mt-1 font-mono">{t.retention60} · {total} {t.entry}</p>
+        </div>
+        <button onClick={purge} disabled={purging} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-50">
+          {purging ? "…" : t.purgeOld}
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-3 mb-5">
+        <select className="bg-black/40 border border-gray-800 rounded px-3 py-1.5 text-sm text-white focus:border-neon-green/50 outline-none"
+          value={resource} onChange={e => { setResource(e.target.value); setPage(1); }}>
+          {RESOURCES.map(r => <option key={r} value={r}>{r || t.allResources}</option>)}
+        </select>
+        <select className="bg-black/40 border border-gray-800 rounded px-3 py-1.5 text-sm text-white focus:border-neon-green/50 outline-none"
+          value={action} onChange={e => { setAction(e.target.value); setPage(1); }}>
+          {ACTIONS.map(a => <option key={a} value={a}>{a || t.allActions}</option>)}
+        </select>
+      </div>
+
+      {loading ? (
+        <p className="text-gray-600 text-sm font-mono">Chargement…</p>
+      ) : logs.length === 0 ? (
+        <p className="text-gray-600 text-sm font-mono">{t.noEntries}</p>
+      ) : (
+        <>
+          <div className="space-y-1 mb-4">
+            {logs.map(log => {
+              const actColor = actionColor[String(log.action)] || "#888";
+              return (
+                <div key={String(log.id)} className="flex items-start gap-3 p-3 rounded bg-white/[0.02] border border-white/[0.04] text-xs font-mono">
+                  <span className="text-gray-600 shrink-0 w-32">{new Date(String(log.createdAt)).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</span>
+                  <span className="px-1.5 py-0.5 rounded shrink-0" style={{ color: actColor, background: actColor + "20" }}>{String(log.action)}</span>
+                  <span className="text-gray-400 shrink-0">{String(log.resource)}{log.resourceId ? `#${log.resourceId}` : ""}</span>
+                  <span className="text-gray-600 shrink-0">{String(log.ip || "")}</span>
+                  {!!log.details && <span className="text-gray-700 truncate">{JSON.stringify(log.details)}</span>}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center gap-2 justify-center">
+            <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="text-xs px-3 py-1 rounded border border-gray-800 text-gray-500 hover:text-gray-300 disabled:opacity-30 transition-all">←</button>
+            <span className="text-xs text-gray-600 font-mono">{t.page} {page} {t.of} {pages}</span>
+            <button disabled={page >= pages} onClick={() => setPage(p => p + 1)} className="text-xs px-3 py-1 rounded border border-gray-800 text-gray-500 hover:text-gray-300 disabled:opacity-30 transition-all">→</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ---- Domain Health Dashboard ----
+
         <span>{pct}%</span>
       </div>
       <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">

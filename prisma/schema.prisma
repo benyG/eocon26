@@ -508,3 +508,21 @@ model BadgeCredential {
   @@index([badgeType])
   @@map("badge_credentials")
 }
+
+model SessionVideo {
+  id            Int      @id @default(autoincrement())
+  title         String
+  titleEn       String?
+  description   String?  @db.Text
+  descriptionEn String?  @db.Text
+  youtubeUrl    String
+  thumbnailUrl  String?
+  speaker       String?
+  edition       String   @default("2025")
+  category      String?  // keynote | talk | workshop | panel
+  isVisible     Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@map("session_videos")
+}

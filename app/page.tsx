@@ -7,6 +7,7 @@ import Hero from "@/components/Hero";
 import About from "@/components/About";
 import Speakers from "@/components/Speakers";
 import Schedule from "@/components/Schedule";
+import Videoteque from "@/components/Videoteque";
 import CTF from "@/components/CTF";
 import Workshops from "@/components/Workshops";
 import Testimonials from "@/components/Testimonials";
@@ -17,6 +18,7 @@ import Venue from "@/components/Venue";
 import Team from "@/components/Team";
 import Footer from "@/components/Footer";
 import RegisterModal from "@/components/RegisterModal";
+import VolunteerModal from "@/components/VolunteerModal";
 
 export default function Home() {
   const [lang, setLang] = useState<Lang>("fr");
@@ -65,17 +67,19 @@ export default function Home() {
       <About t={tWithSettings} />
       <Speakers t={tWithSettings} onOpenModal={openModal} />
       <Schedule t={tWithSettings} lang={lang} />
+      <Videoteque t={tWithSettings} lang={lang} />
       <CTF t={tWithSettings} onOpenModal={openModal} ctfSettings={{ tagline: eventSettings.ctf_tagline, prizeMain: eventSettings.ctf_prize_main, prizeDetails: eventSettings.ctf_prize_details }} />
       <Workshops t={tWithSettings} onOpenModal={openModal} lang={lang} />
       <Testimonials t={tWithSettings} />
       <CFPSection t={tWithSettings} />
-      <Volunteer t={tWithSettings} />
+      <Volunteer t={tWithSettings} onOpenModal={() => openModal("volunteer")} />
       <Sponsors t={tWithSettings} lang={lang} />
       <Team t={tWithSettings} />
       <Venue t={tWithSettings} eventSettings={eventSettings} />
       <Footer t={tWithSettings} eventSettings={eventSettings} />
 
       {modal === "register" && <RegisterModal t={tWithSettings} onClose={closeModal} lang={lang} />}
+      {modal === "volunteer" && <VolunteerModal t={tWithSettings} onClose={closeModal} lang={lang} />}
       {modal === "cfp" && (
         <div className="modal-backdrop" onClick={closeModal}>
           <div

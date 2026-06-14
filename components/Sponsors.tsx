@@ -251,108 +251,136 @@ export default function Sponsors({ t, lang = "fr" }: { t: Translations; lang?: "
 
       {/* Partner Request Modal */}
       {showPartnerForm && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="cyber-card rounded-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-white font-black text-lg">{t.sponsors.cta}</h3>
-              <button onClick={closeModal} className="text-gray-500 hover:text-white text-xl">✕</button>
-            </div>
-            {submitted ? (
-              <div className="text-center py-8">
-                <p className="text-neon-green text-lg font-bold mb-2">✓ {lang === "fr" ? "Demande envoyée !" : "Request sent!"}</p>
-                <p className="text-gray-400 text-sm">
-                  {lang === "fr" ? "Nous vous contacterons très prochainement." : "We will contact you shortly."}
-                </p>
-                <button onClick={closeModal} className="mt-6 btn-neon px-6 py-2 rounded text-sm">
-                  {lang === "fr" ? "Fermer" : "Close"}
-                </button>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)" }}
+          onClick={closeModal}
+        >
+          <div
+            className="max-w-lg w-full max-h-[90vh] overflow-y-auto rounded-2xl"
+            style={{ background: "#0a0a0f", border: "1px solid rgba(0,255,157,0.2)" }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-neon-green/10">
+              <div>
+                <h3 className="text-xl font-black text-white">{t.sponsors.cta}</h3>
+                <p className="text-gray-500 text-sm mt-1">{t.sponsors.subtitle}</p>
               </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">
-                    {lang === "fr" ? "Organisation *" : "Organization *"}
-                  </label>
-                  <input
-                    required
-                    className="cyber-input w-full px-3 py-2 rounded text-sm"
-                    value={form.org}
-                    onChange={e => setForm(p => ({ ...p, org: e.target.value }))}
-                  />
+              <button
+                onClick={closeModal}
+                className="text-gray-500 hover:text-neon-green transition-colors text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-4 sm:px-6 py-4 space-y-4">
+              {submitted ? (
+                <div className="text-center py-12">
+                  <div className="text-5xl mb-6">✓</div>
+                  <p className="text-neon-green font-mono text-lg mb-2" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                    {lang === "fr" ? "Demande envoyée !" : "Request sent!"}
+                  </p>
+                  <p className="text-gray-400 text-sm mb-6">
+                    {lang === "fr" ? "Nous vous contacterons très prochainement." : "We will contact you shortly."}
+                  </p>
+                  <button onClick={closeModal} className="btn-neon px-6 py-2 rounded text-sm">
+                    {lang === "fr" ? "Fermer" : "Close"}
+                  </button>
                 </div>
-                <div className="grid sm:grid-cols-2 gap-3">
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">
-                      {lang === "fr" ? "Contact" : "Contact"}
+                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                      {lang === "fr" ? "Organisation *" : "Organization *"}
+                    </label>
+                    <input
+                      required
+                      className="cyber-input w-full px-3 py-2 rounded text-sm"
+                      value={form.org}
+                      onChange={e => setForm(p => ({ ...p, org: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                        {lang === "fr" ? "Contact" : "Contact"}
+                      </label>
+                      <input
+                        className="cyber-input w-full px-3 py-2 rounded text-sm"
+                        value={form.contact}
+                        onChange={e => setForm(p => ({ ...p, contact: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        className="cyber-input w-full px-3 py-2 rounded text-sm"
+                        value={form.email}
+                        onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                      {lang === "fr" ? "Téléphone" : "Phone"}
                     </label>
                     <input
                       className="cyber-input w-full px-3 py-2 rounded text-sm"
-                      value={form.contact}
-                      onChange={e => setForm(p => ({ ...p, contact: e.target.value }))}
+                      value={form.phone}
+                      onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Email</label>
-                    <input
-                      type="email"
-                      className="cyber-input w-full px-3 py-2 rounded text-sm"
-                      value={form.email}
-                      onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                      {lang === "fr" ? "Package souhaité" : "Desired package"}
+                    </label>
+                    <select
+                      className="cyber-input w-full px-3 py-2 rounded text-sm bg-transparent"
+                      value={form.selectedPackage}
+                      onChange={e => setForm(p => ({ ...p, selectedPackage: e.target.value }))}
+                    >
+                      <option value="" className="bg-dark-800">
+                        {lang === "fr" ? "Choisir un package" : "Choose a package"}
+                      </option>
+                      {packages.map(pkg => (
+                        <option key={pkg.id} value={pkg.tier} className="bg-dark-800">
+                          {lang === "fr" ? pkg.nameFr : pkg.nameEn}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                      {lang === "fr" ? "Message" : "Message"}
+                    </label>
+                    <textarea
+                      rows={3}
+                      className="cyber-input w-full px-3 py-2 rounded text-sm resize-none"
+                      value={form.message}
+                      onChange={e => setForm(p => ({ ...p, message: e.target.value }))}
                     />
                   </div>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">
-                    {lang === "fr" ? "Téléphone" : "Phone"}
-                  </label>
-                  <input
-                    className="cyber-input w-full px-3 py-2 rounded text-sm"
-                    value={form.phone}
-                    onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">
-                    {lang === "fr" ? "Package souhaité" : "Desired package"}
-                  </label>
-                  <select
-                    className="cyber-input w-full px-3 py-2 rounded text-sm"
-                    value={form.selectedPackage}
-                    onChange={e => setForm(p => ({ ...p, selectedPackage: e.target.value }))}
-                  >
-                    <option value="">{lang === "fr" ? "Choisir un package" : "Choose a package"}</option>
-                    {packages.map(pkg => (
-                      <option key={pkg.id} value={pkg.tier}>
-                        {lang === "fr" ? pkg.nameFr : pkg.nameEn}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">
-                    {lang === "fr" ? "Message" : "Message"}
-                  </label>
-                  <textarea
-                    rows={3}
-                    className="cyber-input w-full px-3 py-2 rounded text-sm resize-none"
-                    value={form.message}
-                    onChange={e => setForm(p => ({ ...p, message: e.target.value }))}
-                  />
-                </div>
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="btn-neon-solid px-6 py-2 rounded text-sm border-2 border-neon-green disabled:opacity-50"
-                  >
-                    {submitting ? "…" : (lang === "fr" ? "Envoyer" : "Send")}
-                  </button>
-                  <button type="button" onClick={closeModal} className="px-6 py-2 rounded text-sm text-gray-500 hover:text-white">
-                    {lang === "fr" ? "Annuler" : "Cancel"}
-                  </button>
-                </div>
-              </form>
-            )}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="btn-neon-solid px-6 py-2 rounded text-sm border-2 border-neon-green disabled:opacity-50"
+                    >
+                      {submitting ? "…" : (lang === "fr" ? "Envoyer" : "Send")}
+                    </button>
+                    <button type="button" onClick={closeModal} className="px-6 py-2 rounded text-sm text-gray-500 hover:text-white">
+                      {lang === "fr" ? "Annuler" : "Cancel"}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
           </div>
         </div>
       )}

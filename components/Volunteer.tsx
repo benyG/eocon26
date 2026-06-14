@@ -1,35 +1,12 @@
 "use client";
-import { useState } from "react";
 import { Translations } from "@/lib/i18n";
 
-export default function Volunteer({ t }: { t: Translations }) {
-  const [formData, setFormData] = useState({
-    name: "", email: "", phone: "", city: "", role: "", experience: "", motivation: "",
-    linkedin: "", twitter: "", whatsapp: "", hours_per_week: "", lang_expression: "fr"
-  });
-  const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+interface VolunteerProps {
+  t: Translations;
+  onOpenModal: () => void;
+}
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/volunteer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-      if (!res.ok) throw new Error("Server error");
-      setSubmitted(true);
-    } catch {
-      setError("Une erreur est survenue. Veuillez réessayer.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+export default function Volunteer({ t, onOpenModal }: VolunteerProps) {
   return (
     <section id="volunteer" className="py-24 px-4 relative bg-dark-800/50">
       <div className="max-w-6xl mx-auto">
@@ -82,117 +59,16 @@ export default function Volunteer({ t }: { t: Translations }) {
             </div>
           </div>
 
-          {/* Right: form */}
-          <div>
+          {/* Right: CTA */}
+          <div className="flex flex-col justify-center items-start">
             <h3 className="text-white font-bold text-xl mb-6">{t.volunteer.form.title}</h3>
-            {submitted ? (
-              <div className="cyber-card rounded-xl p-8 text-center">
-                <div className="text-4xl mb-4">🎉</div>
-                <p className="text-neon-green font-mono text-sm" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-                  {t.volunteer.form.success}
-                </p>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.volunteer.form.name} *</label>
-                    <input required className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder={t.volunteer.form.name}
-                      value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.volunteer.form.email} *</label>
-                    <input required type="email" className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder={t.volunteer.form.email}
-                      value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.volunteer.form.phone}</label>
-                    <input className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder={t.volunteer.form.phone}
-                      value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.volunteer.form.city}</label>
-                    <input className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder={t.volunteer.form.city}
-                      value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })} />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.volunteer.form.role}</label>
-                  <select className="cyber-input w-full px-3 py-2 rounded text-sm bg-transparent"
-                    value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })}>
-                    <option value="">--</option>
-                    {t.volunteer.roles.map(r => <option key={r.title} value={r.title} className="bg-dark-800">{r.title}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.volunteer.form.experience}</label>
-                  <textarea rows={2} className="cyber-input w-full px-3 py-2 rounded text-sm resize-none" placeholder={t.volunteer.form.experience}
-                    value={formData.experience} onChange={e => setFormData({ ...formData, experience: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.volunteer.form.motivation} *</label>
-                  <textarea required rows={3} className="cyber-input w-full px-3 py-2 rounded text-sm resize-none" placeholder={t.volunteer.form.motivation}
-                    value={formData.motivation} onChange={e => setFormData({ ...formData, motivation: e.target.value })} />
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>LinkedIn</label>
-                    <input className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="linkedin.com/in/…"
-                      value={formData.linkedin} onChange={e => setFormData({ ...formData, linkedin: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>X / Twitter</label>
-                    <input className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="@handle"
-                      value={formData.twitter} onChange={e => setFormData({ ...formData, twitter: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>WhatsApp</label>
-                    <input className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="+237…"
-                      value={formData.whatsapp} onChange={e => setFormData({ ...formData, whatsapp: e.target.value })} />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-2 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-                    {t.volunteer.form.lang_expression === "fr" ? "Combien d'heures par semaine pouvez-vous consacrer au bénévolat ?" : "How many hours per week can you volunteer?"}
-                  </label>
-                  <div className="space-y-2">
-                    {["1-3h", "3-5h", "5-10h"].map(opt => (
-                      <label key={opt} className="flex items-center gap-3 cursor-pointer group">
-                        <input type="radio" name="hours_per_week" value={opt}
-                          checked={formData.hours_per_week === opt}
-                          onChange={e => setFormData({ ...formData, hours_per_week: e.target.value })}
-                          className="accent-neon-green" />
-                        <span className="text-gray-400 text-sm group-hover:text-gray-200 transition-colors">{opt}</span>
-                      </label>
-                    ))}
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <input type="radio" name="hours_per_week" value="autre"
-                        checked={formData.hours_per_week === "autre" || (!!formData.hours_per_week && !["1-3h","3-5h","5-10h"].includes(formData.hours_per_week))}
-                        onChange={() => setFormData({ ...formData, hours_per_week: "autre" })}
-                        className="accent-neon-green" />
-                      <span className="text-gray-400 text-sm">Autre :</span>
-                      <input type="text" placeholder="préciser…"
-                        className="cyber-input px-2 py-1 rounded text-sm flex-1"
-                        onFocus={() => setFormData({ ...formData, hours_per_week: "" })}
-                        onChange={e => setFormData({ ...formData, hours_per_week: e.target.value })} />
-                    </label>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.volunteer.form.lang_expression}</label>
-                  <select className="cyber-input w-full px-3 py-2 rounded text-sm bg-transparent" value={formData.lang_expression} onChange={e => setFormData({ ...formData, lang_expression: e.target.value })}>
-                    <option value="fr" className="bg-dark-800">Français</option>
-                    <option value="en" className="bg-dark-800">English</option>
-                  </select>
-                </div>
-                {error && <p className="text-red-400 text-xs font-mono">{error}</p>}
-                <button type="submit" disabled={loading} className="w-full btn-neon-solid py-3 rounded text-sm border-2 border-neon-green disabled:opacity-50">
-                  {loading ? "..." : t.volunteer.form.submit}
-                </button>
-              </form>
-            )}
+            <p className="text-gray-400 text-sm mb-8 max-w-sm">{t.volunteer.description}</p>
+            <button
+              onClick={onOpenModal}
+              className="btn-neon-solid px-8 py-3 rounded text-sm border-2 border-neon-green"
+            >
+              {t.volunteer.form.submit}
+            </button>
           </div>
         </div>
       </div>

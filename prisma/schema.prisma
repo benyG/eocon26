@@ -82,6 +82,10 @@ model Registration {
   ctfTeamName        String?
   ctfPassword        String?
   ctfAccountCreated  Boolean   @default(false)
+  // Payment tracking (NetTicket Mobile Money / future Stripe)
+  paymentProvider    String?   // netticket_mtn | netticket_orange | stripe | free
+  paymentRef         String?   // transaction id returned by the payment provider
+  paidAt             DateTime?
   createdAt          DateTime  @default(now())
 
   @@map("registrations")
@@ -296,6 +300,9 @@ model TicketType {
   includesCTF     Boolean  @default(false)
   maxCapacity     Int      @default(200)
   sortOrder       Int      @default(0)
+  // External payment provider mappings
+  netticketTicketId String? // NetTicket ticket id (used by /payment/mobile)
+  stripeProductId   String? // Stripe product/price id (future card integration)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

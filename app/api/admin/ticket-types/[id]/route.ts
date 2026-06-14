@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const id = parseInt(params.id);
-  const { nameFr, nameEn, priceFr, priceEn, perksFr, perksEn, earlyBirdPriceFr, earlyBirdPriceEn, earlyBirdUntil, color, isFeatured, isVisible, ctfAccess, includesCTF, maxCapacity, sortOrder } = await req.json();
+  const { nameFr, nameEn, priceFr, priceEn, perksFr, perksEn, earlyBirdPriceFr, earlyBirdPriceEn, earlyBirdUntil, color, isFeatured, isVisible, ctfAccess, includesCTF, maxCapacity, sortOrder, netticketTicketId, stripeProductId } = await req.json();
 
   const updated = await prisma.ticketType.update({
     where: { id },
@@ -28,6 +28,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       ...(includesCTF !== undefined && { includesCTF }),
       ...(maxCapacity !== undefined && { maxCapacity }),
       ...(sortOrder !== undefined && { sortOrder }),
+      ...(netticketTicketId !== undefined && { netticketTicketId: netticketTicketId?.trim() || null }),
+      ...(stripeProductId !== undefined && { stripeProductId: stripeProductId?.trim() || null }),
     },
   });
   return NextResponse.json(updated);

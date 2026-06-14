@@ -19,7 +19,7 @@
 │         SECURE THE FUTURE                                   │
 │         SÉCURISER L'AVENIR                                  │
 │                                                             │
-│     📅  September 26, 2026 · 26 Septembre 2026             │
+│     📅  November 28, 2026 · 28 Novembre 2026               │
 │     📍  Douala, Cameroun                                    │
 │     🌐  Hybrid Format · Format Hybride                      │
 │                                                             │
@@ -68,7 +68,7 @@ EOCON 2026 se déroule sur **7 jours** combinant accessibilité globale et impac
 | Jours | Format | Contenu |
 |-------|--------|---------|
 | **Jours 1 à 6** | 🌐 En ligne · Online | Conférences, panels, CTF EyesOpenCTF (48h) |
-| **Jour 7 — 26 Sept** | 📍 Présentiel · In-person | Conférence finale, remise des prix CTF, networking, cocktail |
+| **Jour 7 — 28 Nov** | 📍 Présentiel · In-person | Conférence finale, remise des prix CTF, networking, cocktail |
 
 **Lieu du présentiel :** Douala, Cameroun — capitale économique d'Afrique Centrale
 **Langues :** Français & Anglais
@@ -82,7 +82,7 @@ EOCON 2026 unfolds over **7 days**, combining global reach with local impact:
 | Days | Format | Content |
 |------|--------|---------|
 | **Days 1 to 6** | 🌐 Online | Conferences, panels, EyesOpenCTF competition (48h) |
-| **Day 7 — Sept 26** | 📍 In-person | Final conference, CTF awards, networking, cocktail |
+| **Day 7 — Nov 28** | 📍 In-person | Final conference, CTF awards, networking, cocktail |
 
 **In-person venue:** Douala, Cameroon — Central Africa's economic capital
 **Languages:** French & English
@@ -417,9 +417,9 @@ Pour être inclus dans **tous les supports imprimés** (badges, sacs, lanyards, 
 
 | Date limite | Avantage |
 |------------|----------|
-| **Août 2026** | Inclusion garantie dans TOUS les supports print + branding CTF complet |
-| **Septembre 2026** | Inclusion supports digitaux + jour présentiel |
-| **Après le 15 Sept.** | Visibilité digitale uniquement |
+| **31 octobre 2026** | Inclusion garantie dans TOUS les supports print + branding CTF complet |
+| **15 novembre 2026** | Inclusion supports digitaux + jour présentiel |
+| **Après le 15 nov.** | Visibilité digitale uniquement |
 
 > ⚡ Les packages Platinum & Gold sont en nombre limité. Premier arrivé, premier servi.
 
@@ -431,9 +431,9 @@ To be included in **all printed materials** (badges, bags, lanyards, print), the
 
 | Deadline | Benefit |
 |----------|---------|
-| **August 2026** | Guaranteed inclusion in ALL print materials + full CTF branding |
-| **September 2026** | Digital materials + in-person day inclusion |
-| **After Sept. 15** | Digital visibility only |
+| **October 31, 2026** | Guaranteed inclusion in ALL print materials + full CTF branding |
+| **November 15, 2026** | Digital materials + in-person day inclusion |
+| **After Nov. 15** | Digital visibility only |
 
 > ⚡ Platinum & Gold packages are limited. First come, first served.
 
@@ -481,7 +481,7 @@ No problem — we create custom offerings tailored to your objectives.
 │   @237HACKERS  |  @eyesopsi  |  EyesOpen Association       │
 │   #EOCON2026   |  #EOCTF     |  #SecureTheFuture           │
 │                                                             │
-│   🌐 Hybrid · FR | EN · Sept 26, 2026 · Douala, Cameroun   │
+│   🌐 Hybrid · FR | EN · Nov 28, 2026 · Douala, Cameroun    │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```

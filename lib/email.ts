@@ -327,6 +327,89 @@ export async function sendCFPDecision(email: string, name: string, talkTitle: st
   await sendWithTemplate(slug, email, vars, subject, emailWrap(body, isFr));
 }
 
+// ── Pilotage Global (steering) ────────────────────────────────────────────────
+
+interface PilotageTaskLike {
+  title: string;
+  pole: string;
+  phase: number;
+  dueDate?: Date | string | null;
+  priority?: string;
+}
+interface PilotageMeetingLike {
+  title: string;
+  scheduledAt: Date | string;
+  location?: string | null;
+  agenda?: string | null;
+}
+
+function fmtFrDate(d?: Date | string | null): string {
+  if (!d) return "—";
+  const date = typeof d === "string" ? new Date(d) : d;
+  if (isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "Africa/Douala" });
+}
+
+async function sendPilotage(to: string, subject: string, bodyInner: string) {
+  if (!to) return;
+  try {
+    await getResend().emails.send({ from: FROM, to, subject, html: emailWrap(bodyInner, true) });
+  } catch (e) {
+    console.error("[pilotage email]", e);
+  }
+}
+
+export async function sendPilotageTaskAssigned(to: string, name: string, task: PilotageTaskLike) {
+  const body = `<p>${greenLabel("Bonjour " + esc(name || ""))},</p>
+     <p>Une tâche du pilotage EOCON 2026 vous a été assignée.</p>
+     ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
+       ${neonRow("Tâche", `<strong style="color:#00ff9d;">${esc(task.title)}</strong>`)}
+       ${neonRow("Pôle", esc(task.pole))}
+       ${neonRow("Phase", String(task.phase))}
+       ${neonRow("Échéance", fmtFrDate(task.dueDate))}
+     </tbody></table>`)}
+     <p>Connectez-vous au tableau de pilotage pour suivre son avancement.</p>`;
+  await sendPilotage(to, `🎯 Nouvelle tâche assignée — ${task.title}`, body);
+}
+
+export async function sendPilotageDeadlineReminder(to: string, name: string, task: PilotageTaskLike, stage: string) {
+  const label = stage === "J-3" ? "dans 3 jours" : stage === "J-1" ? "demain" : "aujourd'hui";
+  const body = `<p>${greenLabel("Bonjour " + esc(name || ""))},</p>
+     <p>⏰ Rappel : une tâche arrive à échéance <strong style="color:#ffaa00;">${label}</strong>.</p>
+     ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
+       ${neonRow("Tâche", `<strong style="color:#00ff9d;">${esc(task.title)}</strong>`)}
+       ${neonRow("Pôle", esc(task.pole))}
+       ${neonRow("Échéance", fmtFrDate(task.dueDate))}
+     </tbody></table>`)}
+     <p>Pensez à mettre à jour son statut une fois terminée.</p>`;
+  await sendPilotage(to, `⏰ Rappel échéance (${stage}) — ${task.title}`, body);
+}
+
+export async function sendPilotageEscalation(coordoEmail: string, task: PilotageTaskLike) {
+  const body = `<p>${greenLabel("Coordo Global")},</p>
+     <p>🚨 Une tâche est <strong style="color:#ff3333;">en retard</strong> et n'a pas été marquée comme terminée.</p>
+     ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
+       ${neonRow("Tâche", `<strong style="color:#ff6666;">${esc(task.title)}</strong>`)}
+       ${neonRow("Pôle", esc(task.pole))}
+       ${neonRow("Échéance dépassée", fmtFrDate(task.dueDate))}
+     </tbody></table>`)}
+     <p>Une relance auprès du responsable peut être nécessaire.</p>`;
+  await sendPilotage(coordoEmail, `🚨 Tâche en retard — ${task.title}`, body);
+}
+
+export async function sendPilotageMeetingReminder(to: string, meeting: PilotageMeetingLike, stage: string) {
+  const when = stage === "H-2" ? "dans 2 heures" : "demain";
+  const body = `<p>${greenLabel("Bonjour")},</p>
+     <p>📅 Rappel : une réunion de pilotage a lieu <strong style="color:#00ff9d;">${when}</strong>.</p>
+     ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
+       ${neonRow("Réunion", `<strong style="color:#00ff9d;">${esc(meeting.title)}</strong>`)}
+       ${neonRow("Date", fmtFrDate(meeting.scheduledAt))}
+       ${meeting.location ? neonRow("Lieu", esc(meeting.location)) : ""}
+       ${meeting.agenda ? neonRow("Ordre du jour", esc(meeting.agenda)) : ""}
+     </tbody></table>`)}`;
+  await sendPilotage(to, `📅 Rappel réunion (${stage}) — ${meeting.title}`, body);
+}
+
 export async function sendRegistrationPending(
   to: string, fname: string, lname: string, ticketType: string, ticketRef: string, paymentUrl: string,
   lang: "fr" | "en" = "fr",

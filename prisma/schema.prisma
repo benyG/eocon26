@@ -175,6 +175,7 @@ model TeamMember {
   id        Int      @id @default(autoincrement())
   name      String
   role      String
+  email     String?
   bio       String?  @db.Text
   photoUrl  String?
   linkedin  String?
@@ -184,6 +185,48 @@ model TeamMember {
   createdAt DateTime @default(now())
 
   @@map("team_members")
+}
+
+// ── Pilotage Global (steering) ──────────────────────────────────────────────
+model SteeringTask {
+  id            Int       @id @default(autoincrement())
+  title         String    @db.Text
+  description   String?   @db.Text
+  phase         Int       @default(1) // 1..6
+  pole          String    // role name
+  subTeam       String?   // Contenu | Sponsors | Tech | Logistique | Volontaires | Général
+  status        String    @default("todo") // backlog|todo|in_progress|blocked|review|done
+  priority      String    @default("medium") // low|medium|high|critical
+  assigneeName  String?
+  assigneeEmail String?
+  dueDate       DateTime?
+  isMilestone   Boolean   @default(false)
+  reminderStage String?   // CSV of reminders sent: J-3,J-1,J0,overdue
+  notes         String?   @db.Text
+  sortOrder     Int       @default(0)
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([phase])
+  @@index([status])
+  @@map("steering_tasks")
+}
+
+model SteeringMeeting {
+  id            Int      @id @default(autoincrement())
+  title         String
+  type          String   @default("collective") // collective|subteam
+  subTeam       String?
+  scheduledAt   DateTime
+  location      String?
+  agenda        String?  @db.Text
+  attendees     String?  @db.Text
+  reminderStage String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("steering_meetings")
 }
 
 model PastSpeaker {

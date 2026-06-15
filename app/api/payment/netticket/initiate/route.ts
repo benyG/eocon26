@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!result.ok) {
-      return NextResponse.json({ state: "failed", message: result.message }, { status: 400 });
+      return NextResponse.json({ state: "failed", reason: result.reason, message: result.message }, { status: 400 });
     }
 
     // Synchronous confirmation (no transaction id to poll) → finalize now.
@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       state: result.state, // "successful" | "pending"
+      reason: result.reason,
       transactionId: result.transactionId,
       message: result.message,
     });

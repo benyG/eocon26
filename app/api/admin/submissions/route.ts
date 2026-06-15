@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
-import { sendCFPDecision, sendRegistrationTicket, sendVolunteerAccepted } from "@/lib/email";
+import { sendCFPDecision, sendRegistrationTicket, sendVolunteerAccepted, sendRegistrationPending } from "@/lib/email";
 import { generateQrPayload } from "@/lib/qr";
 import { formatTicketRef } from "@/lib/ticketRef";
 import { logAction } from "@/lib/auditLog";
+import { getEventSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,20 @@ export async function PATCH(req: NextRequest) {
       console.error("[Registration ticket email]", e),
     );
     return NextResponse.json(updated);
+  }
+
+  // Relance : renvoie un email rappelant au participant de finaliser son paiement.
+  if (type === "registration" && action === "remind") {
+    const reg = await prisma.registration.findUnique({ where: { id } });
+    if (!reg) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const settings = await getEventSettings().catch(() => ({} as Record<string, string>));
+    const paymentUrl = settings.url_inscription || "https://eyesopensecurity.com/#inscription";
+    const ticketRef = formatTicketRef(reg.ticketRef || String(reg.id).padStart(5, "0"));
+    sendRegistrationPending(reg.email, reg.fname, reg.lname, reg.ticketType, ticketRef, paymentUrl, (reg.langExpression === "en" ? "en" : "fr")).catch(e =>
+      console.error("[Registration reminder email]", e),
+    );
+    logAction(req, "UPDATE", "registration", id, { action: "remind", email: reg.email });
+    return NextResponse.json({ ok: true });
   }
 
   if (type === "registration") {

@@ -3245,6 +3245,149 @@ function TicketsPanel() {
   );
 }
 
+function RegistrationsPanel({ onDetail }: { onDetail: (r: Record<string, unknown>) => void }) {
+  const { t } = useAdminT();
+  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [fStatus, setFStatus] = useState("");
+  const [fTicket, setFTicket] = useState("");
+  const [fCheck, setFCheck] = useState("");
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const r = await fetch("/api/admin/submissions?type=registration");
+    if (r.ok) setRows(await r.json());
+    setLoading(false);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const statuses = Array.from(new Set(rows.map(r => r.status as string).filter(Boolean)));
+  const ticketTypes = Array.from(new Set(rows.map(r => r.ticketType as string).filter(Boolean)));
+
+  const filtered = rows.filter(r => {
+    if (fStatus && r.status !== fStatus) return false;
+    if (fTicket && r.ticketType !== fTicket) return false;
+    if (fCheck === "checked" && !r.checkedInAt) return false;
+    if (fCheck === "unchecked" && r.checkedInAt) return false;
+    return true;
+  });
+
+  const validate = async (r: Record<string, unknown>) => {
+    if (!confirm(`Valider le paiement de ${r.fname} ${r.lname} et envoyer le billet ?`)) return;
+    setBusyId(r.id as number);
+    const res = await fetch("/api/admin/submissions", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "registration", action: "validate", id: r.id }),
+    });
+    setBusyId(null);
+    if (res.ok) { setMsg(`Billet envoyé à ${r.fname} ${r.lname}`); load(); setTimeout(() => setMsg(null), 3000); }
+  };
+
+  const remind = async (r: Record<string, unknown>) => {
+    setBusyId(r.id as number);
+    const res = await fetch("/api/admin/submissions", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "registration", action: "remind", id: r.id }),
+    });
+    setBusyId(null);
+    if (res.ok) { setMsg(`Relance envoyée à ${r.email}`); setTimeout(() => setMsg(null), 3000); }
+  };
+
+  const selectCls = "bg-black/40 border border-gray-800 rounded px-3 py-1.5 text-xs text-white focus:border-neon-green/50 outline-none";
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black text-white">{t.registrationsTitle} ({filtered.length})</h1>
+          <p className="text-gray-500 text-xs mt-1">Validez le paiement pour envoyer le billet avec QR code</p>
+        </div>
+        <div className="flex gap-2">
+          <a href="/checkin/scan" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">📷 Scanner QR →</a>
+          <a href="/admin/checkin" target="_blank" rel="noreferrer" className="px-4 py-2 rounded text-sm border border-gray-700 text-gray-300 hover:text-white transition-colors">📋 Liste check-in →</a>
+        </div>
+      </div>
+
+      {/* Filtres */}
+      <div className="flex flex-wrap gap-3 mb-4">
+        <select className={selectCls} value={fStatus} onChange={e => setFStatus(e.target.value)}>
+          <option value="">Tous les statuts</option>
+          {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select className={selectCls} value={fTicket} onChange={e => setFTicket(e.target.value)}>
+          <option value="">Tous les billets</option>
+          {ticketTypes.map(tt => <option key={tt} value={tt}>{tt}</option>)}
+        </select>
+        <select className={selectCls} value={fCheck} onChange={e => setFCheck(e.target.value)}>
+          <option value="">Check-in : tous</option>
+          <option value="checked">Check-in : présents</option>
+          <option value="unchecked">Check-in : absents</option>
+        </select>
+        {(fStatus || fTicket || fCheck) && (
+          <button onClick={() => { setFStatus(""); setFTicket(""); setFCheck(""); }} className="text-xs text-gray-500 hover:text-white px-2">Réinitialiser</button>
+        )}
+      </div>
+
+      {msg && <div className="mb-4 px-4 py-2 rounded text-xs text-neon-green border border-neon-green/30 bg-neon-green/5">{msg}</div>}
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-neon-green/10 text-gray-500 text-left">
+              {[t.name, t.ticketType, t.status, t.checkedIn, t.date, t.actions].map(h => (
+                <th key={h} className="py-2 px-3 font-normal">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(r => {
+              const status = r.status as string;
+              const awaiting = status === "pending" || status === "payment_pending";
+              const done = status === "validated" || status === "paid";
+              return (
+                <tr key={r.id as number} className={`border-b border-gray-800 hover:bg-white/[0.02] transition-colors ${r.checkedInAt ? "bg-neon-green/[0.02]" : ""}`}>
+                  <td className="py-2 px-3">
+                    <span className="text-white">{r.fname as string} {r.lname as string}</span>
+                    <br/><span className="text-gray-500">{r.email as string}</span>
+                    {!!r.org && <><br/><span className="text-gray-600">{String(r.org)}</span></>}
+                  </td>
+                  <td className="py-2 px-3"><span className="px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green/70">{r.ticketType as string}</span></td>
+                  <td className="py-2 px-3"><Badge status={status} /></td>
+                  <td className="py-2 px-3">
+                    {r.checkedInAt
+                      ? <span className="text-neon-green text-xs">✓ {new Date(r.checkedInAt as string).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                      : <span className="text-gray-600 text-xs">—</span>}
+                  </td>
+                  <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleDateString("fr-FR")}</td>
+                  <td className="py-2 px-3">
+                    <div className="flex gap-2 flex-wrap items-center">
+                      <button onClick={() => onDetail(r)} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">Détails</button>
+                      {awaiting && (
+                        <>
+                          <button disabled={busyId === r.id} onClick={() => validate(r)} className="text-xs px-3 py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/20 hover:bg-neon-green/20 transition-colors disabled:opacity-50">
+                            {t.validateAndSend}
+                          </button>
+                          <button disabled={busyId === r.id} onClick={() => remind(r)} className="text-xs px-3 py-1 rounded border border-yellow-600/40 text-yellow-400 hover:bg-yellow-500/10 transition-colors disabled:opacity-50">
+                            {busyId === r.id ? "…" : "✉ Relancer"}
+                          </button>
+                        </>
+                      )}
+                      {done && <span className="text-xs text-neon-green/60 font-mono">Billet envoyé ✓</span>}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {!filtered.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune inscription</p>}
+      </div>
+    </div>
+  );
+}
+
 const CERT_TABS = [
   { id: "participant", label: "Participants", icon: "🎟", apiPath: "/api/admin/submissions?type=registration", nameField: (r: Record<string,unknown>) => `${r.fname} ${r.lname}`, emailField: "email" },
   { id: "volunteer", label: "Bénévoles", icon: "🙋", apiPath: "/api/admin/submissions?type=volunteer", nameField: (r: Record<string,unknown>) => r.name as string, emailField: "email" },
@@ -5486,79 +5629,7 @@ export default function AdminDashboard() {
           )}
 
           {/* REGISTRATIONS */}
-          {tab === "registrations" && (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h1 className="text-2xl font-black text-white">{t.registrationsTitle} ({(data.registrations || []).length})</h1>
-                  <p className="text-gray-500 text-xs mt-1">Validez le paiement pour envoyer le billet avec QR code</p>
-                </div>
-                <div className="flex gap-2">
-                  <a href="/checkin/scan" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">
-                    📷 Scanner QR →
-                  </a>
-                  <a href="/admin/checkin" target="_blank" rel="noreferrer" className="px-4 py-2 rounded text-sm border border-gray-700 text-gray-300 hover:text-white transition-colors">
-                    📋 Liste check-in →
-                  </a>
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-neon-green/10 text-gray-500 text-left">
-                      {[t.name, t.ticketType, t.status, t.checkedIn, t.date, t.actions].map(h => (
-                        <th key={h} className="py-2 px-3 font-normal">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {((data.registrations || []) as Record<string, unknown>[]).map(r => (
-                      <tr key={r.id as number} className={`border-b border-gray-800 hover:bg-white/[0.02] transition-colors ${r.checkedInAt ? "bg-neon-green/[0.02]" : ""}`}>
-                        <td className="py-2 px-3">
-                          <span className="text-white">{r.fname as string} {r.lname as string}</span>
-                          <br/><span className="text-gray-500">{r.email as string}</span>
-                          {!!r.org && <><br/><span className="text-gray-600">{String(r.org)}</span></>}
-                        </td>
-                        <td className="py-2 px-3"><span className="px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green/70">{r.ticketType as string}</span></td>
-                        <td className="py-2 px-3"><Badge status={r.status as string} /></td>
-                        <td className="py-2 px-3">
-                          {r.checkedInAt
-                            ? <span className="text-neon-green text-xs">✓ {new Date(r.checkedInAt as string).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
-                            : <span className="text-gray-600 text-xs">—</span>}
-                        </td>
-                        <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleDateString("fr-FR")}</td>
-                        <td className="py-2 px-3">
-                          <div className="flex gap-2 flex-wrap items-center">
-                            <button onClick={() => setDetail({ type: "registration", item: r })} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">Détails</button>
-                            {(r.status as string) === "pending" && (
-                              <button
-                                className="text-xs px-3 py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/20 hover:bg-neon-green/20 transition-colors"
-                                onClick={async () => {
-                                  if (!confirm(`Valider le paiement de ${r.fname} ${r.lname} et envoyer le billet ?`)) return;
-                                  const res = await fetch("/api/admin/submissions", {
-                                    method: "PATCH",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ type: "registration", action: "validate", id: r.id }),
-                                  });
-                                  if (res.ok) fetchData("registrations");
-                                }}
-                              >
-                                {t.validateAndSend}
-                              </button>
-                            )}
-                            {(r.status as string) === "validated" && (
-                              <span className="text-xs text-neon-green/60 font-mono">Billet envoyé ✓</span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {!data.registrations?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune inscription</p>}
-              </div>
-            </div>
-          )}
+          {tab === "registrations" && <RegistrationsPanel onDetail={r => setDetail({ type: "registration", item: r })} />}
 
           {/* NEWSLETTER */}
           {tab === "newsletter" && (

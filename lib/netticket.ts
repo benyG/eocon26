@@ -63,9 +63,19 @@ export interface MobilePaymentResult {
   ok: boolean;
   // "successful" → confirmed; "pending" → must be polled; "failed" → declined
   state: "successful" | "pending" | "failed";
+  // Friendly classification mapped to i18n on the client.
+  reason: "success" | "insufficient_funds" | "failed" | "unavailable";
   transactionId: string | null;
   message: string;
   raw: Record<string, unknown>;
+}
+
+// Classify a NetTicket error payload into a stable reason code.
+function classifyError(status: number, raw: Record<string, unknown>): MobilePaymentResult["reason"] {
+  const text = `${raw.message || ""} ${raw.error || ""}`.toLowerCase();
+  if (text.includes("insufficient") || text.includes("funds")) return "insufficient_funds";
+  if (status >= 500 || text.includes("impossible") || text.includes("unavailable") || text.includes("service")) return "unavailable";
+  return "failed";
 }
 
 /** POST /payment/mobile — initiate a Mobile Money payment (MTN / Orange). */
@@ -106,6 +116,7 @@ export async function initiateMobilePayment(params: {
     return {
       ok: true,
       state: transactionId ? "pending" : "successful",
+      reason: "success",
       transactionId,
       message: String(raw.success),
       raw,
@@ -115,6 +126,7 @@ export async function initiateMobilePayment(params: {
   return {
     ok: false,
     state: "failed",
+    reason: classifyError(res.status, raw),
     transactionId,
     message: String(raw.message || raw.error || "Échec du paiement"),
     raw,

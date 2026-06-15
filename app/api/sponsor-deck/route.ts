@@ -5,8 +5,7 @@ import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-// Sponsorship deck files, served from /public/sponsoring/.
-// Add the actual files there for them to be attached.
+// Sponsorship deck files, committed under /docs/ and read at runtime.
 const DECK_FILES = [
   "EOCON26_Deck_Sponsoring_FR.pptx",
   "EOCON26_Sponsorship_Deck_EN.pdf",
@@ -31,7 +30,7 @@ export async function POST(req: NextRequest) {
   });
 
   // Read the deck files (attach whichever exist; the request still succeeds).
-  const dir = path.join(process.cwd(), "public", "sponsoring");
+  const dir = path.join(process.cwd(), "docs");
   const attachments: { filename: string; content: Buffer }[] = [];
   for (const filename of DECK_FILES) {
     try {

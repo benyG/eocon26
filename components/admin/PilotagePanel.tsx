@@ -81,7 +81,6 @@ export default function PilotagePanel() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [coordoEmail, setCoordoEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [view, setView] = useState<"kanban" | "meetings">("kanban");
@@ -103,16 +102,14 @@ export default function PilotagePanel() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [tRes, mRes, memRes, sRes] = await Promise.all([
+      const [tRes, mRes, memRes] = await Promise.all([
         fetch("/api/admin/pilotage/tasks"),
         fetch("/api/admin/pilotage/meetings"),
         fetch("/api/admin/team"),
-        fetch("/api/admin/settings"),
       ]);
       if (tRes.ok) setTasks(await tRes.json());
       if (mRes.ok) setMeetings(await mRes.json());
       if (memRes.ok) setMembers(await memRes.json());
-      if (sRes.ok) { const s = await sRes.json(); setCoordoEmail(s.pilotage_coordo_email || ""); }
     } finally {
       setLoading(false);
     }
@@ -213,15 +210,6 @@ export default function PilotagePanel() {
     } finally {
       setSeeding(false);
     }
-  };
-
-  const saveCoordo = async () => {
-    await fetch("/api/admin/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pilotage_coordo_email: coordoEmail }),
-    });
-    alert("Email Coordo enregistré.");
   };
 
   const assigneeOptions = members.filter((m) => m.email);
@@ -347,13 +335,6 @@ export default function PilotagePanel() {
       ) : (
         <MeetingsView meetings={meetings} reload={load} />
       )}
-
-      {/* Coordo setting */}
-      <div className="cyber-card rounded-lg p-3 flex items-center gap-2 flex-wrap">
-        <span className="text-xs text-gray-500 font-mono">Email Coordo Global (escalades)</span>
-        <input value={coordoEmail} onChange={(e) => setCoordoEmail(e.target.value)} placeholder="contact@eyesopensecurity.com" className="cyber-input rounded px-2 py-1 text-xs text-white bg-transparent flex-1 min-w-[200px]" />
-        <button onClick={saveCoordo} className="text-xs px-3 py-1 rounded border border-gray-700 text-gray-300 hover:text-white font-mono">Enregistrer</button>
-      </div>
 
       {/* Detail drawer */}
       {selected && (

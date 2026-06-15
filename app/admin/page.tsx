@@ -5177,15 +5177,19 @@ export default function AdminDashboard() {
     "sponsor-packages": "sponsor-packages",
     budget: "budget",
     transactions: "transactions",
+    ctf: "ctf",
     communication: "communication",
+    library: "library",
+    "cyber-watch": "cyber-watch",
     logistics: "logistics",
-    team: "team",
     certificates: "certificates",
     export: "export",
     users: "users",
-    profiles: "users",
-    audit: "users",
-    settings: "users",
+    profiles: "profiles",
+    audit: "audit",
+    team: "team",
+    video: "video",
+    settings: "settings",
   };
 
   const canSeeTab = (tabId: Tab): boolean => {

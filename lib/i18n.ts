@@ -329,6 +329,8 @@ export const translations = {
         amount: "Amount due",
         free_confirmed: "Your free ticket is confirmed! Check your email.",
         pre_registered: "Pre-registration confirmed! We'll email you as soon as tickets go on sale.",
+        pay_notice: "🔒 By clicking pay, you'll have one minute (1 min) to validate the transaction on your phone.",
+        powered_by: "Powered by NetTicket",
       },
     },
     venue: {
@@ -700,6 +702,8 @@ export const translations = {
         amount: "Montant à payer",
         free_confirmed: "Votre billet gratuit est confirmé ! Vérifiez votre email.",
         pre_registered: "Pré-inscription confirmée ! Nous vous écrirons dès la mise en vente des billets.",
+        pay_notice: "🔒 En cliquant sur payer, vous disposerez d'une minute (1 min) pour valider la transaction sur votre téléphone.",
+        powered_by: "Powered by NetTicket",
       },
     },
     venue: {

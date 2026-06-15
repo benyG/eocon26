@@ -3639,6 +3639,12 @@ function CertificatesPanel() {
     return b ? new Date(b.createdAt as string).toLocaleDateString("fr-FR") : null;
   };
 
+  const getBadgeUuid = (person: Record<string, unknown>): string | null => {
+    const email = person[tabDef.emailField] as string;
+    const b = badges.find(b => (b.recipientEmail as string)?.toLowerCase() === email?.toLowerCase());
+    return b ? (b.uuid as string) : null;
+  };
+
   const issueBadge = async (person: Record<string, unknown>, action: "issue" | "resend" = "issue") => {
     const key = person[tabDef.emailField] as string;
     setIssuingId(key);
@@ -3750,6 +3756,17 @@ function CertificatesPanel() {
                     <span className="text-gray-600 text-xs">⬜ Non reçu</span>
                   )}
                 </div>
+                {received && getBadgeUuid(p) && (
+                  <a
+                    href={`/verify/${getBadgeUuid(p)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Visualiser le badge / certificat"
+                    className="shrink-0 text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-all"
+                  >
+                    🔍
+                  </a>
+                )}
                 <button
                   onClick={() => issueBadge(p, received ? "resend" : "issue")}
                   disabled={isIssuing}
@@ -3991,6 +4008,9 @@ const SETTINGS_FIELDS = [
   { key: "ctf_prize_main_en", label: "Gains vainqueur — résumé court (EN)", type: "text", group: "CTF" },
   { key: "ctf_prize_details_fr", label: "Gains vainqueur — détails complets (FR)", type: "text", group: "CTF" },
   { key: "ctf_prize_details_en", label: "Gains vainqueur — détails complets (EN)", type: "text", group: "CTF" },
+  { key: "networking_date", label: "Date d'activation du réseautage (QR)", type: "date", group: "Réseautage (QR)" },
+  { key: "networking_start", label: "Heure de début (Douala)", type: "time", group: "Réseautage (QR)" },
+  { key: "networking_end", label: "Heure de fin (Douala)", type: "time", group: "Réseautage (QR)" },
   { key: "site_base_url", label: "URL de base du site", type: "url", group: "Liens" },
   { key: "url_inscription", label: "Lien → Inscription", type: "url", group: "Liens" },
   { key: "url_cfp", label: "Lien → CFP", type: "url", group: "Liens" },

@@ -1,15 +1,72 @@
+import type { ReactNode } from "react";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
+import { getEventSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
+// Networking validity window (Africa/Douala, UTC+1). Configured in admin event
+// settings. When networking_date is empty, the page is always available.
+function networkingWindow(settings: Record<string, string>): { open: boolean; reason: "before" | "after" | null; date: string; start: string; end: string } {
+  const date = settings.networking_date || "";
+  const start = settings.networking_start || "00:00";
+  const end = settings.networking_end || "23:59";
+  if (!date) return { open: true, reason: null, date, start, end };
+  const startAt = new Date(`${date}T${start}:00+01:00`);
+  const endAt = new Date(`${date}T${end}:00+01:00`);
+  const now = new Date();
+  if (isNaN(startAt.getTime()) || isNaN(endAt.getTime())) return { open: true, reason: null, date, start, end };
+  if (now < startAt) return { open: false, reason: "before", date, start, end };
+  if (now > endAt) return { open: false, reason: "after", date, start, end };
+  return { open: true, reason: null, date, start, end };
+}
+
+function Shell({ children }: { children: ReactNode }) {
+  return (
+    <div style={{ minHeight: "100vh", background: "#0a0a0f", fontFamily: "'Share Tech Mono', monospace", color: "#e0e0e0", display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 20px" }}>
+      <div style={{ maxWidth: "400px", width: "100%", textAlign: "center" }}>{children}</div>
+    </div>
+  );
+}
+
 export default async function ConnectPage({ params }: { params: { ticketRef: string } }) {
-  const reg = await prisma.registration.findUnique({
-    where: { ticketRef: params.ticketRef },
+  // Accept both the raw ref and the "EOCON-" formatted ref encoded in the QR.
+  const raw = params.ticketRef.replace(/^EOCON-/i, "");
+  const reg = await prisma.registration.findFirst({
+    where: { OR: [{ ticketRef: params.ticketRef }, { ticketRef: raw }] },
     select: { fname: true, lname: true, org: true, country: true, ticketType: true, linkedin: true, whatsapp: true },
   });
 
   if (!reg) notFound();
+
+  // Gate by the admin-configured networking window.
+  const settings = await getEventSettings();
+  const win = networkingWindow(settings);
+  if (!win.open) {
+    const fmt = (() => {
+      try { return new Date(`${win.date}T00:00:00+01:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "Africa/Douala" }); }
+      catch { return win.date; }
+    })();
+    return (
+      <Shell>
+        <p style={{ fontSize: "10px", letterSpacing: "4px", color: "#00ff9d", margin: "0 0 16px", textTransform: "uppercase" }}>&gt; EOCON 2026 · Réseautage</p>
+        <div style={{ padding: "32px", border: "1px solid #ffaa0040", background: "#ffaa0008", borderRadius: "12px" }}>
+          <p style={{ fontSize: "32px", margin: "0 0 12px" }}>{win.reason === "before" ? "🕒" : "🔒"}</p>
+          <p style={{ fontSize: "15px", color: "#ffaa00", margin: "0 0 10px", fontFamily: "sans-serif", fontWeight: "bold" }}>
+            {win.reason === "before" ? "Le réseautage n'est pas encore ouvert" : "Le réseautage est terminé"}
+          </p>
+          <p style={{ fontSize: "12px", color: "#888", margin: 0, fontFamily: "sans-serif", lineHeight: 1.5 }}>
+            {win.reason === "before"
+              ? `Les profils de réseautage seront accessibles le ${fmt}, de ${win.start} à ${win.end} (heure de Douala). Réessayez pendant l'événement.`
+              : `La période de réseautage (${fmt}, ${win.start}–${win.end}) est close. Les QR codes de réseautage ne sont plus actifs.`}
+          </p>
+        </div>
+        <div style={{ marginTop: "48px", borderTop: "1px solid #1a1a2e", paddingTop: "24px" }}>
+          <p style={{ fontSize: "10px", color: "#222", margin: 0, letterSpacing: "2px" }}>EOCON 2026 · EYESOPEN SECURITY</p>
+        </div>
+      </Shell>
+    );
+  }
 
   const hasLinks = reg.linkedin || reg.whatsapp;
   const linkedinUrl = reg.linkedin
@@ -20,69 +77,65 @@ export default async function ConnectPage({ params }: { params: { ticketRef: str
     : null;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0a0a0f", fontFamily: "'Share Tech Mono', monospace", color: "#e0e0e0", display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 20px" }}>
-      <div style={{ maxWidth: "400px", width: "100%", textAlign: "center" }}>
+    <Shell>
+      {/* Header */}
+      <p style={{ fontSize: "10px", letterSpacing: "4px", color: "#00ff9d", margin: "0 0 8px", textTransform: "uppercase" }}>&gt; EOCON 2026</p>
+      <h1 style={{ fontSize: "22px", color: "#ffffff", margin: "0 0 4px", fontFamily: "Georgia, serif" }}>
+        {reg.fname} {reg.lname}
+      </h1>
+      {(reg.org || reg.country) && (
+        <p style={{ fontSize: "12px", color: "#555", margin: "0 0 32px" }}>
+          {[reg.org, reg.country].filter(Boolean).join(" · ")}
+        </p>
+      )}
 
-        {/* Header */}
-        <p style={{ fontSize: "10px", letterSpacing: "4px", color: "#00ff9d", margin: "0 0 8px", textTransform: "uppercase" }}>&gt; EOCON 2026</p>
-        <h1 style={{ fontSize: "22px", color: "#ffffff", margin: "0 0 4px", fontFamily: "Georgia, serif" }}>
-          {reg.fname} {reg.lname}
-        </h1>
-        {(reg.org || reg.country) && (
-          <p style={{ fontSize: "12px", color: "#555", margin: "0 0 32px" }}>
-            {[reg.org, reg.country].filter(Boolean).join(" · ")}
-          </p>
-        )}
-
-        {hasLinks ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            {linkedinUrl && (
-              <a
-                href={linkedinUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: "12px",
-                  background: "#0077b5", color: "#fff", padding: "16px 24px",
-                  borderRadius: "12px", textDecoration: "none", fontSize: "15px",
-                  fontFamily: "sans-serif", fontWeight: "bold",
-                }}
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-                LinkedIn
-              </a>
-            )}
-            {whatsappUrl && (
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: "12px",
-                  background: "#25d366", color: "#fff", padding: "16px 24px",
-                  borderRadius: "12px", textDecoration: "none", fontSize: "15px",
-                  fontFamily: "sans-serif", fontWeight: "bold",
-                }}
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                WhatsApp
-              </a>
-            )}
-          </div>
-        ) : (
-          <div style={{ padding: "32px", border: "1px dashed #222", borderRadius: "12px" }}>
-            <p style={{ fontSize: "13px", color: "#444", margin: 0 }}>
-              Ce participant n&apos;a pas partagé ses coordonnées de contact.
-            </p>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div style={{ marginTop: "48px", borderTop: "1px solid #1a1a2e", paddingTop: "24px" }}>
-          <p style={{ fontSize: "10px", color: "#222", margin: 0, letterSpacing: "2px" }}>EOCON 2026 · EYESOPEN SECURITY</p>
+      {hasLinks ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          {linkedinUrl && (
+            <a
+              href={linkedinUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: "12px",
+                background: "#0077b5", color: "#fff", padding: "16px 24px",
+                borderRadius: "12px", textDecoration: "none", fontSize: "15px",
+                fontFamily: "sans-serif", fontWeight: "bold",
+              }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+              LinkedIn
+            </a>
+          )}
+          {whatsappUrl && (
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: "12px",
+                background: "#25d366", color: "#fff", padding: "16px 24px",
+                borderRadius: "12px", textDecoration: "none", fontSize: "15px",
+                fontFamily: "sans-serif", fontWeight: "bold",
+              }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+              WhatsApp
+            </a>
+          )}
         </div>
+      ) : (
+        <div style={{ padding: "32px", border: "1px dashed #222", borderRadius: "12px" }}>
+          <p style={{ fontSize: "13px", color: "#444", margin: 0 }}>
+            Ce participant n&apos;a pas partagé ses coordonnées de contact.
+          </p>
+        </div>
+      )}
 
+      {/* Footer */}
+      <div style={{ marginTop: "48px", borderTop: "1px solid #1a1a2e", paddingTop: "24px" }}>
+        <p style={{ fontSize: "10px", color: "#222", margin: 0, letterSpacing: "2px" }}>EOCON 2026 · EYESOPEN SECURITY</p>
       </div>
-    </div>
+    </Shell>
   );
 }

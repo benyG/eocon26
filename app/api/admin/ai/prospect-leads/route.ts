@@ -11,8 +11,12 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { id, addedToPipeline } = await req.json();
-  const lead = await prisma.prospectLead.update({ where: { id }, data: { addedToPipeline } });
+  const { id, addedToPipeline, pitchJson, emailJson } = await req.json();
+  const data: Record<string, unknown> = {};
+  if (addedToPipeline !== undefined) data.addedToPipeline = addedToPipeline;
+  if (pitchJson !== undefined) data.pitchJson = pitchJson;
+  if (emailJson !== undefined) data.emailJson = emailJson;
+  const lead = await prisma.prospectLead.update({ where: { id }, data });
   return NextResponse.json(lead);
 }
 

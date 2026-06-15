@@ -615,6 +615,10 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
 
   const generateEmail = async (lead: Record<string, unknown>) => {
     setEmailTarget(lead);
+    // Re-display the cached email instead of regenerating it.
+    if (lead.emailJson) {
+      try { setEmailResult(JSON.parse(lead.emailJson as string)); return; } catch { /* regenerate */ }
+    }
     setEmailResult(null);
     setGeneratingEmail(true);
     const pkg = packages.find(p => p.tier === lead.recommendedPackage);
@@ -631,12 +635,26 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
         mode: "prospect",
       }),
     });
-    if (res.ok) setEmailResult(await res.json());
+    if (res.ok) {
+      const result = await res.json();
+      setEmailResult(result);
+      // Cache it on the lead so it isn't regenerated next time.
+      await fetch("/api/admin/ai/prospect-leads", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: lead.id, emailJson: JSON.stringify(result) }),
+      }).catch(() => {});
+      onRefresh();
+    }
     setGeneratingEmail(false);
   };
 
   const generatePitch = async (lead: Record<string, unknown>) => {
     setPitchTarget(lead);
+    // Re-display the cached pitch instead of regenerating it.
+    if (lead.pitchJson) {
+      try { setPitchResult(JSON.parse(lead.pitchJson as string)); return; } catch { /* regenerate */ }
+    }
     setPitchResult(null);
     setGeneratingPitch(true);
     const res = await fetch("/api/admin/ai/pitch-strategy", {
@@ -652,7 +670,16 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
         aiScoreReason: lead.aiScoreReason,
       }),
     });
-    if (res.ok) setPitchResult(await res.json());
+    if (res.ok) {
+      const result = await res.json();
+      setPitchResult(result);
+      await fetch("/api/admin/ai/prospect-leads", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: lead.id, pitchJson: JSON.stringify(result) }),
+      }).catch(() => {});
+      onRefresh();
+    }
     setGeneratingPitch(false);
   };
 
@@ -711,14 +738,15 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
 
       {emailTarget && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
-          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
+          <div className="cyber-card rounded-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-6 pb-4 border-b border-gray-800 shrink-0">
               <div>
                 <h3 className="text-white font-bold">{emailTarget.org as string}</h3>
                 <p className="text-gray-500 text-xs">{emailTarget.sector as string} · {t.package} : <span style={{ color: "#00ff9d" }}>{(emailTarget.recommendedPackage as string) || "—"}</span></p>
               </div>
               <button onClick={() => { setEmailTarget(null); setEmailResult(null); }} className="text-gray-500 hover:text-white text-xl">✕</button>
             </div>
+            <div className="p-6 overflow-y-auto">
             {generatingEmail && <p className="text-gray-500 text-xs text-center py-8">{t.generatingLabel}</p>}
             {emailResult && (
               <div className="space-y-4">
@@ -744,20 +772,22 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
                 </button>
               </div>
             )}
+            </div>
           </div>
         </div>
       )}
 
       {pitchTarget && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
-          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
+          <div className="cyber-card rounded-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-6 pb-4 border-b border-gray-800 shrink-0">
               <div>
                 <h3 className="text-white font-bold">🎯 Pitch · {pitchTarget.org as string}</h3>
                 <p className="text-gray-500 text-xs">{pitchTarget.sector as string} · Package : <span style={{ color: "#ff0066" }}>{(pitchTarget.recommendedPackage as string) || "—"}</span></p>
               </div>
               <button onClick={() => { setPitchTarget(null); setPitchResult(null); }} className="text-gray-500 hover:text-white text-xl">✕</button>
             </div>
+            <div className="p-6 overflow-y-auto">
             {generatingPitch && <p className="text-gray-500 text-xs text-center py-8">Génération du brief stratégique…</p>}
             {pitchResult && (
               <div className="space-y-4">
@@ -791,6 +821,7 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
                 </div>
               </div>
             )}
+            </div>
           </div>
         </div>
       )}
@@ -2040,19 +2071,57 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ status: "prospect" });
   const [aiEmail, setAiEmail] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
-  const [aiEmailTarget, setAiEmailTarget] = useState<{ org: string; id: number } | null>(null);
+  const [aiEmailTarget, setAiEmailTarget] = useState<{ org: string; id: number; email: string | null } | null>(null);
   const [generatingFor, setGeneratingFor] = useState<number | null>(null);
+  const [attachDecks, setAttachDecks] = useState(true);
+  const [sendingLang, setSendingLang] = useState<string | null>(null);
+  const [sentMsg, setSentMsg] = useState("");
 
   const generateFollowupEmail = async (p: Record<string, unknown>) => {
+    setAiEmailTarget({ org: p.org as string, id: p.id as number, email: (p.email as string) || null });
+    setSentMsg("");
+    // Re-display the cached email instead of regenerating it.
+    if (p.emailJson) {
+      try { setAiEmail(JSON.parse(p.emailJson as string)); return; } catch { /* regenerate */ }
+    }
+    setAiEmail(null);
     setGeneratingFor(p.id as number);
-    setAiEmailTarget({ org: p.org as string, id: p.id as number });
     const res = await fetch("/api/admin/ai/sponsor-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ org: p.org, contact: p.contact, package: p.package, status: p.status, notes: p.notes, mode: "followup" }),
     });
-    if (res.ok) setAiEmail(await res.json());
+    if (res.ok) {
+      const result = await res.json();
+      setAiEmail(result);
+      await fetch(`/api/admin/sponsor-prospects/${p.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emailJson: JSON.stringify(result) }),
+      }).catch(() => {});
+      onRefresh();
+    }
     setGeneratingFor(null);
+  };
+
+  const sendProspectEmail = async (subject: string, body: string, langLabel: string) => {
+    if (!aiEmailTarget) return;
+    setSendingLang(langLabel);
+    setSentMsg("");
+    const res = await fetch("/api/admin/sponsor-prospects/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: aiEmailTarget.id, subject, body, attachDecks, markContacted: true }),
+    });
+    if (res.ok) {
+      const d = await res.json();
+      setSentMsg(lang === "en" ? `Email sent ✓${d.attached ? ` (${d.attached} attachment(s))` : ""}` : `Email envoyé ✓${d.attached ? ` (${d.attached} pièce(s) jointe(s))` : ""}`);
+      onRefresh();
+    } else {
+      const e = await res.json().catch(() => ({} as { error?: string }));
+      setSentMsg(e.error || (lang === "en" ? "Send failed" : "Échec de l'envoi"));
+    }
+    setSendingLang(null);
   };
 
   const markContacted = async (id: number) => {
@@ -2121,11 +2190,22 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
       {/* AI Email Modal */}
       {aiEmail && aiEmailTarget && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
-          <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="flex justify-between mb-4">
-              <h3 className="text-white font-bold">Email — {aiEmailTarget.org}</h3>
-              <button onClick={() => { setAiEmail(null); setAiEmailTarget(null); }} className="text-gray-500 hover:text-white">✕</button>
+          <div className="cyber-card rounded-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="flex justify-between items-start p-6 pb-4 border-b border-gray-800 shrink-0">
+              <div>
+                <h3 className="text-white font-bold">Email — {aiEmailTarget.org}</h3>
+                <p className="text-gray-500 text-xs">{aiEmailTarget.email || (lang === "en" ? "no email on file" : "aucun email enregistré")}</p>
+              </div>
+              <button onClick={() => { setAiEmail(null); setAiEmailTarget(null); setSentMsg(""); }} className="text-gray-500 hover:text-white">✕</button>
             </div>
+            <div className="p-6 overflow-y-auto">
+            {/* Attachment toggle */}
+            <label className="flex items-center gap-2 mb-4 text-xs text-gray-300 cursor-pointer">
+              <input type="checkbox" checked={attachDecks} onChange={e => setAttachDecks(e.target.checked)} />
+              {lang === "en"
+                ? "Attach the sponsorship deck (FR .pptx + EN .pdf)"
+                : "Joindre le dossier de sponsoring (FR .pptx + EN .pdf)"}
+            </label>
             <div className="space-y-4">
               {[
                 { lang: "FR", subject: aiEmail.subjectFr, body: aiEmail.bodyFr },
@@ -2138,9 +2218,19 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
                   </div>
                   <p className="text-white text-xs font-bold mb-2">Objet: {e.subject}</p>
                   <p className="text-gray-400 text-xs whitespace-pre-wrap">{e.body}</p>
+                  <button
+                    onClick={() => sendProspectEmail(e.subject, e.body, e.lang)}
+                    disabled={!aiEmailTarget.email || sendingLang !== null}
+                    title={!aiEmailTarget.email ? (lang === "en" ? "No email address for this prospect" : "Ce prospect n'a pas d'email") : undefined}
+                    className="mt-3 w-full text-xs px-3 py-2 rounded border transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ background: "#00ff9d15", color: "#00ff9d", borderColor: "#00ff9d40" }}
+                  >
+                    {sendingLang === e.lang ? "…" : (lang === "en" ? `Send this email (${e.lang})` : `Envoyer ce courriel (${e.lang})`)}
+                  </button>
                 </div>
               ))}
             </div>
+            {sentMsg && <p className="text-xs text-center mt-3" style={{ color: "#00ff9d" }}>{sentMsg}</p>}
             <div className="mt-4 pt-4 border-t border-gray-800">
               <button
                 onClick={() => markContacted(aiEmailTarget.id)}
@@ -2148,6 +2238,7 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
               >
                 {t.markContacted}
               </button>
+            </div>
             </div>
           </div>
         </div>
@@ -2217,23 +2308,29 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
                       {(p.notes as string) && (
                         <p className="text-gray-600 text-xs mt-1 truncate" title={p.notes as string}>{p.notes as string}</p>
                       )}
-                      <div className="flex items-center gap-1 mt-2 flex-wrap">
+                      <div className="mt-2 space-y-1.5">
                         <button
                           onClick={() => generateFollowupEmail(p)}
                           disabled={generatingFor === (p.id as number)}
-                          className="text-xs px-1.5 py-0.5 rounded transition-all disabled:opacity-50"
+                          className="w-full text-xs px-2 py-1 rounded transition-all disabled:opacity-50 font-bold"
                           style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}
                         >
-                          {generatingFor === (p.id as number) ? "…" : "✨"}
+                          {generatingFor === (p.id as number)
+                            ? "…"
+                            : (p.emailJson
+                                ? (lang === "en" ? "✨ View / send email" : "✨ Voir / envoyer le courriel")
+                                : (lang === "en" ? "✨ Generate email (AI)" : "✨ Générer un courriel (IA)"))}
                         </button>
-                        <select
-                          className="cyber-input text-xs px-1 py-0.5 rounded flex-1 min-w-0"
-                          value={p.status as string}
-                          onChange={e => updateStatus(p.id as number, e.target.value)}
-                        >
-                          {PROSPECT_STATUSES.map(s => <option key={s.value} value={s.value}>{lang === "en" ? s.en : s.fr}</option>)}
-                        </select>
-                        <button onClick={() => del(p.id as number)} className="text-xs text-red-500 hover:text-red-400 px-1">✕</button>
+                        <div className="flex items-center gap-1">
+                          <select
+                            className="cyber-input text-xs px-1 py-0.5 rounded flex-1 min-w-0"
+                            value={p.status as string}
+                            onChange={e => updateStatus(p.id as number, e.target.value)}
+                          >
+                            {PROSPECT_STATUSES.map(s => <option key={s.value} value={s.value}>{lang === "en" ? s.en : s.fr}</option>)}
+                          </select>
+                          <button onClick={() => del(p.id as number)} className="text-xs text-red-500 hover:text-red-400 px-1">✕</button>
+                        </div>
                       </div>
                     </div>
                   ))}

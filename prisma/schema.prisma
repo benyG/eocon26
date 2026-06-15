@@ -403,6 +403,7 @@ model SponsorProspect {
   package   String?  // tier/package name
   status    String   @default("contacted") // contacted | meeting | negative | positive | concluded | abandoned | paused
   notes     String?  @db.Text
+  emailJson String?  @db.Text // cached AI follow-up email (JSON)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -474,6 +475,8 @@ model ProspectLead {
   aiScoreReason      String?  @db.Text
   recommendedPackage String?
   addedToPipeline    Boolean  @default(false)
+  pitchJson          String?  @db.Text // cached AI pitch strategy (JSON)
+  emailJson          String?  @db.Text // cached AI prospecting email (JSON)
   createdAt          DateTime @default(now())
 
   @@map("prospect_leads")

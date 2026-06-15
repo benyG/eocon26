@@ -499,7 +499,11 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                         placeholder={pay.phone_ph}
                         inputMode="numeric"
                         value={payPhone}
-                        onChange={e => setPayPhone(e.target.value)}
+                        onChange={e => {
+                          setPayPhone(e.target.value);
+                          // Editing the number re-enables a greyed-out Pay button after a failure.
+                          if (payState === "failed") { setPayState("idle"); setPayError(""); }
+                        }}
                         disabled={payState === "processing" || payState === "awaiting"}
                       />
                     </div>
@@ -519,8 +523,8 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
 
                   <button
                     onClick={handlePay}
-                    disabled={!payPhone.trim() || payState === "processing" || payState === "awaiting"}
-                    className="w-full btn-neon-solid py-3 rounded text-sm border-2 border-neon-green disabled:opacity-50"
+                    disabled={!payPhone.trim() || payState === "processing" || payState === "awaiting" || payState === "failed"}
+                    className="w-full btn-neon-solid py-3 rounded text-sm border-2 border-neon-green disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {payState === "processing" ? pay.processing
                       : payState === "awaiting" ? pay.awaiting

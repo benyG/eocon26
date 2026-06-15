@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Ce billet n'est pas configuré pour le paiement Mobile Money." }, { status: 400 });
     }
 
+    const provider = operator === "mtn" ? "netticket_mtn" : "netticket_orange";
     const result = await initiateMobilePayment({
       email: registration.email,
       phone: phoneClean,
@@ -51,10 +52,26 @@ export async function POST(req: NextRequest) {
     await prisma.registration.update({
       where: { id: registration.id },
       data: {
-        paymentProvider: operator === "mtn" ? "netticket_mtn" : "netticket_orange",
+        paymentProvider: provider,
         ...(result.transactionId ? { paymentRef: result.transactionId } : {}),
       },
     });
+
+    // Record every attempt (success or failure) for the admin Transactions page.
+    await prisma.paymentTransaction.create({
+      data: {
+        registrationId: registration.id,
+        email: registration.email,
+        phone: phoneClean,
+        provider,
+        amount: ticket.priceFr,
+        ticketType: registration.ticketType,
+        state: result.state === "failed" ? "failed" : (result.state === "successful" ? "success" : "pending"),
+        reason: result.reason,
+        providerRef: result.transactionId,
+        message: result.message,
+      },
+    }).catch(e => console.error("[Transaction log]", e));
 
     if (!result.ok) {
       return NextResponse.json({ state: "failed", reason: result.reason, message: result.message }, { status: 400 });

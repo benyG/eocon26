@@ -14,6 +14,7 @@ export interface AdminPermissions {
   tickets?: "read" | "write";
   "sponsor-packages"?: "read" | "write";
   budget?: "read" | "write";
+  transactions?: "read" | "write";
   logistics?: "read" | "write";
   communication?: "read" | "write";
   team?: "read" | "write";
@@ -44,6 +45,7 @@ export const ADMIN_PROFILES: AdminProfile[] = [
       workshops: "write", volunteers: "write", registrations: "write",
       newsletter: "write", sponsors: "write", "sponsor-pipeline": "write",
       tickets: "write", "sponsor-packages": "write", budget: "write",
+      transactions: "write",
       logistics: "write", communication: "write",
       team: "write", export: "write", users: "write", prospection: "write",
       certificates: "write", ctf: "write", website: "write",
@@ -129,7 +131,7 @@ export const ADMIN_PROFILES: AdminProfile[] = [
       cfp: "read", speakers: "read", sessions: "read", workshops: "read",
       volunteers: "read", registrations: "read", newsletter: "read",
       sponsors: "read", tickets: "read", "sponsor-packages": "read",
-      budget: "read", logistics: "read", website: "read",
+      budget: "read", transactions: "read", logistics: "read", website: "read",
     },
   },
 ];

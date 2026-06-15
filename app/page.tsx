@@ -68,7 +68,6 @@ export default function Home() {
       <About t={tWithSettings} />
       <Speakers t={tWithSettings} onOpenModal={openModal} />
       <Schedule t={tWithSettings} lang={lang} />
-      <Videoteque t={tWithSettings} lang={lang} />
       <CTF t={tWithSettings} onOpenModal={openModal} ctfSettings={{
         tagline: (lang === "fr" ? eventSettings.ctf_tagline_fr : eventSettings.ctf_tagline_en) || eventSettings.ctf_tagline,
         prizeMain: (lang === "fr" ? eventSettings.ctf_prize_main_fr : eventSettings.ctf_prize_main_en) || eventSettings.ctf_prize_main,
@@ -81,6 +80,7 @@ export default function Home() {
       <Sponsors t={tWithSettings} lang={lang} />
       <Team t={tWithSettings} />
       <Venue t={tWithSettings} eventSettings={eventSettings} />
+      <Videoteque t={tWithSettings} lang={lang} />
       <Footer t={tWithSettings} eventSettings={eventSettings} />
 
       {modal === "register" && <RegisterModal t={tWithSettings} onClose={closeModal} lang={lang} />}

@@ -2203,8 +2203,8 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
             <label className="flex items-center gap-2 mb-4 text-xs text-gray-300 cursor-pointer">
               <input type="checkbox" checked={attachDecks} onChange={e => setAttachDecks(e.target.checked)} />
               {lang === "en"
-                ? "Attach the sponsorship deck (FR .pptx + EN .pdf)"
-                : "Joindre le dossier de sponsoring (FR .pptx + EN .pdf)"}
+                ? "Attach the sponsorship deck (FR + EN, .pdf)"
+                : "Joindre le dossier de sponsoring (FR + EN, .pdf)"}
             </label>
             <div className="space-y-4">
               {[

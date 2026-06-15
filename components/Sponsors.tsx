@@ -31,14 +31,21 @@ const tierColors: Record<string, string> = {
   bronze: "#CD7F32",
 };
 
-export default function Sponsors({ t, lang = "fr" }: { t: Translations; lang?: "en" | "fr" }) {
+export default function Sponsors({ t, lang = "fr", deepLink = null, onDeepLinkConsumed }: { t: Translations; lang?: "en" | "fr"; deepLink?: "sponsor" | "deck" | null; onDeepLinkConsumed?: () => void }) {
   const tiers = t.sponsors.tiers;
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [packages, setPackages] = useState<SponsorPackage[]>([]);
   const [showPartnerForm, setShowPartnerForm] = useState(false);
+  const [showDeckForm, setShowDeckForm] = useState(false);
   const [form, setForm] = useState({ org: "", contact: "", email: "", phone: "", selectedPackage: "", message: "" });
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Deep link (/?modal=sponsor or sponsor-deck) opens the matching modal on load.
+  useEffect(() => {
+    if (deepLink === "sponsor") { setShowPartnerForm(true); onDeepLinkConsumed?.(); }
+    else if (deepLink === "deck") { setShowDeckForm(true); onDeepLinkConsumed?.(); }
+  }, [deepLink, onDeepLinkConsumed]);
 
   useEffect(() => {
     fetch("/api/sponsors").then(r => r.json()).then(data => {
@@ -90,8 +97,35 @@ export default function Sponsors({ t, lang = "fr" }: { t: Translations; lang?: "
     }
   };
 
+  // Deck request: same prospect record as the sponsor form, but no package/message
+  // is asked and the sponsorship deck files are emailed to the requester.
+  const handleDeckSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.org.trim() || !form.email.trim()) return;
+    setSubmitting(true);
+    try {
+      await fetch("/api/sponsor-deck", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          org: form.org,
+          contact: form.contact,
+          email: form.email,
+          phone: form.phone,
+          lang,
+        }),
+      });
+      setSubmitted(true);
+    } catch {
+      // ignore
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const closeModal = () => {
     setShowPartnerForm(false);
+    setShowDeckForm(false);
     setSubmitted(false);
     setForm({ org: "", contact: "", email: "", phone: "", selectedPackage: "", message: "" });
   };
@@ -237,20 +271,28 @@ export default function Sponsors({ t, lang = "fr" }: { t: Translations; lang?: "
         </div>
 
         <div className="text-center space-y-4">
-          <button
-            onClick={() => setShowPartnerForm(true)}
-            className="inline-block btn-neon-solid px-8 py-4 rounded text-sm border-2 border-neon-green"
-          >
-            {t.sponsors.cta}
-          </button>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => setShowPartnerForm(true)}
+              className="btn-neon-solid px-8 py-4 rounded text-sm border-2 border-neon-green"
+            >
+              {t.sponsors.cta}
+            </button>
+            <button
+              onClick={() => setShowDeckForm(true)}
+              className="btn-neon px-8 py-4 rounded text-sm border-2 border-neon-green/40"
+            >
+              {lang === "fr" ? "Recevoir le Dossier de sponsoring" : "Get the Sponsorship Deck"}
+            </button>
+          </div>
           <p className="text-gray-600 text-sm font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
             {t.sponsors.contact}
           </p>
         </div>
       </div>
 
-      {/* Partner Request Modal */}
-      {showPartnerForm && (
+      {/* Partner / Deck Request Modal */}
+      {(showPartnerForm || showDeckForm) && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)" }}
@@ -264,7 +306,9 @@ export default function Sponsors({ t, lang = "fr" }: { t: Translations; lang?: "
             {/* Header */}
             <div className="flex items-center justify-between p-4 sm:p-6 border-b border-neon-green/10">
               <div>
-                <h3 className="text-xl font-black text-white">{t.sponsors.cta}</h3>
+                <h3 className="text-xl font-black text-white">
+                  {showDeckForm ? (lang === "fr" ? "Recevoir le Dossier de sponsoring" : "Get the Sponsorship Deck") : t.sponsors.cta}
+                </h3>
                 <p className="text-gray-500 text-sm mt-1">{t.sponsors.subtitle}</p>
               </div>
               <button
@@ -284,14 +328,16 @@ export default function Sponsors({ t, lang = "fr" }: { t: Translations; lang?: "
                     {lang === "fr" ? "Demande envoyée !" : "Request sent!"}
                   </p>
                   <p className="text-gray-400 text-sm mb-6">
-                    {lang === "fr" ? "Nous vous contacterons très prochainement." : "We will contact you shortly."}
+                    {showDeckForm
+                      ? (lang === "fr" ? "Le dossier de sponsoring vous a été envoyé par email." : "The sponsorship deck has been emailed to you.")
+                      : (lang === "fr" ? "Nous vous contacterons très prochainement." : "We will contact you shortly.")}
                   </p>
                   <button onClick={closeModal} className="btn-neon px-6 py-2 rounded text-sm">
                     {lang === "fr" ? "Fermer" : "Close"}
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={showDeckForm ? handleDeckSubmit : handleSubmit} className="space-y-4">
                   <div>
                     <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
                       {lang === "fr" ? "Organisation *" : "Organization *"}
@@ -316,10 +362,11 @@ export default function Sponsors({ t, lang = "fr" }: { t: Translations; lang?: "
                     </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-                        Email
+                        Email{showDeckForm ? " *" : ""}
                       </label>
                       <input
                         type="email"
+                        required={showDeckForm}
                         className="cyber-input w-full px-3 py-2 rounded text-sm"
                         value={form.email}
                         onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
@@ -336,36 +383,47 @@ export default function Sponsors({ t, lang = "fr" }: { t: Translations; lang?: "
                       onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-                      {lang === "fr" ? "Package souhaité" : "Desired package"}
-                    </label>
-                    <select
-                      className="cyber-input w-full px-3 py-2 rounded text-sm bg-transparent"
-                      value={form.selectedPackage}
-                      onChange={e => setForm(p => ({ ...p, selectedPackage: e.target.value }))}
-                    >
-                      <option value="" className="bg-dark-800">
-                        {lang === "fr" ? "Choisir un package" : "Choose a package"}
-                      </option>
-                      {packages.map(pkg => (
-                        <option key={pkg.id} value={pkg.tier} className="bg-dark-800">
-                          {lang === "fr" ? pkg.nameFr : pkg.nameEn}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-                      {lang === "fr" ? "Message" : "Message"}
-                    </label>
-                    <textarea
-                      rows={3}
-                      className="cyber-input w-full px-3 py-2 rounded text-sm resize-none"
-                      value={form.message}
-                      onChange={e => setForm(p => ({ ...p, message: e.target.value }))}
-                    />
-                  </div>
+                  {!showDeckForm && (
+                    <>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                          {lang === "fr" ? "Package souhaité" : "Desired package"}
+                        </label>
+                        <select
+                          className="cyber-input w-full px-3 py-2 rounded text-sm bg-transparent"
+                          value={form.selectedPackage}
+                          onChange={e => setForm(p => ({ ...p, selectedPackage: e.target.value }))}
+                        >
+                          <option value="" className="bg-dark-800">
+                            {lang === "fr" ? "Choisir un package" : "Choose a package"}
+                          </option>
+                          {packages.map(pkg => (
+                            <option key={pkg.id} value={pkg.tier} className="bg-dark-800">
+                              {lang === "fr" ? pkg.nameFr : pkg.nameEn}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                          {lang === "fr" ? "Message" : "Message"}
+                        </label>
+                        <textarea
+                          rows={3}
+                          className="cyber-input w-full px-3 py-2 rounded text-sm resize-none"
+                          value={form.message}
+                          onChange={e => setForm(p => ({ ...p, message: e.target.value }))}
+                        />
+                      </div>
+                    </>
+                  )}
+                  {showDeckForm && (
+                    <p className="text-xs text-gray-500">
+                      {lang === "fr"
+                        ? "Le dossier de sponsoring (FR + EN) vous sera envoyé par email à l'adresse indiquée."
+                        : "The sponsorship deck (FR + EN) will be emailed to the address provided."}
+                    </p>
+                  )}
                   <div className="flex gap-3 pt-2">
                     <button
                       type="submit"

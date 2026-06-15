@@ -17,9 +17,15 @@ export interface AdminPermissions {
   transactions?: "read" | "write";
   logistics?: "read" | "write";
   communication?: "read" | "write";
+  library?: "read" | "write";
+  "cyber-watch"?: "read" | "write";
   team?: "read" | "write";
+  video?: "read" | "write";
   export?: "read" | "write";
   users?: "read" | "write";
+  profiles?: "read" | "write";
+  audit?: "read" | "write";
+  settings?: "read" | "write";
   prospection?: "read" | "write";
   certificates?: "read" | "write";
   ctf?: "read" | "write";
@@ -46,8 +52,9 @@ export const ADMIN_PROFILES: AdminProfile[] = [
       newsletter: "write", sponsors: "write", "sponsor-pipeline": "write",
       tickets: "write", "sponsor-packages": "write", budget: "write",
       transactions: "write",
-      logistics: "write", communication: "write",
-      team: "write", export: "write", users: "write", prospection: "write",
+      logistics: "write", communication: "write", library: "write", "cyber-watch": "write",
+      team: "write", video: "write", export: "write", users: "write",
+      profiles: "write", audit: "write", settings: "write", prospection: "write",
       certificates: "write", ctf: "write", website: "write",
     },
   },
@@ -67,7 +74,8 @@ export const ADMIN_PROFILES: AdminProfile[] = [
     description: "Communication, réseaux sociaux et newsletter",
     color: "#0066ff",
     permissions: {
-      communication: "write", newsletter: "write", speakers: "read",
+      communication: "write", library: "write", "cyber-watch": "write",
+      newsletter: "write", speakers: "read",
       sessions: "read", sponsors: "read",
     },
   },
@@ -131,7 +139,9 @@ export const ADMIN_PROFILES: AdminProfile[] = [
       cfp: "read", speakers: "read", sessions: "read", workshops: "read",
       volunteers: "read", registrations: "read", newsletter: "read",
       sponsors: "read", tickets: "read", "sponsor-packages": "read",
-      budget: "read", transactions: "read", logistics: "read", website: "read",
+      budget: "read", transactions: "read", logistics: "read",
+      communication: "read", certificates: "read", team: "read", video: "read",
+      website: "read",
     },
   },
 ];

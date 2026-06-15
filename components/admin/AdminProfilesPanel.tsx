@@ -1,14 +1,52 @@
 "use client";
 import { useState, useEffect } from "react";
 
-const ALL_MODULES = [
-  "cfp", "speakers", "onboarding", "sessions", "workshops",
-  "volunteers", "registrations", "newsletter", "sponsors",
-  "sponsor-pipeline", "budget", "transactions", "logistics", "communication",
-  "team", "export", "users", "prospection", "certificates",
-] as const;
+// Permission modules grouped exactly like the admin navbar sections.
+// Each entry's `key` is the permission key checked by canSeeTab in the dashboard.
+const NAV_GROUPS: { label: string; modules: { key: string; label: string }[] }[] = [
+  { label: "Speakers & Programme", modules: [
+    { key: "cfp", label: "Pipeline (CFP / Programme)" },
+  ] },
+  { label: "Participants", modules: [
+    { key: "registrations", label: "Inscriptions" },
+    { key: "volunteers", label: "Bénévoles" },
+    { key: "newsletter", label: "Newsletter" },
+  ] },
+  { label: "Sponsors", modules: [
+    { key: "sponsors", label: "Sponsors" },
+    { key: "sponsor-pipeline", label: "Pipeline Sponsors" },
+    { key: "prospection", label: "Prospection" },
+  ] },
+  { label: "Budget", modules: [
+    { key: "tickets", label: "Billets" },
+    { key: "sponsor-packages", label: "Packages Sponsors" },
+    { key: "budget", label: "Budget" },
+    { key: "transactions", label: "Transactions" },
+  ] },
+  { label: "CTF", modules: [
+    { key: "ctf", label: "EyesOpen CTF" },
+  ] },
+  { label: "Communication", modules: [
+    { key: "communication", label: "Communication" },
+    { key: "library", label: "Library" },
+    { key: "cyber-watch", label: "Veille cyber" },
+  ] },
+  { label: "Opérations", modules: [
+    { key: "logistics", label: "Logistique" },
+    { key: "certificates", label: "Certificats" },
+    { key: "export", label: "Export" },
+    { key: "users", label: "Utilisateurs" },
+    { key: "profiles", label: "Profils & Accès" },
+    { key: "audit", label: "Journal d'audit" },
+  ] },
+  { label: "Web Site", modules: [
+    { key: "speakers", label: "Anciens Speakers" },
+    { key: "team", label: "Équipe" },
+    { key: "video", label: "Vidéothèque" },
+    { key: "settings", label: "Paramètres Événement" },
+  ] },
+];
 
-type Module = (typeof ALL_MODULES)[number];
 type Level = "write" | "read" | "none";
 
 interface Permissions {
@@ -25,28 +63,6 @@ interface Profile {
   isSystem: boolean;
   _count?: { users: number };
 }
-
-const MODULE_LABELS: Record<Module, string> = {
-  cfp: "CFP",
-  speakers: "Speakers",
-  onboarding: "Onboarding",
-  sessions: "Programme",
-  workshops: "Ateliers",
-  volunteers: "Bénévoles",
-  registrations: "Inscriptions",
-  newsletter: "Newsletter",
-  sponsors: "Sponsors",
-  "sponsor-pipeline": "Pipeline Sponsors",
-  budget: "Budget",
-  transactions: "Transactions",
-  logistics: "Logistique",
-  communication: "Communication",
-  team: "Équipe",
-  export: "Export",
-  users: "Utilisateurs",
-  prospection: "Prospection",
-  certificates: "Certificats",
-};
 
 function parsePerms(raw: string): Permissions {
   try { return JSON.parse(raw); } catch { return {}; }
@@ -81,7 +97,7 @@ export default function AdminProfilesPanel() {
     setEditColor(p.color);
   }
 
-  function togglePerm(mod: Module) {
+  function togglePerm(mod: string) {
     const cur = editPerms[mod] ?? "none";
     const next: Level = cur === "none" ? "read" : cur === "read" ? "write" : "none";
     const updated = { ...editPerms };
@@ -253,30 +269,39 @@ export default function AdminProfilesPanel() {
             Cliquez pour cycler : <span style={{ color: "#444" }}>— aucun</span> → <span style={{ color: "#ffaa00" }}>read</span> → <span style={{ color: "#00ff9d" }}>write</span>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "8px" }}>
-            {ALL_MODULES.map(mod => {
-              const level = editPerms[mod] as Level | undefined;
-              return (
-                <button
-                  key={mod}
-                  onClick={() => togglePerm(mod)}
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    background: "#111", border: `1px solid ${permColor(level)}33`,
-                    borderRadius: "6px", padding: "10px 12px", cursor: "pointer", textAlign: "left",
-                    transition: "border-color 0.15s",
-                  }}
-                >
-                  <span style={{ color: "#ccc", fontSize: "13px" }}>{MODULE_LABELS[mod]}</span>
-                  <span style={{
-                    color: permColor(level), fontSize: "11px", fontFamily: "monospace",
-                    background: permColor(level) + "22", borderRadius: "3px", padding: "2px 6px",
-                  }}>
-                    {permLabel(level)}
-                  </span>
-                </button>
-              );
-            })}
+          <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+            {NAV_GROUPS.map(group => (
+              <div key={group.label}>
+                <div style={{ fontFamily: "monospace", fontSize: "11px", color: "#00ff9d", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: "8px", borderBottom: "1px solid #1a1a2e", paddingBottom: "4px" }}>
+                  {group.label}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "8px" }}>
+                  {group.modules.map(({ key, label }) => {
+                    const level = editPerms[key] as Level | undefined;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => togglePerm(key)}
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          background: "#111", border: `1px solid ${permColor(level)}33`,
+                          borderRadius: "6px", padding: "10px 12px", cursor: "pointer", textAlign: "left",
+                          transition: "border-color 0.15s",
+                        }}
+                      >
+                        <span style={{ color: "#ccc", fontSize: "13px" }}>{label}</span>
+                        <span style={{
+                          color: permColor(level), fontSize: "11px", fontFamily: "monospace",
+                          background: permColor(level) + "22", borderRadius: "3px", padding: "2px 6px",
+                        }}>
+                          {permLabel(level)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       ) : (

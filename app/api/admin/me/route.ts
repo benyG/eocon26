@@ -23,11 +23,18 @@ export async function GET() {
         // Merge profile permissions + any user-level overrides stored in JSON
         let permissions: Record<string, string> = {};
         if (u.profileId) {
-          // profileId is numeric DB id — find matching static profile by name lookup
           const dbProfile = await prisma.adminProfile.findUnique({ where: { id: u.profileId } });
           if (dbProfile) {
+            // System profiles use their static definition (always current);
+            // custom profiles use the permissions stored in DB so the profile
+            // editor takes effect.
             const staticProfile = ADMIN_PROFILES.find(p => p.name === dbProfile.name);
-            if (staticProfile) permissions = { ...staticProfile.permissions };
+            if (staticProfile) {
+              permissions = { ...staticProfile.permissions } as Record<string, string>;
+            } else {
+              try { permissions = JSON.parse(dbProfile.permissions || "{}") as Record<string, string>; }
+              catch { permissions = {}; }
+            }
           }
         }
         // User-level JSON overrides (stored as { cfp: "write", ... })

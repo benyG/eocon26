@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
 import { useRouter } from "next/navigation";
-import { ADMIN_PROFILES } from "@/lib/adminProfiles";
 import PipelineKanban from "@/components/admin/PipelineKanban";
 import VolunteerKanban from "@/components/admin/VolunteerKanban";
 import CountrySelect from "@/components/CountrySelect";
@@ -200,24 +199,78 @@ function MfaToggle() {
   );
 }
 
+interface ProfileLite {
+  id: number;
+  slug: string;
+  name: string;
+  description: string;
+  color: string;
+  permissions: Record<string, string>;
+  isSystem: boolean;
+}
+
 function AdminUsersPanel() {
   const { t } = useAdminT();
   const confirm = useConfirm();
   const [users, setUsers] = useState<Record<string, unknown>[]>([]);
+  const [profiles, setProfiles] = useState<ProfileLite[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<Record<string, unknown>>({ profileId: "coordinateur_cfp" });
+  const [form, setForm] = useState<Record<string, unknown>>({});
   const [created, setCreated] = useState<{ name: string; email: string; tempPassword: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [mfaSetup, setMfaSetup] = useState<MfaSetupState | null>(null);
+  // Inline edit (password reset / profile reassignment) for an existing account.
+  const [editUser, setEditUser] = useState<{ id: number; name: string; profileId: number | null; password: string } | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
 
   const loadUsers = useCallback(async () => {
     const res = await fetch("/api/admin/users");
     if (res.ok) setUsers(await res.json());
   }, []);
 
-  useEffect(() => { loadUsers(); }, [loadUsers]);
+  const loadProfiles = useCallback(async () => {
+    const res = await fetch("/api/admin/profiles");
+    if (!res.ok) return;
+    const raw = await res.json() as Record<string, unknown>[];
+    const parsed: ProfileLite[] = raw.map(p => {
+      let perms: Record<string, string> = {};
+      try { perms = JSON.parse((p.permissions as string) || "{}"); } catch { perms = {}; }
+      return {
+        id: p.id as number,
+        slug: p.slug as string,
+        name: p.name as string,
+        description: (p.description as string) || "",
+        color: (p.color as string) || "#888888",
+        permissions: perms,
+        isSystem: !!p.isSystem,
+      };
+    });
+    setProfiles(parsed);
+    // Default the creation form to the first profile once profiles are loaded.
+    setForm(f => (f.profileId === undefined && parsed.length ? { ...f, profileId: parsed[0].id } : f));
+  }, []);
 
-  const selectedProfile = ADMIN_PROFILES.find(p => p.id === (form.profileId as string));
+  useEffect(() => { loadUsers(); loadProfiles(); }, [loadUsers, loadProfiles]);
+
+  const selectedProfile = profiles.find(p => p.id === (form.profileId as number));
+
+  const saveEdit = async () => {
+    if (!editUser) return;
+    setEditSaving(true);
+    const body: Record<string, unknown> = { profileId: editUser.profileId };
+    if (editUser.password.trim()) body.password = editUser.password.trim();
+    const res = await fetch(`/api/admin/users/${editUser.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      const updated = await res.json() as Record<string, unknown>;
+      setUsers(prev => prev.map(u => u.id === editUser.id ? { ...u, ...updated } : u));
+      setEditUser(null);
+    }
+    setEditSaving(false);
+  };
 
   const saveUser = async () => {
     if (!form.name || !form.email) return;
@@ -231,7 +284,7 @@ function AdminUsersPanel() {
       const d = await res.json() as { name: string; email: string; tempPassword: string };
       setCreated({ name: d.name, email: d.email, tempPassword: d.tempPassword });
       setShowForm(false);
-      setForm({ profileId: "coordinateur_cfp" });
+      setForm({ profileId: profiles[0]?.id });
       await loadUsers();
     }
     setLoading(false);
@@ -311,6 +364,47 @@ function AdminUsersPanel() {
         </div>
       )}
 
+      {editUser && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setEditUser(null)}>
+          <div className="cyber-card rounded-xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-bold text-sm">Éditer — {editUser.name}</h3>
+              <button onClick={() => setEditUser(null)} className="text-gray-500 hover:text-white text-xl leading-none">×</button>
+            </div>
+            <div className="mb-4">
+              <label className="text-xs text-gray-500 block mb-1">Nouveau mot de passe <span className="text-gray-600">(laisser vide pour ne pas changer)</span></label>
+              <input
+                type="text"
+                className="cyber-input w-full text-sm rounded px-3 py-2"
+                placeholder="ex. mot de passe commun hôtesses"
+                value={editUser.password}
+                onChange={e => setEditUser(u => u && ({ ...u, password: e.target.value }))}
+              />
+              <p className="text-[11px] text-gray-600 mt-1">Pour un compte partagé (ex. hôtesses check-in), définissez ici un mot de passe commun et communiquez-le à l&apos;équipe.</p>
+            </div>
+            <div className="mb-4">
+              <label className="text-xs text-gray-500 block mb-2">Profil de rôle</label>
+              <select
+                className="cyber-input w-full text-sm rounded px-3 py-2 bg-transparent"
+                value={editUser.profileId ?? ""}
+                onChange={e => setEditUser(u => u && ({ ...u, profileId: e.target.value ? Number(e.target.value) : null }))}
+              >
+                <option value="" className="bg-dark-800">— Aucun —</option>
+                {profiles.map(p => (
+                  <option key={p.id} value={p.id} className="bg-dark-800">{p.name}{!p.isSystem ? " (personnalisé)" : ""}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={saveEdit} disabled={editSaving} className="btn-neon px-4 py-2 rounded text-sm">
+                {editSaving ? "Enregistrement..." : "Enregistrer"}
+              </button>
+              <button onClick={() => setEditUser(null)} className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white transition-colors">Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showForm && (
         <div className="cyber-card rounded-xl p-6 mb-6">
           <h3 className="text-white font-bold mb-4 text-sm">Nouveau compte administrateur</h3>
@@ -327,14 +421,16 @@ function AdminUsersPanel() {
           <div className="mb-4">
             <label className="text-xs text-gray-500 block mb-2">Profil de rôle</label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {ADMIN_PROFILES.map(profile => (
+              {profiles.map(profile => (
                 <button
                   key={profile.id}
                   onClick={() => setForm(f => ({ ...f, profileId: profile.id }))}
                   className={`p-3 rounded-lg border text-left transition-all ${form.profileId === profile.id ? "border-opacity-60" : "border-gray-800 hover:border-gray-600"}`}
                   style={form.profileId === profile.id ? { borderColor: profile.color, background: profile.color + "15" } : {}}
                 >
-                  <p className="text-xs font-bold" style={{ color: form.profileId === profile.id ? profile.color : "#888" }}>{profile.name}</p>
+                  <p className="text-xs font-bold" style={{ color: form.profileId === profile.id ? profile.color : "#888" }}>
+                    {profile.name}{!profile.isSystem && <span className="text-gray-600 font-normal"> · personnalisé</span>}
+                  </p>
                   <p className="text-gray-600 text-xs mt-0.5">{profile.description}</p>
                 </button>
               ))}
@@ -364,11 +460,12 @@ function AdminUsersPanel() {
       <div className="mb-6">
         <h3 className="text-xs text-gray-500 uppercase tracking-widest mb-3">Profils disponibles</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          {ADMIN_PROFILES.map(profile => (
+          {profiles.map(profile => (
             <div key={profile.id} className="cyber-card rounded-lg p-3">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-2 h-2 rounded-full" style={{ background: profile.color }} />
                 <span className="text-white text-xs font-bold">{profile.name}</span>
+                {!profile.isSystem && <span className="text-[10px] text-gray-600">personnalisé</span>}
               </div>
               <p className="text-gray-600 text-xs">{profile.description}</p>
             </div>
@@ -380,7 +477,7 @@ function AdminUsersPanel() {
         <h3 className="text-xs text-gray-500 uppercase tracking-widest mb-3">Comptes existants ({users.length})</h3>
         <div className="space-y-2">
           {users.map(u => {
-            const profile = ADMIN_PROFILES.find(p => p.id === (u.profileId as string));
+            const profile = profiles.find(p => p.id === (u.profileId as number));
             return (
               <div key={u.id as number} className="cyber-card rounded-xl p-4 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
@@ -404,6 +501,9 @@ function AdminUsersPanel() {
                   <span className={`text-xs px-2 py-0.5 rounded ${u.isActive ? "bg-neon-green/10 text-neon-green" : "bg-gray-800 text-gray-600"}`}>
                     {u.isActive ? "Actif" : "Inactif"}
                   </span>
+                  <button onClick={() => setEditUser({ id: u.id as number, name: u.name as string, profileId: (u.profileId as number) ?? null, password: "" })} className="text-xs text-neon-green/80 hover:text-neon-green transition-colors">
+                    Éditer
+                  </button>
                   <button onClick={() => toggleActive(u.id as number, !(u.isActive as boolean))} className="text-xs text-gray-600 hover:text-white transition-colors">
                     {u.isActive ? "Désactiver" : "Activer"}
                   </button>

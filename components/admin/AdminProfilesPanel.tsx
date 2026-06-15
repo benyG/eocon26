@@ -85,11 +85,30 @@ export default function AdminProfilesPanel() {
   const [newDesc, setNewDesc] = useState("");
   const [newColor, setNewColor] = useState("#00ff9d");
 
-  useEffect(() => { load(); }, []);
+  // Coordo Global escalation email (used by the Pilotage reminders cron).
+  const [coordoEmail, setCoordoEmail] = useState("");
+  const [coordoSaved, setCoordoSaved] = useState(false);
+
+  useEffect(() => { load(); loadCoordo(); }, []);
 
   async function load() {
     const res = await fetch("/api/admin/profiles");
     if (res.ok) setProfiles(await res.json());
+  }
+
+  async function loadCoordo() {
+    const res = await fetch("/api/admin/settings");
+    if (res.ok) { const s = await res.json(); setCoordoEmail(s.pilotage_coordo_email || ""); }
+  }
+
+  async function saveCoordo() {
+    await fetch("/api/admin/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pilotage_coordo_email: coordoEmail }),
+    });
+    setCoordoSaved(true);
+    setTimeout(() => setCoordoSaved(false), 3000);
   }
 
   function selectProfile(p: Profile) {
@@ -157,7 +176,28 @@ export default function AdminProfilesPanel() {
     l === "write" ? "write" : l === "read" ? "read" : "—";
 
   return (
-    <div className="flex gap-4 h-full" style={{ minHeight: "600px" }}>
+    <div className="flex flex-col gap-4" style={{ minHeight: "600px" }}>
+      {/* Pilotage — Coordo Global escalation contact */}
+      <div style={{ background: "#0a0a0f", border: "1px solid #1a1a2e", borderRadius: "8px", padding: "16px", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: "220px" }}>
+          <div style={{ color: "#00ff9d", fontFamily: "monospace", fontSize: "12px", marginBottom: "4px" }}>🎯 PILOTAGE — Email Coordo Global (escalades)</div>
+          <div style={{ color: "#666", fontSize: "11px" }}>Destinataire des alertes de tâches en retard du module Pilotage global.</div>
+        </div>
+        <input
+          value={coordoEmail}
+          onChange={e => setCoordoEmail(e.target.value)}
+          placeholder="contact@eyesopensecurity.com"
+          style={{ flex: 1, minWidth: "220px", background: "#111", border: "1px solid #333", color: "#fff", padding: "8px 12px", borderRadius: "6px", fontSize: "13px" }}
+        />
+        <button
+          onClick={saveCoordo}
+          style={{ background: "#00ff9d", color: "#000", border: "none", borderRadius: "6px", padding: "8px 16px", fontSize: "13px", fontWeight: "bold", cursor: "pointer" }}
+        >
+          {coordoSaved ? "✓ Enregistré" : "Enregistrer"}
+        </button>
+      </div>
+
+      <div className="flex gap-4" style={{ minHeight: "600px" }}>
       {/* Profile list */}
       <div style={{ width: "260px", flexShrink: 0 }}>
         <div className="flex items-center justify-between mb-3">
@@ -312,6 +352,7 @@ export default function AdminProfilesPanel() {
           Sélectionnez un profil pour le modifier
         </div>
       )}
+      </div>
     </div>
   );
 }

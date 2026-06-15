@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 
 // Sponsorship deck files, committed under /docs/ and read at runtime.
 const DECK_FILES = [
-  "EOCON26_Deck_Sponsoring_FR.pptx",
-  "EOCON26_Sponsorship_Deck_EN.pdf",
+  "EOCON_Deck_Sponsoring_FR.pdf",
+  "EOCON_Sponsorship_Deck_EN.pdf",
 ];
 
 export async function POST(req: NextRequest) {

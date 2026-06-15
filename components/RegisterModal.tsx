@@ -69,6 +69,16 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
   // Cleanup any in-flight polling on unmount.
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
+  // No ticket is visible → sales aren't open yet. Skip tier selection and take the
+  // visitor straight to the pre-registration form; they'll be notified on launch.
+  const preRegMode = !loadingTypes && ticketTypes.length === 0;
+  useEffect(() => {
+    if (preRegMode && step === "tiers") {
+      setSelectedTier("pre_registration");
+      setStep("form");
+    }
+  }, [preRegMode, step]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -202,31 +212,8 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
               {loadingTypes ? (
                 <div className="text-center py-12 text-gray-500 font-mono text-sm">Chargement des billets…</div>
               ) : ticketTypes.length === 0 ? (
-                /* Fallback to i18n tiers if DB has no ticket types */
-                <div className="grid sm:grid-cols-3 gap-4 mb-6">
-                  {t.register.tiers.map((tier, i) => {
-                    const fallbackColors = ["#00ff9d", "#ffaa00", "#0066ff"];
-                    const c = fallbackColors[i] || "#888";
-                    return (
-                      <div
-                        key={tier.name}
-                        onClick={() => { setSelectedTier(tier.name); setStep("form"); }}
-                        className="cursor-pointer rounded-xl p-5 border transition-all hover:scale-105"
-                        style={{ borderColor: c + "40", background: (tier as { featured?: boolean }).featured ? c + "10" : "rgba(255,255,255,0.02)" }}
-                      >
-                        <h3 className="font-bold text-white text-lg mb-1">{tier.name}</h3>
-                        <div className="text-2xl font-black mb-3" style={{ color: c, fontFamily: "'Share Tech Mono', monospace" }}>{tier.price}</div>
-                        <ul className="space-y-1">
-                          {tier.perks.map(p => (
-                            <li key={p} className="flex items-start gap-2 text-xs text-gray-400">
-                              <span style={{ color: c }}>✓</span>{p}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    );
-                  })}
-                </div>
+                /* No tickets on sale → the pre-registration effect switches to the form. */
+                <div className="text-center py-12 text-gray-500 font-mono text-sm">…</div>
               ) : (
                 <div className="grid sm:grid-cols-3 gap-4 mb-6">
                   {ticketTypes.map(ticket => {
@@ -294,14 +281,21 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
             </div>
           ) : step === "form" ? (
             <div>
-              <button
-                onClick={() => setStep("tiers")}
-                className="text-gray-500 hover:text-neon-green text-sm mb-6 flex items-center gap-1 font-mono transition-colors"
-                style={{ fontFamily: "'Share Tech Mono', monospace" }}
-              >
-                ← Back
-              </button>
-              <h3 className="text-white font-bold text-xl mb-6">{t.register.form.title}</h3>
+              {!preRegMode && (
+                <button
+                  onClick={() => setStep("tiers")}
+                  className="text-gray-500 hover:text-neon-green text-sm mb-6 flex items-center gap-1 font-mono transition-colors"
+                  style={{ fontFamily: "'Share Tech Mono', monospace" }}
+                >
+                  ← Back
+                </button>
+              )}
+              <h3 className="text-white font-bold text-xl mb-6">{preRegMode ? t.register.prereg_title : t.register.form.title}</h3>
+              {preRegMode && (
+                <div className="mb-6 p-4 rounded-lg border" style={{ borderColor: "#ffaa0040", background: "#ffaa0008" }}>
+                  <p className="text-sm text-yellow-400/90 leading-relaxed">⏳ {t.register.prereg_notice}</p>
+                </div>
+              )}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -401,16 +395,18 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                   </div>
                 )}
 
-                <div className="p-3 rounded border" style={{ background: (selectedTicket?.color || "#00ff9d") + "08", borderColor: (selectedTicket?.color || "#00ff9d") + "22" }}>
-                  <p className="text-xs text-gray-500 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-                    Billet sélectionné : <span style={{ color: selectedTicket?.color || "#00ff9d", fontWeight: "bold" }}>
-                      {selectedTicket ? `${getName(selectedTicket)} — ${formatPrice(selectedTicket)}` : selectedTier}
-                    </span>
-                  </p>
-                </div>
+                {!preRegMode && (
+                  <div className="p-3 rounded border" style={{ background: (selectedTicket?.color || "#00ff9d") + "08", borderColor: (selectedTicket?.color || "#00ff9d") + "22" }}>
+                    <p className="text-xs text-gray-500 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                      Billet sélectionné : <span style={{ color: selectedTicket?.color || "#00ff9d", fontWeight: "bold" }}>
+                        {selectedTicket ? `${getName(selectedTicket)} — ${formatPrice(selectedTicket)}` : selectedTier}
+                      </span>
+                    </p>
+                  </div>
+                )}
                 {error && <p className="text-red-400 text-xs font-mono">{error}</p>}
                 <button type="submit" disabled={loading} className="w-full btn-neon-solid py-3 rounded text-sm border-2 border-neon-green disabled:opacity-50">
-                  {loading ? "..." : t.register.form.submit}
+                  {loading ? "..." : preRegMode ? t.register.prereg_submit : t.register.form.submit}
                 </button>
               </form>
             </div>

@@ -3788,9 +3788,12 @@ const SETTINGS_FIELDS = [
   { key: "event_city", label: "Ville", type: "text", group: "Lieu" },
   { key: "event_country", label: "Pays", type: "text", group: "Lieu" },
   { key: "event_address", label: "Adresse complète", type: "text", group: "Lieu" },
-  { key: "ctf_tagline", label: "Accroche principale", type: "text", group: "CTF" },
-  { key: "ctf_prize_main", label: "Gains vainqueur (résumé court)", type: "text", group: "CTF" },
-  { key: "ctf_prize_details", label: "Gains vainqueur (détails complets)", type: "text", group: "CTF" },
+  { key: "ctf_tagline_fr", label: "Accroche principale (FR)", type: "text", group: "CTF" },
+  { key: "ctf_tagline_en", label: "Accroche principale (EN)", type: "text", group: "CTF" },
+  { key: "ctf_prize_main_fr", label: "Gains vainqueur — résumé court (FR)", type: "text", group: "CTF" },
+  { key: "ctf_prize_main_en", label: "Gains vainqueur — résumé court (EN)", type: "text", group: "CTF" },
+  { key: "ctf_prize_details_fr", label: "Gains vainqueur — détails complets (FR)", type: "text", group: "CTF" },
+  { key: "ctf_prize_details_en", label: "Gains vainqueur — détails complets (EN)", type: "text", group: "CTF" },
   { key: "site_base_url", label: "URL de base du site", type: "url", group: "Liens" },
   { key: "url_inscription", label: "Lien → Inscription", type: "url", group: "Liens" },
   { key: "url_cfp", label: "Lien → CFP", type: "url", group: "Liens" },
@@ -3857,14 +3860,16 @@ function EventSettingsPanel() {
                       onChange={v => handleChange(field.key, v)}
                       className="w-full text-sm"
                     />
-                  ) : field.key === "ctf_prize_details" ? (
+                  ) : field.key === "ctf_prize_details_fr" || field.key === "ctf_prize_details_en" ? (
                     <textarea
                       rows={4}
                       value={settings[field.key] || ""}
                       onChange={e => handleChange(field.key, e.target.value)}
                       className="cyber-input w-full px-3 py-2 rounded text-sm text-white resize-none"
                       style={{ fontFamily: "'Share Tech Mono', monospace" }}
-                      placeholder="Ex: 1er prix : 500 000 XAF + trophée + badge CTF Winner&#10;2e prix : 200 000 XAF&#10;3e prix : 100 000 XAF"
+                      placeholder={field.key === "ctf_prize_details_en"
+                        ? "Ex: 1st prize: 500,000 XAF + trophy + CTF Winner badge&#10;2nd prize: 200,000 XAF&#10;3rd prize: 100,000 XAF"
+                        : "Ex: 1er prix : 500 000 XAF + trophée + badge CTF Winner&#10;2e prix : 200 000 XAF&#10;3e prix : 100 000 XAF"}
                     />
                   ) : (
                     <input

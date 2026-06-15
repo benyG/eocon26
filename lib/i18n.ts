@@ -296,6 +296,9 @@ export const translations = {
         },
       ],
       cta: "Register Now",
+      prereg_title: "Pre-registration",
+      prereg_notice: "Ticket sales haven't opened yet. Leave your details to pre-register — we'll email you the moment tickets go on sale.",
+      prereg_submit: "Pre-register",
       form: {
         title: "Registration Form",
         fname: "First Name",
@@ -669,6 +672,9 @@ export const translations = {
         },
       ],
       cta: "S'inscrire",
+      prereg_title: "Pré-inscription",
+      prereg_notice: "La vente des billets n'est pas encore ouverte. Laissez vos coordonnées pour vous pré-inscrire — nous vous écrirons dès la mise en vente des billets.",
+      prereg_submit: "Me pré-inscrire",
       form: {
         title: "Formulaire d'Inscription",
         fname: "Prénom",

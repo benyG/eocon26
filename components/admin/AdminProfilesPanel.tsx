@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 // Permission modules grouped exactly like the admin navbar sections.
 // Each entry's `key` is the permission key checked by canSeeTab in the dashboard.
 const NAV_GROUPS: { label: string; modules: { key: string; label: string }[] }[] = [
+  { label: "Vue d'ensemble", modules: [
+    { key: "pilotage", label: "🎯 Pilotage global" },
+  ] },
   { label: "Speakers & Programme", modules: [
     { key: "cfp", label: "Pipeline (CFP / Programme)" },
   ] },

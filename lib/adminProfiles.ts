@@ -1,5 +1,6 @@
 export interface AdminPermissions {
   dashboard?: "read";
+  pilotage?: "read" | "write";
   checkin?: "read" | "write";
   cfp?: "read" | "write";
   speakers?: "read" | "write";
@@ -55,7 +56,7 @@ export const ADMIN_PROFILES: AdminProfile[] = [
       logistics: "write", communication: "write", library: "write", "cyber-watch": "write",
       team: "write", video: "write", export: "write", users: "write",
       profiles: "write", audit: "write", settings: "write", prospection: "write",
-      certificates: "write", ctf: "write", website: "write",
+      certificates: "write", ctf: "write", website: "write", pilotage: "write",
     },
   },
   {

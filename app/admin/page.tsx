@@ -9,6 +9,7 @@ import AdminProfilesPanel from "@/components/admin/AdminProfilesPanel";
 import ConfirmModal, { useConfirm } from "@/components/admin/ConfirmModal";
 import MediaLibraryModal from "@/components/admin/MediaLibraryModal";
 import CyberWatchPanel from "@/components/admin/CyberWatchPanel";
+import PilotagePanel from "@/components/admin/PilotagePanel";
 import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
 
 const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; setLang: (l: AdminLang) => void }>({
@@ -18,7 +19,7 @@ const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; 
 });
 const useAdminT = () => useContext(AdminLangContext);
 
-type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "sessions" | "video" | "transactions";
+type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "sessions" | "video" | "transactions";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -5164,6 +5165,7 @@ export default function AdminDashboard() {
   // Tab → required permission key (undefined = always visible)
   const TAB_PERMISSION: Partial<Record<Tab, string | undefined>> = {
     dashboard: undefined,        // always visible
+    pilotage: "pilotage",
     pipeline: "cfp",
     sessions: "sessions",
     "past-speakers": "speakers",
@@ -5375,6 +5377,7 @@ export default function AdminDashboard() {
       icon: "◈",
       tabs: [
         { id: "dashboard", label: t.dashboard },
+        { id: "pilotage", label: "🎯 Pilotage global" },
       ],
     },
     {
@@ -5791,6 +5794,10 @@ export default function AdminDashboard() {
                       <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.role as string) || ""} onChange={e => setForm({ ...form, role: e.target.value })} />
                     </div>
                     <div>
+                      <label className="block text-xs text-gray-500 mb-1">Email (pour le pilotage / rappels)</label>
+                      <input type="email" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.email as string) || ""} onChange={e => setForm({ ...form, email: e.target.value })} />
+                    </div>
+                    <div>
                       <label className="block text-xs text-gray-500 mb-1">LinkedIn URL</label>
                       <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.linkedin as string) || ""} onChange={e => setForm({ ...form, linkedin: e.target.value })} />
                     </div>
@@ -5949,6 +5956,8 @@ export default function AdminDashboard() {
 
           {tab === "users" && <AdminUsersPanel />}
           {tab === "profiles" && <AdminProfilesPanel />}
+
+          {tab === "pilotage" && <PilotagePanel />}
           {tab === "settings" && <EventSettingsPanel />}
 
           {/* COMMUNICATION */}

@@ -22,12 +22,13 @@ export default function Navbar({ t, lang, onLangChange, onOpenModal }: NavbarPro
   const navItems = [
     { label: t.nav.about, href: "#about" },
     { label: t.nav.speakers, href: "#speakers" },
-    { label: t.nav.schedule, href: "#schedule" },
     { label: t.nav.ctf, href: "#ctf" },
     { label: t.nav.workshops, href: "#workshops" },
     { label: t.nav.sponsors, href: "#sponsors" },
+    { label: t.nav.schedule, href: "#schedule" },
     { label: t.nav.cfp, href: "#cfp" },
     { label: t.nav.volunteer, href: "#volunteer" },
+    { label: t.nav.videotheque, href: "#videoteque" },
   ];
 
   return (

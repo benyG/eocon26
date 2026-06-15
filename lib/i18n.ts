@@ -11,6 +11,7 @@ export const translations = {
       sponsors: "Sponsors",
       cfp: "Call for Speakers",
       volunteer: "Volunteer",
+      videotheque: "Video Library",
       register: "Register",
     },
     hero: {
@@ -385,8 +386,9 @@ export const translations = {
       ctf: "CTF",
       workshops: "Ateliers",
       sponsors: "Sponsors",
-      cfp: "Appel à Speakers",
+      cfp: "Appel à Conférenciers",
       volunteer: "Bénévolat",
+      videotheque: "Vidéothèque",
       register: "S'inscrire",
     },
     hero: {

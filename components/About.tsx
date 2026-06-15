@@ -154,7 +154,7 @@ export default function About({ t }: { t: Translations }) {
                     <p.Icon />
                   </span>
                 </div>
-                <h4 className="font-bold mb-2" style={{ color: p.accent }}>
+                <h4 className="font-bold mb-2" style={{ color: "#00ff9d" }}>
                   {t.about[titleKey as keyof typeof t.about] as string}
                 </h4>
                 <p className="text-gray-500 text-sm">

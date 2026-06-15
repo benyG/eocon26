@@ -4375,6 +4375,13 @@ function CTFPanel() {
     loadChallenges();
   };
 
+  const seedChallenges = async () => {
+    if (!confirm("Importer les 40 challenges de référence (WEB·CRYPTO·FORENSICS·REVERSE·PWN·OSINT·MISC) ?")) return;
+    const r = await fetch("/api/admin/seed", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "ctf" }) });
+    if (r.ok) { loadChallenges(); }
+    else { const j = await r.json().catch(() => ({})); alert(j.error || "Échec de l'import (des challenges existent peut-être déjà)."); }
+  };
+
   const moveChallenge = async (id: number, status: string) => {
     await fetch(`/api/admin/ctf/challenges/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
     loadChallenges();
@@ -4497,7 +4504,10 @@ function CTFPanel() {
             <span className="text-xs px-2 py-1 rounded font-mono" style={{ background: "#00ff9d20", color: "#00ff9d" }}>
               ✓ {challenges.filter(c => c.status === "validated" || c.status === "published").length} prêts
             </span>
-            <button onClick={() => setShowAddForm(v => !v)} className="btn-neon px-3 py-1 rounded text-xs ml-auto">+ Ajouter challenge</button>
+            {challenges.length === 0 && (
+              <button onClick={seedChallenges} className="px-3 py-1 rounded text-xs border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition-colors ml-auto">⚡ Importer les 40 challenges</button>
+            )}
+            <button onClick={() => setShowAddForm(v => !v)} className={`btn-neon px-3 py-1 rounded text-xs ${challenges.length === 0 ? "" : "ml-auto"}`}>+ Ajouter challenge</button>
           </div>
 
           {showAddForm && (

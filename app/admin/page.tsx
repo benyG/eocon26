@@ -18,7 +18,7 @@ const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; 
 });
 const useAdminT = () => useContext(AdminLangContext);
 
-type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "sessions" | "video";
+type Tab = "dashboard" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "sessions" | "video" | "transactions";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -4511,6 +4511,106 @@ function CTFEmailTemplate({ templateKey, label, desc }: { templateKey: string; l
   );
 }
 
+function TransactionsPanel() {
+  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [fState, setFState] = useState("");
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const r = await fetch("/api/admin/transactions");
+    if (r.ok) setRows(await r.json());
+    setLoading(false);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = fState ? rows.filter(r => r.state === fState) : rows;
+
+  const resend = async (registrationId: number) => {
+    setBusyId(registrationId);
+    const res = await fetch("/api/admin/transactions", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "resend", registrationId }),
+    });
+    setBusyId(null);
+    setMsg(res.ok ? "Billet renvoyé ✓" : "Échec de l'envoi");
+    if (res.ok) load();
+    setTimeout(() => setMsg(null), 3000);
+  };
+
+  const stateBadge = (s: string) => {
+    const map: Record<string, string> = { success: "#00ff9d", failed: "#ff0066", pending: "#ffaa00" };
+    const c = map[s] || "#888";
+    return <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: c + "20", color: c }}>{s}</span>;
+  };
+
+  const providerLabel = (p: string) =>
+    p === "netticket_mtn" ? "MTN MoMo" : p === "netticket_orange" ? "Orange Money" : p === "stripe" ? "Carte (Stripe)" : p;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black text-white">💳 Transactions ({filtered.length})</h1>
+          <p className="text-gray-500 text-xs mt-1">Toutes les tentatives de paiement (Mobile Money · Stripe à venir)</p>
+        </div>
+        <button onClick={load} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white transition-colors">↻ Rafraîchir</button>
+      </div>
+
+      <div className="flex gap-2 mb-4">
+        {["", "success", "pending", "failed"].map(s => (
+          <button key={s || "all"} onClick={() => setFState(s)} className={`text-xs px-3 py-1.5 rounded border transition-all ${fState === s ? "border-neon-green/40 text-neon-green bg-neon-green/10" : "border-gray-800 text-gray-500 hover:text-white"}`}>
+            {s === "" ? "Toutes" : s === "success" ? "Réussies" : s === "pending" ? "En attente" : "Échecs"}
+          </button>
+        ))}
+      </div>
+
+      {msg && <div className="mb-4 px-4 py-2 rounded text-xs text-neon-green border border-neon-green/30 bg-neon-green/5">{msg}</div>}
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-neon-green/10 text-gray-500 text-left">
+              {["Inscrit", "Téléphone", "Moyen", "Montant", "État", "Réponse finale", "Ticket envoyé", "Date", "Actions"].map(h => (
+                <th key={h} className="py-2 px-3 font-normal">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(r => (
+              <tr key={r.id as number} className="border-b border-gray-800 hover:bg-white/[0.02] transition-colors">
+                <td className="py-2 px-3">
+                  <span className="text-white">{(r.registrantName as string) || "—"}</span>
+                  <br/><span className="text-gray-500">{r.email as string}</span>
+                </td>
+                <td className="py-2 px-3 text-gray-400 font-mono">{r.phone ? `+237 ${r.phone}` : "—"}</td>
+                <td className="py-2 px-3 text-gray-400">{providerLabel(r.provider as string)}</td>
+                <td className="py-2 px-3 text-gray-300 font-mono">{(r.amount as number)?.toLocaleString("fr-FR")} XAF</td>
+                <td className="py-2 px-3">{stateBadge(r.state as string)}</td>
+                <td className="py-2 px-3 text-gray-500 max-w-[200px] truncate" title={r.message as string}>{(r.message as string) || "—"}</td>
+                <td className="py-2 px-3">
+                  {r.ticketEmailSent ? <span className="text-neon-green">✓ Oui</span> : <span className="text-gray-600">✗ Non</span>}
+                </td>
+                <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</td>
+                <td className="py-2 px-3">
+                  {!!r.registrationId && r.state === "success" && (
+                    <button disabled={busyId === r.registrationId} onClick={() => resend(r.registrationId as number)} className="text-xs px-3 py-1 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-colors disabled:opacity-50">
+                      {busyId === r.registrationId ? "…" : "✉ Renvoyer le ticket"}
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!filtered.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune transaction</p>}
+      </div>
+    </div>
+  );
+}
+
 function VideoPanel() {
   const confirm = useConfirm();
   const [videos, setVideos] = useState<Record<string, unknown>[]>([]);
@@ -5076,6 +5176,7 @@ export default function AdminDashboard() {
     tickets: "tickets",
     "sponsor-packages": "sponsor-packages",
     budget: "budget",
+    transactions: "transactions",
     communication: "communication",
     logistics: "logistics",
     team: "team",
@@ -5304,6 +5405,7 @@ export default function AdminDashboard() {
         { id: "tickets", label: t.tickets },
         { id: "sponsor-packages", label: t.sponsorPackages },
         { id: "budget", label: t.budgetTracking },
+        { id: "transactions", label: "💳 Transactions" },
       ],
     },
     {
@@ -5903,6 +6005,9 @@ export default function AdminDashboard() {
           {tab === "certificates" && (
             <CertificatesPanel />
           )}
+
+          {/* TRANSACTIONS */}
+          {tab === "transactions" && <TransactionsPanel />}
 
           {/* VIDEO */}
           {tab === "video" && <VideoPanel />}

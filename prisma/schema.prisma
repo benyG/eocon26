@@ -533,3 +533,24 @@ model SessionVideo {
 
   @@map("session_videos")
 }
+
+model PaymentTransaction {
+  id              Int      @id @default(autoincrement())
+  registrationId  Int?     // linked registration (if any)
+  email           String
+  phone           String?  // Mobile Money number used by the payer
+  provider        String   // netticket_mtn | netticket_orange | stripe
+  amount          Int      @default(0)
+  ticketType      String?
+  state           String   @default("pending") // pending | success | failed
+  reason          String?  // success | insufficient_funds | failed | unavailable
+  providerRef     String?  // transaction id returned by the provider
+  message         String?  @db.Text // final provider response message
+  ticketEmailSent Boolean  @default(false) // whether the ticket email was delivered (Resend)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([registrationId])
+  @@index([state])
+  @@map("payment_transactions")
+}

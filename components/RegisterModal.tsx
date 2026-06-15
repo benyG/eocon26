@@ -499,7 +499,11 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                         placeholder={pay.phone_ph}
                         inputMode="numeric"
                         value={payPhone}
-                        onChange={e => setPayPhone(e.target.value)}
+                        onChange={e => {
+                          setPayPhone(e.target.value);
+                          // Editing the number re-enables a greyed-out Pay button after a failure.
+                          if (payState === "failed") { setPayState("idle"); setPayError(""); }
+                        }}
                         disabled={payState === "processing" || payState === "awaiting"}
                       />
                     </div>
@@ -515,10 +519,12 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                     <p className="text-red-400 text-xs font-mono">{payError || pay.failed}</p>
                   )}
 
+                  <p className="text-xs text-gray-500 leading-relaxed">{pay.pay_notice}</p>
+
                   <button
                     onClick={handlePay}
-                    disabled={!payPhone.trim() || payState === "processing" || payState === "awaiting"}
-                    className="w-full btn-neon-solid py-3 rounded text-sm border-2 border-neon-green disabled:opacity-50"
+                    disabled={!payPhone.trim() || payState === "processing" || payState === "awaiting" || payState === "failed"}
+                    className="w-full btn-neon-solid py-3 rounded text-sm border-2 border-neon-green disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {payState === "processing" ? pay.processing
                       : payState === "awaiting" ? pay.awaiting
@@ -534,6 +540,12 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
               )}
             </div>
           )}
+        </div>
+        {/* Footer */}
+        <div className="px-6 py-3 border-t border-neon-green/10 text-center">
+          <span className="text-[10px] text-gray-600 font-mono uppercase tracking-widest" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+            {pay.powered_by}
+          </span>
         </div>
       </div>
     </div>

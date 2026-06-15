@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 const ALL_MODULES = [
   "cfp", "speakers", "onboarding", "sessions", "workshops",
   "volunteers", "registrations", "newsletter", "sponsors",
-  "sponsor-pipeline", "budget", "logistics", "communication",
+  "sponsor-pipeline", "budget", "transactions", "logistics", "communication",
   "team", "export", "users", "prospection", "certificates",
 ] as const;
 
@@ -38,6 +38,7 @@ const MODULE_LABELS: Record<Module, string> = {
   sponsors: "Sponsors",
   "sponsor-pipeline": "Pipeline Sponsors",
   budget: "Budget",
+  transactions: "Transactions",
   logistics: "Logistique",
   communication: "Communication",
   team: "Équipe",

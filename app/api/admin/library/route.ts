@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listGCSFiles, deleteGCSFile, uploadToGCS } from "@/lib/gcs";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
@@ -9,13 +9,13 @@ const ALLOWED_EXT = ["jpg", "jpeg", "png", "webp", "gif", "svg"];
 const MAX_BYTES = 8 * 1024 * 1024;
 
 export async function GET() {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  PLACEHOLDER
   const files = await listGCSFiles();
   return NextResponse.json(files);
 }
 
 export async function DELETE(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  PLACEHOLDER
   const { name } = await req.json();
   if (!name || typeof name !== "string" || name.includes("..")) {
     return NextResponse.json({ error: "Invalid" }, { status: 400 });
@@ -25,7 +25,7 @@ export async function DELETE(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  PLACEHOLDER
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
   if (!file) return NextResponse.json({ error: "No file" }, { status: 400 });

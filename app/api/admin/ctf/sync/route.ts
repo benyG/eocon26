@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +39,7 @@ async function ctfdPatch(url: string, apiKey: string, path: string, body: unknow
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("ctf", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { action, registrationIds } = await req.json() as { action: string; registrationIds?: number[] };
   const { url, apiKey } = await getCtfdConfig();

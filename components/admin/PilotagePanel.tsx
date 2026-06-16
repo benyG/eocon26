@@ -77,7 +77,7 @@ function daysUntil(d?: string | null) {
   return Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
 }
 
-export default function PilotagePanel() {
+export default function PilotagePanel({ canWrite = true }: { canWrite?: boolean }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -225,10 +225,12 @@ export default function PilotagePanel() {
           <button onClick={() => setView(view === "kanban" ? "meetings" : "kanban")} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-300 hover:text-white font-mono">
             {view === "kanban" ? "📅 Réunions" : "📋 Kanban"}
           </button>
-          <button onClick={createTask} className="text-xs px-3 py-1.5 rounded border border-neon-green/50 text-neon-green font-mono">+ Tâche</button>
-          <button onClick={() => seed(false)} disabled={seeding} className="text-xs px-3 py-1.5 rounded bg-neon-green text-black font-bold font-mono">
-            {seeding ? "…" : "↻ Feuille de route"}
-          </button>
+          {canWrite && <button onClick={createTask} className="text-xs px-3 py-1.5 rounded border border-neon-green/50 text-neon-green font-mono">+ Tâche</button>}
+          {canWrite && (
+            <button onClick={() => seed(false)} disabled={seeding} className="text-xs px-3 py-1.5 rounded bg-neon-green text-black font-bold font-mono">
+              {seeding ? "…" : "↻ Feuille de route"}
+            </button>
+          )}
           <button onClick={load} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white font-mono">{loading ? "…" : "↻"}</button>
         </div>
       </div>
@@ -296,9 +298,9 @@ export default function PilotagePanel() {
                     key={col.key}
                     className="flex-shrink-0 w-52 rounded-lg border transition-colors"
                     style={{ borderColor: col.color, borderWidth: dropTarget === col.key ? 2 : 1, backgroundColor: dropTarget === col.key ? `${col.color}10` : "transparent" }}
-                    onDragOver={(e) => { e.preventDefault(); setDropTarget(col.key); }}
-                    onDragLeave={() => setDropTarget(null)}
-                    onDrop={() => handleDrop(col.key)}
+                    onDragOver={canWrite ? (e) => { e.preventDefault(); setDropTarget(col.key); } : undefined}
+                    onDragLeave={canWrite ? () => setDropTarget(null) : undefined}
+                    onDrop={canWrite ? () => handleDrop(col.key) : undefined}
                   >
                     <div className="p-2 border-b border-gray-800 flex items-center justify-between">
                       <span className="text-xs font-bold font-mono" style={{ color: col.color }}>{col.label}</span>
@@ -308,9 +310,9 @@ export default function PilotagePanel() {
                       {cards.map((card) => (
                         <div
                           key={card.id}
-                          draggable
-                          onDragStart={() => setDragId(card.id)}
-                          onDragEnd={() => { setDragId(null); setDropTarget(null); }}
+                          draggable={canWrite}
+                          onDragStart={canWrite ? () => setDragId(card.id) : undefined}
+                          onDragEnd={canWrite ? () => { setDragId(null); setDropTarget(null); } : undefined}
                           onClick={() => openDetail(card)}
                           className={`rounded p-2 cursor-pointer border-l-4 border border-gray-800 transition-all hover:border-gray-600 ${dragId === card.id ? "opacity-40" : ""}`}
                           style={{ borderLeftColor: phaseColor(card.phase), backgroundColor: "#0d0d0d" }}
@@ -333,7 +335,7 @@ export default function PilotagePanel() {
           </div>
         </>
       ) : (
-        <MeetingsView meetings={meetings} reload={load} />
+        <MeetingsView meetings={meetings} reload={load} canWrite={canWrite} />
       )}
 
       {/* Detail drawer */}
@@ -341,48 +343,49 @@ export default function PilotagePanel() {
         <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setSelected(null)}>
           <div className="w-full max-w-md h-full bg-[#0a0a0a] border-l border-gray-800 overflow-y-auto p-6 space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black text-neon-green font-mono">Éditer la tâche</h3>
+              <h3 className="text-sm font-black text-neon-green font-mono">{canWrite ? "Éditer la tâche" : "Détail de la tâche"}</h3>
               <button onClick={() => setSelected(null)} className="text-gray-600 hover:text-white text-lg">✕</button>
             </div>
+            {!canWrite && <p className="text-xs text-yellow-500 font-mono bg-yellow-500/10 rounded px-2 py-1">Accès lecture seule</p>}
 
             <label className="block text-xs text-gray-500">Titre</label>
-            <textarea rows={2} value={edit.title || ""} onChange={(e) => setEdit({ ...edit, title: e.target.value })} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" />
+            <textarea rows={2} value={edit.title || ""} onChange={(e) => setEdit({ ...edit, title: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none disabled:opacity-60 disabled:cursor-not-allowed" />
 
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs text-gray-500">Phase</label>
-                <select value={edit.phase ?? 1} onChange={(e) => setEdit({ ...edit, phase: Number(e.target.value) })} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white">
+                <select value={edit.phase ?? 1} onChange={(e) => setEdit({ ...edit, phase: Number(e.target.value) })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
                   {PHASES.map((p) => <option key={p.n} value={p.n} className="bg-dark-800">{p.label}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs text-gray-500">Statut</label>
-                <select value={edit.status || "todo"} onChange={(e) => setEdit({ ...edit, status: e.target.value as Status })} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white">
+                <select value={edit.status || "todo"} onChange={(e) => setEdit({ ...edit, status: e.target.value as Status })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
                   {STATUSES.map((s) => <option key={s.key} value={s.key} className="bg-dark-800">{s.label}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs text-gray-500">Pôle</label>
-                <select value={edit.pole || ""} onChange={(e) => setEdit({ ...edit, pole: e.target.value })} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white">
+                <select value={edit.pole || ""} onChange={(e) => setEdit({ ...edit, pole: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
                   {POLES.map((p) => <option key={p} value={p} className="bg-dark-800">{p}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs text-gray-500">Sous-équipe</label>
-                <select value={edit.subTeam || ""} onChange={(e) => setEdit({ ...edit, subTeam: e.target.value })} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white">
+                <select value={edit.subTeam || ""} onChange={(e) => setEdit({ ...edit, subTeam: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
                   <option value="" className="bg-dark-800">—</option>
                   {SUBTEAMS.map((s) => <option key={s} value={s} className="bg-dark-800">{s}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs text-gray-500">Priorité</label>
-                <select value={edit.priority || "medium"} onChange={(e) => setEdit({ ...edit, priority: e.target.value })} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white">
+                <select value={edit.priority || "medium"} onChange={(e) => setEdit({ ...edit, priority: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
                   {PRIORITIES.map((p) => <option key={p} value={p} className="bg-dark-800">{p}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs text-gray-500">Échéance</label>
-                <input type="date" value={(edit.dueDate as string) || ""} onChange={(e) => setEdit({ ...edit, dueDate: e.target.value })} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white" />
+                <input type="date" value={(edit.dueDate as string) || ""} onChange={(e) => setEdit({ ...edit, dueDate: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed" />
               </div>
             </div>
 
@@ -394,27 +397,30 @@ export default function PilotagePanel() {
                   const m = members.find((x) => x.email === e.target.value);
                   setEdit({ ...edit, assigneeEmail: e.target.value || null, assigneeName: m?.name || null });
                 }}
-                className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white"
+                disabled={!canWrite}
+                className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option value="" className="bg-dark-800">— non assigné —</option>
                 {assigneeOptions.map((m) => <option key={m.id} value={m.email!} className="bg-dark-800">{m.name} ({m.role})</option>)}
               </select>
             </div>
 
-            <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
-              <input type="checkbox" checked={!!edit.isMilestone} onChange={(e) => setEdit({ ...edit, isMilestone: e.target.checked })} /> Jalon ⚠️
+            <label className={`flex items-center gap-2 text-xs cursor-pointer ${canWrite ? "text-gray-400" : "text-gray-600 cursor-not-allowed"}`}>
+              <input type="checkbox" checked={!!edit.isMilestone} onChange={(e) => setEdit({ ...edit, isMilestone: e.target.checked })} disabled={!canWrite} /> Jalon ⚠️
             </label>
 
             <label className="block text-xs text-gray-500">Notes</label>
-            <textarea rows={3} value={edit.notes || ""} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" />
+            <textarea rows={3} value={edit.notes || ""} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none disabled:opacity-60 disabled:cursor-not-allowed" />
 
-            <div className="flex gap-2 pt-2">
-              <button onClick={saveDetail} className="flex-1 btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Enregistrer</button>
-              {selected.status !== "done" && (
-                <button onClick={() => patchTask(selected.id, { status: "done" }).then(() => setSelected(null))} className="px-3 py-2 rounded text-xs border border-neon-green/50 text-neon-green font-mono">✓ Fait</button>
-              )}
-              <button onClick={() => deleteTask(selected.id)} className="px-3 py-2 rounded text-xs border border-red-900 text-red-400 font-mono">Suppr.</button>
-            </div>
+            {canWrite && (
+              <div className="flex gap-2 pt-2">
+                <button onClick={saveDetail} className="flex-1 btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Enregistrer</button>
+                {selected.status !== "done" && (
+                  <button onClick={() => patchTask(selected.id, { status: "done" }).then(() => setSelected(null))} className="px-3 py-2 rounded text-xs border border-neon-green/50 text-neon-green font-mono">✓ Fait</button>
+                )}
+                <button onClick={() => deleteTask(selected.id)} className="px-3 py-2 rounded text-xs border border-red-900 text-red-400 font-mono">Suppr.</button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -422,7 +428,7 @@ export default function PilotagePanel() {
   );
 }
 
-function MeetingsView({ meetings, reload }: { meetings: Meeting[]; reload: () => void }) {
+function MeetingsView({ meetings, reload, canWrite = true }: { meetings: Meeting[]; reload: () => void; canWrite?: boolean }) {
   const sorted = [...meetings].sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
   const now = Date.now();
   const del = async (id: number) => {
@@ -446,7 +452,7 @@ function MeetingsView({ meetings, reload }: { meetings: Meeting[]; reload: () =>
               {m.agenda && <p className="text-xs text-gray-400 mt-0.5">{m.agenda}</p>}
               {m.location && <p className="text-xs text-gray-600 mt-0.5">📍 {m.location}</p>}
             </div>
-            <button onClick={() => del(m.id)} className="text-xs text-red-400 hover:text-red-300 shrink-0">✕</button>
+            {canWrite && <button onClick={() => del(m.id)} className="text-xs text-red-400 hover:text-red-300 shrink-0">✕</button>}
           </div>
         );
       })}

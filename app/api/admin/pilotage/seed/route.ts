@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { logAction } from "@/lib/auditLog";
 import { parseRoadmap } from "@/lib/pilotageRoadmap";
 
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 // POST /api/admin/pilotage/seed  (body: { force?: boolean })
 // Parses docs/roadmap-equipe.md and inserts steering tasks + meetings.
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("pilotage", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   let force = false;
   try {

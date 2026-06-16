@@ -3934,7 +3934,7 @@ interface SponsorPkg {
   perksFr: string; perksEn: string; isVisible: boolean;
 }
 
-function SponsorPackageEditor({ pkg, onSave, onDelete }: { pkg: SponsorPkg; onSave: (data: Partial<SponsorPkg>) => Promise<void>; onDelete: () => Promise<void> }) {
+function SponsorPackageEditor({ pkg, onSave, onDelete, canWrite = true }: { pkg: SponsorPkg; onSave: (data: Partial<SponsorPkg>) => Promise<void>; onDelete: () => Promise<void>; canWrite?: boolean }) {
   const [draft, setDraft] = useState<SponsorPkg>({ ...pkg });
   const [perksFr, setPerksFr] = useState<string[]>(() => { try { return JSON.parse(pkg.perksFr || "[]"); } catch { return []; } });
   const [perksEn, setPerksEn] = useState<string[]>(() => { try { return JSON.parse(pkg.perksEn || "[]"); } catch { return []; } });
@@ -4036,22 +4036,24 @@ function SponsorPackageEditor({ pkg, onSave, onDelete }: { pkg: SponsorPkg; onSa
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between pt-2">
-            <button onClick={() => onSave({ isVisible: !draft.isVisible }).then(() => setDraft(d => ({ ...d, isVisible: !d.isVisible })))} className={`text-xs px-3 py-1.5 rounded border ${draft.isVisible ? "border-neon-green/30 text-neon-green" : "border-gray-700 text-gray-500"}`}>
-              {draft.isVisible ? "Visible ✓" : "Masqué"}
-            </button>
-            <div className="flex gap-2">
-              <button onClick={() => { if (confirm("Supprimer ce package ?")) onDelete(); }} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10">Supprimer</button>
-              <button onClick={save} disabled={saving} className="btn-neon px-4 py-1.5 rounded text-xs">{saving ? "..." : "Enregistrer"}</button>
+          {canWrite && (
+            <div className="flex items-center justify-between pt-2">
+              <button onClick={() => onSave({ isVisible: !draft.isVisible }).then(() => setDraft(d => ({ ...d, isVisible: !d.isVisible })))} className={`text-xs px-3 py-1.5 rounded border ${draft.isVisible ? "border-neon-green/30 text-neon-green" : "border-gray-700 text-gray-500"}`}>
+                {draft.isVisible ? "Visible ✓" : "Masqué"}
+              </button>
+              <div className="flex gap-2">
+                <button onClick={() => { if (confirm("Supprimer ce package ?")) onDelete(); }} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10">Supprimer</button>
+                <button onClick={save} disabled={saving} className="btn-neon px-4 py-1.5 rounded text-xs">{saving ? "..." : "Enregistrer"}</button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function SponsorPackagesPanel() {
+function SponsorPackagesPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [packages, setPackages] = useState<SponsorPkg[]>([]);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -4067,7 +4069,9 @@ function SponsorPackagesPanel() {
   useEffect(() => { load(); }, [load]);
 
   const seed = async () => {
-    await fetch("/api/admin/sponsor-packages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ seed: true }) });
+    const res = await fetch("/api/admin/sponsor-packages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ seed: true }) });
+    if (res.status === 409) alert("Les packages sont déjà initialisés.");
+    else if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || "Échec de l'initialisation."); }
     load();
   };
 
@@ -4097,13 +4101,21 @@ function SponsorPackagesPanel() {
           <h1 className="text-2xl font-black text-white">Packages de Sponsoring</h1>
           <p className="text-gray-500 text-xs mt-1">Cliquez sur un package pour le modifier. Les données sont stockées en base.</p>
         </div>
-        <div className="flex gap-2">
-          {!packages.length && !loading && (
-            <button onClick={seed} className="btn-neon px-4 py-2 rounded text-sm">🌱 Initialiser packages standard</button>
-          )}
-          <button onClick={() => setAdding(a => !a)} className="btn-neon px-4 py-2 rounded text-sm">+ Nouveau package</button>
-        </div>
+        {canWrite && (
+          <div className="flex gap-2">
+            {!packages.length && !loading && (
+              <button onClick={seed} className="btn-neon px-4 py-2 rounded text-sm">🌱 Initialiser packages standard</button>
+            )}
+            <button onClick={() => setAdding(a => !a)} className="btn-neon px-4 py-2 rounded text-sm">+ Nouveau package</button>
+          </div>
+        )}
       </div>
+
+      {!canWrite && (
+        <div className="mb-4 px-4 py-2 rounded text-xs border border-yellow-500/30 bg-yellow-500/5 text-yellow-400/90">
+          🔒 Accès en lecture seule — vous ne pouvez pas modifier les packages.
+        </div>
+      )}
 
       {adding && (
         <div className="cyber-card rounded-xl p-4 mb-4 flex gap-3 items-end">
@@ -4121,6 +4133,7 @@ function SponsorPackagesPanel() {
           <SponsorPackageEditor
             key={pkg.id}
             pkg={pkg}
+            canWrite={canWrite}
             onSave={(data) => savePackage(pkg.id, data)}
             onDelete={() => deletePackage(pkg.id)}
           />
@@ -5579,6 +5592,13 @@ export default function AdminDashboard() {
     return !!userInfo.permissions[permKey as string];
   };
 
+  // Permission level check for a module (drives read-only UI in panels).
+  const can = (moduleKey: string, level: "read" | "write" = "write"): boolean => {
+    if (!userInfo || userInfo.isLegacy) return true;
+    const lvl = userInfo.permissions[moduleKey];
+    return level === "read" ? (lvl === "read" || lvl === "write") : lvl === "write";
+  };
+
   const logout = async () => {
     await Promise.all([
       fetch("/api/admin/login", { method: "DELETE" }),
@@ -6348,7 +6368,7 @@ export default function AdminDashboard() {
           {tab === "users" && <AdminUsersPanel />}
           {tab === "profiles" && <AdminProfilesPanel />}
 
-          {tab === "pilotage" && <PilotagePanel />}
+          {tab === "pilotage" && <PilotagePanel canWrite={can("pilotage")} />}
           {tab === "settings" && <EventSettingsPanel />}
 
           {/* COMMUNICATION */}
@@ -6372,7 +6392,7 @@ export default function AdminDashboard() {
 
           {/* SPONSOR PACKAGES */}
           {tab === "sponsor-packages" && (
-            <SponsorPackagesPanel />
+            <SponsorPackagesPanel canWrite={can("sponsor-packages")} />
           )}
 
           {/* PROSPECTION IA */}

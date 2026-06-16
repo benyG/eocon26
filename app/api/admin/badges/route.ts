@@ -113,6 +113,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ issued });
   }
 
+  // Resend the badge email for an existing badge (looked up by recipient + type)
+  if (action === "resend") {
+    const { badgeType, recipientEmail } = body;
+    if (!recipientEmail) return NextResponse.json({ error: "recipientEmail required" }, { status: 400 });
+    const badge = await prisma.badgeCredential.findFirst({
+      where: { recipientEmail, ...(badgeType ? { badgeType } : {}), revokedAt: null },
+      orderBy: { issuedAt: "desc" },
+    });
+    if (!badge) return NextResponse.json({ error: "Badge not found" }, { status: 404 });
+    await sendBadgeEmail({
+      to: badge.recipientEmail,
+      recipientName: badge.recipientName,
+      badgeType: badge.badgeType as BadgeType,
+      subtype: badge.subtype,
+      uuid: badge.uuid,
+      credentialJson: badge.credentialJson,
+    });
+    await prisma.badgeCredential.update({ where: { id: badge.id }, data: { emailSentAt: new Date() } });
+    logAction(req, "UPDATE", "badge", badge.id, { action: "resend_email" });
+    return NextResponse.json({ success: true });
+  }
+
   // Send badge email
   if (action === "send") {
     const { id } = body;

@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: { params: { uuid: string } })
       description,
       url: pageUrl,
       type: "website",
-      images: [{ url: imageUrl, width: 400, height: 462, alt: title }],
+      images: [{ url: imageUrl, width: 1200, height: 630, alt: title }],
     },
     twitter: {
       card: "summary_large_image",

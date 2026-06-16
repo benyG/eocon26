@@ -3639,6 +3639,12 @@ function CertificatesPanel() {
     return b ? new Date(b.createdAt as string).toLocaleDateString("fr-FR") : null;
   };
 
+  const getBadgeUuid = (person: Record<string, unknown>): string | null => {
+    const email = person[tabDef.emailField] as string;
+    const b = badges.find(b => (b.recipientEmail as string)?.toLowerCase() === email?.toLowerCase());
+    return b ? (b.uuid as string) : null;
+  };
+
   const issueBadge = async (person: Record<string, unknown>, action: "issue" | "resend" = "issue") => {
     const key = person[tabDef.emailField] as string;
     setIssuingId(key);
@@ -3750,6 +3756,17 @@ function CertificatesPanel() {
                     <span className="text-gray-600 text-xs">⬜ Non reçu</span>
                   )}
                 </div>
+                {received && getBadgeUuid(p) && (
+                  <a
+                    href={`/verify/${getBadgeUuid(p)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Visualiser le badge / certificat"
+                    className="shrink-0 text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-all"
+                  >
+                    🔍
+                  </a>
+                )}
                 <button
                   onClick={() => issueBadge(p, received ? "resend" : "issue")}
                   disabled={isIssuing}
@@ -3991,6 +4008,9 @@ const SETTINGS_FIELDS = [
   { key: "ctf_prize_main_en", label: "Gains vainqueur — résumé court (EN)", type: "text", group: "CTF" },
   { key: "ctf_prize_details_fr", label: "Gains vainqueur — détails complets (FR)", type: "text", group: "CTF" },
   { key: "ctf_prize_details_en", label: "Gains vainqueur — détails complets (EN)", type: "text", group: "CTF" },
+  { key: "networking_date", label: "Date d'activation du réseautage (QR)", type: "date", group: "Réseautage (QR)" },
+  { key: "networking_start", label: "Heure de début (Douala)", type: "time", group: "Réseautage (QR)" },
+  { key: "networking_end", label: "Heure de fin (Douala)", type: "time", group: "Réseautage (QR)" },
   { key: "site_base_url", label: "URL de base du site", type: "url", group: "Liens" },
   { key: "url_inscription", label: "Lien → Inscription", type: "url", group: "Liens" },
   { key: "url_cfp", label: "Lien → CFP", type: "url", group: "Liens" },
@@ -4375,6 +4395,13 @@ function CTFPanel() {
     loadChallenges();
   };
 
+  const seedChallenges = async () => {
+    if (!confirm("Importer les 40 challenges de référence (WEB·CRYPTO·FORENSICS·REVERSE·PWN·OSINT·MISC) ?")) return;
+    const r = await fetch("/api/admin/seed", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "ctf" }) });
+    if (r.ok) { loadChallenges(); }
+    else { const j = await r.json().catch(() => ({})); alert(j.error || "Échec de l'import (des challenges existent peut-être déjà)."); }
+  };
+
   const moveChallenge = async (id: number, status: string) => {
     await fetch(`/api/admin/ctf/challenges/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
     loadChallenges();
@@ -4497,7 +4524,10 @@ function CTFPanel() {
             <span className="text-xs px-2 py-1 rounded font-mono" style={{ background: "#00ff9d20", color: "#00ff9d" }}>
               ✓ {challenges.filter(c => c.status === "validated" || c.status === "published").length} prêts
             </span>
-            <button onClick={() => setShowAddForm(v => !v)} className="btn-neon px-3 py-1 rounded text-xs ml-auto">+ Ajouter challenge</button>
+            {challenges.length === 0 && (
+              <button onClick={seedChallenges} className="px-3 py-1 rounded text-xs border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition-colors ml-auto">⚡ Importer les 40 challenges</button>
+            )}
+            <button onClick={() => setShowAddForm(v => !v)} className={`btn-neon px-3 py-1 rounded text-xs ${challenges.length === 0 ? "" : "ml-auto"}`}>+ Ajouter challenge</button>
           </div>
 
           {showAddForm && (
@@ -5786,12 +5816,21 @@ export default function AdminDashboard() {
                 <div className="cyber-card rounded-xl p-6 mb-6">
                   <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier le Sponsor" : "Nouveau Sponsor"}</h3>
                   <div className="grid sm:grid-cols-2 gap-3">
-                    {[{ key: "name", label: "Nom du Sponsor *" }, { key: "website", label: "Site Web" }, { key: "logoUrl", label: "URL du Logo" }].map(f => (
+                    {[{ key: "name", label: "Nom du Sponsor *" }, { key: "website", label: "Site Web" }].map(f => (
                       <div key={f.key}>
                         <label className="block text-xs text-gray-500 mb-1">{f.label}</label>
                         <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form[f.key] as string) || ""} onChange={e => setForm({ ...form, [f.key]: e.target.value })} />
                       </div>
                     ))}
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs text-gray-500 mb-1">Logo du Sponsor</label>
+                      <PhotoUploadField
+                        value={(form.logoUrl as string) || ""}
+                        folder="sponsors"
+                        onChange={url => setForm({ ...form, logoUrl: url })}
+                      />
+                      {!!form.logoUrl && <img src={form.logoUrl as string} alt="logo" className="mt-2 w-16 h-16 object-contain rounded bg-white/5 p-1 border border-gray-700" />}
+                    </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Tier</label>
                       <select className="cyber-input w-full px-3 py-2 rounded text-xs bg-transparent" value={(form.tier as string) || "GOLD"} onChange={e => setForm({ ...form, tier: e.target.value })}>

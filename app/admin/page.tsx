@@ -323,7 +323,7 @@ interface ProfileLite {
   isSystem: boolean;
 }
 
-function AdminUsersPanel() {
+function AdminUsersPanel({ canWrite = true }: { canWrite?: boolean }) {
   const { t } = useAdminT();
   const confirm = useConfirm();
   const [users, setUsers] = useState<Record<string, unknown>[]>([]);
@@ -448,7 +448,7 @@ function AdminUsersPanel() {
           <h1 className="text-2xl font-black text-white">{t.usersTitle}</h1>
           <p className="text-gray-500 text-xs mt-1">{t.receiveCredentials}</p>
         </div>
-        <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-sm">{t.newUser}</button>
+        {canWrite && <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-sm">{t.newUser}</button>}
       </div>
 
       {mfaSetup && (
@@ -519,7 +519,7 @@ function AdminUsersPanel() {
         </div>
       )}
 
-      {showForm && (
+      {canWrite && showForm && (
         <div className="cyber-card rounded-xl p-6 mb-6">
           <h3 className="text-white font-bold mb-4 text-sm">Nouveau compte administrateur</h3>
           <div className="grid grid-cols-2 gap-3 mb-4">
@@ -615,13 +615,13 @@ function AdminUsersPanel() {
                   <span className={`text-xs px-2 py-0.5 rounded ${u.isActive ? "bg-neon-green/10 text-neon-green" : "bg-gray-800 text-gray-600"}`}>
                     {u.isActive ? "Actif" : "Inactif"}
                   </span>
-                  <button onClick={() => setEditUser({ id: u.id as number, name: u.name as string, profileId: (u.profileId as number) ?? null, password: "" })} className="text-xs text-neon-green/80 hover:text-neon-green transition-colors">
+                  {canWrite && <button onClick={() => setEditUser({ id: u.id as number, name: u.name as string, profileId: (u.profileId as number) ?? null, password: "" })} className="text-xs text-neon-green/80 hover:text-neon-green transition-colors">
                     Éditer
-                  </button>
-                  <button onClick={() => toggleActive(u.id as number, !(u.isActive as boolean))} className="text-xs text-gray-600 hover:text-white transition-colors">
+                  </button>}
+                  {canWrite && <button onClick={() => toggleActive(u.id as number, !(u.isActive as boolean))} className="text-xs text-gray-600 hover:text-white transition-colors">
                     {u.isActive ? "Désactiver" : "Activer"}
-                  </button>
-                  {u.mfaEnabled ? (
+                  </button>}
+                  {canWrite && (u.mfaEnabled ? (
                     <button onClick={() => disableMfa(u.id as number)} className="text-xs text-red-500 hover:text-red-400 transition-colors">
                       Désactiver MFA
                     </button>
@@ -629,7 +629,7 @@ function AdminUsersPanel() {
                     <button onClick={() => startMfaSetup(u)} className="text-xs text-purple-400 hover:text-purple-300 transition-colors">
                       Activer MFA
                     </button>
-                  )}
+                  ))}
                 </div>
               </div>
             );
@@ -639,7 +639,7 @@ function AdminUsersPanel() {
       </div>
 
       {/* Sécurité MFA */}
-      <div className="cyber-card rounded-xl p-5 mt-6">
+      {canWrite && <div className="cyber-card rounded-xl p-5 mt-6">
         <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">🔐 Sécurité</h3>
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -648,7 +648,7 @@ function AdminUsersPanel() {
           </div>
           <MfaToggle />
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -670,7 +670,7 @@ function AiScoreBadge({ score, analysis }: { score: number | null; analysis: str
   );
 }
 
-function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>[]; onRefresh: () => void }) {
+function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record<string, unknown>[]; onRefresh: () => void; canWrite?: boolean }) {
   const { t } = useAdminT();
   const [searchTab, setSearchTab] = useState<"apollo" | "places">("apollo");
   const [apolloKeywords, setApolloKeywords] = useState("cybersecurity,technology,telecom,finance");
@@ -877,13 +877,13 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
                     <p className="text-gray-400 text-xs whitespace-pre-wrap leading-relaxed">{e.body}</p>
                   </div>
                 ))}
-                <button
+                {canWrite && <button
                   onClick={() => addToPipeline(emailTarget)}
                   className="w-full py-2 rounded text-sm font-bold transition-all"
                   style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}
                 >
                   {t.addToPipeline}
-                </button>
+                </button>}
               </div>
             )}
             </div>
@@ -957,9 +957,9 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
               <label className="text-xs text-gray-500 block mb-1">{t.apolloKeywordsLabel}</label>
               <input value={apolloKeywords} onChange={e => setApolloKeywords(e.target.value)} className="cyber-input w-full text-xs rounded px-3 py-2" placeholder="cybersecurity,technology,telecom,finance,banking" />
             </div>
-            <button onClick={runApolloSearch} disabled={searching} className="btn-neon px-5 py-2 rounded text-xs self-end shrink-0">
+            {canWrite && <button onClick={runApolloSearch} disabled={searching} className="btn-neon px-5 py-2 rounded text-xs self-end shrink-0">
               {searching ? t.searchingLabel : t.searchBtn}
-            </button>
+            </button>}
           </div>
         ) : (
           <div className="flex gap-3">
@@ -967,9 +967,9 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
               <label className="text-xs text-gray-500 block mb-1">{t.placesQueryLabel}</label>
               <input value={placesQuery} onChange={e => setPlacesQuery(e.target.value)} className="cyber-input w-full text-xs rounded px-3 py-2" placeholder="banque Douala, opérateur télécom Cameroun..." onKeyDown={e => e.key === "Enter" && runPlacesSearch()} />
             </div>
-            <button onClick={runPlacesSearch} disabled={searching || !placesQuery.trim()} className="btn-neon px-5 py-2 rounded text-xs self-end shrink-0">
+            {canWrite && <button onClick={runPlacesSearch} disabled={searching || !placesQuery.trim()} className="btn-neon px-5 py-2 rounded text-xs self-end shrink-0">
               {searching ? t.searchingLabel : t.searchBtn}
-            </button>
+            </button>}
           </div>
         )}
         <p className="text-gray-700 text-xs mt-2">
@@ -1051,7 +1051,7 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
                     <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>
                   )}
                 </div>
-                {!lead.addedToPipeline && (
+                {!lead.addedToPipeline && canWrite && (
                   <div className="flex flex-col gap-2 shrink-0">
                     <button
                       onClick={() => enrichLead(lead)}
@@ -1128,7 +1128,7 @@ function ProspectionPanel({ leads, onRefresh }: { leads: Record<string, unknown>
 
 
 // ---- Library Panel ----
-function LibraryPanel() {
+function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [files, setFiles] = useState<{ name: string; url: string; size: number; updated: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -1184,20 +1184,20 @@ function LibraryPanel() {
             onChange={e => setSearch(e.target.value)}
             className="cyber-input text-xs px-3 py-1.5 rounded w-44"
           />
-          <button
+          {canWrite && <button
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
             className="text-xs px-4 py-1.5 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono transition-colors disabled:opacity-50"
           >
             {uploading ? "⏳ Import…" : "⬆ Importer"}
-          </button>
-          <input
+          </button>}
+          {canWrite && <input
             ref={fileRef}
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
             className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }}
-          />
+          />}
         </div>
       </div>
 
@@ -1206,7 +1206,7 @@ function LibraryPanel() {
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 text-gray-600 font-mono text-xs gap-3">
           <span>{search ? "Aucun résultat pour cette recherche" : "Aucune image importée"}</span>
-          {!search && (
+          {canWrite && !search && (
             <button onClick={() => fileRef.current?.click()} className="text-neon-green text-xs underline">
               Importer votre première image
             </button>
@@ -1221,11 +1221,11 @@ function LibraryPanel() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={f.url} alt={f.name} className="w-full aspect-square object-cover bg-gray-900" loading="lazy" />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors" />
-                <button
+                {canWrite && <button
                   onClick={() => deleteFile(f.name)}
                   disabled={deleting === f.name}
                   className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-600/80 text-white text-xs items-center justify-center hidden group-hover:flex hover:bg-red-500"
-                >✕</button>
+                >✕</button>}
                 <div className="absolute bottom-0 inset-x-0 bg-black/70 px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <p className="text-white text-xs truncate leading-tight">{f.name.split("/").pop()}</p>
                   <p className="text-gray-400 text-xs">{fmt(f.size)}</p>
@@ -1241,7 +1241,7 @@ function LibraryPanel() {
 
 // ---- Communication Panel ----
 
-function CommunicationPanel() {
+function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   const { t } = useAdminT();
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
@@ -1600,7 +1600,7 @@ function CommunicationPanel() {
         </div>
 
         {/* Side panel — fixed layout: sticky header + scrollable body + sticky footer */}
-        {panelOpen && selectedDay && (
+        {canWrite && panelOpen && selectedDay && (
           <div className="cyber-card rounded-xl w-96 shrink-0 flex flex-col" style={{ height: "calc(100vh - 160px)", maxHeight: 680 }}>
             {/* Sticky header */}
             <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-800 shrink-0">
@@ -1909,16 +1909,16 @@ function CommunicationPanel() {
                         <img src={post.imageUrl as string} alt="" className="h-12 w-20 object-cover rounded" />
                       )}
                       <div className="flex gap-2 flex-wrap">
-                        <button
+                        {canWrite && <button
                           onClick={() => { handleDayClick(selectedDay.getDate()); }}
                           className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white transition-colors"
-                        >✏️ Modifier</button>
-                        {post.status === "scheduled" && (
+                        >✏️ Modifier</button>}
+                        {canWrite && post.status === "scheduled" && (
                           <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
                             {publishing === (post.id as number) ? "..." : "▶️ Publier maintenant"}
                           </button>
                         )}
-                        {post.status === "draft" && (
+                        {canWrite && post.status === "draft" && (
                           <>
                             <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
                               {publishing === (post.id as number) ? "..." : "▶️ Publier maintenant"}
@@ -1934,14 +1934,14 @@ function CommunicationPanel() {
                             target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded" style={{ color: "#00ff9d" }}
                           >↗ Voir</a>
                         )}
-                        <button
+                        {canWrite && <button
                           onClick={async () => {
                             await fetch("/api/admin/ai/social-posts", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: post.id }) });
                             await loadLinkedinPosts();
                           }}
                           className="text-xs px-2 py-1 rounded border border-red-800/50 text-red-500 hover:bg-red-900/20 transition-colors"
-                        >🗑️ Supprimer</button>
-                        {scheduleId === (post.id as number) && (
+                        >🗑️ Supprimer</button>}
+                        {canWrite && scheduleId === (post.id as number) && (
                           <div className="flex gap-1 items-center w-full mt-1">
                             <input type="datetime-local" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="cyber-input text-xs rounded px-1 py-0.5 w-36" />
                             <button onClick={() => schedulePost(post.id as number)} className="btn-neon text-xs px-2 py-1 rounded">OK</button>
@@ -1967,7 +1967,7 @@ function CommunicationPanel() {
       <div className="cyber-card rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">{t.transactionalTemplatesLabel}</h3>
-          <button onClick={seedTransactionalTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>{t.initTransactionalBtn}</button>
+          {canWrite && <button onClick={seedTransactionalTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>{t.initTransactionalBtn}</button>}
         </div>
         <div className="space-y-3">
           {templates.filter(tpl => tpl.slug).length === 0 && (
@@ -1999,11 +1999,11 @@ function CommunicationPanel() {
                   onChange={e => setTxEdits(prev => ({ ...prev, [id]: { ...edit, htmlBody: e.target.value } }))}
                   placeholder={t.htmlBodyLabelTpl}
                 />
-                <div className="mt-2 flex justify-end">
+                {canWrite && <div className="mt-2 flex justify-end">
                   <button onClick={() => saveTxTemplate(id)} disabled={txSaving === id} className="text-xs px-3 py-1.5 rounded" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>
                     {txSaving === id ? "..." : t.saveTemplateBtn}
                   </button>
-                </div>
+                </div>}
               </div>
             );
           })}
@@ -2014,12 +2014,12 @@ function CommunicationPanel() {
       <div className="cyber-card rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">{t.campaignTemplatesLabel}</h3>
-          <div className="flex gap-2">
+          {canWrite && <div className="flex gap-2">
             <button onClick={seedTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>{t.seedTemplatesBtn}</button>
             <button onClick={() => setShowTemplateForm(!showTemplateForm)} className="btn-neon px-3 py-1.5 rounded text-xs">{t.createTemplateBtn}</button>
-          </div>
+          </div>}
         </div>
-        {showTemplateForm && (
+        {canWrite && showTemplateForm && (
           <div className="border border-gray-800 rounded-lg p-4 mb-4 space-y-2">
             <input placeholder={t.templateNamePlaceholder} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" value={(templateForm.name as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, name: e.target.value }))} />
             <input placeholder={t.emailSubjectLabelTpl} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" value={(templateForm.subject as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, subject: e.target.value }))} />
@@ -2058,7 +2058,7 @@ function CommunicationPanel() {
           {templates.filter(tpl => !tpl.slug).length === 0 && (
             <div className="text-center py-8">
               <p className="text-gray-600 text-xs mb-3">{t.noCampaignTemplates}</p>
-              <button onClick={seedTemplates} className="text-xs px-4 py-2 rounded" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>{t.seedEoconTemplates}</button>
+              {canWrite && <button onClick={seedTemplates} className="text-xs px-4 py-2 rounded" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>{t.seedEoconTemplates}</button>}
             </div>
           )}
           {templates.filter(tpl => !tpl.slug).map(tpl => (
@@ -2072,13 +2072,13 @@ function CommunicationPanel() {
                 </div>
                 <div className="flex gap-1 shrink-0 flex-wrap justify-end">
                   <button onClick={() => setPreviewTemplate(tpl)} className="text-xs px-2 py-1 rounded" style={{ color: "#888", border: "1px solid #33333380" }}>👁</button>
-                  <button onClick={() => sendTemplate(tpl.id as number)} disabled={sending === (tpl.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>
+                  {canWrite && <button onClick={() => sendTemplate(tpl.id as number)} disabled={sending === (tpl.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>
                     {sending === (tpl.id as number) ? "..." : t.sendCampaignBtn}
-                  </button>
+                  </button>}
                 </div>
               </div>
               {/* AI refine row */}
-              <div className="flex gap-2 pt-2 border-t border-gray-800/50">
+              {canWrite && <div className="flex gap-2 pt-2 border-t border-gray-800/50">
                 <input
                   type="text"
                   placeholder={t.refineInstructions}
@@ -2094,7 +2094,7 @@ function CommunicationPanel() {
                 >
                   {refining === (tpl.id as number) ? t.improvingLabel : t.improveBtn}
                 </button>
-              </div>
+              </div>}
             </div>
           ))}
           {!templates.filter(tpl => !tpl.slug).length && <p className="text-gray-700 text-xs text-center py-3">{t.noCampaignTemplates}</p>}
@@ -2206,7 +2206,7 @@ function SponsorFormPanel({
   );
 }
 
-function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<string, unknown>[]; onRefresh: () => void }) {
+function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prospects: Record<string, unknown>[]; onRefresh: () => void; canWrite?: boolean }) {
   const { t, lang } = useAdminT();
   const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
@@ -2325,7 +2325,7 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-black text-white">{t.pipelineTitle}</h1>
-        <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">{t.addProspect}</button>
+        {canWrite && <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">{t.addProspect}</button>}
       </div>
 
       {/* AI Email Modal */}
@@ -2359,7 +2359,7 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
                   </div>
                   <p className="text-white text-xs font-bold mb-2">Objet: {e.subject}</p>
                   <p className="text-gray-400 text-xs whitespace-pre-wrap">{e.body}</p>
-                  <button
+                  {canWrite && <button
                     onClick={() => sendProspectEmail(e.subject, e.body, e.lang)}
                     disabled={!aiEmailTarget.email || sendingLang !== null}
                     title={!aiEmailTarget.email ? (lang === "en" ? "No email address for this prospect" : "Ce prospect n'a pas d'email") : undefined}
@@ -2367,18 +2367,18 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
                     style={{ background: "#00ff9d15", color: "#00ff9d", borderColor: "#00ff9d40" }}
                   >
                     {sendingLang === e.lang ? "…" : (lang === "en" ? `Send this email (${e.lang})` : `Envoyer ce courriel (${e.lang})`)}
-                  </button>
+                  </button>}
                 </div>
               ))}
             </div>
             {sentMsg && <p className="text-xs text-center mt-3" style={{ color: "#00ff9d" }}>{sentMsg}</p>}
             <div className="mt-4 pt-4 border-t border-gray-800">
-              <button
+              {canWrite && <button
                 onClick={() => markContacted(aiEmailTarget.id)}
                 className="w-full text-xs px-4 py-2 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-all"
               >
                 {t.markContacted}
-              </button>
+              </button>}
             </div>
             </div>
           </div>
@@ -2386,7 +2386,7 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
       )}
 
       {/* Add form */}
-      {showForm && (
+      {canWrite && showForm && (
         <div className="cyber-card rounded-xl p-5 mb-6 space-y-3">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {[
@@ -2450,7 +2450,7 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
                         <p className="text-gray-600 text-xs mt-1 truncate" title={p.notes as string}>{p.notes as string}</p>
                       )}
                       <div className="mt-2 space-y-1.5">
-                        <button
+                        {canWrite && <button
                           onClick={() => generateFollowupEmail(p)}
                           disabled={generatingFor === (p.id as number)}
                           className="w-full text-xs px-2 py-1 rounded transition-all disabled:opacity-50 font-bold"
@@ -2461,8 +2461,8 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
                             : (p.emailJson
                                 ? (lang === "en" ? "✨ View / send email" : "✨ Voir / envoyer le courriel")
                                 : (lang === "en" ? "✨ Generate email (AI)" : "✨ Générer un courriel (IA)"))}
-                        </button>
-                        <div className="flex items-center gap-1">
+                        </button>}
+                        {canWrite && <div className="flex items-center gap-1">
                           <select
                             className="cyber-input text-xs px-1 py-0.5 rounded flex-1 min-w-0"
                             value={p.status as string}
@@ -2471,7 +2471,7 @@ function SponsorPipelinePanel({ prospects, onRefresh }: { prospects: Record<stri
                             {PROSPECT_STATUSES.map(s => <option key={s.value} value={s.value}>{lang === "en" ? s.en : s.fr}</option>)}
                           </select>
                           <button onClick={() => del(p.id as number)} className="text-xs text-red-500 hover:text-red-400 px-1">✕</button>
-                        </div>
+                        </div>}
                       </div>
                     </div>
                   ))}
@@ -2501,7 +2501,7 @@ const BUDGET_COST_LABELS = [
 
 interface AutoRevenue { label: string; value: number; color: string; }
 
-function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; onRefresh: () => void }) {
+function BudgetPanel({ items, onRefresh, canWrite = true }: { items: Record<string, unknown>[]; onRefresh: () => void; canWrite?: boolean }) {
   const { t } = useAdminT();
   const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
@@ -2596,23 +2596,26 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
               <td className="py-2 px-2 text-right">
                 <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
                   defaultValue={(r.planned as number) || 0}
-                  onBlur={e => update(r.id as number, { planned: parseFloat(e.target.value) || 0 })} />
+                  disabled={!canWrite}
+                  onBlur={e => canWrite && update(r.id as number, { planned: parseFloat(e.target.value) || 0 })} />
               </td>
               <td className="py-2 px-2 text-right">
                 <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
                   defaultValue={(r.actual as number) || 0}
-                  onBlur={e => update(r.id as number, { actual: parseFloat(e.target.value) || 0 })} />
+                  disabled={!canWrite}
+                  onBlur={e => canWrite && update(r.id as number, { actual: parseFloat(e.target.value) || 0 })} />
               </td>
               <td className="py-2 px-2">
                 <select className="cyber-input text-xs px-2 py-1 rounded" value={r.status as string}
-                  onChange={e => update(r.id as number, { status: e.target.value })}>
+                  disabled={!canWrite}
+                  onChange={e => canWrite && update(r.id as number, { status: e.target.value })}>
                   <option value="pending">{t.statusPending}</option>
                   <option value="paid">{t.statusPaid}</option>
                   <option value="cancelled">{t.statusCancelled}</option>
                 </select>
               </td>
               <td className="py-2 px-2">
-                <button onClick={() => del(r.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>
+                {canWrite && <button onClick={() => del(r.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>}
               </td>
             </tr>
           ))}
@@ -2626,10 +2629,10 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
     <div>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-black text-white">{t.budgetTitle}</h1>
-        <div className="flex gap-2">
+        {canWrite && <div className="flex gap-2">
           <button onClick={seedCosts} className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">{t.prefillCosts}</button>
           <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">{t.addLine}</button>
-        </div>
+        </div>}
       </div>
 
       {/* KPI Summary */}
@@ -2700,7 +2703,7 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
         </div>
       )}
 
-      {showForm && (
+      {canWrite && showForm && (
         <div className="cyber-card rounded-xl p-5 mb-6">
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
@@ -2729,7 +2732,7 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
       {!items.length && (
         <div className="text-center py-8">
           <p className="text-gray-600 text-xs mb-3">Aucun élément. Initialisez avec le budget standard EOCON.</p>
-          <button
+          {canWrite && <button
             onClick={async () => {
               const res = await fetch("/api/admin/seed", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "budget" }) });
               if (res.ok) onRefresh();
@@ -2737,7 +2740,7 @@ function BudgetPanel({ items, onRefresh }: { items: Record<string, unknown>[]; o
             className="btn-neon px-4 py-2 rounded text-xs"
           >
             🌱 Initialiser budget EOCON
-          </button>
+          </button>}
         </div>
       )}
       {renderTable(manualRevenues, "Revenus additionnels (manuels)", "#00ff9d")}
@@ -2824,11 +2827,13 @@ function TaskCard({
   onUpdate,
   onDelete,
   showPhase = false,
+  canWrite = true,
 }: {
   t: Record<string, unknown>;
   onUpdate: (id: number, data: Record<string, unknown>) => void;
   onDelete: (id: number) => void;
   showPhase?: boolean;
+  canWrite?: boolean;
 }) {
   const now = new Date();
   const deadline = t.deadline ? new Date(t.deadline as string) : null;
@@ -2841,7 +2846,8 @@ function TaskCard({
         <input
           type="checkbox"
           checked={t.status === "done" || !!t.done}
-          onChange={e => onUpdate(t.id as number, { status: e.target.checked ? "done" : "todo" })}
+          onChange={e => canWrite && onUpdate(t.id as number, { status: e.target.checked ? "done" : "todo" })}
+          disabled={!canWrite}
           className="w-4 h-4 accent-neon-green shrink-0 mt-0.5"
         />
         <div className="flex-1 min-w-0">
@@ -2868,13 +2874,13 @@ function TaskCard({
           </div>
           {!!t.notes && <div className="text-xs text-gray-500 mt-1 italic">{t.notes as string}</div>}
         </div>
-        <button onClick={() => onDelete(t.id as number)} className="text-red-400 text-xs hover:text-red-300 shrink-0">✗</button>
+        {canWrite && <button onClick={() => onDelete(t.id as number)} className="text-red-400 text-xs hover:text-red-300 shrink-0">✗</button>}
       </div>
     </div>
   );
 }
 
-function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]; onRefresh: () => void }) {
+function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<string, unknown>[]; onRefresh: () => void; canWrite?: boolean }) {
   const [activeTab, setActiveTab] = useState<"kanban" | "phase" | "overdue" | "all">("kanban");
   const [activePhase, setActivePhase] = useState<Phase>("J-90");
   const [showForm, setShowForm] = useState(false);
@@ -2940,14 +2946,14 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-black text-white">Logistique</h1>
-        <div className="flex gap-2">
+        {canWrite && <div className="flex gap-2">
           {!tasks.length && (
             <button onClick={seedAll} className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">
               Initialiser toutes les tâches
             </button>
           )}
           <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter tâche</button>
-        </div>
+        </div>}
       </div>
 
       {/* Tabs */}
@@ -2980,7 +2986,7 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
       )}
 
       {/* Add form */}
-      {showForm && (
+      {canWrite && showForm && (
         <div className="cyber-card rounded-xl p-5 mb-6">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <div>
@@ -3067,9 +3073,9 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
                             })()}
                           </div>
                         </div>
-                        <button onClick={() => del(t.id as number)} className="text-red-400 text-xs hover:text-red-300 shrink-0">✗</button>
+                        {canWrite && <button onClick={() => del(t.id as number)} className="text-red-400 text-xs hover:text-red-300 shrink-0">✗</button>}
                       </div>
-                      <div className="flex gap-1 mt-2 justify-end">
+                      {canWrite && <div className="flex gap-1 mt-2 justify-end">
                         <button
                           onClick={() => moveStatus(t, "prev")}
                           disabled={STATUS_COLS.findIndex(c => c.id === t.status) === 0}
@@ -3080,7 +3086,7 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
                           disabled={STATUS_COLS.findIndex(c => c.id === t.status) === STATUS_COLS.length - 1}
                           className="text-xs px-1.5 py-0.5 rounded border border-gray-700 text-gray-400 hover:text-white disabled:opacity-30"
                         >→</button>
-                      </div>
+                      </div>}
                     </div>
                   ))}
                   {colTasks.length === 0 && (
@@ -3123,12 +3129,12 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
               return (
                 <div className="text-center py-8">
                   <p className="text-gray-600 text-xs mb-3">Aucune tâche pour la phase {activePhase}.</p>
-                  <button
+                  {canWrite && <button
                     onClick={() => seedPhase(activePhase)}
                     className="btn-neon px-4 py-2 rounded text-xs"
                   >
                     Initialiser cette phase
-                  </button>
+                  </button>}
                 </div>
               );
             }
@@ -3160,7 +3166,7 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
                         <span className="text-xs text-gray-600">{catTasks.filter(t => t.status === "done" || t.done).length}/{catTasks.length}</span>
                       </div>
                       {catTasks.map(t => (
-                        <TaskCard key={t.id as number} t={t} onUpdate={update} onDelete={del} />
+                        <TaskCard key={t.id as number} t={t} onUpdate={update} onDelete={del} canWrite={canWrite} />
                       ))}
                     </div>
                   ))}
@@ -3199,13 +3205,13 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
                           <span className="text-red-400 font-bold">+{daysLate}j de retard</span>
                         </div>
                       </div>
-                      <button
+                      {canWrite && <button
                         onClick={() => update(t.id as number, { status: "done" })}
                         className="text-xs px-2 py-1 rounded border border-green-700 text-green-400 hover:bg-green-900/20"
                       >
                         Marquer fait
-                      </button>
-                      <button onClick={() => del(t.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>
+                      </button>}
+                      {canWrite && <button onClick={() => del(t.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>}
                     </div>
                   </div>
                 );
@@ -3234,7 +3240,7 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
                     <span className="text-xs text-gray-600">{catDone}/{catTasks.length}</span>
                   </div>
                   {catTasks.map(t => (
-                    <TaskCard key={t.id as number} t={t} onUpdate={update} onDelete={del} showPhase />
+                    <TaskCard key={t.id as number} t={t} onUpdate={update} onDelete={del} showPhase canWrite={canWrite} />
                   ))}
                 </div>
               );
@@ -3243,9 +3249,9 @@ function LogisticsPanel({ tasks, onRefresh }: { tasks: Record<string, unknown>[]
           {!tasks.length && (
             <div className="text-center py-8">
               <p className="text-gray-600 text-xs mb-3">Aucune tâche. Initialisez avec les tâches standard.</p>
-              <button onClick={seedAll} className="btn-neon px-4 py-2 rounded text-xs">
+              {canWrite && <button onClick={seedAll} className="btn-neon px-4 py-2 rounded text-xs">
                 Initialiser tâches logistiques
-              </button>
+              </button>}
             </div>
           )}
         </div>
@@ -3265,7 +3271,7 @@ interface TicketTypeRow {
 
 const TICKET_DEFAULT_FORM = { slug: "", nameFr: "", nameEn: "", priceFr: 0, priceEn: 0, color: "#00ff9d", isFeatured: false, isVisible: true, ctfAccess: false, maxCapacity: 200, sortOrder: 0, perksFrArr: [] as string[], perksEnArr: [] as string[], netticketTicketId: "", stripeProductId: "" };
 
-function TicketsPanel() {
+function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [tickets, setTickets] = useState<TicketTypeRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -3349,10 +3355,10 @@ function TicketsPanel() {
           <h1 className="text-2xl font-black text-white">Billets & Tarifs</h1>
           <p className="text-gray-500 text-xs mt-1">Gérez les types de billets affichés sur le portail d&apos;inscription</p>
         </div>
-        <button onClick={() => setShowCreate(v => !v)} className="btn-neon px-4 py-2 rounded text-xs">+ Créer billet</button>
+        {canWrite && <button onClick={() => setShowCreate(v => !v)} className="btn-neon px-4 py-2 rounded text-xs">+ Créer billet</button>}
       </div>
 
-      {showCreate && (
+      {canWrite && showCreate && (
         <div className="cyber-card rounded-xl p-5 mb-6">
           <h3 className="text-sm font-bold text-neon-green mb-4">Nouveau type de billet</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
@@ -3554,11 +3560,11 @@ function TicketsPanel() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex gap-2 shrink-0">
+                    {canWrite && <div className="flex gap-2 shrink-0">
                       <button onClick={() => toggleVisible(t)} className="text-xs text-gray-500 hover:text-white transition-colors">{t.isVisible ? "Masquer" : "Afficher"}</button>
                       <button onClick={() => startEdit(t)} className="text-xs text-gray-500 hover:text-white transition-colors">Modifier</button>
                       <button onClick={() => del(t.id)} className="text-xs text-red-800 hover:text-red-400 transition-colors">Supprimer</button>
-                    </div>
+                    </div>}
                   </div>
                   <div className="flex items-center gap-3 mb-2">
                     <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
@@ -3735,7 +3741,7 @@ const CERT_TABS = [
   { id: "organizer", label: "Organisateurs", icon: "👥", apiPath: "/api/admin/team", nameField: (r: Record<string,unknown>) => r.name as string, emailField: "email" },
 ] as const;
 
-function CertificatesPanel() {
+function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
   const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState<typeof CERT_TABS[number]["id"]>("participant");
   const [people, setPeople] = useState<Record<string, unknown>[]>([]);
@@ -3833,7 +3839,7 @@ function CertificatesPanel() {
           <h1 className="text-2xl font-black text-white">🎖 Badges & Certificats</h1>
           <p className="text-gray-500 text-xs mt-1">Émettez et suivez les badges par catégorie</p>
         </div>
-        {unreceived > 0 && (
+        {canWrite && unreceived > 0 && (
           <button
             onClick={batchIssue}
             disabled={batchIssuing}
@@ -3908,7 +3914,7 @@ function CertificatesPanel() {
                     🔍
                   </a>
                 )}
-                <button
+                {canWrite && <button
                   onClick={() => issueBadge(p, received ? "resend" : "issue")}
                   disabled={isIssuing}
                   className="shrink-0 text-xs px-3 py-1.5 rounded border transition-all disabled:opacity-50"
@@ -3917,7 +3923,7 @@ function CertificatesPanel() {
                     : { borderColor: "#00ff9d40", color: "#00ff9d", background: "#00ff9d10" }}
                 >
                   {isIssuing ? "…" : received ? "Renvoyer" : "Émettre"}
-                </button>
+                </button>}
               </div>
             );
           })}
@@ -4174,7 +4180,7 @@ const SETTINGS_FIELDS = [
   { key: "url_sponsor", label: "Lien → Sponsor", type: "url", group: "Liens" },
 ] as const;
 
-function EventSettingsPanel() {
+function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -4209,13 +4215,13 @@ function EventSettingsPanel() {
           <h1 className="text-2xl font-black text-white">⚙ Paramètres Événement</h1>
           <p className="text-gray-500 text-xs mt-1">Date, lieu et URLs utilisés sur tout le site et dans les communications</p>
         </div>
-        <button
+        {canWrite && <button
           onClick={save}
           disabled={saving}
           style={{ background: "#00ff9d", color: "#000", border: "none", borderRadius: "6px", padding: "10px 20px", fontWeight: "bold", cursor: "pointer", fontSize: "13px" }}
         >
           {saving ? "Sauvegarde…" : saved ? "✓ Sauvegardé" : "Enregistrer"}
-        </button>
+        </button>}
       </div>
 
       <div className="space-y-6">
@@ -4292,7 +4298,7 @@ function EventSettingsPanel() {
 }
 
 
-function SessionsPanel() {
+function SessionsPanel({ canWrite = true }: { canWrite?: boolean }) {
   const { t } = useAdminT();
   const [sessions, setSessions] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
@@ -4354,18 +4360,18 @@ function SessionsPanel() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-black text-white">{t.sessionsTitle}</h1>
-        <div className="flex gap-2">
+        {canWrite && <div className="flex gap-2">
           <button onClick={seed} disabled={seeding} className="text-xs px-3 py-1.5 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-all disabled:opacity-50">
             {seeding ? "…" : t.initStandard}
           </button>
           <button onClick={() => startEdit(null)} className="text-xs px-3 py-1.5 rounded bg-neon-green/10 text-neon-green border border-neon-green/30 hover:bg-neon-green/20 transition-all">
             + {t.newSession}
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* Edit/create form */}
-      {showForm && (
+      {canWrite && showForm && (
         <div className="cyber-card rounded-xl p-5 mb-6 border border-neon-green/20">
           <h2 className="text-sm font-bold text-neon-green mb-4">{editingId ? t.editSession : t.newSession}</h2>
           <div className="grid sm:grid-cols-2 gap-3 mb-3">
@@ -4452,8 +4458,8 @@ function SessionsPanel() {
                 {!!s.speakerName && <span className="text-xs text-gray-500">{String(s.speakerName)}</span>}
                 <span className="text-xs px-1.5 py-0.5 rounded shrink-0" style={{ color, background: color + "20" }}>{String(s.type)}</span>
                 {!s.isVisible && <span className="text-xs text-gray-600 shrink-0">{t.hidden}</span>}
-                <button onClick={() => startEdit(s)} className="text-xs text-gray-500 hover:text-neon-green transition-colors shrink-0">✎</button>
-                <button onClick={() => del(Number(s.id))} className="text-xs text-gray-600 hover:text-red-400 transition-colors shrink-0">✕</button>
+                {canWrite && <button onClick={() => startEdit(s)} className="text-xs text-gray-500 hover:text-neon-green transition-colors shrink-0">✎</button>}
+                {canWrite && <button onClick={() => del(Number(s.id))} className="text-xs text-gray-600 hover:text-red-400 transition-colors shrink-0">✕</button>}
               </div>
             );
           })}
@@ -4487,7 +4493,7 @@ function levenshtein(a: string, b: string): number {
   return dp[a.length][b.length];
 }
 
-function CTFPanel() {
+function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [subTab, setSubTab] = useState<"config" | "challenges" | "participants" | "emails">("config");
   const [config, setConfig] = useState({ ctfdUrl: "", ctfdApiKey: "", ctfDefaultPassword: "", ctfEnabled: "false" });
   const [configSaving, setConfigSaving] = useState(false);
@@ -4657,9 +4663,9 @@ function CTFPanel() {
               </label>
             </div>
           </div>
-          <button onClick={saveConfig} disabled={configSaving} className="btn-neon px-4 py-2 rounded text-xs">
+          {canWrite && <button onClick={saveConfig} disabled={configSaving} className="btn-neon px-4 py-2 rounded text-xs">
             {configSaving ? "Sauvegarde…" : "Sauvegarder"}
-          </button>
+          </button>}
         </div>
       )}
 
@@ -4679,13 +4685,13 @@ function CTFPanel() {
             <span className="text-xs px-2 py-1 rounded font-mono" style={{ background: "#00ff9d20", color: "#00ff9d" }}>
               ✓ {challenges.filter(c => c.status === "validated" || c.status === "published").length} prêts
             </span>
-            {challenges.length === 0 && (
+            {canWrite && challenges.length === 0 && (
               <button onClick={seedChallenges} className="px-3 py-1 rounded text-xs border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition-colors ml-auto">⚡ Importer les 40 challenges</button>
             )}
-            <button onClick={() => setShowAddForm(v => !v)} className={`btn-neon px-3 py-1 rounded text-xs ${challenges.length === 0 ? "" : "ml-auto"}`}>+ Ajouter challenge</button>
+            {canWrite && <button onClick={() => setShowAddForm(v => !v)} className={`btn-neon px-3 py-1 rounded text-xs ${challenges.length === 0 ? "" : "ml-auto"}`}>+ Ajouter challenge</button>}
           </div>
 
-          {showAddForm && (
+          {canWrite && showAddForm && (
             <div className="cyber-card rounded-xl p-4 mb-5">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                 <div className="md:col-span-2">
@@ -4735,7 +4741,7 @@ function CTFPanel() {
                   </div>
                   <div className="space-y-2 min-h-[80px]">
                     {cards.map(c => (
-                      <div key={c.id as number} draggable onDragStart={() => setDragId(c.id as number)}
+                      <div key={c.id as number} draggable={canWrite} onDragStart={() => canWrite && setDragId(c.id as number)}
                         className="rounded-lg p-2.5 cursor-grab active:cursor-grabbing"
                         style={{ background: (CTF_CATEGORY_COLORS[c.category as string] || "#888") + "15", border: `1px solid ${(CTF_CATEGORY_COLORS[c.category as string] || "#888")}40` }}>
                         <div className="text-xs font-bold text-white mb-1">{c.title as string}</div>
@@ -4745,7 +4751,7 @@ function CTFPanel() {
                           <span className="text-xs text-gray-400 ml-auto">{c.points as number}pts</span>
                         </div>
                         {!!c.author && <div className="text-xs text-gray-600 mt-1">{c.author as string}</div>}
-                        <button onClick={() => deleteChallenge(c.id as number)} className="text-red-800 hover:text-red-400 text-xs mt-1">✗</button>
+                        {canWrite && <button onClick={() => deleteChallenge(c.id as number)} className="text-red-800 hover:text-red-400 text-xs mt-1">✗</button>}
                       </div>
                     ))}
                   </div>
@@ -4762,9 +4768,9 @@ function CTFPanel() {
             <div className="text-xs text-gray-500">{participants.length} participant(s) CTF</div>
             <div className="flex gap-2 items-center">
               {syncResult && <span className={`text-xs ${syncResult.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{syncResult}</span>}
-              <button onClick={syncAll} disabled={syncing} className="btn-neon px-3 py-1.5 rounded text-xs disabled:opacity-50">
+              {canWrite && <button onClick={syncAll} disabled={syncing} className="btn-neon px-3 py-1.5 rounded text-xs disabled:opacity-50">
                 {syncing ? "Sync…" : "⚡ Tout synchroniser sur CTFd"}
-              </button>
+              </button>}
             </div>
           </div>
 
@@ -4776,9 +4782,9 @@ function CTFPanel() {
                   <span className="text-gray-300 font-mono">&quot;{c.team1}&quot;</span>
                   <span className="text-gray-600">≈</span>
                   <span className="text-gray-300 font-mono">&quot;{c.team2}&quot;</span>
-                  <button onClick={() => { setReconcileTeam(c); setReconcileTo(c.team1); }} className="px-2 py-0.5 rounded text-xs border border-yellow-600 text-yellow-400 hover:bg-yellow-900/20">
+                  {canWrite && <button onClick={() => { setReconcileTeam(c); setReconcileTo(c.team1); }} className="px-2 py-0.5 rounded text-xs border border-yellow-600 text-yellow-400 hover:bg-yellow-900/20">
                     Réconcilier
-                  </button>
+                  </button>}
                 </div>
               ))}
             </div>
@@ -4827,7 +4833,7 @@ function CTFPanel() {
                         : <span className="text-gray-600 text-xs">En attente</span>}
                     </td>
                     <td className="py-2 px-3">
-                      {!p.ctfAccountCreated && (
+                      {canWrite && !p.ctfAccountCreated && (
                         <button onClick={() => syncOne(p.id as number)} className="text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">
                           Créer compte
                         </button>
@@ -5032,7 +5038,7 @@ function TransactionsPanel() {
   );
 }
 
-function VideoPanel() {
+function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
   const confirm = useConfirm();
   const [videos, setVideos] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
@@ -5077,10 +5083,10 @@ function VideoPanel() {
           <h1 className="text-2xl font-black text-white">📹 Vidéothèque</h1>
           <p className="text-gray-500 text-xs mt-1">Gérez les vidéos des sessions des éditions passées</p>
         </div>
-        <button onClick={() => { setForm({ isVisible: true, sortOrder: 0, edition: "2025" }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter</button>
+        {canWrite && <button onClick={() => { setForm({ isVisible: true, sortOrder: 0, edition: "2025" }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter</button>}
       </div>
 
-      {showForm && (
+      {canWrite && showForm && (
         <div className="cyber-card rounded-xl p-6 mb-6">
           <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier la vidéo" : "Nouvelle vidéo"}</h3>
           <div className="grid sm:grid-cols-2 gap-3">
@@ -5144,10 +5150,10 @@ function VideoPanel() {
                         {!v.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-500">Masqué</span>}
                       </div>
                     </div>
-                    <div className="flex gap-1 shrink-0">
+                    {canWrite && <div className="flex gap-1 shrink-0">
                       <button onClick={() => { setForm({ ...v }); setEditing(v.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">✏</button>
                       <button onClick={() => del(v.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">✕</button>
-                    </div>
+                    </div>}
                   </div>
                 </div>
               </div>
@@ -5974,7 +5980,7 @@ export default function AdminDashboard() {
         <main className="flex-1 p-6 min-w-0">
 
           {/* PIPELINE — Speakers & Programme unified */}
-          {tab === "pipeline" && <PipelineKanban />}
+          {tab === "pipeline" && <PipelineKanban canWrite={can("cfp")} />}
 
           {/* DASHBOARD */}
           {tab === "dashboard" && (
@@ -6012,10 +6018,10 @@ export default function AdminDashboard() {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-black text-white">{t.sponsorsTitle}</h1>
-                <button onClick={() => { setForm({ isVisible: true, tier: "GOLD", sortOrder: 0 }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">{t.addSponsor}</button>
+                {can("sponsors") && <button onClick={() => { setForm({ isVisible: true, tier: "GOLD", sortOrder: 0 }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">{t.addSponsor}</button>}
               </div>
 
-              {showForm && (
+              {can("sponsors") && showForm && (
                 <div className="cyber-card rounded-xl p-6 mb-6">
                   <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier le Sponsor" : "Nouveau Sponsor"}</h3>
                   <div className="grid sm:grid-cols-2 gap-3">
@@ -6076,8 +6082,8 @@ export default function AdminDashboard() {
                           </div>
                           <div className="flex gap-2 shrink-0">
                             <button onClick={() => setDetail({ type: "sponsor", item: s })} className="text-xs text-gray-400 hover:text-white px-2 py-1 border border-gray-700 rounded">Détails</button>
-                            <button onClick={() => { setForm({ ...s }); setEditing(s.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">Éditer</button>
-                            <button onClick={() => del("/api/admin/sponsors", s.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">Suppr.</button>
+                            {can("sponsors") && <button onClick={() => { setForm({ ...s }); setEditing(s.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">Éditer</button>}
+                            {can("sponsors") && <button onClick={() => del("/api/admin/sponsors", s.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">Suppr.</button>}
                           </div>
                         </div>
                       ))}
@@ -6217,15 +6223,15 @@ export default function AdminDashboard() {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-black text-white">Équipe d&apos;organisation</h1>
-                <button
+                {can("team") && <button
                   onClick={() => { setForm({ isVisible: true, sortOrder: 0 }); setEditing(null); setShowForm(true); }}
                   className="btn-neon px-4 py-2 rounded text-xs"
                 >
                   + Ajouter
-                </button>
+                </button>}
               </div>
 
-              {showForm && (
+              {can("team") && showForm && (
                 <div className="cyber-card rounded-xl p-6 mb-6">
                   <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier le Membre" : "Nouveau Membre"}</h3>
                   <div className="grid sm:grid-cols-2 gap-3">
@@ -6292,10 +6298,10 @@ export default function AdminDashboard() {
                         <p className="text-neon-green/70 text-xs">{m.role as string}</p>
                         {!!(m.bio as string) && <p className="text-gray-500 text-xs mt-0.5 truncate">{m.bio as string}</p>}
                       </div>
-                      <div className="flex gap-2 shrink-0">
+                      {can("team") && <div className="flex gap-2 shrink-0">
                         <button onClick={() => { setForm({ ...m }); setEditing(m.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green transition-colors px-2 py-1 border border-gray-700 rounded">Éditer</button>
                         <button onClick={() => del("/api/admin/team", m.id as number)} className="text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-1 border border-red-900 rounded">Suppr.</button>
-                      </div>
+                      </div>}
                     </div>
                   ))}
                   {!data.team?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucun membre — cliquez sur + Ajouter</p>}
@@ -6309,15 +6315,15 @@ export default function AdminDashboard() {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-black text-white">Anciens Intervenants</h1>
-                <button
+                {can("speakers") && <button
                   onClick={() => { setForm({ isVisible: true, sortOrder: 0, edition: "2024" }); setEditing(null); setShowForm(true); }}
                   className="btn-neon px-4 py-2 rounded text-xs"
                 >
                   + Ajouter
-                </button>
+                </button>}
               </div>
 
-              {showForm && (
+              {can("speakers") && showForm && (
                 <div className="cyber-card rounded-xl p-6 mb-6">
                   <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier l'Intervenant" : "Nouvel Ancien Intervenant"}</h3>
                   <div className="grid sm:grid-cols-2 gap-3">
@@ -6386,10 +6392,10 @@ export default function AdminDashboard() {
                           {(ps.country as string) ? ` · ${ps.country}` : ""}
                         </p>
                       </div>
-                      <div className="flex gap-2 shrink-0">
+                      {can("speakers") && <div className="flex gap-2 shrink-0">
                         <button onClick={() => { setForm({ ...ps }); setEditing(ps.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green transition-colors px-2 py-1 border border-gray-700 rounded">Éditer</button>
                         <button onClick={() => del("/api/admin/past-speakers", ps.id as number)} className="text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-1 border border-red-900 rounded">Suppr.</button>
-                      </div>
+                      </div>}
                     </div>
                   ))}
                   {!data["past-speakers"]?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucun ancien intervenant — cliquez sur + Ajouter</p>}
@@ -6398,28 +6404,29 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {tab === "users" && <AdminUsersPanel />}
+          {tab === "users" && <AdminUsersPanel canWrite={can("users")} />}
           {tab === "profiles" && <AdminProfilesPanel />}
 
           {tab === "pilotage" && <PilotagePanel canWrite={can("pilotage")} />}
-          {tab === "settings" && <EventSettingsPanel />}
+          {tab === "settings" && <EventSettingsPanel canWrite={can("settings")} />}
 
           {/* COMMUNICATION */}
           {tab === "communication" && (
-            <CommunicationPanel />
+            <CommunicationPanel canWrite={can("communication")} />
           )}
 
           {/* LIBRARY */}
-          {tab === "library" && <LibraryPanel />}
+          {tab === "library" && <LibraryPanel canWrite={can("library")} />}
 
           {/* CYBER WATCH */}
-          {tab === "cyber-watch" && <CyberWatchPanel />}
+          {tab === "cyber-watch" && <CyberWatchPanel canWrite={can("cyber-watch")} />}
 
           {/* SPONSOR PIPELINE */}
           {tab === "sponsor-pipeline" && (
             <SponsorPipelinePanel
               prospects={(data["sponsor-pipeline"] || []) as Record<string, unknown>[]}
               onRefresh={() => fetchData("sponsor-pipeline")}
+              canWrite={can("sponsor-pipeline")}
             />
           )}
 
@@ -6433,6 +6440,7 @@ export default function AdminDashboard() {
             <ProspectionPanel
               leads={(data.prospection || []) as Record<string, unknown>[]}
               onRefresh={() => fetchData("prospection")}
+              canWrite={can("prospection")}
             />
           )}
 
@@ -6441,6 +6449,7 @@ export default function AdminDashboard() {
             <BudgetPanel
               items={(data.budget || []) as Record<string, unknown>[]}
               onRefresh={() => fetchData("budget")}
+              canWrite={can("budget")}
             />
           )}
 
@@ -6449,25 +6458,29 @@ export default function AdminDashboard() {
             <LogisticsPanel
               tasks={(data.logistics || []) as Record<string, unknown>[]}
               onRefresh={() => fetchData("logistics")}
+              canWrite={can("logistics")}
             />
           )}
 
           {/* CTF */}
-          {tab === "ctf" && <CTFPanel />}
+          {tab === "ctf" && <CTFPanel canWrite={can("ctf")} />}
 
           {/* TICKETS */}
-          {tab === "tickets" && <TicketsPanel />}
+          {tab === "tickets" && <TicketsPanel canWrite={can("tickets")} />}
 
           {/* CERTIFICATES */}
           {tab === "certificates" && (
-            <CertificatesPanel />
+            <CertificatesPanel canWrite={can("certificates")} />
           )}
 
+          {/* SESSIONS */}
+          {tab === "sessions" && <SessionsPanel canWrite={can("sessions")} />}
+
           {/* TRANSACTIONS */}
-          {tab === "transactions" && <TransactionsPanel />}
+          {tab === "transactions" && <TransactionsPanel canWrite={can("transactions")} />}
 
           {/* VIDEO */}
-          {tab === "video" && <VideoPanel />}
+          {tab === "video" && <VideoPanel canWrite={can("video")} />}
 
           {/* AUDIT LOG — super_admin only */}
           {tab === "audit" && <AuditPanel />}

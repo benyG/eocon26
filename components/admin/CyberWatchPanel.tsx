@@ -31,7 +31,7 @@ interface WatchItem {
 const SCORE_COLOR = (s: number) =>
   s >= 0.8 ? "#00ff9d" : s >= 0.65 ? "#ffaa00" : "#ff0066";
 
-export default function CyberWatchPanel() {
+export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolean } = {}) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [items, setItems] = useState<WatchItem[]>([]);
   const [loadingSettings, setLoadingSettings] = useState(true);
@@ -144,12 +144,12 @@ export default function CyberWatchPanel() {
         {/* Master toggle */}
         <div className="flex items-center gap-3">
           <span className="text-xs font-mono text-gray-500">Veille</span>
-          <button
+          {canWrite ? <button
             onClick={() => saveSettings({ enabled: !settings.enabled })}
             className={`relative w-12 h-6 rounded-full transition-colors ${settings.enabled ? "bg-neon-green" : "bg-gray-800"}`}
           >
             <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-black transition-transform ${settings.enabled ? "translate-x-6" : ""}`} />
-          </button>
+          </button> : <span className="text-xs font-mono font-bold" style={{ color: settings.enabled ? "#00ff9d" : "#666" }}>{settings.enabled ? "ON" : "OFF"}</span>}
           <span className={`text-xs font-mono font-bold ${settings.enabled ? "text-neon-green" : "text-gray-600"}`}>
             {settings.enabled ? "ON" : "OFF"}
           </span>
@@ -177,13 +177,13 @@ export default function CyberWatchPanel() {
         <div>
           {/* Fetch button */}
           <div className="flex items-center gap-3 mb-6">
-            <button
+            {canWrite && <button
               onClick={triggerFetch}
               disabled={fetching || !settings.enabled}
               className="text-xs px-4 py-2 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono transition-colors disabled:opacity-40"
             >
               {fetching ? "⏳ Récupération en cours…" : "🔄 Récupérer maintenant"}
-            </button>
+            </button>}
             {fetchResult && (
               <span className="text-xs text-gray-500 font-mono">
                 {fetchResult.fetched} articles analysés · <span className="text-neon-green">{fetchResult.saved} nouvelles propositions</span>
@@ -241,17 +241,17 @@ export default function CyberWatchPanel() {
                       </a>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button
+                      {canWrite && <button
                         onClick={() => handleDelete(item.id)}
                         disabled={savingId === item.id}
                         className="w-7 h-7 rounded text-gray-600 hover:text-red-400 hover:bg-red-400/10 transition-colors flex items-center justify-center text-sm"
                         title="Supprimer"
-                      >✕</button>
+                      >✕</button>}
                     </div>
                   </div>
 
                   {/* Draft tabs (FR / EN) */}
-                  {editId === item.id ? (
+                  {canWrite && editId === item.id ? (
                     <div className="space-y-3">
                       <div>
                         <label className="text-xs text-gray-500 font-mono uppercase tracking-wider block mb-1">Brouillon FR</label>
@@ -297,7 +297,7 @@ export default function CyberWatchPanel() {
                         </span>
                       </div>
                       {/* Actions */}
-                      <div className="flex gap-2 pt-2">
+                      {canWrite && <div className="flex gap-2 pt-2">
                         <button
                           onClick={() => handleAction(item.id, "approved")}
                           disabled={savingId === item.id}
@@ -318,7 +318,7 @@ export default function CyberWatchPanel() {
                         >
                           Rejeter
                         </button>
-                      </div>
+                      </div>}
                     </div>
                   )}
                 </div>
@@ -345,12 +345,12 @@ export default function CyberWatchPanel() {
                     Désactivée : l&apos;IA choisit et planifie automatiquement.
                   </p>
                 </div>
-                <button
+                {canWrite ? <button
                   onClick={() => saveSettings({ moderation: !settings.moderation })}
                   className={`relative w-12 h-6 rounded-full transition-colors ${settings.moderation ? "bg-neon-green" : "bg-yellow-500"}`}
                 >
                   <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-black transition-transform ${settings.moderation ? "translate-x-6" : ""}`} />
-                </button>
+                </button> : <span className="text-xs text-gray-600 font-mono">{settings.moderation ? "ON" : "OFF"}</span>}
               </div>
 
               {/* Daily count */}
@@ -361,7 +361,8 @@ export default function CyberWatchPanel() {
                 </div>
                 <input
                   type="range" min={1} max={5} value={settings.dailyCount}
-                  onChange={e => saveSettings({ dailyCount: Number(e.target.value) })}
+                  disabled={!canWrite}
+                  onChange={e => canWrite && saveSettings({ dailyCount: Number(e.target.value) })}
                   className="w-full accent-[#00ff9d]"
                 />
                 <div className="flex justify-between text-xs text-gray-600 font-mono mt-1">
@@ -376,7 +377,8 @@ export default function CyberWatchPanel() {
                   {["linkedin", "twitter"].map(ch => (
                     <button
                       key={ch}
-                      onClick={() => toggleChannel(ch)}
+                      onClick={() => canWrite && toggleChannel(ch)}
+                      disabled={!canWrite}
                       className={`text-xs px-4 py-2 rounded border font-mono transition-colors capitalize ${settings.channels.includes(ch) ? "border-neon-green/40 text-neon-green bg-neon-green/10" : "border-gray-700 text-gray-500 hover:text-gray-300"}`}
                     >
                       {ch === "linkedin" ? "💼 LinkedIn" : "𝕏 Twitter/X"}
@@ -392,9 +394,9 @@ export default function CyberWatchPanel() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xs text-gray-500 uppercase tracking-wider font-mono">Sources RSS</h3>
               <div className="flex gap-2">
-                <button onClick={() => saveSettings({ activeSources: RSS_FEEDS.map(f => f.id) })} className="text-xs text-neon-green/70 hover:text-neon-green font-mono">Tout activer</button>
-                <span className="text-gray-700">·</span>
-                <button onClick={() => saveSettings({ activeSources: [] })} className="text-xs text-gray-600 hover:text-gray-400 font-mono">Tout désactiver</button>
+                {canWrite && <button onClick={() => saveSettings({ activeSources: RSS_FEEDS.map(f => f.id) })} className="text-xs text-neon-green/70 hover:text-neon-green font-mono">Tout activer</button>}
+                {canWrite && <span className="text-gray-700">·</span>}
+                {canWrite && <button onClick={() => saveSettings({ activeSources: [] })} className="text-xs text-gray-600 hover:text-gray-400 font-mono">Tout désactiver</button>}
               </div>
             </div>
             <div className="space-y-5">
@@ -409,7 +411,8 @@ export default function CyberWatchPanel() {
                       return (
                         <button
                           key={feed.id}
-                          onClick={() => toggleSource(feed.id)}
+                          onClick={() => canWrite && toggleSource(feed.id)}
+                          disabled={!canWrite}
                           className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${active ? "border-gray-700 bg-gray-900/50" : "border-gray-800/50 opacity-40"}`}
                         >
                           <div className={`w-2 h-2 rounded-full shrink-0 ${active ? "bg-neon-green" : "bg-gray-700"}`} />

@@ -88,7 +88,7 @@ interface WorkshopRecord {
 
 type ActiveView = "pipeline" | "speakers" | "programme" | "workshops";
 
-export default function PipelineKanban() {
+export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean } = {}) {
   const confirm = useConfirm();
   const [view, setView] = useState<ActiveView>("pipeline");
   const [cards, setCards] = useState<CFPCard[]>([]);
@@ -517,7 +517,7 @@ export default function PipelineKanban() {
           <div className="border-t border-gray-800 pt-4">
             <p className="text-gray-600 text-xs uppercase tracking-wider mb-3">Faire avancer dans le pipeline</p>
             <div className="flex flex-wrap gap-2">
-              {STAGES.filter(s => s.key !== selectedCard.pipelineStage).map(s => (
+              {canWrite && STAGES.filter(s => s.key !== selectedCard.pipelineStage).map(s => (
                 <button
                   key={s.key}
                   onClick={() => moveStage(selectedCard.id, s.key)}
@@ -527,7 +527,7 @@ export default function PipelineKanban() {
                   → {s.label}
                 </button>
               ))}
-              {selectedCard.status !== "rejected" && (
+              {canWrite && selectedCard.status !== "rejected" && (
                 <button
                   onClick={async () => { if (await confirm({ message: `Rejeter la soumission de ${selectedCard.name} ?`, danger: true, confirmLabel: "Rejeter" })) rejectCFP(selectedCard.id); }}
                   className="text-xs px-3 py-1.5 rounded transition-all"
@@ -556,7 +556,7 @@ export default function PipelineKanban() {
               {rejected.map(c => (
                 <div key={c.id} className="flex items-center gap-3 py-1 border-b border-gray-800/50">
                   <span className="text-gray-600 text-xs flex-1">{c.name} — {c.talkTitle}</span>
-                  <button onClick={() => moveStage(c.id, "submitted")} className="text-xs text-gray-700 hover:text-gray-400">↩ Réintégrer</button>
+                  {canWrite && <button onClick={() => moveStage(c.id, "submitted")} className="text-xs text-gray-700 hover:text-gray-400">↩ Réintégrer</button>}
                 </div>
               ))}
             </div>
@@ -568,13 +568,13 @@ export default function PipelineKanban() {
       {view === "speakers" && (
         <div className="space-y-3">
           <div className="flex justify-end">
-            <button
+            {canWrite && <button
               onClick={async () => {
                 const res = await fetch("/api/admin/speakers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "Nouveau Speaker", title: "Expert", bio: "", edition: "2026", isVisible: false, sortOrder: 999 }) });
                 if (res.ok) { const s = await res.json(); setSpeakers(prev => [s, ...prev]); setEditSpeaker(s); }
               }}
               className="btn-neon px-4 py-2 rounded text-xs"
-            >+ Ajouter Speaker</button>
+            >+ Ajouter Speaker</button>}
           </div>
 
           {speakers.map(sp => (
@@ -610,14 +610,14 @@ export default function PipelineKanban() {
                   </span>
                 )}
               </div>
-              <button onClick={() => setEditSpeaker(editSpeaker?.id === sp.id ? null : sp)} className="text-xs px-3 py-1.5 rounded shrink-0" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>
+              {canWrite && <button onClick={() => setEditSpeaker(editSpeaker?.id === sp.id ? null : sp)} className="text-xs px-3 py-1.5 rounded shrink-0" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>
                 {editSpeaker?.id === sp.id ? "Fermer" : "Éditer"}
-              </button>
+              </button>}
             </div>
           ))}
 
           {/* Speaker edit form */}
-          {editSpeaker && (
+          {canWrite && editSpeaker && (
             <div className="cyber-card rounded-xl p-5 border-neon-green/30">
               <h3 className="text-white font-bold mb-4 text-sm">Édition — {editSpeaker.name}</h3>
 
@@ -735,8 +735,8 @@ export default function PipelineKanban() {
                 </div>
               </div>
               <div className="flex gap-2 mt-4">
-                <button onClick={() => saveSpeaker(editSpeaker)} className="btn-neon px-4 py-2 rounded text-xs">💾 Sauvegarder</button>
-                <button onClick={async () => { if (await confirm({ message: `Supprimer ${editSpeaker.name} ?`, danger: true, confirmLabel: "Supprimer" })) { await fetch(`/api/admin/speakers/${editSpeaker.id}`, { method: "DELETE" }); setSpeakers(prev => prev.filter(s => s.id !== editSpeaker.id)); setEditSpeaker(null); } }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>Supprimer</button>
+                {canWrite && <button onClick={() => saveSpeaker(editSpeaker)} className="btn-neon px-4 py-2 rounded text-xs">💾 Sauvegarder</button>}
+                {canWrite && <button onClick={async () => { if (await confirm({ message: `Supprimer ${editSpeaker.name} ?`, danger: true, confirmLabel: "Supprimer" })) { await fetch(`/api/admin/speakers/${editSpeaker.id}`, { method: "DELETE" }); setSpeakers(prev => prev.filter(s => s.id !== editSpeaker.id)); setEditSpeaker(null); } }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>Supprimer</button>}
                 <button onClick={() => setEditSpeaker(null)} className="text-xs text-gray-500 px-3 py-2">Annuler</button>
               </div>
             </div>
@@ -762,9 +762,9 @@ export default function PipelineKanban() {
             {planStartDate && planDays.length === 7 && (
               <span className="text-xs text-gray-500">{fmtDate(planDays[0])} → {fmtDate(planDays[6])}</span>
             )}
-            <button onClick={seedSessions} disabled={seeding} className="ml-auto text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-gray-200 disabled:opacity-50">
+            {canWrite && <button onClick={seedSessions} disabled={seeding} className="ml-auto text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-gray-200 disabled:opacity-50">
               {seeding ? "…" : "⚙ Seed sessions"}
-            </button>
+            </button>}
           </div>
 
           {/* Backlog */}
@@ -780,8 +780,8 @@ export default function PipelineKanban() {
                 {cards.filter(c => c.pipelineStage === "confirmed" && !sessions.some(s => s.speakerId && s.speakerId === c.speakerId)).map(card => (
                   <div
                     key={`cfp-${card.id}`}
-                    draggable
-                    onDragStart={() => setDragItem({ type: "cfp", id: card.id, title: card.talkTitle, name: card.name })}
+                    draggable={canWrite}
+                    onDragStart={() => canWrite && setDragItem({ type: "cfp", id: card.id, title: card.talkTitle, name: card.name })}
                     onDragEnd={() => setDragItem(null)}
                     className="border border-neon-green/40 rounded-lg px-3 py-2 cursor-grab hover:border-neon-green/80 transition-all select-none"
                     style={{ background: "#00ff9d08", maxWidth: 200 }}
@@ -794,8 +794,8 @@ export default function PipelineKanban() {
                 {sessions.filter(s => !s.date).map(sess => (
                   <div
                     key={`sess-${sess.id}`}
-                    draggable
-                    onDragStart={() => setDragItem({ type: "session", id: sess.id, title: sess.title })}
+                    draggable={canWrite}
+                    onDragStart={() => canWrite && setDragItem({ type: "session", id: sess.id, title: sess.title })}
                     onDragEnd={() => setDragItem(null)}
                     className="border border-gray-700 rounded-lg px-3 py-2 cursor-grab hover:border-gray-500 transition-all select-none"
                     style={{ maxWidth: 200 }}
@@ -854,10 +854,10 @@ export default function PipelineKanban() {
                                 {sess.speakerName && <p className="text-gray-500 text-xs truncate">{sess.speakerName}</p>}
                               </div>
                               <div className="flex flex-col gap-0.5 shrink-0">
-                                <button onClick={() => toggleSessionVisible(sess)} title={sess.isVisible ? "Masquer" : "Publier"} className="text-xs leading-none p-0.5 hover:bg-white/10 rounded">
+                                {canWrite && <button onClick={() => toggleSessionVisible(sess)} title={sess.isVisible ? "Masquer" : "Publier"} className="text-xs leading-none p-0.5 hover:bg-white/10 rounded">
                                   {sess.isVisible ? "👁" : "🙈"}
-                                </button>
-                                <button onClick={() => unscheduleSession(sess)} title="Retirer" className="text-xs leading-none p-0.5 hover:bg-red-900/30 rounded text-gray-600 hover:text-red-400">✕</button>
+                                </button>}
+                                {canWrite && <button onClick={() => unscheduleSession(sess)} title="Retirer" className="text-xs leading-none p-0.5 hover:bg-red-900/30 rounded text-gray-600 hover:text-red-400">✕</button>}
                               </div>
                             </div>
                           </div>
@@ -889,7 +889,7 @@ export default function PipelineKanban() {
                   <input type="time" value={dropTime} onChange={e => setDropTime(e.target.value)} className="cyber-input w-full text-sm rounded px-3 py-2 text-white" />
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={confirmDrop} className="btn-neon px-4 py-2 rounded text-xs flex-1">✓ Confirmer</button>
+                  {canWrite && <button onClick={confirmDrop} className="btn-neon px-4 py-2 rounded text-xs flex-1">✓ Confirmer</button>}
                   <button onClick={() => { setPendingDrop(null); setDropTime("09:00"); }} className="text-gray-500 text-xs px-3 py-2 hover:text-gray-300">Annuler</button>
                 </div>
               </div>

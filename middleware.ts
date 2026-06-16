@@ -1,5 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// ── Blanket per-IP rate limit for all /api routes ─────────────────────────────
+// Defense-in-depth on top of the stricter per-route limiters. In-memory and
+// per-instance — meant to absorb abusive bursts, not act as a precise quota.
+const RL_WINDOW_MS = 60_000;
+const RL_MAX = 240;
+const rlStore = new Map<string, { count: number; resetAt: number }>();
+
+function clientIp(req: NextRequest): string {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+    req.headers.get("x-real-ip") ||
+    "unknown"
+  );
+}
+
+function rateLimited(req: NextRequest): boolean {
+  const ip = clientIp(req);
+  const now = Date.now();
+  const e = rlStore.get(ip);
+  if (!e || now > e.resetAt) {
+    rlStore.set(ip, { count: 1, resetAt: now + RL_WINDOW_MS });
+  } else if (e.count >= RL_MAX) {
+    return true;
+  } else {
+    e.count++;
+  }
+  if (rlStore.size > 20000) {
+    for (const [k, v] of rlStore) if (now > v.resetAt) rlStore.delete(k);
+  }
+  return false;
+}
+
 // ── Verify legacy shared-password token (HMAC over ADMIN_PASSWORD + daily nonce) ──
 async function isValidAdminToken(token: string): Promise<boolean> {
   const SECRET = process.env.ADMIN_SECRET;
@@ -59,6 +91,14 @@ async function isValidUserToken(cookie: string): Promise<boolean> {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Blanket rate limit for every API route.
+  if (pathname.startsWith("/api/") && rateLimited(req)) {
+    return NextResponse.json(
+      { error: "Trop de requêtes, réessayez dans un instant." },
+      { status: 429, headers: { "Retry-After": "60" } },
+    );
+  }
+
   const isAdminPage   = pathname.startsWith("/admin") && !pathname.startsWith("/admin/login");
   const isAdminApi    = pathname.startsWith("/api/admin") &&
     pathname !== "/api/admin/login" &&
@@ -88,5 +128,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*", "/checkin/:path*", "/checkin"],
+  matcher: ["/admin/:path*", "/api/:path*", "/checkin/:path*", "/checkin"],
 };

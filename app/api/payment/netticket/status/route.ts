@@ -3,10 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { checkPayment, isNetticketConfigured } from "@/lib/netticket";
 import { finalizeRegistrationPaid } from "@/lib/payment";
+import { rateLimit, getIp } from "@/lib/rateLimit";
 
 // GET /api/payment/netticket/status?registrationId=123
 // Polled by the registration modal while a Mobile Money payment is pending.
 export async function GET(req: NextRequest) {
+  // Generous limit: legitimate polling is ~1 req / 4s during a payment.
+  if (!rateLimit(`paystatus:${getIp(req)}`, 150, 10 * 60 * 1000)) {
+    return NextResponse.json({ state: "pending" }, { status: 429 });
+  }
   try {
     const registrationId = Number(req.nextUrl.searchParams.get("registrationId"));
     if (!registrationId) {

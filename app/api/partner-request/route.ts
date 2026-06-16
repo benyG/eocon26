@@ -1,19 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { rateLimit, getIp } from "@/lib/rateLimit";
+import { cleanText, cleanOptional, cleanEmail, cleanPhone } from "@/lib/sanitize";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const { org, contact, email, phone, package: pkg, message } = await req.json();
-  if (!org?.trim()) return NextResponse.json({ error: "Organisation requise" }, { status: 400 });
+  if (!rateLimit(`partner:${getIp(req)}`, 8, 60 * 60 * 1000)) {
+    return NextResponse.json({ error: "Trop de requêtes, réessayez plus tard." }, { status: 429 });
+  }
+  const body = await req.json();
+  const org = cleanText(body.org, 200);
+  if (!org) return NextResponse.json({ error: "Organisation requise" }, { status: 400 });
   const prospect = await prisma.sponsorProspect.create({
     data: {
-      org: org.trim(),
-      contact: contact || null,
-      email: email || null,
-      phone: phone || null,
-      package: pkg || null,
-      notes: message || null,
+      org,
+      contact: cleanOptional(body.contact, 120),
+      email: cleanEmail(body.email),
+      phone: cleanPhone(body.phone),
+      package: cleanOptional(body.package, 60),
+      notes: cleanOptional(body.message, 2000),
       status: "demande",
     },
   });

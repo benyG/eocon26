@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { uploadToGCS } from "@/lib/gcs";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { rateLimit, getIp } from "@/lib/rateLimit";
 
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"];
 const ALLOWED_EXT = ["jpg", "jpeg", "png", "webp", "gif", "svg"];
@@ -10,6 +11,9 @@ const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
 export async function POST(req: NextRequest) {
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!rateLimit(`upload:${getIp(req)}`, 40, 10 * 60 * 1000)) {
+    return NextResponse.json({ error: "Trop d'uploads, réessayez plus tard." }, { status: 429 });
   }
 
   const formData = await req.formData();

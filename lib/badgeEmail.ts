@@ -10,7 +10,7 @@ export async function sendBadgeEmail(opts: {
   credentialJson: string;
 }) {
   const { to, recipientName, badgeType, subtype, uuid } = opts;
-  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com";
+  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eyesopensecurity.com";
   const verifyUrl = `${baseUrl}/verify/${uuid}`;
   const downloadUrl = `${baseUrl}/api/verify/${uuid}/download`;
   const pdfUrl = `${baseUrl}/api/verify/${uuid}/pdf`;

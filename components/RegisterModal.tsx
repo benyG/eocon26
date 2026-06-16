@@ -47,8 +47,12 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
   const [registrationId, setRegistrationId] = useState<number | null>(null);
   const [paymentToken, setPaymentToken] = useState("");
   const [amount, setAmount] = useState(0);
-  const [payMethod, setPayMethod] = useState<"momo" | "card">("momo");
   const [operator, setOperator] = useState<"mtn" | "orange">("mtn");
+  // Currency / payment mode — strictly geo-driven (XAF→Mobile Money, USD→Stripe).
+  // A QA selector may allow manual override when PAYMENT_ALLOW_CURRENCY_SELECTOR is set.
+  const [currency, setCurrency] = useState<"XAF" | "USD">("XAF");
+  const [allowSelector, setAllowSelector] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [payPhone, setPayPhone] = useState("");
   const [payState, setPayState] = useState<"idle" | "processing" | "awaiting" | "failed">("idle");
   const [payError, setPayError] = useState("");
@@ -65,6 +69,18 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
       .then(r => r.json())
       .then(data => { setTicketTypes(data); setLoadingTypes(false); })
       .catch(() => setLoadingTypes(false));
+  }, []);
+
+  // Resolve the visitor's currency from geo (Cloudflare). XAF = Cameroon (Mobile
+  // Money), USD = everyone else (Stripe). The selector is only shown for QA.
+  useEffect(() => {
+    fetch("/api/geo")
+      .then(r => r.json())
+      .then((d: { currency?: string; allowSelector?: boolean }) => {
+        setCurrency(d.currency === "USD" ? "USD" : "XAF");
+        setAllowSelector(!!d.allowSelector);
+      })
+      .catch(() => {});
   }, []);
 
   // Cleanup any in-flight polling on unmount.
@@ -173,11 +189,40 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
     }
   };
 
-  const formatPrice = (ticket: TicketTypeData) => {
-    const price = ticket.activePriceFr;
-    if (price === 0) return lang === "fr" ? "Gratuit" : "Free";
-    return `${price.toLocaleString("fr-FR")} XAF`;
+  // Redirect to Stripe Checkout (USD / card). No card data touches our app.
+  const handleStripe = async () => {
+    if (!registrationId) return;
+    setRedirecting(true);
+    setPayError("");
+    try {
+      const res = await fetch("/api/payment/stripe/create-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registrationId, token: paymentToken }),
+      });
+      const data = await res.json();
+      if (data.alreadyPaid) { setSuccessMsg(pay.success); setSubmitted(true); return; }
+      if (!res.ok || !data.url) { setRedirecting(false); setPayError(pay.card_unavailable); return; }
+      window.location.href = data.url;
+    } catch {
+      setRedirecting(false);
+      setPayError(pay.card_unavailable);
+    }
   };
+
+  const fmtMoney = (v: number) =>
+    currency === "XAF" ? `${v.toLocaleString("fr-FR")} XAF` : `$${v.toLocaleString("en-US")}`;
+
+  const formatPrice = (ticket: TicketTypeData) => {
+    const price = currency === "XAF" ? ticket.activePriceFr : ticket.activePriceEn;
+    if (price === 0) return lang === "fr" ? "Gratuit" : "Free";
+    return fmtMoney(price);
+  };
+
+  // Display amount in the active currency (XAF from priceFr, USD from priceEn).
+  const displayAmount = currency === "XAF"
+    ? (selectedTicket?.activePriceFr ?? amount)
+    : (selectedTicket?.activePriceEn ?? 0);
 
   const getName = (t: TicketTypeData) => lang === "fr" ? t.nameFr : t.nameEn;
   const getPerks = (t: TicketTypeData) => lang === "fr" ? t.perksFr : t.perksEn;
@@ -424,37 +469,42 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
               <h3 className="text-white font-bold text-xl mb-1">{pay.title}</h3>
               <p className="text-gray-500 text-sm mb-6">{pay.subtitle}</p>
 
+              {/* QA-only currency selector (PAYMENT_ALLOW_CURRENCY_SELECTOR) */}
+              {allowSelector && (
+                <div className="mb-4">
+                  <label className="block text-xs text-gray-500 mb-2 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{pay.currency_label}</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setCurrency("XAF")}
+                      className="py-2.5 rounded-lg border text-sm font-bold transition-all"
+                      style={currency === "XAF"
+                        ? { borderColor: "#00ff9d", background: "#00ff9d15", color: "#00ff9d" }
+                        : { borderColor: "#ffffff15", color: "#888" }}
+                    >
+                      🇨🇲 XAF · Mobile Money
+                    </button>
+                    <button
+                      onClick={() => setCurrency("USD")}
+                      className="py-2.5 rounded-lg border text-sm font-bold transition-all"
+                      style={currency === "USD"
+                        ? { borderColor: "#00ccff", background: "#00ccff15", color: "#00ccff" }
+                        : { borderColor: "#ffffff15", color: "#888" }}
+                    >
+                      🌍 USD · Card
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Amount */}
               <div className="p-4 rounded-lg border mb-6 flex items-center justify-between" style={{ background: "#00ff9d08", borderColor: "#00ff9d33" }}>
                 <span className="text-xs text-gray-400 font-mono uppercase" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{pay.amount}</span>
                 <span className="text-2xl font-black" style={{ color: "#00ff9d", fontFamily: "'Share Tech Mono', monospace" }}>
-                  {amount.toLocaleString("fr-FR")} XAF
+                  {fmtMoney(displayAmount)}
                 </span>
               </div>
 
-              {/* Method tabs */}
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <button
-                  onClick={() => setPayMethod("momo")}
-                  className="py-3 rounded-lg border text-sm font-bold transition-all"
-                  style={payMethod === "momo"
-                    ? { borderColor: "#00ff9d", background: "#00ff9d15", color: "#00ff9d" }
-                    : { borderColor: "#ffffff15", color: "#888" }}
-                >
-                  📱 {pay.mobile_money}
-                </button>
-                <button
-                  onClick={() => setPayMethod("card")}
-                  className="py-3 rounded-lg border text-sm font-bold transition-all"
-                  style={payMethod === "card"
-                    ? { borderColor: "#00ccff", background: "#00ccff15", color: "#00ccff" }
-                    : { borderColor: "#ffffff15", color: "#888" }}
-                >
-                  💳 {pay.card}
-                </button>
-              </div>
-
-              {payMethod === "momo" ? (
+              {currency === "XAF" ? (
                 <div className="space-y-4">
                   {/* Operator */}
                   <div>
@@ -525,14 +575,21 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                   >
                     {payState === "processing" ? pay.processing
                       : payState === "awaiting" ? pay.awaiting
-                      : `${pay.pay} — ${amount.toLocaleString("fr-FR")} XAF`}
+                      : `${pay.pay} — ${fmtMoney(displayAmount)}`}
                   </button>
                 </div>
               ) : (
-                /* Card — placeholder (future Stripe) */
-                <div className="text-center py-10 px-6 rounded-lg border border-dashed" style={{ borderColor: "#00ccff33", background: "#00ccff05" }}>
-                  <div className="text-4xl mb-3">💳</div>
-                  <p className="text-gray-400 text-sm font-mono">{pay.card_soon}</p>
+                /* Card — Stripe Checkout (hosted; no card data stored by us) */
+                <div className="space-y-4">
+                  <p className="text-xs text-gray-500 leading-relaxed">{pay.card_notice}</p>
+                  {payError && <p className="text-red-400 text-xs font-mono">{payError}</p>}
+                  <button
+                    onClick={handleStripe}
+                    disabled={redirecting || displayAmount <= 0}
+                    className="w-full btn-neon-solid py-3 rounded text-sm border-2 border-neon-green disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {redirecting ? pay.redirecting : `💳 ${pay.pay_card} — ${fmtMoney(displayAmount)}`}
+                  </button>
                 </div>
               )}
             </div>

@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
             <p style="margin:0 0 8px"><span style="color:#00ff9d">Mot de passe temporaire :</span> <strong style="color:#ffffff;font-size:18px">${esc(tempPassword)}</strong></p>
             <p style="margin:0;color:#888;font-size:12px">Vous devrez changer ce mot de passe lors de votre première connexion.</p>
           </div>
-          <p><a href="${process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com"}/admin/login" style="color:#00ff9d">Accéder à l'espace admin →</a></p>
+          <p><a href="${process.env.NEXT_PUBLIC_URL || "https://eyesopensecurity.com"}/admin/login" style="color:#00ff9d">Accéder à l'espace admin →</a></p>
           <hr style="border-color:#222;margin:24px 0"/>
           <p style="color:#555;font-size:12px">EOCON 2026 · EyesOpen Association</p>
         </div>`,

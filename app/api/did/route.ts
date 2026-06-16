@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com";
+  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eyesopensecurity.com";
   const publicKeyB64 = process.env.BADGE_PUBLIC_KEY || "";
   // Decode PEM to get the raw key bytes for the DID document
   const pem = publicKeyB64.startsWith("-----") ? publicKeyB64 : Buffer.from(publicKeyB64, "base64").toString("utf-8");

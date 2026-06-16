@@ -89,7 +89,7 @@ function buildEventICS(isFr: boolean): Buffer {
     "X-WR-CALNAME:EOCON 2026",
     "X-WR-TIMEZONE:Africa/Douala",
     "BEGIN:VEVENT",
-    `UID:eocon2026-main@eocon.eyesopensecurity.com`,
+    `UID:eocon2026-main@eyesopensecurity.com`,
     `DTSTAMP:${new Date().toISOString().replace(/[-:.]/g, "").slice(0, 15)}Z`,
     "DTSTART;TZID=Africa/Douala:20261128T080000",
     "DTEND;TZID=Africa/Douala:20261128T190000",
@@ -98,7 +98,7 @@ function buildEventICS(isFr: boolean): Buffer {
     `DESCRIPTION:${isFr
       ? "Conférence cybersécurité africaine — EyesOpen Security. Douala, Cameroun."
       : "African cybersecurity conference — EyesOpen Security. Douala, Cameroon."}`,
-    "URL:https://eocon.eyesopensecurity.com",
+    "URL:https://eyesopensecurity.com",
     "END:VEVENT",
     "END:VCALENDAR",
   ].join("\r\n");
@@ -109,8 +109,8 @@ function googleCalEventUrl(isFr: boolean): string {
   const text = encodeURIComponent("EOCON 2026 — EyesOpen Security Conference");
   const loc = encodeURIComponent("Hotel Onomo, Douala, Cameroun");
   const desc = encodeURIComponent(isFr
-    ? "Conférence cybersécurité africaine. eocon.eyesopensecurity.com"
-    : "African cybersecurity conference. eocon.eyesopensecurity.com");
+    ? "Conférence cybersécurité africaine. eyesopensecurity.com"
+    : "African cybersecurity conference. eyesopensecurity.com");
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=20261128T080000/20261128T190000&location=${loc}&details=${desc}`;
 }
 
@@ -448,7 +448,7 @@ export async function sendRegistrationTicket(
   lang: "fr" | "en" = "fr",
 ) {
   const isFr = lang === "fr";
-  const domain = process.env.DOMAIN || process.env.NEXT_PUBLIC_URL || "eocon.eyesopensecurity.com";
+  const domain = process.env.DOMAIN || process.env.NEXT_PUBLIC_URL || "eyesopensecurity.com";
   const baseUrl = domain.startsWith("http") ? domain : `https://${domain}`;
   const connectUrl = `${baseUrl}/connect/${ticketRef}`;
 

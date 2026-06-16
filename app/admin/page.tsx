@@ -5816,12 +5816,21 @@ export default function AdminDashboard() {
                 <div className="cyber-card rounded-xl p-6 mb-6">
                   <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier le Sponsor" : "Nouveau Sponsor"}</h3>
                   <div className="grid sm:grid-cols-2 gap-3">
-                    {[{ key: "name", label: "Nom du Sponsor *" }, { key: "website", label: "Site Web" }, { key: "logoUrl", label: "URL du Logo" }].map(f => (
+                    {[{ key: "name", label: "Nom du Sponsor *" }, { key: "website", label: "Site Web" }].map(f => (
                       <div key={f.key}>
                         <label className="block text-xs text-gray-500 mb-1">{f.label}</label>
                         <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form[f.key] as string) || ""} onChange={e => setForm({ ...form, [f.key]: e.target.value })} />
                       </div>
                     ))}
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs text-gray-500 mb-1">Logo du Sponsor</label>
+                      <PhotoUploadField
+                        value={(form.logoUrl as string) || ""}
+                        folder="sponsors"
+                        onChange={url => setForm({ ...form, logoUrl: url })}
+                      />
+                      {!!form.logoUrl && <img src={form.logoUrl as string} alt="logo" className="mt-2 w-16 h-16 object-contain rounded bg-white/5 p-1 border border-gray-700" />}
+                    </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Tier</label>
                       <select className="cyber-input w-full px-3 py-2 rounded text-xs bg-transparent" value={(form.tier as string) || "GOLD"} onChange={e => setForm({ ...form, tier: e.target.value })}>

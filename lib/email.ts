@@ -125,17 +125,18 @@ async function generateBadgePdf(
     doc.on("data", (c: Buffer) => chunks.push(c));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
-    doc.rect(0, 0, 243, 153).fill("#0a0a0f");
-    doc.rect(0, 0, 3, 153).fill("#00ff9d");
-    doc.fillColor("#00ff9d").fontSize(7).font("Helvetica").text("EOCON", 12, 12, { characterSpacing: 3 });
-    doc.fillColor("#ffffff").fontSize(22).font("Helvetica-Bold").text("2026", 12, 20);
-    doc.rect(12, 48, 36, 1).fill("#00ff9d");
-    doc.fillColor("#444444").fontSize(6).font("Helvetica").text("EYESOPEN SECURITY", 12, 53, { characterSpacing: 1 });
+    // White background to save ink; all text in black.
+    doc.rect(0, 0, 243, 153).fill("#ffffff");
+    doc.rect(0, 0, 3, 153).fill("#000000");
+    doc.fillColor("#000000").fontSize(7).font("Helvetica").text("EOCON", 12, 12, { characterSpacing: 3 });
+    doc.fillColor("#000000").fontSize(22).font("Helvetica-Bold").text("2026", 12, 20);
+    doc.rect(12, 48, 36, 1).fill("#000000");
+    doc.fillColor("#000000").fontSize(6).font("Helvetica").text("EYESOPEN SECURITY", 12, 53, { characterSpacing: 1 });
     const fullName = `${fname} ${lname}`.substring(0, 28);
-    doc.fillColor("#ffffff").fontSize(15).font("Helvetica-Bold").text(fullName, 12, 70, { width: 150 });
-    doc.roundedRect(12, 93, ticketType.length * 6 + 12, 14, 3).fill("#00ff9d20");
-    doc.fillColor("#00ff9d").fontSize(7).font("Helvetica").text(ticketType.toUpperCase(), 18, 97, { characterSpacing: 2 });
-    doc.fillColor("#333333").fontSize(6).text(ticketRef, 12, 113);
+    doc.fillColor("#000000").fontSize(15).font("Helvetica-Bold").text(fullName, 12, 70, { width: 150 });
+    doc.lineWidth(0.8).strokeColor("#000000").roundedRect(12, 93, ticketType.length * 6 + 12, 14, 3).stroke();
+    doc.fillColor("#000000").fontSize(7).font("Helvetica").text(ticketType.toUpperCase(), 18, 97, { characterSpacing: 2 });
+    doc.fillColor("#000000").fontSize(6).text(ticketRef, 12, 113);
     doc.image(qrBuffer, 163, 18, { width: 68, height: 68 });
     doc.end();
   });
@@ -481,22 +482,22 @@ export async function sendRegistrationTicket(
     ✂ ${isFr ? "Imprimez, découpez et glissez dans votre porte-badge." : "Print, cut out and insert into your badge holder."}
   </p>
   <div style="display:inline-block;width:324px;border:1px dashed #444;border-radius:4px;overflow:hidden;">
-    <div style="width:324px;height:204px;background:#0a0a0f;display:flex;align-items:center;justify-content:space-between;padding:0 20px;box-sizing:border-box;">
+    <div style="width:324px;height:204px;background:#ffffff;display:flex;align-items:center;justify-content:space-between;padding:0 20px;box-sizing:border-box;">
       <div style="text-align:center;flex:0 0 auto;">
-        <div style="font-size:9px;letter-spacing:3px;color:#00ff9d;margin-bottom:4px;">EOCON</div>
-        <div style="font-size:22px;font-weight:900;color:#ffffff;letter-spacing:2px;">2026</div>
-        <div style="width:40px;height:1px;background:#00ff9d;margin:6px auto;"></div>
-        <div style="font-size:7px;color:#555;letter-spacing:2px;">EYESOPEN</div>
-        <div style="font-size:7px;color:#555;letter-spacing:1px;">SECURITY</div>
+        <div style="font-size:9px;letter-spacing:3px;color:#000000;margin-bottom:4px;">EOCON</div>
+        <div style="font-size:22px;font-weight:900;color:#000000;letter-spacing:2px;">2026</div>
+        <div style="width:40px;height:1px;background:#000000;margin:6px auto;"></div>
+        <div style="font-size:7px;color:#000000;letter-spacing:2px;">EYESOPEN</div>
+        <div style="font-size:7px;color:#000000;letter-spacing:1px;">SECURITY</div>
       </div>
       <div style="flex:1;padding:0 16px;text-align:center;">
-        <div style="font-size:13px;color:#ffffff;font-weight:bold;margin-bottom:4px;">${esc(fname)} ${esc(lname)}</div>
-        <div style="font-size:8px;letter-spacing:2px;color:#00ff9d;text-transform:uppercase;">${esc(ticketType)}</div>
-        <div style="font-size:7px;color:#333;margin-top:6px;">${ticketRef}</div>
+        <div style="font-size:13px;color:#000000;font-weight:bold;margin-bottom:4px;">${esc(fname)} ${esc(lname)}</div>
+        <div style="font-size:8px;letter-spacing:2px;color:#000000;text-transform:uppercase;">${esc(ticketType)}</div>
+        <div style="font-size:7px;color:#000000;margin-top:6px;">${ticketRef}</div>
       </div>
       <div style="flex:0 0 auto;text-align:center;">
         <img src="${connectQrDataUrl}" width="90" height="90" alt="QR" style="display:block;" />
-        <div style="font-size:6px;color:#444;margin-top:3px;letter-spacing:1px;">NETWORKING</div>
+        <div style="font-size:6px;color:#000000;margin-top:3px;letter-spacing:1px;">NETWORKING</div>
       </div>
     </div>
   </div>

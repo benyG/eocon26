@@ -31,12 +31,20 @@ export async function uploadToGCS(
   return `https://storage.googleapis.com/${BUCKET}/${filename}`;
 }
 
-export async function listGCSFiles(): Promise<{ name: string; url: string }[]> {
-  const [files] = await getStorage().bucket(BUCKET).getFiles({ prefix: "library/" });
-  return files.map((f) => ({
-    name: f.name,
-    url: `https://storage.googleapis.com/${BUCKET}/${f.name}`,
-  }));
+export async function listGCSFiles(): Promise<{ name: string; url: string; size: number; updated: string }[]> {
+  // List every object in the bucket (all folders: library/, sponsors/, team/,
+  // speakers/, uploads/, …) and keep only images, read straight from GCS.
+  const [files] = await getStorage().bucket(BUCKET).getFiles();
+  const IMG_RE = /\.(jpe?g|png|webp|gif|svg)$/i;
+  return files
+    .filter((f) => IMG_RE.test(f.name))
+    .map((f) => ({
+      name: f.name,
+      url: `https://storage.googleapis.com/${BUCKET}/${f.name}`,
+      size: Number(f.metadata?.size ?? 0),
+      updated: (f.metadata?.updated as string) ?? "",
+    }))
+    .sort((a, b) => (a.updated < b.updated ? 1 : -1));
 }
 
 export async function deleteGCSFile(name: string): Promise<void> {

@@ -183,7 +183,7 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
-        className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl"
+        className={`w-full ${step === "tiers" ? "max-w-6xl" : "max-w-3xl"} max-h-[90vh] overflow-y-auto rounded-2xl`}
         style={{ background: "#0a0a0f", border: "1px solid rgba(0,255,157,0.2)" }}
         onClick={e => e.stopPropagation()}
       >
@@ -215,7 +215,7 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                 /* No tickets on sale → the pre-registration effect switches to the form. */
                 <div className="text-center py-12 text-gray-500 font-mono text-sm">…</div>
               ) : (
-                <div className="grid sm:grid-cols-3 gap-4 mb-6">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   {ticketTypes.map(ticket => {
                     const c = ticket.color;
                     const sold_out = ticket.available <= 0;

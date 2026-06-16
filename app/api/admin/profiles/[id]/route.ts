@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("profiles", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const id = parseInt(params.id);
   const { name, description, color, permissions } = await req.json();
 
@@ -22,7 +22,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("profiles", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const id = parseInt(params.id);
   const profile = await prisma.adminProfile.findUnique({ where: { id } });
   if (!profile) return NextResponse.json({ error: "Not found" }, { status: 404 });

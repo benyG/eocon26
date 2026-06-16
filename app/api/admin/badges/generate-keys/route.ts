@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { generateKeyPairSync } from "crypto";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
 export async function POST() {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("certificates", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { privateKey, publicKey } = generateKeyPairSync("ed25519", {
     privateKeyEncoding: { type: "pkcs8", format: "pem" },

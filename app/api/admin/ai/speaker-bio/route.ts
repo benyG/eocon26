@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { getOpenAI, EOCON_CONTEXT } from "@/lib/openai";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ interface BioResult {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("cfp", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { bio, talkTitle, talkAbstract, name } = await req.json();
   if (!bio && !talkTitle) return NextResponse.json({ error: "Missing bio or talkTitle" }, { status: 400 });
 

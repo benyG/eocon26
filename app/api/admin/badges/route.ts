@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { generateBadgeCredential, signCredential } from "@/lib/badgeCredential";
 import { sendBadgeEmail } from "@/lib/badgeEmail";
 import { BadgeType } from "@/lib/badgeSvg";
@@ -9,7 +9,7 @@ import { logAction } from "@/lib/auditLog";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("certificates", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const type = req.nextUrl.searchParams.get("type") || undefined;
   const badges = await prisma.badgeCredential.findMany({
     where: type ? { badgeType: type } : undefined,
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("certificates", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   if (!process.env.BADGE_PRIVATE_KEY) {
     return NextResponse.json({
@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("certificates", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await req.json();
   await prisma.badgeCredential.update({ where: { id }, data: { revokedAt: new Date() } });
   logAction(req, "DELETE", "badge", id, { action: "revoke" });

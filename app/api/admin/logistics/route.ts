@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,7 @@ const PRIORITY_ORDER: Record<string, number> = {
 };
 
 export async function GET() {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("logistics", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const tasks = await prisma.logisticsTask.findMany({ orderBy: [{ sortOrder: "asc" }] });
   // Sort by phase order, then priority order
   tasks.sort((a, b) => {
@@ -35,7 +35,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("logistics", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const data = await req.json();
   // Synchronize done with status
   if (data.status !== undefined) {

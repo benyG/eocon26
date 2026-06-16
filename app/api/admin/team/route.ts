@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("team", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   return NextResponse.json(await prisma.teamMember.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }));
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("team", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json();
   const { name, role, email, bio, photoUrl, linkedin, twitter, isVisible, sortOrder } = body;
   if (!name || !role) return NextResponse.json({ error: "name et role requis" }, { status: 400 });

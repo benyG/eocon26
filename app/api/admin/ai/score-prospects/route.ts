@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { getOpenAI, EOCON_CONTEXT } from "@/lib/openai";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +45,7 @@ JSON uniquement: {"score": <0-10>, "reason": "<1 phrase courte>", "package": "<P
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("prospection", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { ids } = await req.json() as { ids: number[] };
   if (!Array.isArray(ids) || ids.length === 0) return NextResponse.json({ error: "ids required" }, { status: 400 });
   if (ids.length > 10) return NextResponse.json({ error: "Max 10 leads par scoring" }, { status: 400 });

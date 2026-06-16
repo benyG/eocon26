@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { Resend } from "resend";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("prospection", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { to, subject, body, org } = await req.json() as { to: string; subject: string; body: string; org: string };
   if (!to || !subject || !body) return NextResponse.json({ error: "to, subject, body requis" }, { status: 400 });
 

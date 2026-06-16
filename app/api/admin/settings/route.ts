@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("settings", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const settings = await prisma.eventSetting.findMany();
   const map: Record<string, string> = {};
   settings.forEach(s => { map[s.key] = s.value; });
@@ -13,7 +13,7 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("settings", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const updates = await req.json() as Record<string, string>;
   for (const [key, value] of Object.entries(updates)) {
     await prisma.eventSetting.upsert({

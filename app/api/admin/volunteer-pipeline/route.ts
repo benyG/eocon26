@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { sendVolunteerShortlisted, sendVolunteerAccepted, sendVolunteerOnboarding, sendVolunteerRejected } from "@/lib/email";
 import { logAction } from "@/lib/auditLog";
 
@@ -9,13 +9,13 @@ export const dynamic = "force-dynamic";
 type VolStage = "submitted" | "reviewing" | "shortlisted" | "accepted" | "onboarding" | "confirmed" | "rejected";
 
 export async function GET(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("volunteers", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const vols = await prisma.volunteerApplication.findMany({ orderBy: { createdAt: "desc" } });
   return NextResponse.json(vols);
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("volunteers", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json();
   const { id, stage, assignedRole }: { id: number; stage: VolStage; assignedRole?: string } = body;
 

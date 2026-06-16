@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
@@ -8,8 +8,8 @@ const PAGE_SIZE = 50;
 const RETENTION_DAYS = 60;
 
 export async function GET(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("audit", "read"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const search = req.nextUrl.searchParams;
@@ -37,8 +37,8 @@ export async function GET(req: NextRequest) {
 
 // Manually purge entries older than retention period
 export async function DELETE() {
-  if (!(await isAdminAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("audit", "write"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const cutoff = new Date();

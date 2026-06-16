@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { hasPermission } from "@/lib/adminPermissions";
 import { verifyQrPayload } from "@/lib/qr";
 import { Resend } from "resend";
 
@@ -45,6 +46,7 @@ async function sendFraudAlert(reg: {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await hasPermission("registrations", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { payload, operatorName } = await req.json();
   if (!payload) {
     return NextResponse.json({ error: "Missing payload" }, { status: 400 });

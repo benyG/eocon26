@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getAuthenticatedUserId, isAdminAuthenticated } from "@/lib/adminAuth";
+import { getAuthenticatedUserId } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 // Per-user token: checks permissions JSON for "checkin" key.
 export async function GET() {
   // Legacy super-admin token → full access
-  if (await isAdminAuthenticated()) {
+  if (await hasPermission("registrations", "read")) {
     return NextResponse.json({ allowed: true, role: "super_admin" });
   }
 

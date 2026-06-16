@@ -1,28 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("prospection", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   return NextResponse.json(await prisma.prospectLead.findMany({ orderBy: [{ aiScore: "desc" }, { createdAt: "desc" }] }));
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { id, addedToPipeline, pitchJson, emailJson } = await req.json();
-  const data: Record<string, unknown> = {};
-  if (addedToPipeline !== undefined) data.addedToPipeline = addedToPipeline;
-  if (pitchJson !== undefined) data.pitchJson = pitchJson;
-  if (emailJson !== undefined) data.emailJson = emailJson;
-  const lead = await prisma.prospectLead.update({ where: { id }, data });
-  return NextResponse.json(lead);
-}
+  if (!(await hasPermission("prospection", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const { id, addedToPipeline } = await req.json();
 
-export async function DELETE(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { id } = await req.json();
-  await prisma.prospectLead.delete({ where: { id } });
-  return NextResponse.json({ success: true });
+  const lead = await prisma.prospectLead.update({
+    where: { id },
+    data: { addedToPipeline },
+  });
+
+  // If adding to pipeline, create a SponsorProspect
+  if (addedToPipeline) {
+    await prisma.sponsorProspect.create({
+      data: {
+        org: lead.org,
+        contact: lead.contactName || undefined,
+        email: lead.contactEmail || undefined,
+        phone: lead.phone || undefined,
+        package: lead.recommendedPackage || undefined,
+        status: "contacted",
+        notes: lead.aiScoreReason || undefined,
+      },
+    });
+  }
+
+  return NextResponse.json(lead);
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { logAction } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ const DECK_FILES = [
 
 // Send a (chosen) email to a sponsor prospect, optionally attaching the decks.
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("prospection", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id, subject, body, attachDecks, markContacted } = await req.json();
   if (!id || !subject || !body) {
     return NextResponse.json({ error: "id, subject et body requis" }, { status: 400 });

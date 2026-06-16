@@ -1,24 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { getOpenAI, EOCON_CONTEXT } from "@/lib/openai";
 import { searchPlaces, getPlaceDetails } from "@/lib/googleplaces";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("prospection", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { query, location } = await req.json();
   if (!query) return NextResponse.json({ error: "Missing query" }, { status: 400 });
 
-  let places;
-  try {
-    places = await searchPlaces(query, location || "Douala,Cameroun");
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Google Places API unavailable";
-    return NextResponse.json({ error: msg }, { status: 502 });
-  }
-
+  const places = await searchPlaces(query, location || "Douala,Cameroun");
   const openai = getOpenAI();
   const results = [];
 
@@ -26,11 +19,12 @@ export async function POST(req: NextRequest) {
     let details = null;
     try {
       details = await getPlaceDetails(place.place_id);
-    } catch { /* details are best-effort */ }
+    } catch { /* no details */ }
 
     const website = details?.website || null;
     const phone = details?.international_phone_number || null;
 
+    // Score with OpenAI
     let aiScore = null;
     let aiScoreReason = null;
     let recommendedPackage = null;
@@ -52,15 +46,13 @@ JSON uniquement: {"score": <0-10>, "reason": "<1 phrase>", "package": "<PLATINUM
         model: process.env.OPENAI_MODEL || "gpt-4o-mini",
         messages: [{ role: "user", content: scorePrompt }],
         temperature: 0.3,
-        max_completion_tokens: 150,
+        max_tokens: 150,
       });
-      const parsed = JSON.parse(
-        (r.choices[0]?.message?.content || "{}").replace(/```json?\n?/g, "").replace(/```/g, "").trim(),
-      ) as { score?: number; reason?: string; package?: string; sector?: string };
+      const parsed = JSON.parse((r.choices[0]?.message?.content || "{}").replace(/```json?\n?/g, "").replace(/```/g, "").trim()) as { score?: number; reason?: string; package?: string; sector?: string };
       aiScore = parsed.score ?? null;
       aiScoreReason = parsed.reason ?? null;
       recommendedPackage = parsed.package ?? null;
-    } catch { /* AI scoring is best-effort */ }
+    } catch { /* scoring failed */ }
 
     const lead = await prisma.prospectLead.create({
       data: {

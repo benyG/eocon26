@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { sendCFPDecision, sendRegistrationTicket, sendVolunteerAccepted, sendRegistrationPending } from "@/lib/email";
 import { generateQrPayload } from "@/lib/qr";
 import { formatTicketRef } from "@/lib/ticketRef";
@@ -10,7 +10,7 @@ import { getEventSettings } from "@/lib/settings";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("cfp", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const type = req.nextUrl.searchParams.get("type") || "cfp";
 
   if (type === "cfp") {
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("cfp", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json();
   const { type, id, status, notes, action, assignedRole, shiftStart, shiftEnd, ctfTeamName } = body;
 

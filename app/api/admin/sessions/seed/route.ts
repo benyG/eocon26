@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
@@ -21,8 +21,8 @@ const SEED_SESSIONS = [
 ];
 
 export async function POST() {
-  if (!(await isAdminAuthenticated())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("cfp", "write"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const existing = await prisma.conferenceSession.count();

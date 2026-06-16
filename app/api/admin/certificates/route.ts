@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { Resend } from "resend";
 
 export const dynamic = "force-dynamic";
@@ -65,7 +65,7 @@ function speakerCertHtml(name: string, talkTitle: string, lang: "fr" | "en" = "e
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("certificates", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { type } = await req.json();
   const resend = new Resend(process.env.RESEND_API_KEY);
 

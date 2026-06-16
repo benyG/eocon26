@@ -1,25 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { hashPassword } from "@/lib/password";
-import { randomBytes } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import { Resend } from "resend";
+import { hasPermission } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
-// Cryptographically-random index from 0 to n-1
-function randIndex(n: number): number {
-  return randomBytes(1)[0] % n;
+function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString("hex");
+  const hash = createHash("sha256").update(password + salt).digest("hex");
+  return `${salt}:${hash}`;
 }
 
 function generateTempPassword(): string {
   const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
   const lower = "abcdefghjkmnpqrstuvwxyz";
   const digits = "23456789";
-  const rand = (s: string) => s[randIndex(s.length)];
+  const rand = (s: string) => s[Math.floor(Math.random() * s.length)];
   const chars = [rand(upper), rand(upper), rand(digits), rand(digits), rand(lower), rand(lower), rand(lower), rand(lower)];
-  // Shuffle (Fisher-Yates with crypto randomness)
+  // Shuffle
   for (let i = chars.length - 1; i > 0; i--) {
-    const j = randIndex(i + 1);
+    const j = Math.floor(Math.random() * (i + 1));
     [chars[i], chars[j]] = [chars[j], chars[i]];
   }
   return chars.join("");
@@ -30,6 +31,7 @@ function esc(s: string): string {
 }
 
 export async function GET() {
+  if (!(await hasPermission("users", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const users = await prisma.adminUser.findMany({
     select: { id: true, name: true, email: true, permissions: true, isActive: true, profileId: true, createdAt: true },
     orderBy: { createdAt: "desc" },
@@ -38,6 +40,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await hasPermission("users", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { name, email, permissions, profileId } = await req.json();
   if (!name || !email) {
     return NextResponse.json({ error: "Nom et email requis" }, { status: 400 });
@@ -47,20 +50,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Cet email est déjà utilisé" }, { status: 409 });
   }
 
-  // Resolve permissions from the assigned DB profile (system or custom).
-  // profileId is the numeric admin_profiles FK.
+  // Resolve permissions from DB profile or custom
   let resolvedPermissions = permissions || {};
-  let profileIdInt: number | null = null;
-  if (profileId !== undefined && profileId !== null && profileId !== "") {
-    profileIdInt = Number(profileId);
-    const dbProfile = Number.isFinite(profileIdInt)
-      ? await prisma.adminProfile.findUnique({ where: { id: profileIdInt } })
-      : null;
+  if (profileId) {
+    const dbProfile = await prisma.adminProfile.findUnique({ where: { id: Number(profileId) } });
     if (dbProfile) {
-      try { resolvedPermissions = JSON.parse(dbProfile.permissions || "{}"); }
-      catch { resolvedPermissions = {}; }
-    } else {
-      profileIdInt = null;
+      try { resolvedPermissions = JSON.parse(dbProfile.permissions); } catch { /* use custom */ }
     }
   }
 
@@ -72,7 +67,7 @@ export async function POST(req: NextRequest) {
       email,
       passwordHash: hashPassword(tempPassword),
       permissions: JSON.stringify(resolvedPermissions),
-      profileId: profileIdInt,
+      profileId: profileId || null,
     },
     select: { id: true, name: true, email: true, permissions: true, isActive: true, profileId: true, createdAt: true },
   });
@@ -96,7 +91,7 @@ export async function POST(req: NextRequest) {
             <p style="margin:0 0 8px"><span style="color:#00ff9d">Mot de passe temporaire :</span> <strong style="color:#ffffff;font-size:18px">${esc(tempPassword)}</strong></p>
             <p style="margin:0;color:#888;font-size:12px">Vous devrez changer ce mot de passe lors de votre première connexion.</p>
           </div>
-          <p><a href="${process.env.NEXT_PUBLIC_URL || "https://eyesopensecurity.com"}/admin/login" style="color:#00ff9d">Accéder à l'espace admin →</a></p>
+          <p><a href="${process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com"}/admin/login" style="color:#00ff9d">Accéder à l'espace admin →</a></p>
           <hr style="border-color:#222;margin:24px 0"/>
           <p style="color:#555;font-size:12px">EOCON 2026 · EyesOpen Association</p>
         </div>`,

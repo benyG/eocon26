@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "fr_FR",
     images: [
-      { url: "/api/og-image", width: 1200, height: 630, alt: "EOCON 2026 — Stay Tuned" },
+      { url: "/api/og-image", width: 492, height: 772, alt: "EOCON 2026 — Stay Tuned" },
     ],
   },
   twitter: {

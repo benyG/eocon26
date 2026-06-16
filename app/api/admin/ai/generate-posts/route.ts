@@ -17,7 +17,34 @@ interface PostsResult {
 
 export async function POST(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { brief, contextType, contextItem } = await req.json() as { brief: string; contextType?: string; contextItem?: Record<string, unknown> };
+  const body = await req.json() as {
+    brief: string; contextType?: string; contextItem?: Record<string, unknown>;
+    saveOnly?: boolean; content?: string; platform?: string; lang?: string;
+    imageUrl?: string; scheduledAt?: string;
+  };
+  const { brief, contextType, contextItem } = body;
+
+  // ── Save-only: persist a single post (used by the calendar planner) ──────────
+  // No AI call — just store the provided content with its schedule + image.
+  if (body.saveOnly) {
+    const { content, platform, lang, imageUrl, scheduledAt } = body;
+    if (!content || !platform || !lang) {
+      return NextResponse.json({ error: "content, platform et lang requis" }, { status: 400 });
+    }
+    const post = await prisma.socialPost.create({
+      data: {
+        brief: brief || "",
+        platform,
+        lang,
+        content,
+        imageUrl: imageUrl || null,
+        scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+        status: scheduledAt ? "scheduled" : "draft",
+      },
+    });
+    return NextResponse.json(post, { status: 201 });
+  }
+
   if (!brief) return NextResponse.json({ error: "Missing brief" }, { status: 400 });
 
   let contextSection = "";

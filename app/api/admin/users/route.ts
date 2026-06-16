@@ -31,9 +31,7 @@ function esc(s: string): string {
 }
 
 export async function GET() {
-  if (!(await hasPermission("users", "read"))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  if (!(await hasPermission("users", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const users = await prisma.adminUser.findMany({
     select: { id: true, name: true, email: true, permissions: true, isActive: true, profileId: true, createdAt: true },
     orderBy: { createdAt: "desc" },
@@ -42,6 +40,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await hasPermission("users", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { name, email, permissions, profileId } = await req.json();
   if (!name || !email) {
     return NextResponse.json({ error: "Nom et email requis" }, { status: 400 });

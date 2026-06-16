@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { getOpenAI, EOCON_CONTEXT } from "@/lib/openai";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +43,7 @@ Réponds en JSON uniquement, sans markdown :
     model: process.env.OPENAI_MODEL || "gpt-4o-mini",
     messages: [{ role: "user", content: prompt }],
     temperature: 0.6,
-    max_completion_tokens: 800,
+    max_tokens: 800,
   });
 
   const text = response.choices[0]?.message?.content || "{}";

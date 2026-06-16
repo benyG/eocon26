@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { getOpenAI, EOCON_CONTEXT } from "@/lib/openai";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +45,7 @@ Donne ton évaluation en JSON uniquement, sans markdown :
     model: process.env.OPENAI_MODEL || "gpt-4o-mini",
     messages: [{ role: "user", content: prompt }],
     temperature: 0.3,
-    max_completion_tokens: 400,
+    max_tokens: 400,
   });
 
   const text = response.choices[0]?.message?.content || "{}";

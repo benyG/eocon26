@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
-import { sendCFPDecision, sendRegistrationTicket, sendVolunteerAccepted, sendRegistrationPending } from "@/lib/email";
+import { hasPermission } from "@/lib/adminPermissions";
+import { sendCFPDecision, sendRegistrationTicket, sendVolunteerAccepted } from "@/lib/email";
 import { generateQrPayload } from "@/lib/qr";
 import { formatTicketRef } from "@/lib/ticketRef";
 import { logAction } from "@/lib/auditLog";
-import { getEventSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("cfp", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const type = req.nextUrl.searchParams.get("type") || "cfp";
 
   if (type === "cfp") {
@@ -31,12 +30,7 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json();
-  const { type, id, status, notes, action, assignedRole, shiftStart, shiftEnd, ctfTeamName } = body;
-
-  if (type === "ctf-team") {
-    await prisma.registration.update({ where: { id }, data: { ctfTeamName } });
-    return NextResponse.json({ ok: true });
-  }
+  const { type, id, status, notes, action, assignedRole, shiftStart, shiftEnd } = body;
 
   if (type === "volunteer-assign") {
     const updateData: Record<string, unknown> = {};
@@ -56,7 +50,7 @@ export async function PATCH(req: NextRequest) {
       data: { status: decision, notes: notes ?? undefined, decisionSentAt: new Date() },
     });
     logAction(req, decision === "accepted" ? "ACCEPT" : "REJECT", "cfp", id, { email: submission.email });
-    sendCFPDecision(submission.email, submission.name, submission.talkTitle, decision, (submission.langPresentation === "en" ? "en" : "fr")).catch(e =>
+    sendCFPDecision(submission.email, submission.name, submission.talkTitle, decision).catch(e =>
       console.error("[CFP decision email]", e),
     );
     return NextResponse.json(submission);
@@ -78,24 +72,10 @@ export async function PATCH(req: NextRequest) {
     });
     logAction(req, "VALIDATE", "registration", id, { email: reg.email, ticketType: reg.ticketType });
     const ticketRef = formatTicketRef(reg.ticketRef || String(reg.id).padStart(5, "0"));
-    sendRegistrationTicket(reg.email, reg.fname, reg.lname, reg.ticketType, reg.id, ticketRef, (reg.langExpression === "en" ? "en" : "fr")).catch(e =>
+    sendRegistrationTicket(reg.email, reg.fname, reg.lname, reg.ticketType, reg.id, ticketRef).catch(e =>
       console.error("[Registration ticket email]", e),
     );
     return NextResponse.json(updated);
-  }
-
-  // Relance : renvoie un email rappelant au participant de finaliser son paiement.
-  if (type === "registration" && action === "remind") {
-    const reg = await prisma.registration.findUnique({ where: { id } });
-    if (!reg) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const settings = await getEventSettings().catch(() => ({} as Record<string, string>));
-    const paymentUrl = settings.url_inscription || "https://eyesopensecurity.com/#inscription";
-    const ticketRef = formatTicketRef(reg.ticketRef || String(reg.id).padStart(5, "0"));
-    sendRegistrationPending(reg.email, reg.fname, reg.lname, reg.ticketType, ticketRef, paymentUrl, (reg.langExpression === "en" ? "en" : "fr")).catch(e =>
-      console.error("[Registration reminder email]", e),
-    );
-    logAction(req, "UPDATE", "registration", id, { action: "remind", email: reg.email });
-    return NextResponse.json({ ok: true });
   }
 
   if (type === "registration") {
@@ -109,7 +89,7 @@ export async function PATCH(req: NextRequest) {
     const updated = await prisma.volunteerApplication.update({ where: { id }, data: { status } });
     logAction(req, "UPDATE", "volunteer", id, { status });
     if (status === "accepted" && vol) {
-      sendVolunteerAccepted(vol.email, vol.name, vol.assignedRole || "À confirmer", (vol.langExpression === "en" ? "en" : "fr")).catch(e =>
+      sendVolunteerAccepted(vol.email, vol.name, vol.assignedRole || "À confirmer").catch(e =>
         console.error("[Volunteer accepted email]", e),
       );
     }

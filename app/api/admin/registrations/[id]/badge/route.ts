@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import QRCode from "qrcode";
 import PDFDocument from "pdfkit";
 
@@ -20,7 +20,7 @@ const CUT_LEN = 8;
 const CUT_GAP = 4;
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("registrations", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const id = parseInt(params.id);
   if (isNaN(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   });
   if (!reg) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eyesopensecurity.com";
+  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com";
   const connectUrl = reg.ticketRef ? `${baseUrl}/connect/${reg.ticketRef}` : baseUrl;
 
   // Generate QR as PNG buffer
@@ -46,8 +46,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const x0 = (A4_W - BADGE_W) / 2;
   const y0 = (A4_H - BADGE_H) / 2;
 
-  // Badge background — white to save ink
-  doc.rect(x0, y0, BADGE_W, BADGE_H).fill("#ffffff");
+  // Badge background
+  doc.rect(x0, y0, BADGE_W, BADGE_H).fill("#0a0a0f");
 
   // Dashed cut marks at corners (outside the badge)
   doc.dash(3, { space: 3 });
@@ -72,25 +72,25 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const midX = x0 + leftW;
   const centerY = y0 + BADGE_H / 2;
 
-  // Black accent bar on left edge
-  doc.rect(x0, y0, 3, BADGE_H).fill("#000000");
+  // Green accent bar on left edge
+  doc.rect(x0, y0, 3, BADGE_H).fill("#00ff9d");
 
   // EOCON label
-  doc.fillColor("#000000").fontSize(7).font("Helvetica-Bold");
+  doc.fillColor("#00ff9d").fontSize(7).font("Helvetica-Bold");
   doc.text("EOCON", x0 + 8, y0 + BADGE_H / 2 - 22, { width: leftW - 8, align: "center" });
 
-  doc.fillColor("#000000").fontSize(18).font("Helvetica-Bold");
+  doc.fillColor("#ffffff").fontSize(18).font("Helvetica-Bold");
   doc.text("2026", x0 + 8, y0 + BADGE_H / 2 - 10, { width: leftW - 8, align: "center" });
 
   // Separator line under year
-  doc.strokeColor("#000000").lineWidth(0.5).undash();
+  doc.strokeColor("#00ff9d").lineWidth(0.5).undash();
   doc.moveTo(x0 + 12, centerY + 12).lineTo(x0 + leftW - 4, centerY + 12).stroke();
 
-  doc.fillColor("#000000").fontSize(5).font("Helvetica");
+  doc.fillColor("#555555").fontSize(5).font("Helvetica");
   doc.text("EYESOPEN SECURITY", x0 + 8, y0 + BADGE_H / 2 + 16, { width: leftW - 8, align: "center" });
 
   // Vertical separator
-  doc.strokeColor("#cccccc").lineWidth(0.5);
+  doc.strokeColor("#1a1a2e").lineWidth(0.5);
   doc.moveTo(midX, y0 + 8).lineTo(midX, y0 + BADGE_H - 8).stroke();
 
   // Right section: QR code (last ~28% of width)
@@ -99,7 +99,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const qrY = y0 + 8;
   doc.image(qrBuffer, qrX, qrY, { width: qrSize, height: qrSize });
 
-  doc.fillColor("#000000").fontSize(5).font("Helvetica");
+  doc.fillColor("#444444").fontSize(5).font("Helvetica");
   doc.text("NETWORKING", qrX, qrY + qrSize + 2, { width: qrSize, align: "center" });
 
   // Center section: name + ticket type + ref
@@ -107,14 +107,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const centerW = qrX - midX - 8;
   const nameY = y0 + BADGE_H * 0.25;
 
-  doc.fillColor("#000000").fontSize(11).font("Helvetica-Bold");
+  doc.fillColor("#ffffff").fontSize(11).font("Helvetica-Bold");
   doc.text(`${reg.fname} ${reg.lname}`, centerX, nameY, { width: centerW, align: "center" });
 
-  doc.fillColor("#000000").fontSize(7).font("Helvetica-Bold");
+  doc.fillColor("#00ff9d").fontSize(7).font("Helvetica-Bold");
   doc.text(reg.ticketType.toUpperCase(), centerX, nameY + 16, { width: centerW, align: "center", characterSpacing: 1 });
 
   if (reg.ticketRef) {
-    doc.fillColor("#000000").fontSize(5).font("Helvetica");
+    doc.fillColor("#333333").fontSize(5).font("Helvetica");
     doc.text(reg.ticketRef, centerX, y0 + BADGE_H - 18, { width: centerW, align: "center" });
   }
 

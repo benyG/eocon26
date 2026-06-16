@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { Resend } from "resend";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ function getFrom(): string {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("communication", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { templateId } = await req.json();
 
   const template = await prisma.emailTemplate.findUnique({ where: { id: templateId } });

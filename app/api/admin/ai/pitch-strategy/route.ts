@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { getOpenAI, getEoconContext } from "@/lib/openai";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("prospection", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { org, sector, contactName, contactTitle, website, recommendedPackage, aiScoreReason } = await req.json();
   if (!org) return NextResponse.json({ error: "Missing org" }, { status: 400 });

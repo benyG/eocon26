@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     url: "/",
     siteName: "EOCON 2026",
     type: "website",
-    locale: "fr_FR",
+    locale: "en_US",
     images: [
       { url: "/api/og-image", width: 492, height: 772, alt: "EOCON 2026 — Stay Tuned" },
     ],

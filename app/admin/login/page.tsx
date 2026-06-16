@@ -17,6 +17,7 @@ export default function AdminLogin() {
   // MFA step
   const [mfaPendingToken, setMfaPendingToken] = useState("");
   const [totp, setTotp] = useState("");
+  const [enrollQr, setEnrollQr] = useState(""); // set when forced enrollment is required
 
   // Legacy (super-admin password) step
   const [legacyPassword, setLegacyPassword] = useState("");
@@ -42,6 +43,16 @@ export default function AdminLogin() {
       }
       if (data.mfaRequired) {
         setMfaPendingToken(data.mfaPendingToken);
+        // MFA forced globally but not yet enrolled → fetch a QR to enroll now.
+        if (data.mfaEnrollmentRequired) {
+          const er = await fetch("/api/admin/auth/mfa/enroll", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mfaPendingToken: data.mfaPendingToken }),
+          });
+          const ed = await er.json();
+          if (er.ok) setEnrollQr(ed.qrDataUrl);
+        }
         setStep("mfa");
         return;
       }
@@ -168,11 +179,19 @@ export default function AdminLogin() {
             <form onSubmit={handleMfa} className="space-y-4">
               <div className="text-center pb-1">
                 <div className="text-neon-green text-2xl mb-2">🔐</div>
-                <p className="text-white text-sm font-bold">Vérification en deux étapes</p>
+                <p className="text-white text-sm font-bold">{enrollQr ? "Configurer la double authentification" : "Vérification en deux étapes"}</p>
                 <p className="text-gray-500 text-xs mt-1">
-                  Entrez le code à 6 chiffres affiché dans votre application d&apos;authentification.
+                  {enrollQr
+                    ? "Le MFA est obligatoire. Scannez ce QR code avec votre application (Google Authenticator, Authy…) puis entrez le code généré."
+                    : "Entrez le code à 6 chiffres affiché dans votre application d'authentification."}
                 </p>
               </div>
+              {enrollQr && (
+                <div className="flex justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={enrollQr} alt="QR MFA" width={180} height={180} className="rounded bg-white p-2" />
+                </div>
+              )}
               <div>
                 <label className="block text-xs text-gray-500 mb-1 font-mono uppercase tracking-wider">
                   Code TOTP
@@ -201,7 +220,7 @@ export default function AdminLogin() {
               </button>
               <button
                 type="button"
-                onClick={() => { setStep("credentials"); setError(""); setTotp(""); }}
+                onClick={() => { setStep("credentials"); setError(""); setTotp(""); setEnrollQr(""); }}
                 className="w-full text-xs text-gray-600 hover:text-gray-400 transition-colors font-mono"
               >
                 ← Retour

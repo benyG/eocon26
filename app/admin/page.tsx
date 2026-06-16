@@ -108,6 +108,120 @@ function PhotoUploadField({
   );
 }
 
+// Self-service account: change own password + manage own MFA.
+function AccountModal({
+  info,
+  onClose,
+  onChanged,
+}: {
+  info: { name: string; email?: string; mfaEnabled?: boolean; mfaRequired?: boolean };
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const [curPw, setCurPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [pwMsg, setPwMsg] = useState("");
+  const [pwSaving, setPwSaving] = useState(false);
+  // MFA enrollment state
+  const [qr, setQr] = useState("");
+  const [totp, setTotp] = useState("");
+  const [mfaMsg, setMfaMsg] = useState("");
+  const [mfaBusy, setMfaBusy] = useState(false);
+
+  const changePassword = async () => {
+    setPwMsg(""); setPwSaving(true);
+    const res = await fetch("/api/admin/change-password", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword: curPw, newPassword: newPw }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setPwMsg(res.ok ? "✓ Mot de passe mis à jour." : (d.error || "Échec."));
+    if (res.ok) { setCurPw(""); setNewPw(""); }
+    setPwSaving(false);
+  };
+
+  const startMfa = async () => {
+    setMfaMsg(""); setMfaBusy(true);
+    const res = await fetch("/api/admin/account/mfa");
+    const d = await res.json().catch(() => ({}));
+    if (res.ok) setQr(d.qrDataUrl); else setMfaMsg(d.error || "Échec.");
+    setMfaBusy(false);
+  };
+  const verifyMfa = async () => {
+    setMfaMsg(""); setMfaBusy(true);
+    const res = await fetch("/api/admin/account/mfa", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ totp }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (res.ok) { setMfaMsg("✓ MFA activé."); setQr(""); setTotp(""); onChanged(); }
+    else setMfaMsg(d.error || "Code incorrect.");
+    setMfaBusy(false);
+  };
+  const disableMfa = async () => {
+    if (!confirm("Désactiver le MFA pour votre compte ?")) return;
+    setMfaMsg(""); setMfaBusy(true);
+    const res = await fetch("/api/admin/account/mfa", { method: "DELETE" });
+    const d = await res.json().catch(() => ({}));
+    if (res.ok) { setMfaMsg("MFA désactivé."); onChanged(); } else setMfaMsg(d.error || "Échec.");
+    setMfaBusy(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+      <div className="cyber-card rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto space-y-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-white font-bold">👤 Mon compte</h3>
+            <p className="text-gray-500 text-xs">{info.email || info.name}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-xl">✕</button>
+        </div>
+
+        {/* Password */}
+        <div className="space-y-2">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Mot de passe</p>
+          <input type="password" placeholder="Mot de passe actuel" className="cyber-input w-full text-sm rounded px-3 py-2" value={curPw} onChange={e => setCurPw(e.target.value)} />
+          <input type="password" placeholder="Nouveau mot de passe (min 8)" className="cyber-input w-full text-sm rounded px-3 py-2" value={newPw} onChange={e => setNewPw(e.target.value)} />
+          <button onClick={changePassword} disabled={pwSaving || !curPw || newPw.length < 8} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
+            {pwSaving ? "…" : "Changer le mot de passe"}
+          </button>
+          {pwMsg && <p className="text-xs" style={{ color: pwMsg.startsWith("✓") ? "#00ff9d" : "#ff6666" }}>{pwMsg}</p>}
+        </div>
+
+        {/* MFA */}
+        <div className="space-y-2 border-t border-gray-800 pt-4">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+            Double authentification (MFA){info.mfaRequired ? " · obligatoire" : ""}
+          </p>
+          <p className="text-xs text-gray-500">
+            Statut : {info.mfaEnabled ? <span className="text-neon-green">activé ✓</span> : <span className="text-yellow-400">non activé</span>}
+          </p>
+          {!info.mfaEnabled && !qr && (
+            <button onClick={startMfa} disabled={mfaBusy} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
+              {mfaBusy ? "…" : "Configurer le MFA"}
+            </button>
+          )}
+          {qr && (
+            <div className="space-y-2">
+              <p className="text-xs text-gray-400">Scannez ce QR avec votre application d&apos;authentification, puis entrez le code :</p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={qr} alt="QR MFA" width={160} height={160} className="rounded bg-white p-2 mx-auto" />
+              <input inputMode="numeric" maxLength={6} placeholder="000000" className="cyber-input w-full text-sm rounded px-3 py-2 text-center tracking-[0.4em]" value={totp} onChange={e => setTotp(e.target.value.replace(/\D/g, "").slice(0, 6))} />
+              <button onClick={verifyMfa} disabled={mfaBusy || totp.length < 6} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">Activer le MFA</button>
+            </div>
+          )}
+          {info.mfaEnabled && !info.mfaRequired && (
+            <button onClick={disableMfa} disabled={mfaBusy} className="text-xs px-3 py-1.5 rounded border border-red-500/40 text-red-400 hover:bg-red-500/10 disabled:opacity-50">
+              Désactiver le MFA
+            </button>
+          )}
+          {mfaMsg && <p className="text-xs" style={{ color: mfaMsg.startsWith("✓") ? "#00ff9d" : "#ff6666" }}>{mfaMsg}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface MfaSetupState {
   userId: number;
   userName: string;
@@ -5414,13 +5528,16 @@ export default function AdminDashboard() {
   const router = useRouter();
 
   // Current user identity + permissions
-  const [userInfo, setUserInfo] = useState<{ isLegacy: boolean; name: string; permissions: Record<string, string> } | null>(null);
+  const [userInfo, setUserInfo] = useState<{ isLegacy: boolean; id?: number; name: string; email?: string; mfaEnabled?: boolean; mfaRequired?: boolean; permissions: Record<string, string> } | null>(null);
+  const [showAccount, setShowAccount] = useState(false);
 
-  useEffect(() => {
+  const refreshMe = useCallback(() => {
     fetch("/api/admin/me").then(r => r.ok ? r.json() : null).then(info => {
       if (info) setUserInfo(info);
     }).catch(() => {});
   }, []);
+
+  useEffect(() => { refreshMe(); }, [refreshMe]);
 
   // Tab → required permission key (undefined = always visible)
   const TAB_PERMISSION: Partial<Record<Tab, string | undefined>> = {
@@ -5752,12 +5869,17 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-dark-900" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
       {/* Detail drawer */}
       {detail && <DetailDrawer item={detail.item} type={detail.type} onClose={() => setDetail(null)} />}
+      {showAccount && userInfo && !userInfo.isLegacy && (
+        <AccountModal info={userInfo} onClose={() => setShowAccount(false)} onChanged={refreshMe} />
+      )}
       {/* Top bar */}
       <div className="border-b border-neon-green/20 bg-black/80 px-6 py-3 flex items-center justify-between sticky top-0 z-40">
         <span className="text-neon-green font-mono text-sm font-bold">&gt; EOCON Eventlyx</span>
         <div className="flex items-center gap-4">
           {userInfo && !userInfo.isLegacy && (
-            <span className="text-gray-500 text-xs font-mono hidden sm:inline">{userInfo.name}</span>
+            <button onClick={() => setShowAccount(true)} className="text-gray-400 hover:text-neon-green text-xs font-mono transition-colors">
+              👤 {userInfo.name}
+            </button>
           )}
           <a href="/" target="_blank" className="text-gray-500 hover:text-neon-green text-xs transition-colors">↗ {t.viewSite}</a>
           <button

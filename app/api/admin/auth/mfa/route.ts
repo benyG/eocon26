@@ -32,6 +32,11 @@ export async function POST(req: NextRequest) {
   const result = await verify({ secret, token: totp });
   if (!result.valid) return NextResponse.json({ error: "Code incorrect" }, { status: 401 });
 
+  // First successful verification (forced enrollment at login) activates MFA.
+  if (!user.mfaEnabled) {
+    await prisma.adminUser.update({ where: { id: user.id }, data: { mfaEnabled: true, mfaEnrolledAt: new Date() } });
+  }
+
   // Create session
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const sessionToken = randomBytes(32).toString("hex");

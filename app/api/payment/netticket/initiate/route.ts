@@ -1,13 +1,13 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { rateLimit, getIp } from "@/lib/rateLimit";
+import { checkRateLimit, getIp } from "@/lib/rateLimit";
 import { initiateMobilePayment, isNetticketConfigured, sanitizePhone, type NettOperator } from "@/lib/netticket";
 import { finalizeRegistrationPaid } from "@/lib/payment";
 import { verifyPaymentToken } from "@/lib/paymentToken";
 
 export async function POST(req: NextRequest) {
-  if (!rateLimit(`pay:${getIp(req)}`, 10, 60 * 60 * 1000)) {
+  if (!(await checkRateLimit(`pay:${getIp(req)}`, 10, 60 * 60 * 1000))) {
     return NextResponse.json({ error: "Trop de tentatives, réessayez plus tard." }, { status: 429 });
   }
   if (!isNetticketConfigured()) {
@@ -43,6 +43,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Ce billet n'est pas configuré pour le paiement Mobile Money." }, { status: 400 });
     }
 
+    // Logged amount must reflect the active (early-bird aware) price.
+    const now = new Date();
+    const earlyBirdActive = !!(ticket.earlyBirdUntil && ticket.earlyBirdUntil > now && ticket.earlyBirdPriceFr);
+    const chargedAmount = earlyBirdActive ? (ticket.earlyBirdPriceFr ?? ticket.priceFr) : ticket.priceFr;
+
     const provider = operator === "mtn" ? "netticket_mtn" : "netticket_orange";
     const result = await initiateMobilePayment({
       email: registration.email,
@@ -68,7 +73,7 @@ export async function POST(req: NextRequest) {
         email: registration.email,
         phone: phoneClean,
         provider,
-        amount: ticket.priceFr,
+        amount: chargedAmount,
         ticketType: registration.ticketType,
         state: result.state === "failed" ? "failed" : (result.state === "successful" ? "success" : "pending"),
         reason: result.reason,

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
 import { prisma } from "@/lib/db";
-import { rateLimit, getIp } from "@/lib/rateLimit";
+import { checkRateLimit, getIp } from "@/lib/rateLimit";
 import { cleanText, cleanOptional, cleanEmail, cleanPhone } from "@/lib/sanitize";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ const DECK_FILES = [
 ];
 
 export async function POST(req: NextRequest) {
-  if (!rateLimit(`deck:${getIp(req)}`, 8, 60 * 60 * 1000)) {
+  if (!(await checkRateLimit(`deck:${getIp(req)}`, 8, 60 * 60 * 1000))) {
     return NextResponse.json({ error: "Trop de requêtes, réessayez plus tard." }, { status: 429 });
   }
   const body = await req.json();

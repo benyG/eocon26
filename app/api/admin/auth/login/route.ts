@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { randomBytes } from "crypto";
-import { rateLimit, getIp } from "@/lib/rateLimit";
+import { checkRateLimit, getIp } from "@/lib/rateLimit";
 import { signMfaPending } from "@/lib/mfaToken";
 import { signUserSession } from "@/lib/adminAuth";
 import { verifyPassword, needsRehash, hashPassword } from "@/lib/password";
+import { isUserLocked, registerUserFailure, clearUserFailures } from "@/lib/loginSecurity";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const ip = getIp(req);
-  if (!rateLimit(`user-login:${ip}`, 10, 15 * 60 * 1000)) {
+  if (!(await checkRateLimit(`user-login:${ip}`, 10, 15 * 60 * 1000))) {
     return NextResponse.json({ error: "Trop de tentatives." }, { status: 429 });
   }
 
@@ -18,9 +19,25 @@ export async function POST(req: NextRequest) {
   if (!email || !password) return NextResponse.json({ error: "Email et mot de passe requis" }, { status: 400 });
 
   const user = await prisma.adminUser.findUnique({ where: { email } });
+
+  // Reject early if the account is currently locked.
+  if (user && user.isActive && isUserLocked(user)) {
+    return NextResponse.json({ error: "Compte temporairement verrouillé (trop de tentatives). Réessayez dans 10 minutes." }, { status: 423 });
+  }
+
   if (!user || !user.isActive || !verifyPassword(user.passwordHash, password)) {
+    // Count failures only for real, active accounts and lock after 3.
+    if (user && user.isActive) {
+      const locked = await registerUserFailure(user.id);
+      if (locked) {
+        return NextResponse.json({ error: "Compte verrouillé pour 10 minutes après 3 tentatives échouées." }, { status: 423 });
+      }
+    }
     return NextResponse.json({ error: "Identifiants incorrects" }, { status: 401 });
   }
+
+  // Successful password → clear failure counter / lock.
+  await clearUserFailures(user.id);
 
   // Transparently upgrade legacy (sha256) hashes to scrypt on successful login.
   if (needsRehash(user.passwordHash)) {

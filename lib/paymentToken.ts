@@ -5,7 +5,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 // alone is not enough to drive someone else's payment / poll their status.
 
 function secret(): string {
-  return process.env.ADMIN_SECRET || "qr-fallback-secret";
+  return process.env.PAYMENT_SECRET || process.env.ADMIN_SECRET || "qr-fallback-secret";
 }
 
 export function signPaymentToken(registrationId: number): string {

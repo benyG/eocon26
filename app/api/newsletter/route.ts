@@ -1,12 +1,12 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { rateLimit, getIp } from "@/lib/rateLimit";
+import { checkRateLimit, getIp } from "@/lib/rateLimit";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(req: NextRequest) {
-  if (!rateLimit(`newsletter:${getIp(req)}`, 10, 60 * 60 * 1000)) {
+  if (!(await checkRateLimit(`newsletter:${getIp(req)}`, 10, 60 * 60 * 1000))) {
     return NextResponse.json({ error: "Trop de requêtes." }, { status: 429 });
   }
 

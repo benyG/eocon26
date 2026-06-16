@@ -281,6 +281,8 @@ model AdminUser {
   mfaSecret      String?        @db.Text  // encrypted TOTP secret
   mfaEnabled     Boolean        @default(false)
   mfaEnrolledAt  DateTime?
+  failedLoginCount Int          @default(0)
+  lockedUntil    DateTime?
 
   @@map("admin_users")
 }

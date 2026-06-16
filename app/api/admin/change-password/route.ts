@@ -1,23 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthenticatedUserId } from "@/lib/adminAuth";
-import { createHash, randomBytes } from "crypto";
+import { hashPassword, verifyPassword } from "@/lib/password";
 
 export const dynamic = "force-dynamic";
-
-function hashPassword(password: string): string {
-  const salt = randomBytes(16).toString("hex");
-  const hash = createHash("sha256").update(password + salt).digest("hex");
-  return `${salt}:${hash}`;
-}
-
-function verifyPassword(stored: string, input: string): boolean {
-  const parts = stored.split(":");
-  if (parts.length < 2) return false;
-  const salt = parts[0];
-  const storedHash = parts.slice(1).join(":");
-  return createHash("sha256").update(input + salt).digest("hex") === storedHash;
-}
 
 export async function POST(req: NextRequest) {
   const userId = await getAuthenticatedUserId();

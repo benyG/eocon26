@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
 import { prisma } from "@/lib/db";
+import { rateLimit, getIp } from "@/lib/rateLimit";
+import { cleanText, cleanOptional, cleanEmail, cleanPhone } from "@/lib/sanitize";
 
 export const dynamic = "force-dynamic";
 
@@ -12,17 +14,23 @@ const DECK_FILES = [
 ];
 
 export async function POST(req: NextRequest) {
-  const { org, contact, email, phone, lang } = await req.json();
-  if (!org?.trim()) return NextResponse.json({ error: "Organisation requise" }, { status: 400 });
-  if (!email?.trim()) return NextResponse.json({ error: "Email requis" }, { status: 400 });
+  if (!rateLimit(`deck:${getIp(req)}`, 8, 60 * 60 * 1000)) {
+    return NextResponse.json({ error: "Trop de requêtes, réessayez plus tard." }, { status: 429 });
+  }
+  const body = await req.json();
+  const org = cleanText(body.org, 200);
+  const email = cleanEmail(body.email);
+  const lang = body.lang === "en" ? "en" : "fr";
+  if (!org) return NextResponse.json({ error: "Organisation requise" }, { status: 400 });
+  if (!email) return NextResponse.json({ error: "Email valide requis" }, { status: 400 });
 
   // Same processing as the "Devenir sponsor" form: record the prospect.
   const prospect = await prisma.sponsorProspect.create({
     data: {
-      org: org.trim(),
-      contact: contact || null,
-      email: email || null,
-      phone: phone || null,
+      org,
+      contact: cleanOptional(body.contact, 120),
+      email,
+      phone: cleanPhone(body.phone),
       package: null,
       notes: "Demande du dossier de sponsoring",
       status: "demande",

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { sendRegistrationTicket } from "@/lib/email";
 import { generateTicketRef, formatTicketRef } from "@/lib/ticketRef";
 import { rateLimit, getIp } from "@/lib/rateLimit";
+import { signPaymentToken } from "@/lib/paymentToken";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest) {
         .catch(e => console.error("[Register free ticket email]", e));
     }
     return NextResponse.json(
-      { success: true, id: registration.id, ticketRef, ticketType, amount, isFree },
+      { success: true, id: registration.id, ticketRef, ticketType, amount, isFree, paymentToken: signPaymentToken(registration.id) },
       { status: 201 },
     );
   } catch (err) {

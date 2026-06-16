@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verify } from "otplib";
-import { createHmac } from "crypto";
+import { randomBytes } from "crypto";
 import { verifyMfaPending } from "@/lib/mfaToken";
 import { signUserSession } from "@/lib/adminAuth";
 
@@ -34,8 +34,7 @@ export async function POST(req: NextRequest) {
 
   // Create session
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  const sessionToken = createHmac("sha256", process.env.ADMIN_SECRET || "fallback")
-    .update(`${user.id}:${Date.now()}:${Math.random()}`).digest("hex");
+  const sessionToken = randomBytes(32).toString("hex");
   await prisma.adminSession.create({ data: { token: sessionToken, userId: user.id, expiresAt } });
 
   const cookieValue = signUserSession(user.id, sessionToken);

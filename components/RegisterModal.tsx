@@ -183,11 +183,10 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
   const getPerks = (t: TicketTypeData) => lang === "fr" ? t.perksFr : t.perksEn;
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop">
       <div
         className={`w-full ${step === "tiers" ? "max-w-6xl" : "max-w-3xl"} max-h-[90vh] overflow-y-auto rounded-2xl`}
         style={{ background: "#0a0a0f", border: "1px solid rgba(0,255,157,0.2)" }}
-        onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-neon-green/10">

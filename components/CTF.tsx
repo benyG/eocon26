@@ -195,12 +195,10 @@ export default function CTF({ t, onOpenModal, ctfSettings = {} }: { t: Translati
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.85)" }}
-          onClick={() => setShowPrizeModal(false)}
         >
           <div
             className="max-w-md w-full rounded-2xl p-6"
             style={{ background: "#0a0a0f", border: "1px solid rgba(255,215,0,0.3)" }}
-            onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-white font-bold text-lg flex items-center gap-2">🏆 Gains CTF</h3>

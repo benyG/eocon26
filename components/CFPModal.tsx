@@ -46,11 +46,10 @@ export default function CFPModal({ t, onClose }: { t: Translations; onClose: () 
   ];
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop">
       <div
         className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl"
         style={{ background: "#0a0a0f", border: "1px solid rgba(0,255,157,0.2)" }}
-        onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-neon-green/10">

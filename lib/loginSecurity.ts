@@ -25,7 +25,7 @@ export function registerIpFailure(ip: string): boolean {
   e.count++;
   if (e.count >= MAX_FAILS) e.lockedUntil = now + LOCK_MS;
   // bound memory
-  if (ipFails.size > 10000) for (const [k, v] of ipFails) if (now > v.windowEnd && v.lockedUntil < now) ipFails.delete(k);
+  if (ipFails.size > 10000) ipFails.forEach((v, k) => { if (now > v.windowEnd && v.lockedUntil < now) ipFails.delete(k); });
   return e.lockedUntil > now;
 }
 

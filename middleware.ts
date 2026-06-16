@@ -27,7 +27,7 @@ function rateLimited(req: NextRequest): boolean {
     e.count++;
   }
   if (rlStore.size > 20000) {
-    for (const [k, v] of rlStore) if (now > v.resetAt) rlStore.delete(k);
+    rlStore.forEach((v, k) => { if (now > v.resetAt) rlStore.delete(k); });
   }
   return false;
 }

@@ -1615,7 +1615,7 @@ function CommunicationPanel() {
                 session: { text: "Voir le programme →", urlKey: "url_programme" },
                 workshop: { text: "S'inscrire →", urlKey: "url_inscription" },
                 countdown: { text: "S'inscrire →", urlKey: "url_inscription" },
-                sponsor: { text: "Devenir partenaire →", urlKey: "site_base_url" },
+                sponsor: { text: "Devenir partenaire →", urlKey: "url_sponsor" },
               };
               const cta = ctaMap[contextType];
               if (!cta) return null;
@@ -4017,6 +4017,7 @@ const SETTINGS_FIELDS = [
   { key: "url_benevoles", label: "Lien → Bénévoles", type: "url", group: "Liens" },
   { key: "url_programme", label: "Lien → Programme", type: "url", group: "Liens" },
   { key: "url_ctf", label: "Lien → CTF", type: "url", group: "Liens" },
+  { key: "url_sponsor", label: "Lien → Sponsor", type: "url", group: "Liens" },
 ] as const;
 
 function EventSettingsPanel() {
@@ -4119,7 +4120,7 @@ function EventSettingsPanel() {
             const urlKey = type === "inscriptions" || type === "countdown" ? "url_inscription"
               : type === "cfp" ? "url_cfp"
               : type === "ctf" ? "url_ctf"
-              : type === "sponsor" ? "site_base_url"
+              : type === "sponsor" ? "url_sponsor"
               : "url_programme";
             return (
               <div key={type} className="rounded p-2" style={{ background: "#111", border: "1px solid #1a1a2e" }}>

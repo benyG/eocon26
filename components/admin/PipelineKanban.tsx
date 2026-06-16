@@ -318,22 +318,37 @@ export default function PipelineKanban() {
     if (item.type === "cfp") {
       const card = cards.find(c => c.id === item.id);
       if (!card) return;
-      const res = await fetch("/api/admin/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: card.talkTitle,
-          type: card.format === "keynote" ? "keynote" : "talk",
-          date, time: dropTime,
-          speakerName: card.name,
-          speakerId: card.speakerId || null,
-          isVisible: true, sortOrder: 100,
-        }),
-      });
-      if (res.ok) {
-        const s = await res.json();
-        setSessions(prev => [...prev, s]);
-        await moveStage(card.id, "scheduled");
+      // A session is already created when the CFP is confirmed. Schedule THAT one
+      // instead of creating a second entry (avoids the workshop "double slot" bug).
+      const existing = card.speakerId ? sessions.find(s => s.speakerId === card.speakerId) : undefined;
+      if (existing) {
+        const res = await fetch(`/api/admin/sessions/${existing.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date, time: dropTime, isVisible: true }),
+        });
+        if (res.ok) {
+          setSessions(prev => prev.map(s => s.id === existing.id ? { ...s, date, time: dropTime, isVisible: true } : s));
+          await moveStage(card.id, "scheduled");
+        }
+      } else {
+        const res = await fetch("/api/admin/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: card.talkTitle,
+            type: card.format === "workshop" ? "workshop" : card.format === "keynote" ? "keynote" : "talk",
+            date, time: dropTime,
+            speakerName: card.name,
+            speakerId: card.speakerId || null,
+            isVisible: true, sortOrder: 100,
+          }),
+        });
+        if (res.ok) {
+          const s = await res.json();
+          setSessions(prev => [...prev, s]);
+          await moveStage(card.id, "scheduled");
+        }
       }
     } else {
       const res = await fetch(`/api/admin/sessions/${item.id}`, {
@@ -758,11 +773,11 @@ export default function PipelineKanban() {
               <h3 className="text-xs font-bold uppercase tracking-widest text-neon-green">Backlog</h3>
               <span className="text-gray-600 text-xs">— glissez vers une journée</span>
             </div>
-            {cards.filter(c => c.pipelineStage === "confirmed").length === 0 && sessions.filter(s => !s.date).length === 0 ? (
+            {cards.filter(c => c.pipelineStage === "confirmed" && !sessions.some(s => s.speakerId && s.speakerId === c.speakerId)).length === 0 && sessions.filter(s => !s.date).length === 0 ? (
               <p className="text-gray-600 text-xs py-2">Aucun speaker confirmé ni session non planifiée.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
-                {cards.filter(c => c.pipelineStage === "confirmed").map(card => (
+                {cards.filter(c => c.pipelineStage === "confirmed" && !sessions.some(s => s.speakerId && s.speakerId === c.speakerId)).map(card => (
                   <div
                     key={`cfp-${card.id}`}
                     draggable

@@ -60,13 +60,24 @@ export default function Home() {
   const openModal = (m: string) => setModal(m);
   const closeModal = () => setModal(null);
 
-  // Deep links: /?modal=register|cfp|volunteer|sponsor|sponsor-deck opens the
-  // matching modal directly on load (shareable links).
+  // Deep links (shareable):
+  //  - /?modal=register|cfp|volunteer|sponsor|sponsor-deck → opens that modal
+  //  - /?modal=ctf|programme → scrolls directly to the matching section
   useEffect(() => {
     if (typeof window === "undefined") return;
     const m = new URLSearchParams(window.location.search).get("modal");
-    if (m && ["register", "cfp", "volunteer", "sponsor", "sponsor-deck"].includes(m)) {
+    if (!m) return;
+    if (["register", "cfp", "volunteer", "sponsor", "sponsor-deck"].includes(m)) {
       setModal(m);
+    } else if (m === "ctf" || m === "programme") {
+      const id = m === "ctf" ? "ctf" : "schedule";
+      let tries = 0;
+      const tryScroll = () => {
+        const el = document.getElementById(id);
+        if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+        if (tries++ < 20) setTimeout(tryScroll, 250);
+      };
+      tryScroll();
     }
   }, []);
 

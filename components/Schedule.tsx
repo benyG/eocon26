@@ -172,15 +172,27 @@ function CalBtn({ session, lang }: { session: Session; lang: "en" | "fr" }) {
   );
 }
 
+function dayLabel(date: string, lang: "en" | "fr"): string {
+  const d = new Date(`${date}T12:00:00`);
+  if (isNaN(d.getTime())) return date;
+  return d.toLocaleDateString(lang === "fr" ? "fr-FR" : "en-US", { weekday: "long", day: "numeric", month: "long" });
+}
+
 export default function Schedule({ t, lang }: { t: Translations; lang: "en" | "fr" }) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/sessions").then(r => r.json()).then(data => {
       if (Array.isArray(data)) setSessions(data);
     }).catch(() => {}).finally(() => setLoaded(true));
   }, []);
+
+  // Distinct programme days (sorted). Tabs default to the LAST day.
+  const dayList = Array.from(new Set(sessions.filter(s => s.date).map(s => s.date as string))).sort();
+  const activeDay = selectedDay && dayList.includes(selectedDay) ? selectedDay : (dayList[dayList.length - 1] ?? null);
+  const shownSessions = dayList.length > 0 ? sessions.filter(s => s.date === activeDay) : sessions;
 
   if (loaded && sessions.length === 0) {
     return (
@@ -213,6 +225,27 @@ export default function Schedule({ t, lang }: { t: Translations; lang: "en" | "f
           <p className="text-gray-400">{t.schedule.subtitle}</p>
         </div>
 
+        {/* Day tabs (one per programme day, focus on the last day) */}
+        {dayList.length > 1 && (
+          <div className="flex flex-wrap gap-2 justify-center mb-10">
+            {dayList.map(day => {
+              const active = day === activeDay;
+              return (
+                <button
+                  key={day}
+                  onClick={() => setSelectedDay(day)}
+                  className="px-4 py-2 rounded-lg text-xs font-mono transition-all border"
+                  style={active
+                    ? { borderColor: "#00ff9d", background: "rgba(0,255,157,0.1)", color: "#00ff9d" }
+                    : { borderColor: "#2a2a2a", color: "#888" }}
+                >
+                  {dayLabel(day, lang)}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Legend */}
         <div className="flex flex-wrap gap-4 justify-center mb-12">
           {Object.entries(typeColors).map(([type, color]) => (
@@ -227,7 +260,7 @@ export default function Schedule({ t, lang }: { t: Translations; lang: "en" | "f
         <div className="relative">
           <div className="absolute left-16 top-0 bottom-0 w-px bg-gradient-to-b from-neon-green/30 via-neon-green/10 to-transparent" />
           <div className="space-y-3">
-            {sessions.map(session => {
+            {shownSessions.map(session => {
               const color = typeColors[session.type] ?? "#888";
               const displayTitle = session.speakerName ? `${session.title} — ${session.speakerName}` : session.title;
               return (

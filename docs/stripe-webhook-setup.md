@@ -7,14 +7,44 @@
 
 ---
 
-## 1 — Stripe dashboard: create an account and get API keys
+## 0 — Tenant arrangement (third-party Stripe owner)
 
-1. Sign in at <https://dashboard.stripe.com/>
+For EOCON 2026 the **Stripe account owner is `examboot.net`**, while the payment
+page is **hosted on `eyesopensecurity.com`**. This is the chosen setup ("Option A").
+
+Why this works without any code change:
+
+- Stripe Checkout sessions are created **server-side with examboot.net's API key**.
+  The card is collected on `checkout.stripe.com` and the funds settle into
+  **examboot.net's** Stripe balance.
+- Stripe does **not** require the `success_url` / `cancel_url` redirect domains to
+  match the account owner, so redirecting back to `eyesopensecurity.com` is fine.
+- examboot.net later settles the collected ticket revenue with EOCON 2026 (manual
+  bank transfer / agreement — outside this app).
+
+What examboot.net must provide to eyesopensecurity.com:
+
+1. A **Secret key** from *their* Stripe account — ideally a **Restricted key**
+   (Developers → API keys → Create restricted key) limited to:
+   - `Checkout Sessions` → **Write**
+   - `Payment Intents` → **Read**
+2. A **webhook signing secret** for the endpoint configured in *their* dashboard
+   (see step 2 below).
+
+> ℹ️ All steps below are performed inside **examboot.net's** Stripe dashboard,
+> even though the public payment page lives on eyesopensecurity.com.
+
+---
+
+## 1 — Stripe dashboard (examboot.net): get the API key
+
+1. examboot.net signs in at <https://dashboard.stripe.com/>
 2. Go to **Developers → API keys**
-3. Copy the **Secret key** (`sk_live_...` for production, `sk_test_...` for testing)
-4. Add it to your `.env`:
+3. Create a **Restricted key** (preferred) or copy the **Secret key**
+   (`sk_live_...` for production, `sk_test_...` for testing)
+4. eyesopensecurity.com adds it to its `.env`:
    ```
-   STRIPE_SECRET_KEY="sk_live_..."
+   STRIPE_SECRET_KEY="sk_live_examboot_..."
    ```
 
 ---
@@ -57,8 +87,8 @@ price through Stripe. If `priceEn` is 0, the card button is disabled.
 
 | Variable | Required | Description |
 |---|---|---|
-| `STRIPE_SECRET_KEY` | ✅ | Stripe secret key (never expose to browser) |
-| `STRIPE_WEBHOOK_SECRET` | ✅ | Webhook signing secret from Stripe dashboard |
+| `STRIPE_SECRET_KEY` | ✅ | Stripe secret key **from examboot.net's account** (never expose to browser) |
+| `STRIPE_WEBHOOK_SECRET` | ✅ | Webhook signing secret from **examboot.net's** Stripe dashboard |
 | `NEXT_PUBLIC_URL` | ✅ | Base URL used to build Stripe success/cancel URLs (`https://eyesopensecurity.com`) |
 | `PAYMENT_ALLOW_CURRENCY_SELECTOR` | QA only | `"true"` exposes a manual XAF/USD toggle in the registration modal |
 

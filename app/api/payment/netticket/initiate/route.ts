@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { rateLimit, getIp } from "@/lib/rateLimit";
 import { initiateMobilePayment, isNetticketConfigured, sanitizePhone, type NettOperator } from "@/lib/netticket";
 import { finalizeRegistrationPaid } from "@/lib/payment";
+import { verifyPaymentToken } from "@/lib/paymentToken";
 
 export async function POST(req: NextRequest) {
   if (!rateLimit(`pay:${getIp(req)}`, 10, 60 * 60 * 1000)) {
@@ -14,9 +15,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { registrationId, operator, phone } = await req.json();
+    const { registrationId, operator, phone, token } = await req.json();
     if (!registrationId || !operator || !phone) {
       return NextResponse.json({ error: "Champs requis manquants" }, { status: 400 });
+    }
+    if (!verifyPaymentToken(Number(registrationId), token)) {
+      return NextResponse.json({ error: "Jeton de paiement invalide" }, { status: 403 });
     }
     if (operator !== "mtn" && operator !== "orange") {
       return NextResponse.json({ error: "Opérateur invalide" }, { status: 400 });

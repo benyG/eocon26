@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { checkPayment, isNetticketConfigured } from "@/lib/netticket";
 import { finalizeRegistrationPaid } from "@/lib/payment";
 import { rateLimit, getIp } from "@/lib/rateLimit";
+import { verifyPaymentToken } from "@/lib/paymentToken";
 
 // GET /api/payment/netticket/status?registrationId=123
 // Polled by the registration modal while a Mobile Money payment is pending.
@@ -16,6 +17,9 @@ export async function GET(req: NextRequest) {
     const registrationId = Number(req.nextUrl.searchParams.get("registrationId"));
     if (!registrationId) {
       return NextResponse.json({ error: "registrationId requis" }, { status: 400 });
+    }
+    if (!verifyPaymentToken(registrationId, req.nextUrl.searchParams.get("token"))) {
+      return NextResponse.json({ error: "Jeton de paiement invalide" }, { status: 403 });
     }
 
     const reg = await prisma.registration.findUnique({ where: { id: registrationId } });

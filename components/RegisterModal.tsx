@@ -45,6 +45,7 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
 
   // Payment step state
   const [registrationId, setRegistrationId] = useState<number | null>(null);
+  const [paymentToken, setPaymentToken] = useState("");
   const [amount, setAmount] = useState(0);
   const [payMethod, setPayMethod] = useState<"momo" | "card">("momo");
   const [operator, setOperator] = useState<"mtn" | "orange">("mtn");
@@ -106,6 +107,7 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
         setSubmitted(true);
       } else {
         setRegistrationId(data.id);
+        setPaymentToken(data.paymentToken || "");
         // Prefer the selected ticket's active price (already loaded client-side),
         // fall back to the amount computed server-side.
         setAmount(selectedTicket?.activePriceFr ?? data.amount ?? 0);
@@ -124,7 +126,7 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
     pollRef.current = setInterval(async () => {
       attempts++;
       try {
-        const r = await fetch(`/api/payment/netticket/status?registrationId=${regId}`);
+        const r = await fetch(`/api/payment/netticket/status?registrationId=${regId}&token=${encodeURIComponent(paymentToken)}`);
         const d = await r.json();
         if (d.state === "successful") {
           if (pollRef.current) clearInterval(pollRef.current);
@@ -149,7 +151,7 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
       const res = await fetch("/api/payment/netticket/initiate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ registrationId, operator, phone: payPhone }),
+        body: JSON.stringify({ registrationId, operator, phone: payPhone, token: paymentToken }),
       });
       const data = await res.json();
       if (!res.ok || data.state === "failed") {

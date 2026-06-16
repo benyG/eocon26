@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { createHash, createHmac, timingSafeEqual } from "crypto";
+import { randomBytes } from "crypto";
 import { rateLimit, getIp } from "@/lib/rateLimit";
 import { signMfaPending } from "@/lib/mfaToken";
 import { signUserSession } from "@/lib/adminAuth";
+import { verifyPassword, needsRehash, hashPassword } from "@/lib/password";
 
 export const dynamic = "force-dynamic";
-
-function verifyPassword(hash: string, password: string): boolean {
-  const [salt, stored] = hash.split(":");
-  const computed = createHash("sha256").update(password + salt).digest("hex");
-  const a = Buffer.from(computed, "hex");
-  const b = Buffer.from(stored, "hex");
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
 
 export async function POST(req: NextRequest) {
   const ip = getIp(req);
@@ -28,6 +20,11 @@ export async function POST(req: NextRequest) {
   const user = await prisma.adminUser.findUnique({ where: { email } });
   if (!user || !user.isActive || !verifyPassword(user.passwordHash, password)) {
     return NextResponse.json({ error: "Identifiants incorrects" }, { status: 401 });
+  }
+
+  // Transparently upgrade legacy (sha256) hashes to scrypt on successful login.
+  if (needsRehash(user.passwordHash)) {
+    await prisma.adminUser.update({ where: { id: user.id }, data: { passwordHash: hashPassword(password) } }).catch(() => {});
   }
 
   // Check if MFA required (global setting)
@@ -48,8 +45,7 @@ export async function POST(req: NextRequest) {
 
   // No MFA — create session
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  const sessionToken = createHmac("sha256", process.env.ADMIN_SECRET || "fallback")
-    .update(`${user.id}:${Date.now()}:${Math.random()}`).digest("hex");
+  const sessionToken = randomBytes(32).toString("hex");
   await prisma.adminSession.create({ data: { token: sessionToken, userId: user.id, expiresAt } });
 
   const cookieValue = signUserSession(user.id, sessionToken);

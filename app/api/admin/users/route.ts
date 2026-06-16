@@ -1,25 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { createHash, randomBytes } from "crypto";
+import { hashPassword } from "@/lib/password";
+import { randomBytes } from "crypto";
 import { Resend } from "resend";
 
 export const dynamic = "force-dynamic";
 
-function hashPassword(password: string): string {
-  const salt = randomBytes(16).toString("hex");
-  const hash = createHash("sha256").update(password + salt).digest("hex");
-  return `${salt}:${hash}`;
+// Cryptographically-random index in [0, n)
+function randIndex(n: number): number {
+  return randomBytes(1)[0] % n;
 }
 
 function generateTempPassword(): string {
   const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
   const lower = "abcdefghjkmnpqrstuvwxyz";
   const digits = "23456789";
-  const rand = (s: string) => s[Math.floor(Math.random() * s.length)];
+  const rand = (s: string) => s[randIndex(s.length)];
   const chars = [rand(upper), rand(upper), rand(digits), rand(digits), rand(lower), rand(lower), rand(lower), rand(lower)];
-  // Shuffle
+  // Shuffle (Fisher-Yates with crypto randomness)
   for (let i = chars.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = randIndex(i + 1);
     [chars[i], chars[j]] = [chars[j], chars[i]];
   }
   return chars.join("");

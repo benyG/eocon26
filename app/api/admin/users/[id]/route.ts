@@ -13,9 +13,7 @@ function hashPassword(password: string): string {
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  if (!(await hasPermission("users", "write"))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  if (!(await hasPermission("users", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const id = parseInt(params.id);
   const { name, permissions, isActive, password } = await req.json();
   const data: Record<string, unknown> = {};
@@ -33,6 +31,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  if (!(await hasPermission("users", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const id = parseInt(params.id);
   await prisma.adminUser.delete({ where: { id } });
   logAction(req, "DELETE", "user", id);

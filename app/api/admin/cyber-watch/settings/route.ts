@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { RSS_FEEDS } from "@/lib/rssFeeds";
 
 export const dynamic = "force-dynamic";
@@ -32,12 +32,12 @@ async function getSettings(): Promise<CyberWatchSettings> {
 }
 
 export async function GET() {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("cyber-watch", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   return NextResponse.json(await getSettings());
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("cyber-watch", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json() as Partial<CyberWatchSettings>;
   const current = await getSettings();
   const next: CyberWatchSettings = { ...current, ...body };

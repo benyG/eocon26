@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { RSS_FEEDS } from "@/lib/rssFeeds";
 import { getOpenAI, getEoconContext } from "@/lib/openai";
 
@@ -178,7 +178,7 @@ Réponds uniquement en JSON :
 const BATCH_SIZE = 20;
 
 export async function POST() {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("cyber-watch", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   // Load settings
   const settingsRow = await prisma.eventSetting.findUnique({ where: { key: "cyber_watch_settings" } });

@@ -12,7 +12,7 @@ interface BioResult {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("cfp", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { bio, talkTitle, talkAbstract, name } = await req.json();
   if (!bio && !talkTitle) return NextResponse.json({ error: "Missing bio or talkTitle" }, { status: 400 });
 
@@ -43,7 +43,7 @@ Réponds en JSON uniquement, sans markdown :
     model: process.env.OPENAI_MODEL || "gpt-4o-mini",
     messages: [{ role: "user", content: prompt }],
     temperature: 0.6,
-    max_tokens: 800,
+    max_completion_tokens: 800,
   });
 
   const text = response.choices[0]?.message?.content || "{}";

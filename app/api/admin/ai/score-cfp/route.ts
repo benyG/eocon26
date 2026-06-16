@@ -45,7 +45,7 @@ Donne ton évaluation en JSON uniquement, sans markdown :
     model: process.env.OPENAI_MODEL || "gpt-4o-mini",
     messages: [{ role: "user", content: prompt }],
     temperature: 0.3,
-    max_tokens: 400,
+    max_completion_tokens: 400,
   });
 
   const text = response.choices[0]?.message?.content || "{}";
@@ -66,7 +66,7 @@ Donne ton évaluation en JSON uniquement, sans markdown :
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("cfp", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id, scoreAll } = await req.json();
 
   if (scoreAll) {

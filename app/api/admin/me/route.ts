@@ -42,7 +42,16 @@ export async function GET() {
           const overrides = JSON.parse(u.permissions || "{}") as Record<string, string>;
           permissions = { ...permissions, ...overrides };
         } catch { /* ignore */ }
-        return NextResponse.json({ isLegacy: false, name: u.name, permissions });
+        const mfaSetting = await prisma.eventSetting.findUnique({ where: { key: "mfa_required" } });
+        return NextResponse.json({
+          isLegacy: false,
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          mfaEnabled: u.mfaEnabled,
+          mfaRequired: mfaSetting?.value === "true",
+          permissions,
+        });
       }
     }
   }

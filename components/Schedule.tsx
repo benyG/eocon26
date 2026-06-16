@@ -55,7 +55,7 @@ function endICSDateTime(dateStr: string, timeStr: string, endTimeStr: string | n
 
 function buildSessionICS(s: Session): string {
   const date = s.date || EVENT_DATE;
-  const uid = `eocon2026-session-${s.id}@eocon.eyesopensecurity.com`;
+  const uid = `eocon2026-session-${s.id}@eyesopensecurity.com`;
   const now = new Date().toISOString().replace(/[-:.]/g, "").slice(0, 15) + "Z";
   const summary = (s.speakerName ? `${s.title} — ${s.speakerName}` : s.title).replace(/,/g, "\\,");
   const location = (s.room ? `${s.room}, ${EVENT_LOCATION}` : EVENT_LOCATION).replace(/,/g, "\\,");
@@ -82,7 +82,7 @@ function buildFullICS(sessions: Session[]): string {
     const location = (s.room ? `${s.room}, ${EVENT_LOCATION}` : EVENT_LOCATION).replace(/,/g, "\\,");
     return [
       "BEGIN:VEVENT",
-      `UID:eocon2026-s${s.id}@eocon.eyesopensecurity.com`,
+      `UID:eocon2026-s${s.id}@eyesopensecurity.com`,
       `DTSTAMP:${now}`,
       `DTSTART;TZID=Africa/Douala:${toICSDateTime(date, s.time)}`,
       `DTEND;TZID=Africa/Douala:${endICSDateTime(date, s.time, s.endTime, s.type)}`,

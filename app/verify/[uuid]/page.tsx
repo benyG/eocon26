@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: { uuid: string } }): Promise<Metadata> {
   const badge = await prisma.badgeCredential.findUnique({ where: { uuid: params.uuid } });
   if (!badge) return { title: "Badge — EOCON 2026" };
-  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com";
+  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eyesopensecurity.com";
   const cred = JSON.parse(badge.credentialJson);
   const imageUrl = `${baseUrl}/api/verify/${badge.uuid}/image`;
   const pageUrl = `${baseUrl}/verify/${badge.uuid}`;
@@ -57,7 +57,7 @@ export default async function VerifyPage({ params }: { params: { uuid: string } 
   const color = badgeColors[badge.badgeType] || "#00ff9d";
   const svgString = generateBadgeSvg(badge.badgeType as BadgeType, badge.recipientName, "2026", badge.subtype);
   const svgDataUrl = `data:image/svg+xml;base64,${Buffer.from(svgString).toString("base64")}`;
-  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com";
+  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eyesopensecurity.com";
 
   const linkedinAddUrl = new URL("https://www.linkedin.com/profile/add");
   linkedinAddUrl.searchParams.set("startTask", "CERTIFICATION_NAME");

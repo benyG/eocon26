@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     if (!reg) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const payload = generateQrPayload(reg.id);
-    const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com";
+    const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eyesopensecurity.com";
     const checkinUrl = `${baseUrl}/checkin/${payload}`;
     const qrDataUrl = await QRCode.toDataURL(checkinUrl, { width: 300, margin: 2, color: { dark: "#000000", light: "#ffffff" } });
     return NextResponse.json({

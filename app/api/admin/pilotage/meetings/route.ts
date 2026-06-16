@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { logAction } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("pilotage", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const meetings = await prisma.steeringMeeting.findMany({ orderBy: { scheduledAt: "asc" } });
   return NextResponse.json(meetings);
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("pilotage", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json();
   const { title, type, subTeam, scheduledAt, location, agenda, attendees } = body;
   if (!title || !scheduledAt) return NextResponse.json({ error: "title et scheduledAt requis" }, { status: 400 });

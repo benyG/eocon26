@@ -108,6 +108,120 @@ function PhotoUploadField({
   );
 }
 
+// Self-service account: change own password + manage own MFA.
+function AccountModal({
+  info,
+  onClose,
+  onChanged,
+}: {
+  info: { name: string; email?: string; mfaEnabled?: boolean; mfaRequired?: boolean };
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const [curPw, setCurPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [pwMsg, setPwMsg] = useState("");
+  const [pwSaving, setPwSaving] = useState(false);
+  // MFA enrollment state
+  const [qr, setQr] = useState("");
+  const [totp, setTotp] = useState("");
+  const [mfaMsg, setMfaMsg] = useState("");
+  const [mfaBusy, setMfaBusy] = useState(false);
+
+  const changePassword = async () => {
+    setPwMsg(""); setPwSaving(true);
+    const res = await fetch("/api/admin/change-password", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword: curPw, newPassword: newPw }),
+    });
+    const d = await res.json().catch(() => ({}));
+    setPwMsg(res.ok ? "✓ Mot de passe mis à jour." : (d.error || "Échec."));
+    if (res.ok) { setCurPw(""); setNewPw(""); }
+    setPwSaving(false);
+  };
+
+  const startMfa = async () => {
+    setMfaMsg(""); setMfaBusy(true);
+    const res = await fetch("/api/admin/account/mfa");
+    const d = await res.json().catch(() => ({}));
+    if (res.ok) setQr(d.qrDataUrl); else setMfaMsg(d.error || "Échec.");
+    setMfaBusy(false);
+  };
+  const verifyMfa = async () => {
+    setMfaMsg(""); setMfaBusy(true);
+    const res = await fetch("/api/admin/account/mfa", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ totp }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (res.ok) { setMfaMsg("✓ MFA activé."); setQr(""); setTotp(""); onChanged(); }
+    else setMfaMsg(d.error || "Code incorrect.");
+    setMfaBusy(false);
+  };
+  const disableMfa = async () => {
+    if (!confirm("Désactiver le MFA pour votre compte ?")) return;
+    setMfaMsg(""); setMfaBusy(true);
+    const res = await fetch("/api/admin/account/mfa", { method: "DELETE" });
+    const d = await res.json().catch(() => ({}));
+    if (res.ok) { setMfaMsg("MFA désactivé."); onChanged(); } else setMfaMsg(d.error || "Échec.");
+    setMfaBusy(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+      <div className="cyber-card rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto space-y-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-white font-bold">👤 Mon compte</h3>
+            <p className="text-gray-500 text-xs">{info.email || info.name}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-xl">✕</button>
+        </div>
+
+        {/* Password */}
+        <div className="space-y-2">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Mot de passe</p>
+          <input type="password" placeholder="Mot de passe actuel" className="cyber-input w-full text-sm rounded px-3 py-2" value={curPw} onChange={e => setCurPw(e.target.value)} />
+          <input type="password" placeholder="Nouveau mot de passe (min 8)" className="cyber-input w-full text-sm rounded px-3 py-2" value={newPw} onChange={e => setNewPw(e.target.value)} />
+          <button onClick={changePassword} disabled={pwSaving || !curPw || newPw.length < 8} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
+            {pwSaving ? "…" : "Changer le mot de passe"}
+          </button>
+          {pwMsg && <p className="text-xs" style={{ color: pwMsg.startsWith("✓") ? "#00ff9d" : "#ff6666" }}>{pwMsg}</p>}
+        </div>
+
+        {/* MFA */}
+        <div className="space-y-2 border-t border-gray-800 pt-4">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+            Double authentification (MFA){info.mfaRequired ? " · obligatoire" : ""}
+          </p>
+          <p className="text-xs text-gray-500">
+            Statut : {info.mfaEnabled ? <span className="text-neon-green">activé ✓</span> : <span className="text-yellow-400">non activé</span>}
+          </p>
+          {!info.mfaEnabled && !qr && (
+            <button onClick={startMfa} disabled={mfaBusy} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
+              {mfaBusy ? "…" : "Configurer le MFA"}
+            </button>
+          )}
+          {qr && (
+            <div className="space-y-2">
+              <p className="text-xs text-gray-400">Scannez ce QR avec votre application d&apos;authentification, puis entrez le code :</p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={qr} alt="QR MFA" width={160} height={160} className="rounded bg-white p-2 mx-auto" />
+              <input inputMode="numeric" maxLength={6} placeholder="000000" className="cyber-input w-full text-sm rounded px-3 py-2 text-center tracking-[0.4em]" value={totp} onChange={e => setTotp(e.target.value.replace(/\D/g, "").slice(0, 6))} />
+              <button onClick={verifyMfa} disabled={mfaBusy || totp.length < 6} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">Activer le MFA</button>
+            </div>
+          )}
+          {info.mfaEnabled && !info.mfaRequired && (
+            <button onClick={disableMfa} disabled={mfaBusy} className="text-xs px-3 py-1.5 rounded border border-red-500/40 text-red-400 hover:bg-red-500/10 disabled:opacity-50">
+              Désactiver le MFA
+            </button>
+          )}
+          {mfaMsg && <p className="text-xs" style={{ color: mfaMsg.startsWith("✓") ? "#00ff9d" : "#ff6666" }}>{mfaMsg}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface MfaSetupState {
   userId: number;
   userName: string;
@@ -3820,7 +3934,7 @@ interface SponsorPkg {
   perksFr: string; perksEn: string; isVisible: boolean;
 }
 
-function SponsorPackageEditor({ pkg, onSave, onDelete }: { pkg: SponsorPkg; onSave: (data: Partial<SponsorPkg>) => Promise<void>; onDelete: () => Promise<void> }) {
+function SponsorPackageEditor({ pkg, onSave, onDelete, canWrite = true }: { pkg: SponsorPkg; onSave: (data: Partial<SponsorPkg>) => Promise<void>; onDelete: () => Promise<void>; canWrite?: boolean }) {
   const [draft, setDraft] = useState<SponsorPkg>({ ...pkg });
   const [perksFr, setPerksFr] = useState<string[]>(() => { try { return JSON.parse(pkg.perksFr || "[]"); } catch { return []; } });
   const [perksEn, setPerksEn] = useState<string[]>(() => { try { return JSON.parse(pkg.perksEn || "[]"); } catch { return []; } });
@@ -3922,22 +4036,24 @@ function SponsorPackageEditor({ pkg, onSave, onDelete }: { pkg: SponsorPkg; onSa
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between pt-2">
-            <button onClick={() => onSave({ isVisible: !draft.isVisible }).then(() => setDraft(d => ({ ...d, isVisible: !d.isVisible })))} className={`text-xs px-3 py-1.5 rounded border ${draft.isVisible ? "border-neon-green/30 text-neon-green" : "border-gray-700 text-gray-500"}`}>
-              {draft.isVisible ? "Visible ✓" : "Masqué"}
-            </button>
-            <div className="flex gap-2">
-              <button onClick={() => { if (confirm("Supprimer ce package ?")) onDelete(); }} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10">Supprimer</button>
-              <button onClick={save} disabled={saving} className="btn-neon px-4 py-1.5 rounded text-xs">{saving ? "..." : "Enregistrer"}</button>
+          {canWrite && (
+            <div className="flex items-center justify-between pt-2">
+              <button onClick={() => onSave({ isVisible: !draft.isVisible }).then(() => setDraft(d => ({ ...d, isVisible: !d.isVisible })))} className={`text-xs px-3 py-1.5 rounded border ${draft.isVisible ? "border-neon-green/30 text-neon-green" : "border-gray-700 text-gray-500"}`}>
+                {draft.isVisible ? "Visible ✓" : "Masqué"}
+              </button>
+              <div className="flex gap-2">
+                <button onClick={() => { if (confirm("Supprimer ce package ?")) onDelete(); }} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10">Supprimer</button>
+                <button onClick={save} disabled={saving} className="btn-neon px-4 py-1.5 rounded text-xs">{saving ? "..." : "Enregistrer"}</button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function SponsorPackagesPanel() {
+function SponsorPackagesPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [packages, setPackages] = useState<SponsorPkg[]>([]);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -3953,7 +4069,9 @@ function SponsorPackagesPanel() {
   useEffect(() => { load(); }, [load]);
 
   const seed = async () => {
-    await fetch("/api/admin/sponsor-packages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ seed: true }) });
+    const res = await fetch("/api/admin/sponsor-packages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ seed: true }) });
+    if (res.status === 409) alert("Les packages sont déjà initialisés.");
+    else if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || "Échec de l'initialisation."); }
     load();
   };
 
@@ -3983,13 +4101,21 @@ function SponsorPackagesPanel() {
           <h1 className="text-2xl font-black text-white">Packages de Sponsoring</h1>
           <p className="text-gray-500 text-xs mt-1">Cliquez sur un package pour le modifier. Les données sont stockées en base.</p>
         </div>
-        <div className="flex gap-2">
-          {!packages.length && !loading && (
-            <button onClick={seed} className="btn-neon px-4 py-2 rounded text-sm">🌱 Initialiser packages standard</button>
-          )}
-          <button onClick={() => setAdding(a => !a)} className="btn-neon px-4 py-2 rounded text-sm">+ Nouveau package</button>
-        </div>
+        {canWrite && (
+          <div className="flex gap-2">
+            {!packages.length && !loading && (
+              <button onClick={seed} className="btn-neon px-4 py-2 rounded text-sm">🌱 Initialiser packages standard</button>
+            )}
+            <button onClick={() => setAdding(a => !a)} className="btn-neon px-4 py-2 rounded text-sm">+ Nouveau package</button>
+          </div>
+        )}
       </div>
+
+      {!canWrite && (
+        <div className="mb-4 px-4 py-2 rounded text-xs border border-yellow-500/30 bg-yellow-500/5 text-yellow-400/90">
+          🔒 Accès en lecture seule — vous ne pouvez pas modifier les packages.
+        </div>
+      )}
 
       {adding && (
         <div className="cyber-card rounded-xl p-4 mb-4 flex gap-3 items-end">
@@ -4007,6 +4133,7 @@ function SponsorPackagesPanel() {
           <SponsorPackageEditor
             key={pkg.id}
             pkg={pkg}
+            canWrite={canWrite}
             onSave={(data) => savePackage(pkg.id, data)}
             onDelete={() => deletePackage(pkg.id)}
           />
@@ -4807,15 +4934,12 @@ function TransactionsPanel() {
     return <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: c + "20", color: c }}>{s}</span>;
   };
 
-  const providerLabel = (p: string) =>
-    p === "netticket_mtn" ? "MTN MoMo" : p === "netticket_orange" ? "Orange Money" : p === "stripe" ? "Carte (Stripe)" : p;
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black text-white">💳 Transactions ({filtered.length})</h1>
-          <p className="text-gray-500 text-xs mt-1">Toutes les tentatives de paiement (Mobile Money · Stripe à venir)</p>
+          <p className="text-gray-500 text-xs mt-1">Toutes les tentatives de paiement (Mobile Money · Stripe)</p>
         </div>
         <button onClick={load} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white transition-colors">↻ Rafraîchir</button>
       </div>
@@ -4834,36 +4958,72 @@ function TransactionsPanel() {
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-neon-green/10 text-gray-500 text-left">
-              {["Inscrit", "Téléphone", "Moyen", "Montant", "État", "Réponse finale", "Ticket envoyé", "Date", "Actions"].map(h => (
+              {["Inscrit", "Moyen / Devise", "Montant", "Réf. fournisseur", "État", "Réponse finale", "Ticket envoyé", "Date", "Actions"].map(h => (
                 <th key={h} className="py-2 px-3 font-normal">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {filtered.map(r => (
-              <tr key={r.id as number} className="border-b border-gray-800 hover:bg-white/[0.02] transition-colors">
-                <td className="py-2 px-3">
-                  <span className="text-white">{(r.registrantName as string) || "—"}</span>
-                  <br/><span className="text-gray-500">{r.email as string}</span>
-                </td>
-                <td className="py-2 px-3 text-gray-400 font-mono">{r.phone ? `+237 ${r.phone}` : "—"}</td>
-                <td className="py-2 px-3 text-gray-400">{providerLabel(r.provider as string)}</td>
-                <td className="py-2 px-3 text-gray-300 font-mono">{(r.amount as number)?.toLocaleString("fr-FR")} XAF</td>
-                <td className="py-2 px-3">{stateBadge(r.state as string)}</td>
-                <td className="py-2 px-3 text-gray-500 max-w-[200px] truncate" title={r.message as string}>{(r.message as string) || "—"}</td>
-                <td className="py-2 px-3">
-                  {r.ticketEmailSent ? <span className="text-neon-green">✓ Oui</span> : <span className="text-gray-600">✗ Non</span>}
-                </td>
-                <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</td>
-                <td className="py-2 px-3">
-                  {!!r.registrationId && r.state === "success" && (
-                    <button disabled={busyId === r.registrationId} onClick={() => resend(r.registrationId as number)} className="text-xs px-3 py-1 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-colors disabled:opacity-50">
-                      {busyId === r.registrationId ? "…" : "✉ Renvoyer le ticket"}
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {filtered.map(r => {
+              const provider = r.provider as string;
+              const isStripe = provider === "stripe";
+              const isMtn = provider === "netticket_mtn";
+              const isOrange = provider === "netticket_orange";
+              const currency = isStripe ? "USD" : "XAF";
+              const providerIcon = isStripe ? "💳" : isMtn ? "📱" : isOrange ? "📱" : "—";
+              const providerColor = isStripe ? "#00ccff" : isMtn ? "#ffcc00" : isOrange ? "#ff7900" : "#888";
+              const providerName = isStripe ? "Stripe" : isMtn ? "MTN MoMo" : isOrange ? "Orange Money" : provider;
+              const fmtAmount = isStripe
+                ? `$${(r.amount as number).toLocaleString("en-US")}`
+                : `${(r.amount as number).toLocaleString("fr-FR")} XAF`;
+              return (
+                <tr key={r.id as number} className="border-b border-gray-800 hover:bg-white/[0.02] transition-colors">
+                  <td className="py-2 px-3">
+                    <span className="text-white">{(r.registrantName as string) || "—"}</span>
+                    <br/><span className="text-gray-500">{r.email as string}</span>
+                  </td>
+                  <td className="py-2 px-3">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded"
+                        style={{ background: providerColor + "20", color: providerColor, border: `1px solid ${providerColor}40` }}
+                      >
+                        {providerIcon} {providerName}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-gray-600 font-mono mt-0.5 block">{currency}</span>
+                  </td>
+                  <td className="py-2 px-3 text-gray-300 font-mono font-bold" style={{ color: isStripe ? "#00ccff" : "#aaa" }}>{fmtAmount}</td>
+                  <td className="py-2 px-3">
+                    {r.providerRef
+                      ? <span className="text-gray-500 font-mono text-[10px] max-w-[120px] block truncate" title={r.providerRef as string}>{r.providerRef as string}</span>
+                      : <span className="text-gray-700">—</span>}
+                  </td>
+                  <td className="py-2 px-3">{stateBadge(r.state as string)}</td>
+                  <td className="py-2 px-3 text-gray-500 max-w-[180px] truncate" title={r.message as string}>{(r.message as string) || "—"}</td>
+                  <td className="py-2 px-3">
+                    {r.ticketEmailSent ? <span className="text-neon-green">✓ Oui</span> : <span className="text-gray-600">✗ Non</span>}
+                  </td>
+                  <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</td>
+                  <td className="py-2 px-3">
+                    {!!r.registrationId && r.state === "success" && (
+                      <button disabled={busyId === r.registrationId} onClick={() => resend(r.registrationId as number)} className="text-xs px-3 py-1 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-colors disabled:opacity-50">
+                        {busyId === r.registrationId ? "…" : "✉ Renvoyer"}
+                      </button>
+                    )}
+                    {isStripe && r.providerRef && (
+                      <a
+                        href={`https://dashboard.stripe.com/payments/${r.providerRef}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="text-xs px-3 py-1 rounded border border-blue-900/40 text-blue-400 hover:bg-blue-900/20 transition-colors block mt-1"
+                      >
+                        ↗ Stripe
+                      </a>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
         {!filtered.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune transaction</p>}
@@ -5414,13 +5574,16 @@ export default function AdminDashboard() {
   const router = useRouter();
 
   // Current user identity + permissions
-  const [userInfo, setUserInfo] = useState<{ isLegacy: boolean; name: string; permissions: Record<string, string> } | null>(null);
+  const [userInfo, setUserInfo] = useState<{ isLegacy: boolean; id?: number; name: string; email?: string; mfaEnabled?: boolean; mfaRequired?: boolean; permissions: Record<string, string> } | null>(null);
+  const [showAccount, setShowAccount] = useState(false);
 
-  useEffect(() => {
+  const refreshMe = useCallback(() => {
     fetch("/api/admin/me").then(r => r.ok ? r.json() : null).then(info => {
       if (info) setUserInfo(info);
     }).catch(() => {});
   }, []);
+
+  useEffect(() => { refreshMe(); }, [refreshMe]);
 
   // Tab → required permission key (undefined = always visible)
   const TAB_PERMISSION: Partial<Record<Tab, string | undefined>> = {
@@ -5460,6 +5623,13 @@ export default function AdminDashboard() {
     const permKey = TAB_PERMISSION[tabId];
     if (permKey === undefined) return true; // always visible
     return !!userInfo.permissions[permKey as string];
+  };
+
+  // Permission level check for a module (drives read-only UI in panels).
+  const can = (moduleKey: string, level: "read" | "write" = "write"): boolean => {
+    if (!userInfo || userInfo.isLegacy) return true;
+    const lvl = userInfo.permissions[moduleKey];
+    return level === "read" ? (lvl === "read" || lvl === "write") : lvl === "write";
   };
 
   const logout = async () => {
@@ -5752,12 +5922,17 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-dark-900" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
       {/* Detail drawer */}
       {detail && <DetailDrawer item={detail.item} type={detail.type} onClose={() => setDetail(null)} />}
+      {showAccount && userInfo && !userInfo.isLegacy && (
+        <AccountModal info={userInfo} onClose={() => setShowAccount(false)} onChanged={refreshMe} />
+      )}
       {/* Top bar */}
       <div className="border-b border-neon-green/20 bg-black/80 px-6 py-3 flex items-center justify-between sticky top-0 z-40">
         <span className="text-neon-green font-mono text-sm font-bold">&gt; EOCON Eventlyx</span>
         <div className="flex items-center gap-4">
           {userInfo && !userInfo.isLegacy && (
-            <span className="text-gray-500 text-xs font-mono hidden sm:inline">{userInfo.name}</span>
+            <button onClick={() => setShowAccount(true)} className="text-gray-400 hover:text-neon-green text-xs font-mono transition-colors">
+              👤 {userInfo.name}
+            </button>
           )}
           <a href="/" target="_blank" className="text-gray-500 hover:text-neon-green text-xs transition-colors">↗ {t.viewSite}</a>
           <button
@@ -6226,7 +6401,7 @@ export default function AdminDashboard() {
           {tab === "users" && <AdminUsersPanel />}
           {tab === "profiles" && <AdminProfilesPanel />}
 
-          {tab === "pilotage" && <PilotagePanel />}
+          {tab === "pilotage" && <PilotagePanel canWrite={can("pilotage")} />}
           {tab === "settings" && <EventSettingsPanel />}
 
           {/* COMMUNICATION */}
@@ -6250,7 +6425,7 @@ export default function AdminDashboard() {
 
           {/* SPONSOR PACKAGES */}
           {tab === "sponsor-packages" && (
-            <SponsorPackagesPanel />
+            <SponsorPackagesPanel canWrite={can("sponsor-packages")} />
           )}
 
           {/* PROSPECTION IA */}

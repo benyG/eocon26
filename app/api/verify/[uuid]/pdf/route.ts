@@ -13,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: { params: { uuid: strin
   const badge = await prisma.badgeCredential.findUnique({ where: { uuid: params.uuid } });
   if (!badge) return NextResponse.json({ error: "Badge not found" }, { status: 404 });
 
-  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com";
+  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eyesopensecurity.com";
   const verifyUrl = `${baseUrl}/verify/${badge.uuid}`;
 
   // Generate QR code PNG for the verify URL

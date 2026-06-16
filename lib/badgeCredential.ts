@@ -56,7 +56,7 @@ export function generateBadgeCredential(
   subtype?: string | null,
   extraData?: Record<string, string>,
 ): object {
-  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com";
+  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eyesopensecurity.com";
   const achievement = BADGE_ACHIEVEMENTS[badgeType];
   const svgDataUrl = svgToDataUrl(generateBadgeSvg(badgeType, recipientName, "2026", subtype));
   const now = new Date().toISOString();
@@ -107,7 +107,7 @@ export function signCredential(credential: object): string {
   const message = JSON.stringify(credential, null, 0);
   const signature = sign(null, Buffer.from(message, "utf-8"), privateKey);
   const proofValue = signature.toString("base64");
-  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com";
+  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eyesopensecurity.com";
 
   return JSON.stringify({
     ...credential,

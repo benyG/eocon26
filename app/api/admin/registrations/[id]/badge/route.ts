@@ -31,7 +31,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   });
   if (!reg) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com";
+  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eyesopensecurity.com";
   const connectUrl = reg.ticketRef ? `${baseUrl}/connect/${reg.ticketRef}` : baseUrl;
 
   // Generate QR as PNG buffer

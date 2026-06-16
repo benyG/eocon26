@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { sendRegistrationTicketTracked } from "@/lib/payment";
 import { logAction } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("transactions", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const transactions = await prisma.paymentTransaction.findMany({ orderBy: { createdAt: "desc" }, take: 500 });
 
   // Join the registrant name + current ticket-email state for display.
@@ -25,7 +25,7 @@ export async function GET() {
 
 // POST { action: "resend", registrationId } — resend the ticket email in one click.
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("transactions", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { action, registrationId } = await req.json();
 
   if (action === "resend") {

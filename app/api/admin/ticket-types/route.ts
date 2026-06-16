@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("tickets", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const types = await prisma.ticketType.findMany({ orderBy: { sortOrder: "asc" } });
   const regs = await prisma.registration.groupBy({ by: ["ticketType"], _count: { id: true } });
   const soldMap: Record<string, number> = {};
@@ -14,7 +14,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("tickets", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { slug, nameFr, nameEn, priceFr, priceEn, perksFr, perksEn, earlyBirdPriceFr, earlyBirdPriceEn, earlyBirdUntil, color, isFeatured, isVisible, ctfAccess, includesCTF, maxCapacity, sortOrder, netticketTicketId, stripeProductId } = await req.json();
   if (!slug || !nameFr || !nameEn) return NextResponse.json({ error: "slug, nameFr, nameEn requis" }, { status: 400 });
 

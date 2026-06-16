@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { Resend } from "resend";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +9,7 @@ const FROM = process.env.EMAIL_FROM || "EOCON 2026 <noreply@eyesopensecurity.com
 const REPLY_TO = "contact@eyesopensecurity.com";
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("ctf", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { registrationId, templateKey } = await req.json() as { registrationId: number; templateKey: string };
 
   const reg = await prisma.registration.findUnique({ where: { id: registrationId } });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ const DEFAULT_TYPES = [
 ];
 
 export async function GET() {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("tickets", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const tickets = await prisma.ticketCapacity.findMany({ orderBy: { ticketType: "asc" } });
   // Get registration counts per type
   const regs = await prisma.registration.groupBy({ by: ["ticketType"], _count: { id: true } });
@@ -24,7 +24,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("tickets", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json();
   if (body.seed) {
     await prisma.ticketCapacity.createMany({ data: DEFAULT_TYPES, skipDuplicates: true });

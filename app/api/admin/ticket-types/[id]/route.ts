@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("tickets", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const id = parseInt(params.id);
   const { nameFr, nameEn, priceFr, priceEn, perksFr, perksEn, earlyBirdPriceFr, earlyBirdPriceEn, earlyBirdUntil, color, isFeatured, isVisible, ctfAccess, includesCTF, maxCapacity, sortOrder, netticketTicketId, stripeProductId } = await req.json();
 
@@ -36,7 +36,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("tickets", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const id = parseInt(params.id);
   const ticket = await prisma.ticketType.findUnique({ where: { id } });
   if (!ticket) return NextResponse.json({ error: "Not found" }, { status: 404 });

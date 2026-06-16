@@ -16,6 +16,8 @@ export interface EventSettings {
   url_benevoles: string;
   url_programme: string;
   url_ctf: string;
+  url_sponsor: string;
+  programme_start_date: string;
   [key: string]: string;
 }
 
@@ -34,6 +36,8 @@ const DEFAULTS: EventSettings = {
   url_benevoles: "https://eyesopensecurity.com/#benevoles",
   url_programme: "https://eyesopensecurity.com/#programme",
   url_ctf: "https://eyesopensecurity.com/#ctf",
+  url_sponsor: "https://eyesopensecurity.com/?modal=sponsor",
+  programme_start_date: "",
 };
 
 export function useEventSettings(): EventSettings {

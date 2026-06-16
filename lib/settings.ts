@@ -24,7 +24,7 @@ export function getCtaForContentType(type: string, settings: Record<string, stri
     cfp: { text: "Soumettre mon talk →", url: settings.url_cfp || `${base}/#cfp` },
     ctf: { text: "Rejoindre l'EOCTF →", url: settings.url_ctf || `${base}/#ctf` },
     countdown: { text: "S'inscrire →", url: settings.url_inscription || `${base}/#inscription` },
-    sponsor: { text: "Devenir partenaire →", url: `${base}/#sponsors` },
+    sponsor: { text: "Devenir partenaire →", url: settings.url_sponsor || `${base}/#sponsors` },
     custom: null as unknown as { text: string; url: string },
   };
   return ctaMap[type] || null;

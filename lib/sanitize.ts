@@ -3,14 +3,9 @@
 // trim, and hard-cap length to prevent abuse / storage bloat / header injection.
 
 // Strip ASCII control chars (0x00-0x1F except tab/newline/carriage-return, and 0x7F).
+const CONTROL_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
 function stripControl(s: string): string {
-  let out = "";
-  for (const ch of s) {
-    const c = ch.charCodeAt(0);
-    if ((c >= 0x00 && c <= 0x1f && c !== 0x09 && c !== 0x0a && c !== 0x0d) || c === 0x7f) continue;
-    out += ch;
-  }
-  return out;
+  return s.replace(CONTROL_RE, "");
 }
 
 export function cleanText(input: unknown, maxLen = 500): string {

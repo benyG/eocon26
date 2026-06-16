@@ -2,13 +2,13 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { sendVolunteerConfirmation } from "@/lib/email";
-import { rateLimit, getIp } from "@/lib/rateLimit";
+import { checkRateLimit, getIp } from "@/lib/rateLimit";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VALID_ROLES = ["logistique", "communication", "technique", "accueil", "securite", "autre", "logistics", "communication", "technical", "welcome", "security", "other", ""];
 
 export async function POST(req: NextRequest) {
-  if (!rateLimit(`volunteer:${getIp(req)}`, 5, 60 * 60 * 1000)) {
+  if (!(await checkRateLimit(`volunteer:${getIp(req)}`, 5, 60 * 60 * 1000))) {
     return NextResponse.json({ error: "Trop de soumissions, réessayez plus tard." }, { status: 429 });
   }
 

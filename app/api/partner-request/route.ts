@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { rateLimit, getIp } from "@/lib/rateLimit";
+import { checkRateLimit, getIp } from "@/lib/rateLimit";
 import { cleanText, cleanOptional, cleanEmail, cleanPhone } from "@/lib/sanitize";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  if (!rateLimit(`partner:${getIp(req)}`, 8, 60 * 60 * 1000)) {
+  if (!(await checkRateLimit(`partner:${getIp(req)}`, 8, 60 * 60 * 1000))) {
     return NextResponse.json({ error: "Trop de requêtes, réessayez plus tard." }, { status: 429 });
   }
   const body = await req.json();

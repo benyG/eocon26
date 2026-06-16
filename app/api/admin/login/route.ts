@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import { signToken } from "@/lib/adminAuth";
-import { rateLimit, getIp } from "@/lib/rateLimit";
+import { checkRateLimit, getIp } from "@/lib/rateLimit";
+import { isIpLocked, registerIpFailure, clearIpFailures, notifyFailedAdminLogin } from "@/lib/loginSecurity";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +16,12 @@ function safeEqual(a: string, b: string): boolean {
 export async function POST(req: NextRequest) {
   // 10 attempts per IP per 15 minutes
   const ip = getIp(req);
-  if (!rateLimit(`login:${ip}`, 10, 15 * 60 * 1000)) {
+  if (!(await checkRateLimit(`login:${ip}`, 10, 15 * 60 * 1000))) {
     return NextResponse.json({ error: "Trop de tentatives, réessayez dans 15 minutes." }, { status: 429 });
+  }
+  // Hard lock after 3 consecutive failures from this IP.
+  if (isIpLocked(ip)) {
+    return NextResponse.json({ error: "Trop de tentatives échouées. Réessayez dans 10 minutes." }, { status: 423 });
   }
 
   const { password } = await req.json();
@@ -26,9 +31,16 @@ export async function POST(req: NextRequest) {
   }
 
   if (typeof password !== "string" || !safeEqual(password, expected)) {
-    return NextResponse.json({ error: "Mot de passe incorrect" }, { status: 401 });
+    // Alert the security mailbox on every failed shared-password attempt.
+    notifyFailedAdminLogin(ip).catch(() => {});
+    const locked = registerIpFailure(ip);
+    return NextResponse.json(
+      { error: locked ? "Trop de tentatives échouées. Réessayez dans 10 minutes." : "Mot de passe incorrect" },
+      { status: locked ? 423 : 401 },
+    );
   }
 
+  clearIpFailures(ip);
   const token = signToken(password);
   const res = NextResponse.json({ success: true });
   res.cookies.set("admin_token", token, {

@@ -3,13 +3,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { sendRegistrationTicket } from "@/lib/email";
 import { generateTicketRef, formatTicketRef } from "@/lib/ticketRef";
-import { rateLimit, getIp } from "@/lib/rateLimit";
+import { checkRateLimit, getIp } from "@/lib/rateLimit";
 import { signPaymentToken } from "@/lib/paymentToken";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(req: NextRequest) {
-  if (!rateLimit(`register:${getIp(req)}`, 5, 60 * 60 * 1000)) {
+  if (!(await checkRateLimit(`register:${getIp(req)}`, 5, 60 * 60 * 1000))) {
     return NextResponse.json({ error: "Trop de soumissions, réessayez plus tard." }, { status: 429 });
   }
 

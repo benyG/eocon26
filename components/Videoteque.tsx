@@ -68,12 +68,10 @@ function VideoModal({ video, lang, onClose }: { video: SessionVideo; lang?: "fr"
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.9)", backdropFilter: "blur(8px)" }}
-      onClick={onClose}
     >
       <div
         className="rounded-2xl w-full max-w-4xl max-h-[95vh] overflow-y-auto"
         style={{ background: "#0a0a0f", border: `1px solid ${categoryColor}40` }}
-        onClick={e => e.stopPropagation()}
       >
         {/* Close button */}
         <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: `${categoryColor}20` }}>

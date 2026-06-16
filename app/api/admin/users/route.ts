@@ -6,7 +6,7 @@ import { Resend } from "resend";
 
 export const dynamic = "force-dynamic";
 
-// Cryptographically-random index in [0, n)
+// Cryptographically-random index from 0 to n-1
 function randIndex(n: number): number {
   return randomBytes(1)[0] % n;
 }

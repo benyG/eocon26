@@ -22,7 +22,7 @@ import RegisterModal from "@/components/RegisterModal";
 import VolunteerModal from "@/components/VolunteerModal";
 
 export default function Home() {
-  const [lang, setLang] = useState<Lang>("fr");
+  const [lang, setLang] = useState<Lang>("en");
   const [modal, setModal] = useState<string | null>(null);
   const eventSettings = useEventSettings();
 

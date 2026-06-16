@@ -71,12 +71,10 @@ function SpeakerModal({ speaker, color, onClose }: { speaker: Speaker; color: st
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(6px)" }}
-      onClick={onClose}
     >
       <div
         className="cyber-card rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
         style={{ border: `1px solid ${color}40` }}
-        onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="relative p-6 pb-4 flex gap-5 items-start" style={{ borderBottom: `1px solid ${color}20` }}>

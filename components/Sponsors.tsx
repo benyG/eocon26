@@ -296,12 +296,10 @@ export default function Sponsors({ t, lang = "fr", deepLink = null, onDeepLinkCo
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)" }}
-          onClick={closeModal}
         >
           <div
             className="max-w-lg w-full max-h-[90vh] overflow-y-auto rounded-2xl"
             style={{ background: "#0a0a0f", border: "1px solid rgba(0,255,157,0.2)" }}
-            onClick={e => e.stopPropagation()}
           >
             {/* Header */}
             <div className="flex items-center justify-between p-4 sm:p-6 border-b border-neon-green/10">

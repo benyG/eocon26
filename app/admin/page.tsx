@@ -4905,7 +4905,7 @@ function CTFEmailTemplate({ templateKey, label, desc }: { templateKey: string; l
   );
 }
 
-function TransactionsPanel() {
+function TransactionsPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
   const [fState, setFState] = useState("");
@@ -5012,12 +5012,12 @@ function TransactionsPanel() {
                   </td>
                   <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</td>
                   <td className="py-2 px-3">
-                    {!!r.registrationId && r.state === "success" && (
+                    {canWrite && !!r.registrationId && r.state === "success" && (
                       <button disabled={busyId === r.registrationId} onClick={() => resend(r.registrationId as number)} className="text-xs px-3 py-1 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-colors disabled:opacity-50">
                         {busyId === r.registrationId ? "…" : "✉ Renvoyer"}
                       </button>
                     )}
-                    {isStripe && r.providerRef && (
+                    {isStripe && !!r.providerRef && (
                       <a
                         href={`https://dashboard.stripe.com/payments/${r.providerRef}`}
                         target="_blank" rel="noopener noreferrer"

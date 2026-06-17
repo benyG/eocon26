@@ -18,7 +18,7 @@ const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; 
 });
 const useAdminT = () => useContext(AdminLangContext);
 
-type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "sessions" | "video" | "transactions";
+type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "sessions" | "video" | "transactions" | "testimony";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -5038,6 +5038,110 @@ function TransactionsPanel({ canWrite = true }: { canWrite?: boolean }) {
   );
 }
 
+function TestimonyPanel({ canWrite = true }: { canWrite?: boolean }) {
+  const confirm = useConfirm();
+  const [items, setItems] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<number | null>(null);
+  const [form, setForm] = useState<Record<string, unknown>>({ quoteEn: "", quoteFr: "", author: "", isVisible: true, sortOrder: 0 });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const r = await fetch("/api/admin/testimonies");
+    if (r.ok) setItems(await r.json());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const resetForm = () => { setForm({ quoteEn: "", quoteFr: "", author: "", isVisible: true, sortOrder: 0 }); setEditing(null); setShowForm(false); };
+
+  const save = async () => {
+    const url = editing ? `/api/admin/testimonies/${editing}` : "/api/admin/testimonies";
+    await fetch(url, { method: editing ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    resetForm();
+    load();
+  };
+
+  const del = async (id: number) => {
+    if (!(await confirm({ message: "Supprimer ce témoignage ?", danger: true, confirmLabel: "Supprimer" }))) return;
+    await fetch(`/api/admin/testimonies/${id}`, { method: "DELETE" });
+    load();
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black text-white">💬 Témoignages</h1>
+          <p className="text-gray-500 text-xs mt-1">Gérez les avis affichés dans la section &quot;What They Say&quot; du site</p>
+        </div>
+        {canWrite && <button onClick={() => { resetForm(); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter</button>}
+      </div>
+
+      {canWrite && showForm && (
+        <div className="cyber-card rounded-xl p-6 mb-6">
+          <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier le témoignage" : "Nouveau témoignage"}</h3>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="sm:col-span-2">
+              <label className="block text-xs text-gray-500 mb-1">Citation (EN) *</label>
+              <textarea rows={3} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.quoteEn as string) || ""} onChange={e => setForm({ ...form, quoteEn: e.target.value })} placeholder="Quote in English…" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs text-gray-500 mb-1">Citation (FR) <span className="text-gray-700">— optionnel</span></label>
+              <textarea rows={3} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.quoteFr as string) || ""} onChange={e => setForm({ ...form, quoteFr: e.target.value })} placeholder="Citation en français… (si vide, la version EN sera utilisée)" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Auteur *</label>
+              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.author as string) || ""} onChange={e => setForm({ ...form, author: e.target.value })} placeholder="ex : EOCON 2024 Attendee" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Ordre d&apos;affichage</label>
+              <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.sortOrder as number) || 0} onChange={e => setForm({ ...form, sortOrder: Number(e.target.value) })} />
+            </div>
+            <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+              <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
+              Visible sur le site
+            </label>
+          </div>
+          <div className="flex gap-3 mt-4">
+            <button onClick={save} disabled={!(form.quoteEn as string)?.trim() || !(form.author as string)?.trim()} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green disabled:opacity-40">Sauvegarder</button>
+            <button onClick={resetForm} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? <p className="text-gray-600 text-xs">Chargement…</p> : items.length === 0 ? (
+        <p className="text-gray-600 text-xs text-center py-12">Aucun témoignage — le site affiche les textes par défaut de i18n.</p>
+      ) : (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {items.map(item => (
+            <div key={item.id as number} className={`cyber-card rounded-xl p-5 flex flex-col gap-3 ${!item.isVisible ? "opacity-50" : ""}`}>
+              <div className="text-neon-green/40 text-3xl font-serif leading-none">&quot;</div>
+              <p className="text-gray-200 text-sm italic leading-relaxed flex-1">{item.quoteEn as string}</p>
+              {!!(item.quoteFr) && (
+                <p className="text-gray-500 text-xs italic border-t border-gray-800 pt-2">{item.quoteFr as string}</p>
+              )}
+              <div className="flex items-center justify-between pt-2 border-t border-neon-green/10">
+                <p className="text-neon-green/60 text-xs font-mono">— {item.author as string}</p>
+                <div className="flex items-center gap-2">
+                  {!item.isVisible && <span className="text-xs text-gray-600">Masqué</span>}
+                  <span className="text-xs text-gray-700">#{item.sortOrder as number}</span>
+                  {canWrite && <>
+                    <button onClick={() => { setForm({ ...item }); setEditing(item.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">✏</button>
+                    <button onClick={() => del(item.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">✕</button>
+                  </>}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
   const confirm = useConfirm();
   const [videos, setVideos] = useState<Record<string, unknown>[]>([]);
@@ -5620,6 +5724,7 @@ export default function AdminDashboard() {
     audit: "audit",
     team: "team",
     video: "video",
+    testimony: "testimony",
     settings: "settings",
   };
 
@@ -5886,6 +5991,7 @@ export default function AdminDashboard() {
         { id: "past-speakers", label: t.pastSpeakers },
         { id: "team", label: t.team, count: stats.team },
         { id: "video", label: "📹 Vidéothèque" },
+        { id: "testimony", label: "💬 Témoignages" },
         { id: "settings", label: t.eventSettings },
       ],
     },
@@ -6481,6 +6587,9 @@ export default function AdminDashboard() {
 
           {/* VIDEO */}
           {tab === "video" && <VideoPanel canWrite={can("video")} />}
+
+          {/* TESTIMONY */}
+          {tab === "testimony" && <TestimonyPanel canWrite={can("testimony")} />}
 
           {/* AUDIT LOG — super_admin only */}
           {tab === "audit" && <AuditPanel />}

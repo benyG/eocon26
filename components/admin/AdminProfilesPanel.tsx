@@ -46,6 +46,7 @@ const NAV_GROUPS: { label: string; modules: { key: string; label: string }[] }[]
     { key: "speakers", label: "Anciens Speakers" },
     { key: "team", label: "Équipe" },
     { key: "video", label: "Vidéothèque" },
+    { key: "testimony", label: "Témoignages" },
     { key: "settings", label: "Paramètres Événement" },
   ] },
 ];

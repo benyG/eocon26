@@ -602,3 +602,15 @@ model PaymentTransaction {
   @@index([state])
   @@map("payment_transactions")
 }
+
+model Testimony {
+  id        Int      @id @default(autoincrement())
+  quoteEn   String   @db.Text
+  quoteFr   String?  @db.Text
+  author    String
+  isVisible Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("testimonies")
+}

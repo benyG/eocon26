@@ -96,7 +96,7 @@ export default function Home() {
       <Workshops t={tWithSettings} onOpenModal={openModal} lang={lang} />
       <Sponsors t={tWithSettings} lang={lang} deepLink={modal === "sponsor" ? "sponsor" : modal === "sponsor-deck" ? "deck" : null} onDeepLinkConsumed={closeModal} />
       <Schedule t={tWithSettings} lang={lang} />
-      <Testimonials t={tWithSettings} />
+      <Testimonials t={tWithSettings} lang={lang} />
       <CFP t={tWithSettings} onOpenModal={() => openModal("cfp")} />
       <Volunteer t={tWithSettings} onOpenModal={() => openModal("volunteer")} />
       <Team t={tWithSettings} />

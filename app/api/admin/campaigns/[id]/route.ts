@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
+import { templateSnapshot } from "@/lib/campaignRecipients";
 
 export const dynamic = "force-dynamic";
 
@@ -46,14 +47,30 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (existing.status === "sent" || existing.status === "sending") {
     return NextResponse.json({ error: "Campagne déjà envoyée — non modifiable" }, { status: 409 });
   }
-  const { name, subject, htmlBody, segment } = await req.json();
+  const { name, templateId, subject, htmlBody, segment } = await req.json();
+
+  // When templateId is provided, re-snapshot the bilingual content from the
+  // template so the campaign always reflects the latest chosen template.
+  const contentUpdate: Record<string, unknown> = {};
+  if (templateId !== undefined) {
+    const snap = await templateSnapshot(templateId, { subject, htmlBody });
+    contentUpdate.templateId = templateId ?? null;
+    contentUpdate.subject = snap.subject;
+    contentUpdate.htmlBody = snap.htmlBody;
+    contentUpdate.subjectEn = snap.subjectEn;
+    contentUpdate.htmlBodyEn = snap.htmlBodyEn;
+  } else {
+    // Legacy/manual path: allow raw subject/htmlBody edits without a template.
+    if (subject !== undefined) contentUpdate.subject = subject.trim();
+    if (htmlBody !== undefined) contentUpdate.htmlBody = htmlBody;
+  }
+
   return NextResponse.json(
     await prisma.campaign.update({
       where: { id },
       data: {
         ...(name !== undefined && { name: name.trim() }),
-        ...(subject !== undefined && { subject: subject.trim() }),
-        ...(htmlBody !== undefined && { htmlBody }),
+        ...contentUpdate,
         ...(segment !== undefined && { segment: typeof segment === "string" ? segment : JSON.stringify(segment) }),
       },
     })

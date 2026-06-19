@@ -21,6 +21,12 @@ export interface Recipient {
   org?: string | null;
   country?: string | null;
   ticketType?: string | null;
+  lang?: "fr" | "en"; // recipient's preferred language (drives FR/EN content)
+}
+
+// Normalize any stored language value to "fr" | "en" (default fr).
+function normLang(v: string | null | undefined): "fr" | "en" {
+  return String(v || "").toLowerCase().startsWith("en") ? "en" : "fr";
 }
 
 export function parseSegment(raw: string | null | undefined): CampaignSegment {
@@ -44,12 +50,12 @@ export async function resolveRecipients(seg: CampaignSegment): Promise<Recipient
     return dedupe(subs.map(s => ({ email: s.email })));
   }
   if (seg.audience === "cfp_accepted") {
-    const cfps = await prisma.cFPSubmission.findMany({ where: { status: "accepted" }, select: { email: true, name: true } });
-    return dedupe(cfps.map(c => ({ email: c.email, fname: c.name || undefined })));
+    const cfps = await prisma.cFPSubmission.findMany({ where: { status: "accepted" }, select: { email: true, name: true, langPresentation: true } });
+    return dedupe(cfps.map(c => ({ email: c.email, fname: c.name || undefined, lang: normLang(c.langPresentation) })));
   }
   if (seg.audience === "volunteers") {
-    const vols = await prisma.volunteerApplication.findMany({ where: { status: "accepted" }, select: { email: true, name: true } });
-    return dedupe(vols.map(v => ({ email: v.email, fname: v.name || undefined })));
+    const vols = await prisma.volunteerApplication.findMany({ where: { status: "accepted" }, select: { email: true, name: true, langExpression: true } });
+    return dedupe(vols.map(v => ({ email: v.email, fname: v.name || undefined, lang: normLang(v.langExpression) })));
   }
 
   // registrations + granular filters
@@ -65,10 +71,10 @@ export async function resolveRecipients(seg: CampaignSegment): Promise<Recipient
 
   const regs = await prisma.registration.findMany({
     where,
-    select: { email: true, fname: true, lname: true, org: true, country: true, ticketType: true },
+    select: { email: true, fname: true, lname: true, org: true, country: true, ticketType: true, langExpression: true },
   });
   return dedupe(regs.map(r => ({
-    email: r.email, fname: r.fname, lname: r.lname, org: r.org, country: r.country, ticketType: r.ticketType,
+    email: r.email, fname: r.fname, lname: r.lname, org: r.org, country: r.country, ticketType: r.ticketType, lang: normLang(r.langExpression),
   })));
 }
 
@@ -84,6 +90,23 @@ function dedupe(list: Recipient[]): Recipient[] {
   return out;
 }
 
+// Bilingual content snapshot carried by a campaign (FR primary, EN optional).
+export interface BilingualContent {
+  subject: string;
+  htmlBody: string;
+  subjectEn?: string | null;
+  htmlBodyEn?: string | null;
+}
+
+// Pick the subject/body matching the recipient's language. Falls back to FR when
+// the EN version is missing so a recipient is never left without content.
+export function pickContent(c: BilingualContent, lang: "fr" | "en" | undefined): { subject: string; htmlBody: string; lang: "fr" | "en" } {
+  if (lang === "en" && c.subjectEn && c.htmlBodyEn) {
+    return { subject: c.subjectEn, htmlBody: c.htmlBodyEn, lang: "en" };
+  }
+  return { subject: c.subject, htmlBody: c.htmlBody, lang: "fr" };
+}
+
 // Replace {{fname}}, {{lname}}, {{email}}, {{org}}, {{country}}, {{ticketType}}.
 // Unknown placeholders are left untouched; missing values become "".
 export function personalize(html: string, r: Recipient): string {
@@ -91,6 +114,32 @@ export function personalize(html: string, r: Recipient): string {
     const v = (r as unknown as Record<string, unknown>)[key];
     return v == null ? "" : String(v);
   });
+}
+
+// Resolve the FR/EN content snapshot for a campaign. When a templateId is given,
+// pull the four bilingual fields from the template; otherwise fall back to any
+// raw subject/htmlBody passed in (manual/legacy path).
+export async function templateSnapshot(
+  templateId: number | null | undefined,
+  fallback: { subject?: string; htmlBody?: string },
+): Promise<{ subject: string; htmlBody: string; subjectEn: string | null; htmlBodyEn: string | null }> {
+  if (templateId) {
+    const tpl = await prisma.emailTemplate.findUnique({ where: { id: templateId } });
+    if (tpl) {
+      return {
+        subject: tpl.subject,
+        htmlBody: tpl.htmlBody,
+        subjectEn: tpl.subjectEn ?? null,
+        htmlBodyEn: tpl.htmlBodyEn ?? null,
+      };
+    }
+  }
+  return {
+    subject: (fallback.subject || "").trim(),
+    htmlBody: fallback.htmlBody || "",
+    subjectEn: null,
+    htmlBodyEn: null,
+  };
 }
 
 // Distinct values available for building the filter UI.

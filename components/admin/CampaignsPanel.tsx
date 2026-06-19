@@ -15,8 +15,11 @@ interface Segment {
 interface Campaign {
   id: number;
   name: string;
+  templateId?: number | null;
   subject: string;
   htmlBody: string;
+  subjectEn?: string | null;
+  htmlBodyEn?: string | null;
   segment: string;
   status: string;
   recipientCount: number;
@@ -28,6 +31,16 @@ interface Campaign {
   bouncedCount?: number;
   sentAt: string | null;
   createdAt: string;
+}
+
+interface EmailTemplate {
+  id: number;
+  slug?: string | null;
+  name: string;
+  subject: string;
+  htmlBody: string;
+  subjectEn?: string | null;
+  htmlBodyEn?: string | null;
 }
 
 interface Facets {
@@ -60,6 +73,7 @@ const STATUS_BADGE: Record<string, { c: string; label: string }> = {
 
 export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [facets, setFacets] = useState<Facets | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Campaign | null>(null);
@@ -75,6 +89,10 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
   useEffect(() => {
     load();
     fetch("/api/admin/campaigns/audience").then(r => r.ok ? r.json() : null).then(setFacets).catch(() => {});
+    // Reusable campaign templates only (transactional ones carry a slug).
+    fetch("/api/admin/email-templates").then(r => r.ok ? r.json() : null)
+      .then((list: EmailTemplate[] | null) => { if (list) setTemplates(list.filter(t => !t.slug)); })
+      .catch(() => {});
   }, [load]);
 
   const openNew = () => { setEditing(null); setShowEditor(true); };
@@ -89,6 +107,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
   if (showEditor) {
     return <CampaignEditor
       campaign={editing}
+      templates={templates}
       facets={facets}
       onClose={() => { setShowEditor(false); load(); }}
     />;
@@ -99,7 +118,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black text-white">📣 Campagnes inscrits</h1>
-          <p className="text-gray-500 text-xs mt-1">Composez, segmentez et envoyez des emails aux inscrits · suivi des envois</p>
+          <p className="text-gray-500 text-xs mt-1">Choisissez un modèle bilingue, segmentez l&apos;audience et envoyez · suivi des envois</p>
         </div>
         {canWrite && <button onClick={openNew} className="btn-neon px-4 py-2 rounded text-xs">+ Nouvelle campagne</button>}
       </div>
@@ -177,25 +196,37 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
 }
 
 // ── Editor / composer ────────────────────────────────────────────────────────
-function CampaignEditor({ campaign, facets, onClose }: { campaign: Campaign | null; facets: Facets | null; onClose: () => void }) {
+function CampaignEditor({ campaign, templates, facets, onClose }: { campaign: Campaign | null; templates: EmailTemplate[]; facets: Facets | null; onClose: () => void }) {
   const readOnly = !!campaign && campaign.status !== "draft";
   const [name, setName] = useState(campaign?.name || "");
-  const [subject, setSubject] = useState(campaign?.subject || "");
-  const [htmlBody, setHtmlBody] = useState(campaign?.htmlBody || "");
+  const [templateId, setTemplateId] = useState<number | null>(campaign?.templateId ?? null);
   const [seg, setSeg] = useState<Segment>(campaign ? parseSeg(campaign.segment) : { audience: "registrations" });
   const [id, setId] = useState<number | null>(campaign?.id ?? null);
 
   const [count, setCount] = useState<number | null>(null);
   const [sample, setSample] = useState<string[]>([]);
   const [previewHtml, setPreviewHtml] = useState<string>("");
+  const [previewLang, setPreviewLang] = useState<"fr" | "en">("fr");
   const [showPreview, setShowPreview] = useState(false);
   const [testEmail, setTestEmail] = useState("");
+  const [testLang, setTestLang] = useState<"fr" | "en">("fr");
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<Campaign | null>(campaign);
   const [resending, setResending] = useState<"undelivered" | "unclicked" | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // The currently selected template (source of bilingual content).
+  const tpl = templates.find(t => t.id === templateId) || null;
+  // For a sent campaign the template may no longer exist — fall back to the snapshot.
+  const content = {
+    subject: tpl?.subject ?? campaign?.subject ?? "",
+    htmlBody: tpl?.htmlBody ?? campaign?.htmlBody ?? "",
+    subjectEn: tpl?.subjectEn ?? campaign?.subjectEn ?? "",
+    htmlBodyEn: tpl?.htmlBodyEn ?? campaign?.htmlBodyEn ?? "",
+  };
+  const hasEn = !!(content.subjectEn && content.htmlBodyEn);
 
   // For a sent campaign, pull the live delivery/click metrics from the detail endpoint.
   useEffect(() => {
@@ -235,7 +266,7 @@ function CampaignEditor({ campaign, facets, onClose }: { campaign: Campaign | nu
   const persist = useCallback(async (): Promise<number | null> => {
     if (readOnly) return id;
     setSaving(true);
-    const body = JSON.stringify({ name: name || "Sans titre", subject, htmlBody, segment: seg });
+    const body = JSON.stringify({ name: name || "Sans titre", templateId, segment: seg });
     let cid = id;
     if (cid) {
       await fetch(`/api/admin/campaigns/${cid}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body });
@@ -245,7 +276,7 @@ function CampaignEditor({ campaign, facets, onClose }: { campaign: Campaign | nu
     }
     setSaving(false);
     return cid;
-  }, [readOnly, id, name, subject, htmlBody, seg]);
+  }, [readOnly, id, name, templateId, seg]);
 
   // Debounced autosave for drafts.
   useEffect(() => {
@@ -254,24 +285,27 @@ function CampaignEditor({ campaign, facets, onClose }: { campaign: Campaign | nu
     saveTimer.current = setTimeout(() => { persist(); }, 1200);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, subject, htmlBody, seg]);
+  }, [name, templateId, seg]);
 
-  const doPreview = async () => {
+  const doPreview = async (lang: "fr" | "en") => {
+    const htmlBody = lang === "en" ? content.htmlBodyEn : content.htmlBody;
     const r = await fetch("/api/admin/campaigns/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ htmlBody }) });
-    if (r.ok) { const d = await r.json(); setPreviewHtml(d.html); setShowPreview(true); }
+    if (r.ok) { const d = await r.json(); setPreviewHtml(d.html); setPreviewLang(lang); setShowPreview(true); }
   };
 
   const sendTest = async () => {
-    if (!testEmail.trim()) return;
+    if (!testEmail.trim() || !tpl) return;
     setMsg(null);
+    const subject = testLang === "en" ? content.subjectEn : content.subject;
+    const htmlBody = testLang === "en" ? content.htmlBodyEn : content.htmlBody;
     const r = await fetch("/api/admin/campaigns/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: testEmail, subject, htmlBody }) });
-    setMsg(r.ok ? `✓ Email de test envoyé à ${testEmail}` : "✗ Échec de l'envoi du test");
+    setMsg(r.ok ? `✓ Email de test (${testLang.toUpperCase()}) envoyé à ${testEmail}` : "✗ Échec de l'envoi du test");
   };
 
   const sendCampaign = async () => {
-    if (!subject.trim() || !htmlBody.trim()) { setMsg("✗ Sujet et contenu requis"); return; }
+    if (!tpl) { setMsg("✗ Choisissez un modèle d'email"); return; }
     if (!count) { setMsg("✗ Aucun destinataire pour ce segment"); return; }
-    if (!confirm(`Envoyer la campagne « ${name || "Sans titre"} » à ${count} destinataire(s) ? Cette action est définitive.`)) return;
+    if (!confirm(`Envoyer la campagne « ${name || "Sans titre"} » à ${count} destinataire(s) ? Chaque destinataire reçoit la version correspondant à sa langue. Cette action est définitive.`)) return;
     setSending(true); setMsg(null);
     const cid = await persist();
     if (!cid) { setSending(false); setMsg("✗ Échec de l'enregistrement"); return; }
@@ -333,27 +367,64 @@ function CampaignEditor({ campaign, facets, onClose }: { campaign: Campaign | nu
               <label className="block text-xs text-gray-500 mb-1">Nom interne de la campagne</label>
               <input disabled={readOnly} value={name} onChange={e => setName(e.target.value)} className="cyber-input w-full px-3 py-2 rounded text-xs" placeholder="ex : Rappel J-7 inscrits" />
             </div>
+
+            {/* Template selector */}
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Sujet de l&apos;email *</label>
-              <input disabled={readOnly} value={subject} onChange={e => setSubject(e.target.value)} className="cyber-input w-full px-3 py-2 rounded text-xs" placeholder="Bonjour {{fname}}, …" />
+              <label className="block text-xs text-gray-500 mb-1">Modèle d&apos;email (bilingue FR / EN) *</label>
+              {readOnly ? (
+                <div className="cyber-input w-full px-3 py-2 rounded text-xs text-gray-300">
+                  {tpl?.name || campaign?.subject || "—"}
+                </div>
+              ) : templates.length === 0 ? (
+                <p className="text-yellow-500/80 text-xs py-2">
+                  Aucun modèle disponible. Créez-en un dans <span className="font-bold">Communication → Emails &amp; Templates</span>.
+                </p>
+              ) : (
+                <select
+                  value={templateId ?? ""}
+                  onChange={e => setTemplateId(e.target.value ? parseInt(e.target.value) : null)}
+                  className="cyber-input w-full px-3 py-2 rounded text-xs"
+                >
+                  <option value="">— Choisir un modèle —</option>
+                  {templates.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}{t.subjectEn && t.htmlBodyEn ? "  (FR + EN)" : "  (FR seul)"}</option>
+                  ))}
+                </select>
+              )}
             </div>
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs text-gray-500">Contenu HTML *</label>
-                <span className="text-gray-700 text-xs">Variables : {"{{fname}} {{lname}} {{org}} {{country}} {{ticketType}}"}</span>
+
+            {/* Selected template summary */}
+            {tpl && (
+              <div className="rounded-lg border border-gray-800 p-3 space-y-2">
+                <div>
+                  <p className="text-gray-600 text-xs">Sujet FR</p>
+                  <p className="text-white text-xs">{content.subject || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-gray-600 text-xs">Sujet EN</p>
+                  <p className={`text-xs ${hasEn ? "text-white" : "text-yellow-500/80"}`}>{content.subjectEn || "— (version EN manquante : les anglophones recevront la version FR)"}</p>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => doPreview("fr")} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-300 hover:border-neon-green hover:text-neon-green">👁 Aperçu FR</button>
+                  <button onClick={() => doPreview("en")} disabled={!hasEn} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-300 hover:border-neon-blue hover:text-neon-blue disabled:opacity-40">👁 Aperçu EN</button>
+                </div>
               </div>
-              <textarea disabled={readOnly} value={htmlBody} onChange={e => setHtmlBody(e.target.value)} rows={12} className="cyber-input w-full px-3 py-2 rounded text-xs font-mono resize-y" placeholder="<p>Bonjour {{fname}},</p><p>…</p>" />
-              <p className="text-gray-700 text-xs mt-1">Le contenu est automatiquement habillé dans le template EOCON (en-tête, pied de page).</p>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={doPreview} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-300 hover:border-neon-green hover:text-neon-green">👁 Prévisualiser</button>
-            </div>
+            )}
+            <p className="text-gray-700 text-xs">Chaque destinataire reçoit automatiquement la version correspondant à sa langue (FR par défaut). Variables : {"{{fname}} {{lname}} {{org}} {{country}} {{ticketType}}"}</p>
           </div>
 
           {/* Test email */}
-          {!readOnly && (
+          {!readOnly && tpl && (
             <div className="cyber-card rounded-xl p-5">
               <label className="block text-xs text-gray-500 mb-2">✉️ Envoyer un email de test</label>
+              <div className="flex gap-2 mb-2">
+                {(["fr", "en"] as const).map(l => (
+                  <button key={l} onClick={() => setTestLang(l)} disabled={l === "en" && !hasEn}
+                    className={`text-xs px-3 py-1.5 rounded border transition-all disabled:opacity-40 ${testLang === l ? "border-neon-green text-neon-green bg-neon-green/10" : "border-gray-700 text-gray-500"}`}>
+                    {l.toUpperCase()}
+                  </button>
+                ))}
+              </div>
               <div className="flex gap-2">
                 <input value={testEmail} onChange={e => setTestEmail(e.target.value)} className="cyber-input flex-1 px-3 py-2 rounded text-xs" placeholder="votre@email.com" />
                 <button onClick={sendTest} disabled={!testEmail.trim()} className="text-xs px-4 py-2 rounded border border-gray-700 text-gray-300 hover:border-neon-green hover:text-neon-green disabled:opacity-40">Tester</button>
@@ -423,9 +494,10 @@ function CampaignEditor({ campaign, facets, onClose }: { campaign: Campaign | nu
           {/* Send */}
           {!readOnly && (
             <div className="cyber-card rounded-xl p-5">
-              <button onClick={sendCampaign} disabled={sending || !count} className="btn-neon-solid w-full py-3 rounded text-sm border-2 border-neon-green disabled:opacity-40">
+              <button onClick={sendCampaign} disabled={sending || !count || !tpl} className="btn-neon-solid w-full py-3 rounded text-sm border-2 border-neon-green disabled:opacity-40">
                 {sending ? "Envoi en cours…" : `🚀 Envoyer à ${count ?? 0} destinataire(s)`}
               </button>
+              {!tpl && <p className="text-gray-600 text-xs mt-2 text-center">Choisissez un modèle d&apos;email pour activer l&apos;envoi.</p>}
               {msg && <p className={`text-xs mt-3 text-center ${msg.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{msg}</p>}
             </div>
           )}
@@ -486,7 +558,7 @@ function CampaignEditor({ campaign, facets, onClose }: { campaign: Campaign | nu
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4" onClick={() => setShowPreview(false)}>
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[88vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 py-2 bg-gray-900 shrink-0">
-              <span className="text-white text-xs font-mono">Prévisualisation — {subject || "(sans sujet)"}</span>
+              <span className="text-white text-xs font-mono">Aperçu {previewLang.toUpperCase()} — {(previewLang === "en" ? content.subjectEn : content.subject) || "(sans sujet)"}</span>
               <button onClick={() => setShowPreview(false)} className="text-gray-400 hover:text-white text-lg">✕</button>
             </div>
             <iframe title="preview" srcDoc={previewHtml} className="w-full flex-1 bg-white" style={{ minHeight: "60vh" }} />

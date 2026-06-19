@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
 import { wrapCampaignHtml } from "@/lib/email";
-import { parseSegment, resolveRecipients, personalize } from "@/lib/campaignRecipients";
+import { parseSegment, resolveRecipients, personalize, pickContent } from "@/lib/campaignRecipients";
 import { Resend } from "resend";
 
 export const dynamic = "force-dynamic";
@@ -39,8 +39,10 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   for (let i = 0; i < recipients.length; i += 50) {
     const batch = recipients.slice(i, i + 50);
     await Promise.all(batch.map(async (r) => {
-      const html = wrapCampaignHtml(personalize(campaign.htmlBody, r));
-      const subject = personalize(campaign.subject, r);
+      // Pick the FR/EN version matching the recipient's language (FR fallback).
+      const c = pickContent(campaign, r.lang);
+      const html = wrapCampaignHtml(personalize(c.htmlBody, r), c.lang);
+      const subject = personalize(c.subject, r);
       try {
         const res = await resend.emails.send({ from: getFrom(), to: r.email, subject, html });
         await prisma.emailLog.create({ data: { campaignId: id, recipient: r.email, subject, status: "sent", resendId: res.data?.id ?? null } });

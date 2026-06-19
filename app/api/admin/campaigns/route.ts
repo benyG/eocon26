@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
+import { templateSnapshot } from "@/lib/campaignRecipients";
 
 export const dynamic = "force-dynamic";
 
@@ -32,13 +33,23 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   if (!(await hasPermission("campaigns", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const { name, subject, htmlBody, segment } = await req.json();
-  if (!name?.trim() || !subject?.trim()) return NextResponse.json({ error: "name and subject are required" }, { status: 400 });
+  const { name, templateId, subject, htmlBody, segment } = await req.json();
+  if (!name?.trim()) return NextResponse.json({ error: "name is required" }, { status: 400 });
+
+  // Snapshot bilingual content from the chosen template (campaigns reference a
+  // template but keep a content copy so sent history stays intact if the
+  // template is later edited).
+  const snap = await templateSnapshot(templateId, { subject, htmlBody });
+  if (!snap.subject?.trim()) return NextResponse.json({ error: "A template (or subject) is required" }, { status: 400 });
+
   const campaign = await prisma.campaign.create({
     data: {
       name: name.trim(),
-      subject: subject.trim(),
-      htmlBody: htmlBody || "",
+      templateId: templateId ?? null,
+      subject: snap.subject,
+      htmlBody: snap.htmlBody,
+      subjectEn: snap.subjectEn,
+      htmlBodyEn: snap.htmlBodyEn,
       segment: typeof segment === "string" ? segment : JSON.stringify(segment ?? { audience: "registrations" }),
       status: "draft",
     },

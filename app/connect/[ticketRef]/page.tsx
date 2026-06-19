@@ -7,18 +7,22 @@ export const dynamic = "force-dynamic";
 
 // Networking validity window (Africa/Douala, UTC+1). Configured in admin event
 // settings. When networking_date is empty, the page is always available.
-function networkingWindow(settings: Record<string, string>): { open: boolean; reason: "before" | "after" | null; date: string; start: string; end: string } {
+// The window spans from networking_date @ networking_start to
+// networking_end_date @ networking_end. If networking_end_date is empty, it
+// falls back to networking_date (single-day window — backward compatible).
+function networkingWindow(settings: Record<string, string>): { open: boolean; reason: "before" | "after" | null; date: string; endDate: string; start: string; end: string } {
   const date = settings.networking_date || "";
+  const endDate = settings.networking_end_date || date;
   const start = settings.networking_start || "00:00";
   const end = settings.networking_end || "23:59";
-  if (!date) return { open: true, reason: null, date, start, end };
+  if (!date) return { open: true, reason: null, date, endDate, start, end };
   const startAt = new Date(`${date}T${start}:00+01:00`);
-  const endAt = new Date(`${date}T${end}:00+01:00`);
+  const endAt = new Date(`${endDate}T${end}:00+01:00`);
   const now = new Date();
-  if (isNaN(startAt.getTime()) || isNaN(endAt.getTime())) return { open: true, reason: null, date, start, end };
-  if (now < startAt) return { open: false, reason: "before", date, start, end };
-  if (now > endAt) return { open: false, reason: "after", date, start, end };
-  return { open: true, reason: null, date, start, end };
+  if (isNaN(startAt.getTime()) || isNaN(endAt.getTime())) return { open: true, reason: null, date, endDate, start, end };
+  if (now < startAt) return { open: false, reason: "before", date, endDate, start, end };
+  if (now > endAt) return { open: false, reason: "after", date, endDate, start, end };
+  return { open: true, reason: null, date, endDate, start, end };
 }
 
 function Shell({ children }: { children: ReactNode }) {
@@ -43,10 +47,16 @@ export default async function ConnectPage({ params }: { params: { ticketRef: str
   const settings = await getEventSettings();
   const win = networkingWindow(settings);
   if (!win.open) {
-    const fmt = (() => {
-      try { return new Date(`${win.date}T00:00:00+01:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "Africa/Douala" }); }
-      catch { return win.date; }
-    })();
+    const fmtDate = (d: string) => {
+      try { return new Date(`${d}T00:00:00+01:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "Africa/Douala" }); }
+      catch { return d; }
+    };
+    const sameDay = win.date === win.endDate;
+    // Human-readable window: "le 12 mars, de 09:00 à 18:00" (same day) or
+    // "du 12 mars 09:00 au 14 mars 18:00" (multi-day).
+    const windowLabel = sameDay
+      ? `le ${fmtDate(win.date)}, de ${win.start} à ${win.end} (heure de Douala)`
+      : `du ${fmtDate(win.date)} à ${win.start} au ${fmtDate(win.endDate)} à ${win.end} (heure de Douala)`;
     return (
       <Shell>
         <p style={{ fontSize: "10px", letterSpacing: "4px", color: "#00ff9d", margin: "0 0 16px", textTransform: "uppercase" }}>&gt; EOCON 2026 · Réseautage</p>
@@ -57,8 +67,8 @@ export default async function ConnectPage({ params }: { params: { ticketRef: str
           </p>
           <p style={{ fontSize: "12px", color: "#888", margin: 0, fontFamily: "sans-serif", lineHeight: 1.5 }}>
             {win.reason === "before"
-              ? `Les profils de réseautage seront accessibles le ${fmt}, de ${win.start} à ${win.end} (heure de Douala). Réessayez pendant l'événement.`
-              : `La période de réseautage (${fmt}, ${win.start}–${win.end}) est close. Les QR codes de réseautage ne sont plus actifs.`}
+              ? `Les profils de réseautage seront accessibles ${windowLabel}. Réessayez pendant l'événement.`
+              : `La période de réseautage (${windowLabel}) est close. Les QR codes de réseautage ne sont plus actifs.`}
           </p>
         </div>
         <div style={{ marginTop: "48px", borderTop: "1px solid #1a1a2e", paddingTop: "24px" }}>

@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { sendVolunteerConfirmation } from "@/lib/email";
 import { checkRateLimit, getIp } from "@/lib/rateLimit";
+import { getEventSettings } from "@/lib/settings";
+import { evaluateCfpWindow } from "@/lib/cfpWindow";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VALID_ROLES = ["logistique", "communication", "technique", "accueil", "securite", "autre", "logistics", "communication", "technical", "welcome", "security", "other", ""];
@@ -15,6 +17,11 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { name, email, phone, city, role, experience, motivation, lang_expression, linkedin, twitter, whatsapp, hours_per_week } = body;
+
+    // Check volunteer application window
+    const settings = await getEventSettings().catch(() => ({} as Record<string, string>));
+    const win = evaluateCfpWindow(settings.volunteer_open_date || "", settings.volunteer_close_date || "");
+    const deferred = win.hasWindow && !win.open;
 
     if (!name || !email || !motivation) {
       return NextResponse.json({ error: "Champs requis manquants" }, { status: 400 });
@@ -51,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     sendVolunteerConfirmation(email, name, lang_expression === "en" ? "en" : "fr").catch(e => console.error("[Volunteer email]", e));
 
-    return NextResponse.json({ success: true, id: application.id }, { status: 201 });
+    return NextResponse.json({ success: true, id: application.id, deferred }, { status: 201 });
   } catch (err) {
     console.error("[Volunteer]", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

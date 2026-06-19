@@ -59,8 +59,12 @@ export default function CFPModal({ t, onClose }: { t: Translations; onClose: () 
         className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl"
         style={{ background: "#0a0a0f", border: "1px solid rgba(0,255,157,0.2)" }}
       >
+        {/* EOCON glitch brand */}
+        <div className="pt-6 pb-2 text-center">
+          <span className="glitch neon-text text-4xl font-black" data-text="EOCON" style={{ fontFamily: "'Share Tech Mono', monospace" }}>EOCON</span>
+        </div>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-neon-green/10">
+        <div className="flex items-center justify-between px-6 pb-6 border-b border-neon-green/10">
           <div>
             <h2 className="text-2xl font-black text-white">{t.cfp.form.title}</h2>
             <p className="text-gray-500 text-sm mt-1">{t.cfp.subtitle}</p>

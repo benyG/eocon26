@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Translations } from "@/lib/i18n";
 import CountrySelect from "@/components/CountrySelect";
+import { useEventSettings } from "@/lib/useEventSettings";
+import { evaluateCfpWindow } from "@/lib/cfpWindow";
 
 interface TicketTypeData {
   id: number;
@@ -32,6 +34,9 @@ interface RegisterModalProps {
 }
 
 export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModalProps) {
+  const settings = useEventSettings();
+  const regWin = evaluateCfpWindow(settings.registration_open_date, settings.registration_close_date);
+  const registrationClosed = regWin.hasWindow && !regWin.open;
   const [step, setStep] = useState<"tiers" | "form" | "payment">("tiers");
   const [selectedTier, setSelectedTier] = useState("");
   const [selectedTicket, setSelectedTicket] = useState<TicketTypeData | null>(null);
@@ -233,8 +238,12 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
         className={`w-full ${step === "tiers" ? "max-w-6xl" : "max-w-3xl"} max-h-[90vh] overflow-y-auto rounded-2xl`}
         style={{ background: "#0a0a0f", border: "1px solid rgba(0,255,157,0.2)" }}
       >
+        {/* EOCON glitch brand */}
+        <div className="pt-6 pb-2 text-center">
+          <span className="glitch neon-text text-4xl font-black" data-text="EOCON" style={{ fontFamily: "'Share Tech Mono', monospace" }}>EOCON</span>
+        </div>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-neon-green/10">
+        <div className="flex items-center justify-between px-6 pb-6 border-b border-neon-green/10">
           <div>
             <h2 className="text-2xl font-black text-white">{t.register.title}</h2>
             <p className="text-gray-500 text-sm mt-1">{t.register.subtitle}</p>
@@ -243,6 +252,15 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
         </div>
 
         <div className="p-6">
+          {registrationClosed && !submitted && (
+            <div className="mb-4 rounded-lg border border-yellow-600/40 bg-yellow-500/10 px-4 py-3 text-xs text-yellow-200">
+              <p className="font-bold mb-0.5">⏳ Inscriptions closes pour l&apos;édition en cours · Registrations closed for the current edition</p>
+              <p className="text-yellow-200/70">
+                Les inscriptions ne sont pas disponibles pour le moment. Revenez bientôt !
+                {" · "}Registrations are not available right now. Check back soon!
+              </p>
+            </div>
+          )}
           {submitted ? (
             <div className="text-center py-12">
               <div className="text-6xl mb-6">🎉</div>

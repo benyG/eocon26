@@ -14,6 +14,10 @@ export interface EventSettings {
   event_mode: string;
   cfp_open_date: string;
   cfp_close_date: string;
+  volunteer_open_date: string;
+  volunteer_close_date: string;
+  registration_open_date: string;
+  registration_close_date: string;
   site_base_url: string;
   url_inscription: string;
   url_cfp: string;
@@ -38,6 +42,10 @@ const DEFAULTS: EventSettings = {
   event_mode: "Online & On-site",
   cfp_open_date: "",
   cfp_close_date: "",
+  volunteer_open_date: "",
+  volunteer_close_date: "",
+  registration_open_date: "",
+  registration_close_date: "",
   site_base_url: "https://eyesopensecurity.com",
   url_inscription: "https://eyesopensecurity.com/#inscription",
   url_cfp: "https://eyesopensecurity.com/#cfp",

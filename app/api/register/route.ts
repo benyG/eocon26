@@ -5,6 +5,8 @@ import { sendRegistrationTicket } from "@/lib/email";
 import { generateTicketRef, formatTicketRef } from "@/lib/ticketRef";
 import { checkRateLimit, getIp } from "@/lib/rateLimit";
 import { signPaymentToken } from "@/lib/paymentToken";
+import { getEventSettings } from "@/lib/settings";
+import { evaluateCfpWindow } from "@/lib/cfpWindow";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -23,6 +25,15 @@ export async function POST(req: NextRequest) {
     if (!EMAIL_RE.test(email)) {
       return NextResponse.json({ error: "Email invalide" }, { status: 400 });
     }
+
+    // Check registration window
+    const regSettings = await getEventSettings().catch(() => ({} as Record<string, string>));
+    const regWin = evaluateCfpWindow(regSettings.registration_open_date || "", regSettings.registration_close_date || "");
+    const registrationClosed = regWin.hasWindow && !regWin.open;
+    if (registrationClosed) {
+      return NextResponse.json({ error: "Les inscriptions sont closes pour le moment." }, { status: 403 });
+    }
+
     // Pre-registration mode: no ticket is on sale (none marked visible). The user
     // registers their interest and will be notified once tickets are activated.
     const dbTicketTypes = await prisma.ticketType.findMany({ where: { isVisible: true }, select: { slug: true } });

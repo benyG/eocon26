@@ -2278,6 +2278,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
   const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ status: "prospect" });
+  const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
   const [aiEmail, setAiEmail] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
   const [aiEmailTarget, setAiEmailTarget] = useState<{ org: string; id: number; email: string | null } | null>(null);
   const [generatingFor, setGeneratingFor] = useState<number | null>(null);
@@ -2452,6 +2453,66 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
         </div>
       )}
 
+      {/* Prospect detail modal */}
+      {detail && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setDetail(null)}>
+          <div className="cyber-card rounded-xl max-w-xl w-full max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-start p-6 pb-4 border-b border-gray-800 shrink-0">
+              <div>
+                <h3 className="text-white font-bold text-lg">{detail.org as string}</h3>
+                <span className="text-xs px-2 py-0.5 rounded inline-block mt-1" style={{ background: (PROSPECT_STATUSES.find(s => s.value === detail.status)?.color || "#888") + "20", color: PROSPECT_STATUSES.find(s => s.value === detail.status)?.color || "#888" }}>
+                  {(() => { const s = PROSPECT_STATUSES.find(x => x.value === detail.status); return s ? (lang === "en" ? s.en : s.fr) : (detail.status as string); })()}
+                </span>
+              </div>
+              <button onClick={() => setDetail(null)} className="text-gray-500 hover:text-white">✕</button>
+            </div>
+            <div className="p-6 overflow-y-auto space-y-3 text-xs">
+              {([
+                { label: t.contact, val: detail.contact as string },
+                { label: t.email, val: detail.email as string, href: detail.email ? `mailto:${detail.email}` : undefined },
+                { label: t.phone, val: detail.phone as string, href: detail.phone ? `tel:${detail.phone}` : undefined },
+                { label: "Site web", val: detail.website as string, href: detail.website ? (String(detail.website).startsWith("http") ? String(detail.website) : `https://${detail.website}`) : undefined },
+                { label: t.package, val: detail.package as string },
+              ]).map(f => (
+                <div key={f.label} className="flex gap-3">
+                  <span className="text-gray-600 shrink-0 w-28">{f.label}</span>
+                  {f.val
+                    ? (f.href
+                        ? <a href={f.href} target="_blank" rel="noreferrer" className="text-neon-green hover:underline break-all">{f.val}</a>
+                        : <span className="text-gray-200 break-words">{f.val}</span>)
+                    : <span className="text-gray-700">—</span>}
+                </div>
+              ))}
+              <div className="flex gap-3">
+                <span className="text-gray-600 shrink-0 w-28">{t.notes}</span>
+                <span className="text-gray-300 whitespace-pre-wrap break-words">{(detail.notes as string) || "—"}</span>
+              </div>
+              <div className="flex gap-3 border-t border-gray-800 pt-3">
+                <span className="text-gray-600 shrink-0 w-28">Créé le</span>
+                <span className="text-gray-400">{detail.createdAt ? new Date(detail.createdAt as string).toLocaleString("fr-FR") : "—"}</span>
+              </div>
+              <div className="flex gap-3">
+                <span className="text-gray-600 shrink-0 w-28">Mis à jour</span>
+                <span className="text-gray-400">{detail.updatedAt ? new Date(detail.updatedAt as string).toLocaleString("fr-FR") : "—"}</span>
+              </div>
+              {!!detail.emailJson && (
+                <div className="border-t border-gray-800 pt-3">
+                  <p className="text-gray-600 mb-1">Courriel IA en cache</p>
+                  <p className="text-neon-green/60">✓ Un courriel de relance a été généré pour ce prospect.</p>
+                </div>
+              )}
+              {canWrite && (
+                <div className="border-t border-gray-800 pt-4 flex gap-2">
+                  <button onClick={() => { generateFollowupEmail(detail); setDetail(null); }} className="flex-1 text-xs px-3 py-2 rounded font-bold" style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}>
+                    {detail.emailJson ? "✨ Voir / envoyer le courriel" : "✨ Générer un courriel (IA)"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add form */}
       {canWrite && showForm && (
         <div className="cyber-card rounded-xl p-5 mb-6 space-y-3">
@@ -2461,6 +2522,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
               { key: "contact", label: t.contact },
               { key: "email", label: t.email },
               { key: "phone", label: t.phone },
+              { key: "website", label: "Site web" },
               { key: "package", label: t.package },
             ].map(f => (
               <div key={f.key}>
@@ -2505,7 +2567,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                       className="cyber-card rounded-lg p-3 text-xs"
                       style={{ borderLeft: `3px solid ${st.color}40` }}
                     >
-                      <p className="text-white font-bold text-sm mb-1 truncate">{p.org as string}</p>
+                      <button onClick={() => setDetail(p)} className="text-white font-bold text-sm mb-1 truncate w-full text-left hover:text-neon-green transition-colors" title="Voir les détails">{p.org as string}</button>
                       {(p.contact as string) && <p className="text-gray-500 truncate">{p.contact as string}</p>}
                       {(p.email as string) && <p className="text-neon-green/60 truncate">{p.email as string}</p>}
                       {(p.package as string) && (
@@ -4233,6 +4295,12 @@ const SETTINGS_FIELDS = [
   { key: "event_country", label: "Pays", type: "text", group: "Lieu" },
   { key: "event_address", label: "Adresse complète", type: "text", group: "Lieu" },
   { key: "event_mode", label: "Mode (ex: Online & On-site)", type: "text", group: "Lieu" },
+  { key: "cfp_open_date", label: "Ouverture des soumissions (CFP)", type: "date", group: "CFP" },
+  { key: "cfp_close_date", label: "Clôture des soumissions (CFP)", type: "date", group: "CFP" },
+  { key: "volunteer_open_date", label: "Ouverture des candidatures bénévoles", type: "date", group: "Bénévoles" },
+  { key: "volunteer_close_date", label: "Clôture des candidatures bénévoles", type: "date", group: "Bénévoles" },
+  { key: "registration_open_date", label: "Ouverture des inscriptions", type: "date", group: "Inscriptions" },
+  { key: "registration_close_date", label: "Clôture des inscriptions", type: "date", group: "Inscriptions" },
   { key: "ctf_tagline_fr", label: "Accroche principale (FR)", type: "text", group: "CTF" },
   { key: "ctf_tagline_en", label: "Accroche principale (EN)", type: "text", group: "CTF" },
   { key: "ctf_prize_main_fr", label: "Gains vainqueur — résumé court (FR)", type: "text", group: "CTF" },

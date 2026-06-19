@@ -169,25 +169,33 @@ async function sendWithTemplate(
 
 // ── Public email functions ────────────────────────────────────────────────────
 
-export async function sendCFPConfirmation(to: string, name: string, talkTitle: string, lang: "fr" | "en" = "fr") {
+export async function sendCFPConfirmation(to: string, name: string, talkTitle: string, lang: "fr" | "en" = "fr", deferred = false) {
   const isFr = lang === "fr";
   const vars = { name: esc(name), talkTitle: esc(talkTitle) };
+  const statusFr = deferred ? '<span style="color:#888;">Conservée pour la prochaine édition</span>' : '<span style="color:#ffaa00;">En cours d\'examen</span>';
+  const statusEn = deferred ? '<span style="color:#888;">Kept for the next edition</span>' : '<span style="color:#ffaa00;">Under review</span>';
+  const followFr = deferred
+    ? `<p>Les soumissions pour l'édition en cours sont closes. Votre proposition est bien enregistrée et sera prise en compte pour la prochaine édition d'EOCON.</p>`
+    : `<p>Notre équipe CFP examinera votre proposition et vous tiendra informé(e) de notre décision.</p>`;
+  const followEn = deferred
+    ? `<p>Submissions for the current edition are closed. Your proposal has been saved and will be considered for the next EOCON edition.</p>`
+    : `<p>Our CFP team will review your proposal and keep you informed of our decision.</p>`;
   const body = isFr
     ? `<p>${greenLabel("Bonjour " + esc(name))},</p>
        <p>Votre proposition de talk a bien été reçue. Merci pour votre contribution !</p>
        ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
          ${neonRow("Talk", `<em>&ldquo;${esc(talkTitle)}&rdquo;</em>`)}
-         ${neonRow("Statut", '<span style="color:#ffaa00;">En cours d\'examen</span>')}
+         ${neonRow("Statut", statusFr)}
        </tbody></table>`)}
-       <p>Notre équipe CFP examinera votre proposition et vous tiendra informé(e) de notre décision.</p>
+       ${followFr}
        ${dateLine(isFr)}`
     : `<p>${greenLabel("Hello " + esc(name))},</p>
        <p>Your talk proposal has been received. Thank you for contributing!</p>
        ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
          ${neonRow("Talk", `<em>&ldquo;${esc(talkTitle)}&rdquo;</em>`)}
-         ${neonRow("Status", '<span style="color:#ffaa00;">Under review</span>')}
+         ${neonRow("Status", statusEn)}
        </tbody></table>`)}
-       <p>Our CFP team will review your proposal and keep you informed of our decision.</p>
+       ${followEn}
        ${dateLine(isFr)}`;
   await sendWithTemplate(
     "cfp_confirmation", to, vars,

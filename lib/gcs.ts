@@ -1,23 +1,59 @@
 import { Storage } from "@google-cloud/storage";
 
+function normalizePrivateKey(key: string): string {
+  // Service account JSON private keys use literal \n sequences when stored
+  // in environment variables. Some systems double-escape them as \\n.
+  // Normalize all variants to real newlines so the crypto module can parse the PEM.
+  return key
+    .replace(/\\\\n/g, "\n") // double-escaped (\\n → \n → newline)
+    .replace(/\\n/g, "\n")   // single-escaped (\n → newline)
+    .replace(/\\r/g, "")     // strip any \r
+    .replace(/\r\n/g, "\n")  // normalize CRLF → LF
+    .trim();
+}
+
 function getStorage() {
   // Prefer inline JSON credentials (avoids file permission issues in Docker)
   if (process.env.GCS_CREDENTIALS_JSON) {
-    let credentials: { private_key?: string; [k: string]: unknown };
-    try {
-      credentials = JSON.parse(process.env.GCS_CREDENTIALS_JSON);
-    } catch {
-      throw new Error("GCS_CREDENTIALS_JSON is not valid JSON");
+    let raw = process.env.GCS_CREDENTIALS_JSON.trim();
+    // Handle the case where the env var is accidentally double-stringified
+    if (raw.startsWith('"') && raw.endsWith('"')) {
+      try { raw = JSON.parse(raw); } catch { /* not double-stringified */ }
     }
-    // When the JSON is stored in an env var, the PEM newlines are often escaped
-    // as literal "\n". Restore real newlines, otherwise JWT signing throws
-    // "key must be a string, a buffer or an object".
-    if (typeof credentials.private_key === "string") {
-      credentials.private_key = credentials.private_key.replace(/\\n/g, "\n");
+    let credentials: { private_key?: string; client_email?: string; [k: string]: unknown };
+    try {
+      credentials = JSON.parse(raw);
+    } catch {
+      throw new Error(
+        "GCS_CREDENTIALS_JSON is not valid JSON. Make sure newlines inside the JSON are " +
+        "escaped as \\n and the whole value is a single line.",
+      );
+    }
+    if (!credentials.private_key) {
+      throw new Error(
+        "GCS_CREDENTIALS_JSON is missing the 'private_key' field. " +
+        "Ensure you are using a Service Account key (not a user credential).",
+      );
+    }
+    if (!credentials.client_email) {
+      throw new Error("GCS_CREDENTIALS_JSON is missing the 'client_email' field.");
+    }
+    credentials.private_key = normalizePrivateKey(credentials.private_key);
+    if (!credentials.private_key.includes("-----BEGIN")) {
+      throw new Error(
+        "GCS_CREDENTIALS_JSON private_key does not look like a valid PEM key after normalization. " +
+        "Check for extra escaping or encoding in the env var.",
+      );
     }
     return new Storage({ credentials });
   }
-  // Fall back to key file path
+  // Fall back to key file path (must point to a service account JSON file)
+  if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    throw new Error(
+      "No GCS credentials found. Set GCS_CREDENTIALS_JSON (inline service account JSON) " +
+      "or GOOGLE_APPLICATION_CREDENTIALS (path to service account JSON file).",
+    );
+  }
   return new Storage({ keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS });
 }
 

@@ -1239,6 +1239,76 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
   );
 }
 
+// ---- Library Picker Modal ----
+// Browse and pick an existing image from the GCS library (no upload here).
+function LibraryPickerModal({ onPick, onClose }: { onPick: (url: string) => void; onClose: () => void }) {
+  const [files, setFiles] = useState<{ name: string; url: string; size: number; updated: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    fetch("/api/admin/library")
+      .then(r => r.ok ? r.json() : [])
+      .then(setFiles)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const fmt = (b: number) => b < 1024 ? `${b} B` : b < 1048576 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1048576).toFixed(1)} MB`;
+  const filtered = files.filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4" onClick={onClose}>
+      <div className="cyber-card rounded-xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between gap-3 p-5 pb-3 border-b border-gray-800 shrink-0">
+          <div>
+            <h3 className="text-white font-bold text-sm">📁 Choisir une image de la Library</h3>
+            <p className="text-gray-500 text-xs mt-0.5">Images hébergées sur Google Cloud Storage</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Rechercher…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="cyber-input text-xs px-3 py-1.5 rounded w-40"
+            />
+            <button onClick={onClose} className="text-gray-500 hover:text-white text-xl leading-none">✕</button>
+          </div>
+        </div>
+        <div className="p-5 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center h-48 text-gray-600 font-mono text-xs">Chargement…</div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-gray-600 font-mono text-xs gap-2">
+              <span>{search ? "Aucun résultat" : "Aucune image dans la Library"}</span>
+              <span className="text-gray-700">Importez des images via l&apos;onglet 📁 Library.</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+              {filtered.map(f => (
+                <button
+                  key={f.name}
+                  onClick={() => { onPick(f.url); onClose(); }}
+                  className="group relative rounded-lg overflow-hidden border border-gray-800 hover:border-neon-green transition-all text-left"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={f.url} alt={f.name} className="w-full aspect-square object-cover bg-gray-900" loading="lazy" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-neon-green/10 transition-colors" />
+                  <div className="absolute bottom-0 inset-x-0 bg-black/70 px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <p className="text-white text-xs truncate leading-tight">{f.name.split("/").pop()}</p>
+                    <p className="text-gray-400 text-xs">{fmt(f.size)}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---- Communication Panel ----
 
 function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
@@ -1281,7 +1351,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   } | null>(null);
   const [selectedItem, setSelectedItem] = useState<Record<string, unknown> | null>(null);
   const [postImage, setPostImage] = useState<string | null>(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const [showImagePicker, setShowImagePicker] = useState(false);
   const [eventSettings, setEventSettings] = useState<Record<string, string>>({});
 
   const generateBriefFromContext = (type: string, item: Record<string, unknown> | null, data: typeof contextData): string => {
@@ -1349,19 +1419,6 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
       postsByDate[key].push(p);
     }
   });
-
-  const uploadImage = async (file: File) => {
-    setUploadingImage(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("folder", "socials");
-    const res = await fetch("/api/upload", { method: "POST", body: fd });
-    if (res.ok) {
-      const { url } = await res.json() as { url: string };
-      setPostImage(url);
-    }
-    setUploadingImage(false);
-  };
 
   const handleDayClick = (day: number) => {
     const date = new Date(currentYear, currentMonth, day);
@@ -1778,24 +1835,32 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                 <div className="relative rounded-lg overflow-hidden border border-gray-700">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={postImage} alt="Post" className="w-full h-28 object-cover" />
-                  <button
-                    onClick={() => setPostImage(null)}
-                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white text-xs flex items-center justify-center"
-                  >✕</button>
+                  <div className="absolute top-1 right-1 flex gap-1">
+                    <button
+                      onClick={() => setShowImagePicker(true)}
+                      className="px-2 h-5 rounded-full bg-black/70 text-white text-xs flex items-center justify-center hover:bg-black/90"
+                    >Changer</button>
+                    <button
+                      onClick={() => setPostImage(null)}
+                      className="w-5 h-5 rounded-full bg-black/70 text-white text-xs flex items-center justify-center hover:bg-black/90"
+                    >✕</button>
+                  </div>
                 </div>
               ) : (
-                <label className="flex items-center gap-2 cursor-pointer border border-dashed border-gray-700 rounded-lg px-3 py-2 hover:border-gray-500 transition-colors">
-                  <span className="text-gray-600 text-xs">{uploadingImage ? t.loading : t.addImageLabel}</span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(f); e.target.value = ""; }}
-                    disabled={uploadingImage}
-                  />
-                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowImagePicker(true)}
+                  className="flex items-center gap-2 w-full cursor-pointer border border-dashed border-gray-700 rounded-lg px-3 py-2 hover:border-neon-green/60 transition-colors text-left"
+                >
+                  <span className="text-gray-500 text-xs">🖼️</span>
+                  <span className="text-gray-600 text-xs">{t.addImageLabel}</span>
+                </button>
               )}
             </div>
+
+            {showImagePicker && (
+              <LibraryPickerModal onPick={url => setPostImage(url)} onClose={() => setShowImagePicker(false)} />
+            )}
 
               <button onClick={generatePosts} disabled={generating || !brief.trim()} className="btn-neon w-full py-2 rounded text-xs">
                 {generating ? t.generatingPosts : t.generateWithAI}
@@ -4168,7 +4233,8 @@ const SETTINGS_FIELDS = [
   { key: "ctf_prize_main_en", label: "Gains vainqueur — résumé court (EN)", type: "text", group: "CTF" },
   { key: "ctf_prize_details_fr", label: "Gains vainqueur — détails complets (FR)", type: "text", group: "CTF" },
   { key: "ctf_prize_details_en", label: "Gains vainqueur — détails complets (EN)", type: "text", group: "CTF" },
-  { key: "networking_date", label: "Date d'activation du réseautage (QR)", type: "date", group: "Réseautage (QR)" },
+  { key: "networking_date", label: "Date de début du réseautage (QR)", type: "date", group: "Réseautage (QR)" },
+  { key: "networking_end_date", label: "Date de fin du réseautage (QR)", type: "date", group: "Réseautage (QR)" },
   { key: "networking_start", label: "Heure de début (Douala)", type: "time", group: "Réseautage (QR)" },
   { key: "networking_end", label: "Heure de fin (Douala)", type: "time", group: "Réseautage (QR)" },
   { key: "site_base_url", label: "URL de base du site", type: "url", group: "Liens" },

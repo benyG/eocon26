@@ -34,7 +34,7 @@ export const translations = {
       description:
         "EOCON is the leading bilingual cybersecurity event bringing together security professionals, researchers, business leaders, and students from across Africa and the diaspora. Now in its 7th edition, EOCON features expert talks, hands-on workshops, and the acclaimed EyesOpenCTF competition.",
       p2: "The event aims to popularize digital security, foster awareness, and develop the cybersecurity ecosystem across Africa by creating opportunities for expression, exchange and sharing.",
-      stat1_num: "1500+",
+      stat1_num: "1000+",
       stat1_label: "Expected Attendees",
       stat2_num: "35+",
       stat2_label: "Expert Speakers",
@@ -416,7 +416,7 @@ export const translations = {
       description:
         "EOCON est la principale conférence bilingue sur la cybersécurité, réunissant des professionnels, chercheurs, chefs d'entreprises et étudiants d'Afrique et de la diaspora. À sa 7ème édition, EOCON propose des conférences d'experts, des ateliers pratiques et la compétition EyesOpenCTF.",
       p2: "La conférence vise à vulgariser la sécurité numérique, à sensibiliser et à développer l'écosystème de la cybersécurité en Afrique, en créant des opportunités d'expression, d'échange et de partage.",
-      stat1_num: "1500+",
+      stat1_num: "1000+",
       stat1_label: "Participants attendus",
       stat2_num: "35+",
       stat2_label: "Experts conférenciers",
@@ -475,7 +475,7 @@ export const translations = {
       points: "10 000+ Points",
       teams: "Équipes de 1-2",
       disc_list: [
-        "PWN / Système",
+        "PWN / Exploitation binaire",
         "Sécurité Web",
         "Forensique Numérique",
         "Cryptographie",

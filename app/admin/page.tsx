@@ -4219,15 +4219,17 @@ function SponsorPackagesPanel({ canWrite = true }: { canWrite?: boolean }) {
 }
 // ---- Event Settings Panel ----
 const SETTINGS_FIELDS = [
-  { key: "event_date", label: "Date (ISO)", type: "date", group: "Événement" },
-  { key: "event_date_display_fr", label: "Date affichée (FR)", type: "text", group: "Événement" },
-  { key: "event_date_display_en", label: "Date affichée (EN)", type: "text", group: "Événement" },
+  { key: "event_date_start", label: "Date de début (ISO)", type: "date", group: "Événement" },
+  { key: "event_date", label: "Date de fin (ISO)", type: "date", group: "Événement" },
+  { key: "event_date_display_fr", label: "Date affichée (FR) — laisser vide pour auto", type: "text", group: "Événement" },
+  { key: "event_date_display_en", label: "Date affichée (EN) — laisser vide pour auto", type: "text", group: "Événement" },
   { key: "event_time_start", label: "Heure d'ouverture", type: "time", group: "Événement" },
   { key: "event_edition", label: "Édition (numéro)", type: "text", group: "Événement" },
   { key: "event_venue", label: "Lieu (nom)", type: "text", group: "Lieu" },
   { key: "event_city", label: "Ville", type: "text", group: "Lieu" },
   { key: "event_country", label: "Pays", type: "text", group: "Lieu" },
   { key: "event_address", label: "Adresse complète", type: "text", group: "Lieu" },
+  { key: "event_mode", label: "Mode (ex: Online & On-site)", type: "text", group: "Lieu" },
   { key: "ctf_tagline_fr", label: "Accroche principale (FR)", type: "text", group: "CTF" },
   { key: "ctf_tagline_en", label: "Accroche principale (EN)", type: "text", group: "CTF" },
   { key: "ctf_prize_main_fr", label: "Gains vainqueur — résumé court (FR)", type: "text", group: "CTF" },

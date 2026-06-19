@@ -1884,10 +1884,6 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
               )}
             </div>
 
-            {showImagePicker && (
-              <LibraryPickerModal onPick={url => setPostImage(url)} onClose={() => setShowImagePicker(false)} />
-            )}
-
               <button onClick={generatePosts} disabled={generating || !brief.trim()} className="btn-neon w-full py-2 rounded text-xs">
                 {generating ? t.generatingPosts : t.generateWithAI}
               </button>
@@ -1958,6 +1954,11 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
           </div>
         )}
       </div>
+
+      {/* Library picker rendered outside cyber-card to avoid fixed-position corruption from cyber-card hover transform */}
+      {showImagePicker && (
+        <LibraryPickerModal onPick={url => setPostImage(url)} onClose={() => setShowImagePicker(false)} />
+      )}
 
       {/* Day-selected posts view */}
       <div className="cyber-card rounded-xl p-5">

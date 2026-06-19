@@ -10,6 +10,7 @@ import MediaLibraryModal from "@/components/admin/MediaLibraryModal";
 import CyberWatchPanel from "@/components/admin/CyberWatchPanel";
 import PilotagePanel from "@/components/admin/PilotagePanel";
 import CampaignsPanel from "@/components/admin/CampaignsPanel";
+import RegistrationsChart from "@/components/admin/RegistrationsChart";
 import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
 
 const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; setLang: (l: AdminLang) => void }>({
@@ -3742,6 +3743,8 @@ function RegistrationsPanel({ onDetail }: { onDetail: (r: Record<string, unknown
       </div>
 
       {msg && <div className="mb-4 px-4 py-2 rounded text-xs text-neon-green border border-neon-green/30 bg-neon-green/5">{msg}</div>}
+
+      {rows.length > 0 && <RegistrationsChart rows={rows} />}
 
       <div className="overflow-x-auto">
         <table className="w-full text-xs">

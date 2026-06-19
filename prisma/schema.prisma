@@ -386,15 +386,21 @@ model EmailTemplate {
 }
 
 model EmailLog {
-  id         Int      @id @default(autoincrement())
-  templateId Int?
-  campaignId Int?
-  recipient  String
-  subject    String
-  status     String   @default("sent") // sent | failed
-  sentAt     DateTime @default(now())
+  id          Int       @id @default(autoincrement())
+  templateId  Int?
+  campaignId  Int?
+  recipient   String
+  subject     String
+  status      String    @default("sent") // sent | failed
+  resendId    String?   // Resend message id, used to correlate webhook events
+  deliveredAt DateTime? // set by Resend webhook (email.delivered)
+  openedAt    DateTime? // set by Resend webhook (email.opened)
+  clickedAt   DateTime? // set by Resend webhook (email.clicked)
+  bouncedAt   DateTime? // set by Resend webhook (email.bounced)
+  sentAt      DateTime  @default(now())
 
   @@index([campaignId])
+  @@index([resendId])
   @@map("email_logs")
 }
 

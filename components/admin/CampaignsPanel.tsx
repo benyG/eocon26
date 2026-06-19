@@ -22,6 +22,10 @@ interface Campaign {
   recipientCount: number;
   sentCount: number;
   failedCount: number;
+  deliveredCount?: number;
+  openedCount?: number;
+  clickedCount?: number;
+  bouncedCount?: number;
   sentAt: string | null;
   createdAt: string;
 }
@@ -116,6 +120,8 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
                 <th className="py-2 px-3 font-medium">Statut</th>
                 <th className="py-2 px-3 font-medium">Destinataires</th>
                 <th className="py-2 px-3 font-medium">Envoyés</th>
+                <th className="py-2 px-3 font-medium">Délivrés</th>
+                <th className="py-2 px-3 font-medium">Cliqués</th>
                 <th className="py-2 px-3 font-medium">Échecs</th>
                 <th className="py-2 px-3 font-medium">Date</th>
                 <th className="py-2 px-3 font-medium text-right">Actions</th>
@@ -124,7 +130,8 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
             <tbody>
               {campaigns.map(c => {
                 const badge = STATUS_BADGE[c.status] || STATUS_BADGE.draft;
-                const openRate = c.recipientCount > 0 ? Math.round((c.sentCount / c.recipientCount) * 100) : 0;
+                const isSent = c.status === "sent" || c.status === "failed";
+                const pct = (n: number) => c.sentCount > 0 ? Math.round((n / c.sentCount) * 100) : 0;
                 return (
                   <tr key={c.id} className="border-b border-gray-900 hover:bg-white/5">
                     <td className="py-2.5 px-3">
@@ -135,8 +142,14 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
                       <span className="px-2 py-0.5 rounded font-mono" style={{ background: badge.c + "20", color: badge.c }}>{badge.label}</span>
                     </td>
                     <td className="py-2.5 px-3 text-gray-300 font-mono">{c.recipientCount || "—"}</td>
+                    <td className="py-2.5 px-3 font-mono" style={{ color: "#888" }}>
+                      {isSent ? c.sentCount : "—"}
+                    </td>
                     <td className="py-2.5 px-3 font-mono" style={{ color: "#00ff9d" }}>
-                      {c.status === "sent" || c.status === "failed" ? `${c.sentCount} (${openRate}%)` : "—"}
+                      {isSent ? `${c.deliveredCount ?? 0} (${pct(c.deliveredCount ?? 0)}%)` : "—"}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono" style={{ color: "#00d4ff" }}>
+                      {isSent ? `${c.clickedCount ?? 0} (${pct(c.clickedCount ?? 0)}%)` : "—"}
                     </td>
                     <td className="py-2.5 px-3 font-mono" style={{ color: c.failedCount ? "#ff0066" : "#555" }}>{c.failedCount || "—"}</td>
                     <td className="py-2.5 px-3 text-gray-500">
@@ -180,7 +193,34 @@ function CampaignEditor({ campaign, facets, onClose }: { campaign: Campaign | nu
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [metrics, setMetrics] = useState<Campaign | null>(campaign);
+  const [resending, setResending] = useState<"undelivered" | "unclicked" | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // For a sent campaign, pull the live delivery/click metrics from the detail endpoint.
+  useEffect(() => {
+    if (!readOnly || !campaign) return;
+    fetch(`/api/admin/campaigns/${campaign.id}`).then(r => r.ok ? r.json() : null).then(d => { if (d) setMetrics(d); }).catch(() => {});
+  }, [readOnly, campaign]);
+
+  const doResend = async (mode: "undelivered" | "unclicked") => {
+    if (!campaign) return;
+    const label = mode === "undelivered" ? "non-délivrés" : "non-cliqués";
+    if (!confirm(`Renvoyer la campagne aux destinataires ${label} ?`)) return;
+    setResending(mode); setMsg(null);
+    const r = await fetch(`/api/admin/campaigns/${campaign.id}/resend`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode }),
+    });
+    setResending(null);
+    if (r.ok) {
+      const d = await r.json();
+      setMsg(`✓ Renvoi ${label} : ${d.sent} envoyés, ${d.failed} échec(s)`);
+      fetch(`/api/admin/campaigns/${campaign.id}`).then(res => res.ok ? res.json() : null).then(dd => { if (dd) setMetrics(dd); }).catch(() => {});
+    } else {
+      const e = await r.json().catch(() => ({}));
+      setMsg(`✗ ${e.error || "Échec du renvoi"}`);
+    }
+  };
 
   // Live audience count whenever the segment changes.
   useEffect(() => {
@@ -390,13 +430,54 @@ function CampaignEditor({ campaign, facets, onClose }: { campaign: Campaign | nu
             </div>
           )}
 
-          {readOnly && campaign && (
-            <div className="cyber-card rounded-xl p-5 text-xs space-y-1">
-              <p className="text-gray-400">Envoyée le <span className="text-white">{campaign.sentAt ? new Date(campaign.sentAt).toLocaleString("fr-FR") : "—"}</span></p>
-              <p className="text-gray-400">Destinataires : <span className="text-white">{campaign.recipientCount}</span></p>
-              <p className="text-gray-400">Envoyés : <span className="text-neon-green">{campaign.sentCount}</span> · Échecs : <span className="text-red-400">{campaign.failedCount}</span></p>
-            </div>
-          )}
+          {readOnly && campaign && (() => {
+            const m = metrics || campaign;
+            const sent = m.sentCount || 0;
+            const delivered = m.deliveredCount ?? 0;
+            const opened = m.openedCount ?? 0;
+            const clicked = m.clickedCount ?? 0;
+            const pct = (n: number) => sent > 0 ? Math.round((n / sent) * 100) : 0;
+            const undelivered = Math.max(sent - delivered, 0);
+            const unclicked = Math.max(delivered - clicked, 0);
+            const stat = (label: string, val: number, sub: string, color: string) => (
+              <div className="rounded-lg border border-gray-800 p-3 text-center">
+                <p className="text-2xl font-black font-mono" style={{ color }}>{val}</p>
+                <p className="text-gray-500 text-xs mt-0.5">{label}</p>
+                <p className="text-gray-700 text-xs">{sub}</p>
+              </div>
+            );
+            return (
+              <div className="cyber-card rounded-xl p-5 space-y-4">
+                <div className="text-xs text-gray-400">
+                  Envoyée le <span className="text-white">{campaign.sentAt ? new Date(campaign.sentAt).toLocaleString("fr-FR") : "—"}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {stat("Envoyés", sent, `${m.recipientCount} ciblés`, "#888")}
+                  {stat("Délivrés", delivered, `${pct(delivered)}%`, "#00ff9d")}
+                  {stat("Ouverts", opened, `${pct(opened)}%`, "#ffaa00")}
+                  {stat("Cliqués", clicked, `${pct(clicked)}%`, "#00d4ff")}
+                </div>
+                {m.failedCount > 0 && <p className="text-xs text-red-400">Échecs d&apos;envoi : {m.failedCount}</p>}
+                <p className="text-gray-700 text-xs leading-relaxed">
+                  Le suivi des délivrances et clics est alimenté par les webhooks Resend (le suivi des ouvertures/clics doit être activé sur le domaine d&apos;envoi).
+                </p>
+
+                {/* Resend actions */}
+                <div className="border-t border-gray-800 pt-4 space-y-2">
+                  <p className="text-xs font-bold uppercase tracking-widest text-neon-green">Renvoi ciblé</p>
+                  <button onClick={() => doResend("undelivered")} disabled={!!resending || undelivered === 0}
+                    className="w-full text-xs px-3 py-2 rounded border border-gray-700 text-gray-300 hover:border-neon-green hover:text-neon-green disabled:opacity-40 text-left">
+                    {resending === "undelivered" ? "Renvoi en cours…" : `↻ Renvoyer aux non-délivrés (${undelivered})`}
+                  </button>
+                  <button onClick={() => doResend("unclicked")} disabled={!!resending || unclicked === 0}
+                    className="w-full text-xs px-3 py-2 rounded border border-gray-700 text-gray-300 hover:border-neon-blue hover:text-neon-blue disabled:opacity-40 text-left">
+                    {resending === "unclicked" ? "Renvoi en cours…" : `↻ Renvoyer aux non-cliqués (${unclicked})`}
+                  </button>
+                  {msg && <p className={`text-xs mt-1 ${msg.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{msg}</p>}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 

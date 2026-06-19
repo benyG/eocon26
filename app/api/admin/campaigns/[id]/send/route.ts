@@ -42,8 +42,8 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
       const html = wrapCampaignHtml(personalize(campaign.htmlBody, r));
       const subject = personalize(campaign.subject, r);
       try {
-        await resend.emails.send({ from: getFrom(), to: r.email, subject, html });
-        await prisma.emailLog.create({ data: { campaignId: id, recipient: r.email, subject, status: "sent" } });
+        const res = await resend.emails.send({ from: getFrom(), to: r.email, subject, html });
+        await prisma.emailLog.create({ data: { campaignId: id, recipient: r.email, subject, status: "sent", resendId: res.data?.id ?? null } });
         sent++;
       } catch {
         await prisma.emailLog.create({ data: { campaignId: id, recipient: r.email, subject, status: "failed" } });

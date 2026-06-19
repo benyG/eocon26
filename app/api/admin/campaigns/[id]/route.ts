@@ -14,7 +14,27 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     orderBy: { sentAt: "desc" },
     take: 200,
   });
-  return NextResponse.json({ ...campaign, logs });
+  // Distinct-recipient delivery/engagement metrics across all logs for this campaign.
+  const allLogs = await prisma.emailLog.findMany({
+    where: { campaignId: campaign.id },
+    select: { recipient: true, deliveredAt: true, openedAt: true, clickedAt: true, bouncedAt: true },
+  });
+  const delivered = new Set<string>(), opened = new Set<string>(), clicked = new Set<string>(), bounced = new Set<string>();
+  for (const l of allLogs) {
+    const r = l.recipient.toLowerCase();
+    if (l.deliveredAt) delivered.add(r);
+    if (l.openedAt) opened.add(r);
+    if (l.clickedAt) clicked.add(r);
+    if (l.bouncedAt) bounced.add(r);
+  }
+  return NextResponse.json({
+    ...campaign,
+    logs,
+    deliveredCount: delivered.size,
+    openedCount: opened.size,
+    clickedCount: clicked.size,
+    bouncedCount: bounced.size,
+  });
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {

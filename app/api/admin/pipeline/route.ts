@@ -25,7 +25,7 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
   if (!(await hasPermission("sponsor-pipeline", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { id, stage, notes } = await req.json() as { id: number; stage: Stage; notes?: string };
+  const { id, stage, notes, deferred } = await req.json() as { id: number; stage: Stage; notes?: string; deferred?: boolean };
 
   if (!STAGES.includes(stage)) {
     return NextResponse.json({ error: "Invalid stage" }, { status: 400 });
@@ -178,6 +178,7 @@ export async function PATCH(req: NextRequest) {
       pipelineStage: stage,
       status: statusMap[stage],
       notes: notes ?? cfp.notes ?? undefined,
+      ...(deferred !== undefined && { deferred }),
     },
     include: { speaker: true },
   });

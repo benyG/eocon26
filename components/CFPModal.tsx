@@ -2,13 +2,19 @@
 import { useState, useEffect } from "react";
 import { Translations } from "@/lib/i18n";
 import CountrySelect from "@/components/CountrySelect";
+import { useEventSettings } from "@/lib/useEventSettings";
+import { evaluateCfpWindow } from "@/lib/cfpWindow";
 
 export default function CFPModal({ t, onClose }: { t: Translations; onClose: () => void }) {
+  const settings = useEventSettings();
+  const win = evaluateCfpWindow(settings.cfp_open_date, settings.cfp_close_date);
+  const closed = win.hasWindow && !win.open;
   const [formData, setFormData] = useState({
     name: "", email: "", org: "", country: "", talk_title: "", format: "", abstract: "", bio: "",
     linkedin: "", twitter: "", whatsapp: "", certifications: "", lang_presentation: "fr"
   });
   const [submitted, setSubmitted] = useState(false);
+  const [wasDeferred, setWasDeferred] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -30,6 +36,8 @@ export default function CFPModal({ t, onClose }: { t: Translations; onClose: () 
         body: JSON.stringify(formData),
       });
       if (!res.ok) throw new Error("Server error");
+      const data = await res.json().catch(() => ({}));
+      setWasDeferred(!!data.deferred);
       setSubmitted(true);
     } catch {
       setError("Une erreur est survenue. Veuillez réessayer.");
@@ -67,10 +75,26 @@ export default function CFPModal({ t, onClose }: { t: Translations; onClose: () 
               <p className="text-neon-green font-mono text-lg mb-4" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
                 {t.cfp.form.success}
               </p>
+              {wasDeferred && (
+                <p className="text-gray-400 text-sm max-w-md mx-auto mb-2">
+                  Les soumissions pour l&apos;édition en cours sont closes — votre proposition sera conservée pour la prochaine édition.
+                  <br />
+                  <span className="text-gray-600">Submissions for the current edition are closed — your proposal will be kept for the next edition.</span>
+                </p>
+              )}
               <button onClick={onClose} className="btn-neon px-6 py-2 rounded text-sm mt-4">Close</button>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {closed && (
+                <div className="rounded-lg border border-yellow-600/40 bg-yellow-500/10 px-4 py-3 text-xs text-yellow-200">
+                  <p className="font-bold mb-0.5">⏳ Soumissions closes pour l&apos;édition en cours · Submissions closed for the current edition</p>
+                  <p className="text-yellow-200/70">
+                    Vous pouvez toujours soumettre : votre proposition sera conservée pour la prochaine édition.
+                    {" · "}You can still submit: your proposal will be kept for the next edition.
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.cfp.form.name} *</label>

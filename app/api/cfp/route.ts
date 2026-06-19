@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { sendCFPConfirmation } from "@/lib/email";
 import { checkRateLimit, getIp } from "@/lib/rateLimit";
+import { getEventSettings } from "@/lib/settings";
+import { evaluateCfpWindow } from "@/lib/cfpWindow";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VALID_FORMATS = ["talk", "workshop", "panel", "lightning", "autre", "other", ""];
@@ -35,13 +37,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Bio trop longue (max 2000 caractères)" }, { status: 400 });
     }
 
+    // Out-of-window submissions are still accepted, but deferred to a later
+    // edition: they sit in a separate "next edition" stage instead of the
+    // active pipeline.
+    const settings = await getEventSettings();
+    const win = evaluateCfpWindow(settings.cfp_open_date, settings.cfp_close_date);
+    const deferred = win.hasWindow && !win.open;
+
     const submission = await prisma.cFPSubmission.create({
-      data: { name, email, org: org?.slice(0, 200), country: country?.slice(0, 100), talkTitle: talk_title, format, abstract, bio, linkedin, twitter, whatsapp, certifications: certifications?.slice(0, 500), langPresentation: lang_presentation || "fr" },
+      data: {
+        name, email, org: org?.slice(0, 200), country: country?.slice(0, 100),
+        talkTitle: talk_title, format, abstract, bio, linkedin, twitter, whatsapp,
+        certifications: certifications?.slice(0, 500), langPresentation: lang_presentation || "fr",
+        deferred,
+        ...(deferred && { pipelineStage: "deferred" }),
+      },
     });
 
-    sendCFPConfirmation(email, name, talk_title, lang_presentation === "en" ? "en" : "fr").catch(e => console.error("[CFP email]", e));
+    sendCFPConfirmation(email, name, talk_title, lang_presentation === "en" ? "en" : "fr", deferred).catch(e => console.error("[CFP email]", e));
 
-    return NextResponse.json({ success: true, id: submission.id }, { status: 201 });
+    return NextResponse.json({ success: true, id: submission.id, deferred }, { status: 201 });
   } catch (err) {
     console.error("[CFP]", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

@@ -26,6 +26,7 @@ model CFPSubmission {
   // Pipeline: submitted | reviewing | accepted | rejected | onboarding | confirmed | scheduled
   status         String    @default("pending")
   pipelineStage  String    @default("submitted")
+  deferred       Boolean   @default(false) // submitted outside the CFP window — kept for a later edition
   notes          String?   @db.Text
   decisionSentAt DateTime?
   aiScore        Float?
@@ -427,6 +428,7 @@ model SponsorProspect {
   contact   String?
   email     String?
   phone     String?
+  website   String?
   package   String?  // tier/package name
   status    String   @default("contacted") // contacted | meeting | negative | positive | concluded | abandoned | paused
   notes     String?  @db.Text

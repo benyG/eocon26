@@ -12,6 +12,8 @@ export interface EventSettings {
   event_country: string;
   event_address: string;
   event_mode: string;
+  cfp_open_date: string;
+  cfp_close_date: string;
   site_base_url: string;
   url_inscription: string;
   url_cfp: string;
@@ -34,6 +36,8 @@ const DEFAULTS: EventSettings = {
   event_country: "Cameroun",
   event_address: "Hotel Onomo, Boulevard de la Liberté, Douala, Cameroun",
   event_mode: "Online & On-site",
+  cfp_open_date: "",
+  cfp_close_date: "",
   site_base_url: "https://eyesopensecurity.com",
   url_inscription: "https://eyesopensecurity.com/#inscription",
   url_cfp: "https://eyesopensecurity.com/#cfp",

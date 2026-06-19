@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import CountrySelect from "@/components/CountrySelect";
 import { useConfirm } from "@/components/admin/ConfirmModal";
+import { evaluateCfpWindow } from "@/lib/cfpWindow";
 
 type Stage = "submitted" | "reviewing" | "accepted" | "onboarding" | "confirmed" | "scheduled";
 
@@ -30,7 +31,8 @@ interface CFPCard {
   certifications?: string | null;
   langPresentation?: string | null;
   status: string;
-  pipelineStage: Stage;
+  pipelineStage: Stage | "deferred";
+  deferred?: boolean;
   notes?: string | null;
   aiScore?: number | null;
   aiAnalysis?: string | null;
@@ -162,15 +164,35 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
 
   // Planning state — persisted in EventSettings
   const [planStartDate, setPlanStartDate] = useState<string>("");
+  const [cfpOpenDate, setCfpOpenDate] = useState<string>("");
+  const [cfpCloseDate, setCfpCloseDate] = useState<string>("");
 
   useEffect(() => {
     fetch("/api/admin/settings")
       .then(r => r.json())
       .then((data: Record<string, string>) => {
         if (data.programme_start_date) setPlanStartDate(data.programme_start_date);
+        setCfpOpenDate(data.cfp_open_date || "");
+        setCfpCloseDate(data.cfp_close_date || "");
       })
       .catch(() => {});
   }, []);
+
+  const cfpWin = evaluateCfpWindow(cfpOpenDate, cfpCloseDate);
+  const deferredCards = cards.filter(c => c.deferred && c.status !== "rejected");
+
+  // Promote a deferred submission into the active pipeline.
+  const promoteDeferred = async (id: number) => {
+    const res = await fetch("/api/admin/pipeline", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, stage: "submitted", deferred: false }),
+    });
+    if (res.ok) {
+      const updated: CFPCard = await res.json();
+      setCards(prev => prev.map(c => c.id === id ? updated : c));
+    }
+  };
 
   const savePlanStartDate = async (date: string) => {
     setPlanStartDate(date);
@@ -208,7 +230,8 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
     const res = await fetch("/api/admin/pipeline", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, stage }),
+      // Any explicit pipeline move also pulls the card out of the deferred state.
+      body: JSON.stringify({ id, stage, deferred: false }),
     });
     if (res.ok) {
       const updated: CFPCard = await res.json();
@@ -482,11 +505,24 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
         ))}
       </div>
 
+      {/* CFP window status */}
+      {view === "pipeline" && cfpWin.hasWindow && (
+        <div className={`rounded-lg border px-4 py-2.5 text-xs flex flex-wrap items-center gap-x-3 gap-y-1 ${cfpWin.open ? "border-neon-green/30 bg-neon-green/5 text-neon-green" : "border-yellow-600/40 bg-yellow-500/10 text-yellow-300"}`}>
+          <span className="font-bold">{cfpWin.open ? "🟢 Soumissions ouvertes" : "🟡 Soumissions closes"}</span>
+          <span className="text-gray-400">
+            Fenêtre : {cfpOpenDate ? new Date(cfpOpenDate + "T00:00:00").toLocaleDateString("fr-FR") : "—"}
+            {" → "}
+            {cfpCloseDate ? new Date(cfpCloseDate + "T00:00:00").toLocaleDateString("fr-FR") : "—"}
+          </span>
+          {!cfpWin.open && <span className="text-gray-500">Les nouvelles soumissions sont conservées pour la prochaine édition.</span>}
+        </div>
+      )}
+
       {/* ── PIPELINE KANBAN ──────────────────────────────────────── */}
       {view === "pipeline" && (
         <div className="flex gap-3 overflow-x-auto pb-4">
           {STAGES.map(stage => {
-            const stageCards = cards.filter(c => c.pipelineStage === stage.key && c.status !== "rejected");
+            const stageCards = cards.filter(c => c.pipelineStage === stage.key && c.status !== "rejected" && !c.deferred);
             return (
               <div key={stage.key} className="flex-shrink-0 w-64">
                 {/* Column header */}
@@ -654,6 +690,35 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                 <p className="text-xs text-neon-green">✓ Speaker créé (ID #{selectedCard.speakerId}) — visible dans l&apos;onglet Speakers</p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Deferred submissions (out of CFP window → next edition) */}
+      {view === "pipeline" && deferredCards.length > 0 && (
+        <div className="cyber-card rounded-xl p-4 border-yellow-600/20">
+          <div className="flex items-center gap-2 mb-3">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-yellow-400">⏳ Prochaine édition</h3>
+            <span className="text-gray-600 text-xs">— soumissions reçues hors fenêtre ({deferredCards.length})</span>
+          </div>
+          <div className="space-y-1.5">
+            {deferredCards.map(c => (
+              <div key={c.id} className="flex items-center gap-3 py-1.5 border-b border-gray-800/50">
+                <button onClick={() => setSelectedCard(c)} className="flex-1 text-left min-w-0">
+                  <span className="text-gray-200 text-xs font-bold">{c.name}</span>
+                  <span className="text-gray-500 text-xs"> — {c.talkTitle}</span>
+                  <span className="text-gray-700 text-xs ml-2">{new Date(c.createdAt).toLocaleDateString("fr-FR")}</span>
+                </button>
+                {c.aiScore != null && (
+                  <span className="text-xs font-mono px-1.5 py-0.5 rounded shrink-0" style={{ color: scoreColor(c.aiScore), background: scoreColor(c.aiScore) + "20" }}>{c.aiScore.toFixed(1)}</span>
+                )}
+                {canWrite && (
+                  <button onClick={() => promoteDeferred(c.id)} className="text-xs px-2 py-1 rounded shrink-0 transition-all" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d40" }}>
+                    ↑ Intégrer au pipeline
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}

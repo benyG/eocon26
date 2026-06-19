@@ -1334,6 +1334,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [templates, setTemplates] = useState<Record<string, unknown>[]>([]);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [templateForm, setTemplateForm] = useState<Record<string, unknown>>({});
+  const [templateFormError, setTemplateFormError] = useState("");
   // Transactional template editing
   const [txEdits, setTxEdits] = useState<Record<number, { subject: string; htmlBody: string }>>({});
   const [txSaving, setTxSaving] = useState<number | null>(null);;
@@ -1573,14 +1574,37 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const saveTemplate = async () => {
-    await fetch("/api/admin/email-templates", {
-      method: "POST",
+    // Bilingual templates require both FR and EN versions so a campaign can always
+    // send the right language to every recipient.
+    const f = templateForm as Record<string, string>;
+    if (!f.name?.trim() || !f.subject?.trim() || !f.htmlBody?.trim() || !f.subjectEn?.trim() || !f.htmlBodyEn?.trim()) {
+      setTemplateFormError("Nom + versions FR et EN (sujet & contenu) obligatoires.");
+      return;
+    }
+    setTemplateFormError("");
+    const editId = f.id ? parseInt(String(f.id)) : null;
+    await fetch(editId ? `/api/admin/email-templates/${editId}` : "/api/admin/email-templates", {
+      method: editId ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(templateForm),
+      body: JSON.stringify({
+        name: f.name, segment: f.segment || "all",
+        subject: f.subject, htmlBody: f.htmlBody,
+        subjectEn: f.subjectEn, htmlBodyEn: f.htmlBodyEn,
+      }),
     });
     setShowTemplateForm(false);
     setTemplateForm({});
     await loadTemplates();
+  };
+
+  const editTemplate = (tpl: Record<string, unknown>) => {
+    setTemplateForm({
+      id: tpl.id, name: tpl.name, segment: tpl.segment || "all",
+      subject: tpl.subject, htmlBody: tpl.htmlBody,
+      subjectEn: tpl.subjectEn || "", htmlBodyEn: tpl.htmlBodyEn || "",
+    });
+    setTemplateFormError("");
+    setShowTemplateForm(true);
   };
 
   const statusColors: Record<string, string> = { draft: "#888", scheduled: "#ffaa00", published: "#00ff9d", failed: "#ff0066" };
@@ -1860,10 +1884,6 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
               )}
             </div>
 
-            {showImagePicker && (
-              <LibraryPickerModal onPick={url => setPostImage(url)} onClose={() => setShowImagePicker(false)} />
-            )}
-
               <button onClick={generatePosts} disabled={generating || !brief.trim()} className="btn-neon w-full py-2 rounded text-xs">
                 {generating ? t.generatingPosts : t.generateWithAI}
               </button>
@@ -1934,6 +1954,11 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
           </div>
         )}
       </div>
+
+      {/* Library picker rendered outside cyber-card to avoid fixed-position corruption from cyber-card hover transform */}
+      {showImagePicker && (
+        <LibraryPickerModal onPick={url => setPostImage(url)} onClose={() => setShowImagePicker(false)} />
+      )}
 
       {/* Day-selected posts view */}
       <div className="cyber-card rounded-xl p-5">
@@ -2083,13 +2108,12 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
           <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">{t.campaignTemplatesLabel}</h3>
           {canWrite && <div className="flex gap-2">
             <button onClick={seedTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>{t.seedTemplatesBtn}</button>
-            <button onClick={() => setShowTemplateForm(!showTemplateForm)} className="btn-neon px-3 py-1.5 rounded text-xs">{t.createTemplateBtn}</button>
+            <button onClick={() => { if (showTemplateForm) { setShowTemplateForm(false); } else { setTemplateForm({}); setTemplateFormError(""); setShowTemplateForm(true); } }} className="btn-neon px-3 py-1.5 rounded text-xs">{t.createTemplateBtn}</button>
           </div>}
         </div>
         {canWrite && showTemplateForm && (
-          <div className="border border-gray-800 rounded-lg p-4 mb-4 space-y-2">
+          <div className="border border-gray-800 rounded-lg p-4 mb-4 space-y-3">
             <input placeholder={t.templateNamePlaceholder} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" value={(templateForm.name as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, name: e.target.value }))} />
-            <input placeholder={t.emailSubjectLabelTpl} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" value={(templateForm.subject as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, subject: e.target.value }))} />
             <select className="cyber-input w-full text-xs rounded px-3 py-2 text-black" value={(templateForm.segment as string) || "all"} onChange={e => setTemplateForm(f => ({ ...f, segment: e.target.value }))}>
               <option value="all">Tous</option>
               <option value="registered">Inscrits</option>
@@ -2097,10 +2121,25 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
               <option value="volunteers">Bénévoles acceptés</option>
               <option value="newsletter">Newsletter</option>
             </select>
-            <textarea placeholder={t.htmlBodyLabelTpl} className="cyber-input w-full text-xs rounded px-3 py-2 h-32 resize-none text-white" value={(templateForm.htmlBody as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, htmlBody: e.target.value }))} />
-            <div className="flex gap-2">
+            <p className="text-gray-600 text-xs">Renseignez les deux langues. L&apos;application envoie automatiquement la version FR ou EN selon la langue du destinataire. Variables : {"{{fname}} {{lname}} {{org}} {{country}} {{ticketType}}"}</p>
+            <div className="grid md:grid-cols-2 gap-3">
+              {/* FR column */}
+              <div className="space-y-2">
+                <p className="text-xs font-bold uppercase tracking-widest text-neon-green">🇫🇷 Français *</p>
+                <input placeholder="Sujet FR" className="cyber-input w-full text-xs rounded px-3 py-2 text-white" value={(templateForm.subject as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, subject: e.target.value }))} />
+                <textarea placeholder="Contenu HTML FR" className="cyber-input w-full text-xs rounded px-3 py-2 h-40 resize-y text-white font-mono" value={(templateForm.htmlBody as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, htmlBody: e.target.value }))} />
+              </div>
+              {/* EN column */}
+              <div className="space-y-2">
+                <p className="text-xs font-bold uppercase tracking-widest text-neon-blue">🇬🇧 English *</p>
+                <input placeholder="Subject EN" className="cyber-input w-full text-xs rounded px-3 py-2 text-white" value={(templateForm.subjectEn as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, subjectEn: e.target.value }))} />
+                <textarea placeholder="HTML body EN" className="cyber-input w-full text-xs rounded px-3 py-2 h-40 resize-y text-white font-mono" value={(templateForm.htmlBodyEn as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, htmlBodyEn: e.target.value }))} />
+              </div>
+            </div>
+            <div className="flex gap-2 items-center">
               <button onClick={saveTemplate} className="btn-neon px-3 py-1.5 rounded text-xs">{t.saveTemplateBtn}</button>
               <button onClick={() => setShowTemplateForm(false)} className="text-gray-500 text-xs hover:text-white px-2">{t.cancelTemplateBtn}</button>
+              {templateFormError && <span className="text-red-400 text-xs">{templateFormError}</span>}
             </div>
           </div>
         )}
@@ -2132,13 +2171,19 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
             <div key={tpl.id as number} className="border border-gray-800 rounded-lg p-3">
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex-1 min-w-0">
-                  <p className="text-white text-xs font-bold">{tpl.name as string}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-white text-xs font-bold">{tpl.name as string}</p>
+                    {tpl.subjectEn && tpl.htmlBodyEn
+                      ? <span className="text-xs px-1.5 py-0.5 rounded" style={{ color: "#00ff9d", background: "#00ff9d15" }}>FR + EN</span>
+                      : <span className="text-xs px-1.5 py-0.5 rounded" style={{ color: "#ffaa00", background: "#ffaa0015" }}>FR seul</span>}
+                  </div>
                   <p className="text-gray-500 text-xs">{t.subjectDisplayLabel} {tpl.subject as string}</p>
                   <span className="text-xs px-1.5 py-0.5 rounded mt-1 inline-block" style={{ color: "#888", background: "#88888815" }}>{tpl.segment as string}</span>
                   {!!tpl.sentAt && <p className="text-gray-700 text-xs mt-1">{t.sentOnLabel} {new Date(tpl.sentAt as string).toLocaleDateString("fr-FR")}</p>}
                 </div>
                 <div className="flex gap-1 shrink-0 flex-wrap justify-end">
                   <button onClick={() => setPreviewTemplate(tpl)} className="text-xs px-2 py-1 rounded" style={{ color: "#888", border: "1px solid #33333380" }}>👁</button>
+                  {canWrite && <button onClick={() => editTemplate(tpl)} className="text-xs px-2 py-1 rounded" style={{ color: "#00d4ff", border: "1px solid #00d4ff40" }}>✎ Éditer</button>}
                   {canWrite && <button onClick={() => sendTemplate(tpl.id as number)} disabled={sending === (tpl.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>
                     {sending === (tpl.id as number) ? "..." : t.sendCampaignBtn}
                   </button>}

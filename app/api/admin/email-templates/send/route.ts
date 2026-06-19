@@ -1,12 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
+import { wrapCampaignHtml } from "@/lib/email";
+import { resolveRecipients, personalize, pickContent, type CampaignSegment } from "@/lib/campaignRecipients";
 import { Resend } from "resend";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 function getFrom(): string {
   return process.env.EMAIL_FROM || "EOCON 2026 <noreply@eyesopensecurity.com>";
+}
+
+// Map the template's coarse segment string to a CampaignSegment audience so the
+// quick-send path uses the same bilingual + personalized + wrapped pipeline as
+// full campaigns (each recipient gets the FR/EN version matching their language).
+function segmentToAudience(segment: string): CampaignSegment {
+  switch (segment) {
+    case "newsletter": return { audience: "newsletter" };
+    case "cfp_accepted": return { audience: "cfp_accepted" };
+    case "volunteers": return { audience: "volunteers" };
+    default: return { audience: "registrations" }; // all | registered
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -16,43 +31,31 @@ export async function POST(req: NextRequest) {
   const template = await prisma.emailTemplate.findUnique({ where: { id: templateId } });
   if (!template) return NextResponse.json({ error: "Template not found" }, { status: 404 });
 
-  let emails: string[] = [];
-  if (template.segment === "all" || template.segment === "registered") {
-    const regs = await prisma.registration.findMany({ select: { email: true } });
-    emails = Array.from(new Set(regs.map(r => r.email)));
-  } else if (template.segment === "newsletter") {
-    const subs = await prisma.newsletterSubscriber.findMany({ select: { email: true } });
-    emails = subs.map(s => s.email);
-  } else if (template.segment === "cfp_accepted") {
-    const cfps = await prisma.cFPSubmission.findMany({ where: { status: "accepted" }, select: { email: true } });
-    emails = cfps.map(c => c.email);
-  } else if (template.segment === "volunteers") {
-    const vols = await prisma.volunteerApplication.findMany({ where: { status: "accepted" }, select: { email: true } });
-    emails = vols.map(v => v.email);
-  }
-
-  if (!emails.length) return NextResponse.json({ error: "No recipients found" }, { status: 400 });
+  const recipients = await resolveRecipients(segmentToAudience(template.segment));
+  if (!recipients.length) return NextResponse.json({ error: "No recipients found" }, { status: 400 });
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   let sent = 0;
   let failed = 0;
 
-  const chunks: string[][] = [];
-  for (let i = 0; i < emails.length; i += 50) chunks.push(emails.slice(i, i + 50));
-
-  for (const chunk of chunks) {
-    for (const email of chunk) {
+  for (let i = 0; i < recipients.length; i += 50) {
+    const batch = recipients.slice(i, i + 50);
+    await Promise.all(batch.map(async (r) => {
+      const c = pickContent(template, r.lang);
+      const html = wrapCampaignHtml(personalize(c.htmlBody, r), c.lang);
+      const subject = personalize(c.subject, r);
       try {
-        await resend.emails.send({ from: getFrom(), to: email, subject: template.subject, html: template.htmlBody });
-        await prisma.emailLog.create({ data: { templateId, recipient: email, subject: template.subject, status: "sent" } });
+        const res = await resend.emails.send({ from: getFrom(), to: r.email, subject, html });
+        await prisma.emailLog.create({ data: { templateId, recipient: r.email, subject, status: "sent", resendId: res.data?.id ?? null } });
         sent++;
       } catch {
-        await prisma.emailLog.create({ data: { templateId, recipient: email, subject: template.subject, status: "failed" } });
+        await prisma.emailLog.create({ data: { templateId, recipient: r.email, subject, status: "failed" } });
         failed++;
       }
-    }
+    }));
+    if (i + 50 < recipients.length) await new Promise(res => setTimeout(res, 600));
   }
 
   await prisma.emailTemplate.update({ where: { id: templateId }, data: { sentAt: new Date() } });
-  return NextResponse.json({ sent, failed, total: emails.length });
+  return NextResponse.json({ sent, failed, total: recipients.length });
 }

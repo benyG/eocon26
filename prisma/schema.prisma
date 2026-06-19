@@ -375,8 +375,10 @@ model EmailTemplate {
   id          Int       @id @default(autoincrement())
   slug        String?   @unique
   name        String
-  subject     String
-  htmlBody    String    @db.LongText
+  subject     String                       // FR subject (primary)
+  htmlBody    String    @db.LongText        // FR body (primary)
+  subjectEn   String?                       // EN subject
+  htmlBodyEn  String?   @db.LongText        // EN body
   variables   String?   @db.Text
   segment     String    @default("all") // all | registered | cfp_accepted | volunteers | newsletter
   scheduledAt DateTime?
@@ -408,8 +410,11 @@ model EmailLog {
 model Campaign {
   id             Int       @id @default(autoincrement())
   name           String
-  subject        String
-  htmlBody       String    @db.LongText
+  templateId     Int?                       // source EmailTemplate (bilingual content)
+  subject        String                     // FR subject snapshot (what was/ will be sent)
+  htmlBody       String    @db.LongText      // FR body snapshot
+  subjectEn      String?                     // EN subject snapshot
+  htmlBodyEn     String?   @db.LongText      // EN body snapshot
   segment        String    @db.Text   // JSON granular audience filter
   status         String    @default("draft") // draft | sending | sent | failed
   recipientCount Int       @default(0)
@@ -419,6 +424,7 @@ model Campaign {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
+  @@index([templateId])
   @@map("campaigns")
 }
 

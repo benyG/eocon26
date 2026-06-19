@@ -1,9 +1,16 @@
 import type { ReactNode } from "react";
+import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { getEventSettings } from "@/lib/settings";
+import { verifyConnectSig } from "@/lib/qr";
 
 export const dynamic = "force-dynamic";
+
+// Keep the networking page out of every search engine / crawler index.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, nocache: true, googleBot: { index: false, follow: false } },
+};
 
 // Networking validity window (Africa/Douala, UTC+1). Configured in admin event
 // settings. When networking_date is empty, the page is always available.
@@ -33,9 +40,17 @@ function Shell({ children }: { children: ReactNode }) {
   );
 }
 
-export default async function ConnectPage({ params }: { params: { ticketRef: string } }) {
+export default async function ConnectPage({ params, searchParams }: { params: { ticketRef: string }; searchParams: { sig?: string } }) {
   // Accept both the raw ref and the "EOCON-" formatted ref encoded in the QR.
   const raw = params.ticketRef.replace(/^EOCON-/i, "");
+
+  // Signature gate: the QR encodes ?sig=<hmac>. Without a valid signature we
+  // return 404 — this makes the per-attendee URL unguessable and prevents a
+  // crawler from enumerating /connect/EOCON-0001, 0002… Only a real scanned
+  // badge carries the signature. We accept a signature over either ref form.
+  const sig = searchParams?.sig;
+  if (!verifyConnectSig(params.ticketRef, sig) && !verifyConnectSig(raw, sig)) notFound();
+
   const reg = await prisma.registration.findFirst({
     where: { OR: [{ ticketRef: params.ticketRef }, { ticketRef: raw }] },
     select: { fname: true, lname: true, org: true, country: true, ticketType: true, linkedin: true, whatsapp: true },

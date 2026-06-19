@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 import QRCode from "qrcode";
 import PDFDocument from "pdfkit";
-import { generateQrPayload } from "@/lib/qr";
+import { generateQrPayload, signConnectRef } from "@/lib/qr";
 import { renderTemplate, getTransactionalTemplate } from "@/lib/renderTemplate";
 
 function getResend() {
@@ -450,7 +450,7 @@ export async function sendRegistrationTicket(
   const isFr = lang === "fr";
   const domain = process.env.DOMAIN || process.env.NEXT_PUBLIC_URL || "eyesopensecurity.com";
   const baseUrl = domain.startsWith("http") ? domain : `https://${domain}`;
-  const connectUrl = `${baseUrl}/connect/${ticketRef}`;
+  const connectUrl = `${baseUrl}/connect/${ticketRef}?sig=${signConnectRef(ticketRef)}`;
 
   const qrPayload = generateQrPayload(registrationId);
   const qrString = `${baseUrl}/checkin/${qrPayload}`;

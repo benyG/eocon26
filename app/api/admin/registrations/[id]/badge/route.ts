@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
+import { signConnectRef } from "@/lib/qr";
 import QRCode from "qrcode";
 import PDFDocument from "pdfkit";
 
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (!reg) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com";
-  const connectUrl = reg.ticketRef ? `${baseUrl}/connect/${reg.ticketRef}` : baseUrl;
+  const connectUrl = reg.ticketRef ? `${baseUrl}/connect/${reg.ticketRef}?sig=${signConnectRef(reg.ticketRef)}` : baseUrl;
 
   // Generate QR as PNG buffer
   const qrBuffer = await QRCode.toBuffer(connectUrl, { width: 200, margin: 1, color: { dark: "#000000", light: "#ffffff" } });

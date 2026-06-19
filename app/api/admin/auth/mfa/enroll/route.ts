@@ -14,6 +14,11 @@ function xorBuf(input: Buffer, key: Buffer): Buffer {
 function encryptSecret(secret: string): string {
   return xorBuf(Buffer.from(secret, "utf-8"), Buffer.from(process.env.ADMIN_SECRET || "fallback")).toString("base64");
 }
+function decryptSecret(encrypted: string): string {
+  const key = process.env.ADMIN_SECRET || "fallback";
+  const buf = Buffer.from(encrypted, "base64");
+  return xorBuf(buf, Buffer.from(key)).toString("utf-8");
+}
 
 // POST { mfaPendingToken } — used at login when MFA is required but the user has
 // not enrolled yet. Generates a secret + QR scoped to the pending login token
@@ -26,10 +31,16 @@ export async function POST(req: NextRequest) {
   const user = await prisma.adminUser.findUnique({ where: { id: userId } });
   if (!user || !user.isActive) return NextResponse.json({ error: "Utilisateur invalide" }, { status: 401 });
 
-  const secret = generateSecret();
+  // Reuse existing secret if already generated (idempotent enrollment).
+  // Regenerating on every call would invalidate previously scanned QR codes
+  // if the user navigates back and re-submits credentials.
+  const existingSecret = user.mfaSecret ? decryptSecret(user.mfaSecret) : null;
+  const secret = existingSecret ?? generateSecret();
+  if (!existingSecret) {
+    await prisma.adminUser.update({ where: { id: userId }, data: { mfaSecret: encryptSecret(secret) } });
+  }
   const otpauth = generateURI({ issuer: "EOCON 2026 Admin", label: user.email, secret });
   const qrDataUrl = await QRCode.toDataURL(otpauth, { width: 256, margin: 2 });
-  await prisma.adminUser.update({ where: { id: userId }, data: { mfaSecret: encryptSecret(secret) } });
 
   return NextResponse.json({ qrDataUrl });
 }

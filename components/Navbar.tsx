@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { Lang, Translations } from "@/lib/i18n";
+import { useEventSettings } from "@/lib/useEventSettings";
+import { evaluateCfpWindow } from "@/lib/cfpWindow";
 
 interface NavbarProps {
   t: Translations;
@@ -10,6 +12,9 @@ interface NavbarProps {
 }
 
 export default function Navbar({ t, lang, onLangChange, onOpenModal }: NavbarProps) {
+  const settings = useEventSettings();
+  const regWin = evaluateCfpWindow(settings.registration_open_date, settings.registration_close_date);
+  const registrationClosed = regWin.hasWindow && !regWin.open;
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -72,12 +77,22 @@ export default function Navbar({ t, lang, onLangChange, onOpenModal }: NavbarPro
             {lang === "en" ? "FR" : "EN"}
           </button>
 
-          <button
-            onClick={() => onOpenModal("register")}
-            className="hidden sm:block btn-neon text-xs px-4 py-2 rounded"
-          >
-            {t.nav.register}
-          </button>
+          {registrationClosed ? (
+            <span
+              className="hidden sm:block text-xs px-4 py-2 rounded border border-gray-700 text-gray-600 font-mono cursor-not-allowed"
+              title={lang === "en" ? "Registrations closed" : "Inscriptions closes"}
+              style={{ fontFamily: "'Share Tech Mono', monospace" }}
+            >
+              🔒 {t.nav.register}
+            </span>
+          ) : (
+            <button
+              onClick={() => onOpenModal("register")}
+              className="hidden sm:block btn-neon text-xs px-4 py-2 rounded"
+            >
+              {t.nav.register}
+            </button>
+          )}
 
           {/* Mobile hamburger */}
           <button
@@ -110,12 +125,18 @@ export default function Navbar({ t, lang, onLangChange, onOpenModal }: NavbarPro
               &gt; {item.label}
             </a>
           ))}
-          <button
-            onClick={() => { setMenuOpen(false); onOpenModal("register"); }}
-            className="w-full btn-neon text-sm px-4 py-2 rounded mt-4"
-          >
-            {t.nav.register}
-          </button>
+          {registrationClosed ? (
+            <div className="w-full text-center text-sm px-4 py-2 rounded mt-4 border border-gray-700 text-gray-600 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+              🔒 {t.nav.register} — {lang === "en" ? "Closed" : "Closes"}
+            </div>
+          ) : (
+            <button
+              onClick={() => { setMenuOpen(false); onOpenModal("register"); }}
+              className="w-full btn-neon text-sm px-4 py-2 rounded mt-4"
+            >
+              {t.nav.register}
+            </button>
+          )}
         </div>
       )}
     </nav>

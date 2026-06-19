@@ -252,16 +252,22 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
         </div>
 
         <div className="p-6">
-          {registrationClosed && !submitted && (
-            <div className="mb-4 rounded-lg border border-yellow-600/40 bg-yellow-500/10 px-4 py-3 text-xs text-yellow-200">
-              <p className="font-bold mb-0.5">⏳ Inscriptions closes pour l&apos;édition en cours · Registrations closed for the current edition</p>
-              <p className="text-yellow-200/70">
-                Les inscriptions ne sont pas disponibles pour le moment. Revenez bientôt !
-                {" · "}Registrations are not available right now. Check back soon!
+          {registrationClosed && !submitted ? (
+            <div className="text-center py-12">
+              <div className="text-5xl mb-6">🔒</div>
+              <p className="text-yellow-300 font-bold text-lg mb-3" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+                {lang === "fr" ? "Inscriptions closes" : "Registrations closed"}
               </p>
+              <p className="text-gray-400 text-sm max-w-xs mx-auto mb-2 leading-relaxed">
+                {lang === "fr"
+                  ? "Les inscriptions ne sont pas disponibles pour le moment. Revenez bientôt !"
+                  : "Registrations are not available right now. Check back soon!"}
+              </p>
+              <button onClick={onClose} className="btn-neon px-6 py-2 rounded text-sm mt-6">
+                {lang === "fr" ? "Fermer" : "Close"}
+              </button>
             </div>
-          )}
-          {submitted ? (
+          ) : submitted ? (
             <div className="text-center py-12">
               <div className="text-6xl mb-6">🎉</div>
               <p className="text-neon-green font-mono text-lg mb-4" style={{ fontFamily: "'Share Tech Mono', monospace" }}>

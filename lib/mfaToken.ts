@@ -13,7 +13,7 @@ export function verifyMfaPending(token: string): number | null {
     const parts = decoded.split(":");
     if (parts.length !== 3) return null;
     const [userId, timestamp, sig] = parts;
-    if (Date.now() - parseInt(timestamp) > 5 * 60 * 1000) return null;
+    if (Date.now() - parseInt(timestamp) > 10 * 60 * 1000) return null;
     const payload = `${userId}:${timestamp}`;
     const expected = createHmac("sha256", process.env.ADMIN_SECRET || "fallback")
       .update(payload).digest("hex");

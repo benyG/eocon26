@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { Translations } from "@/lib/i18n";
+import { useEventSettings } from "@/lib/useEventSettings";
+import { evaluateCfpWindow } from "@/lib/cfpWindow";
 
 interface HeroProps {
   t: Translations;
@@ -84,6 +86,9 @@ function Particles() {
 }
 
 export default function Hero({ t, onOpenModal }: HeroProps) {
+  const settings = useEventSettings();
+  const regWin = evaluateCfpWindow(settings.registration_open_date, settings.registration_close_date);
+  const registrationClosed = regWin.hasWindow && !regWin.open;
   const conferenceDate = new Date("2026-11-28T09:00:00");
 
   return (
@@ -157,12 +162,22 @@ export default function Hero({ t, onOpenModal }: HeroProps) {
 
         {/* CTAs */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button
-            onClick={() => onOpenModal("register")}
-            className="btn-neon-solid px-8 py-4 rounded text-sm border-2 border-neon-green"
-          >
-            {t.hero.cta_register}
-          </button>
+          {registrationClosed ? (
+            <span
+              className="px-8 py-4 rounded text-sm border-2 border-gray-700 text-gray-600 font-mono cursor-not-allowed"
+              title="Inscriptions closes · Registrations closed"
+              style={{ fontFamily: "'Share Tech Mono', monospace" }}
+            >
+              🔒 {t.hero.cta_register}
+            </span>
+          ) : (
+            <button
+              onClick={() => onOpenModal("register")}
+              className="btn-neon-solid px-8 py-4 rounded text-sm border-2 border-neon-green"
+            >
+              {t.hero.cta_register}
+            </button>
+          )}
           <button
             onClick={() => onOpenModal("cfp")}
             className="btn-neon px-8 py-4 rounded text-sm"

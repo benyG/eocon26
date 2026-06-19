@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 
 export interface EventSettings {
+  event_date_start: string;
   event_date: string;
   event_date_display_fr: string;
   event_date_display_en: string;
@@ -10,6 +11,7 @@ export interface EventSettings {
   event_city: string;
   event_country: string;
   event_address: string;
+  event_mode: string;
   site_base_url: string;
   url_inscription: string;
   url_cfp: string;
@@ -22,14 +24,16 @@ export interface EventSettings {
 }
 
 const DEFAULTS: EventSettings = {
+  event_date_start: "2026-11-23",
   event_date: "2026-11-28",
-  event_date_display_fr: "28 novembre 2026",
-  event_date_display_en: "November 28, 2026",
+  event_date_display_fr: "",
+  event_date_display_en: "",
   event_time_start: "08:00",
   event_venue: "Hotel Onomo",
   event_city: "Douala",
   event_country: "Cameroun",
   event_address: "Hotel Onomo, Boulevard de la Liberté, Douala, Cameroun",
+  event_mode: "Online & On-site",
   site_base_url: "https://eyesopensecurity.com",
   url_inscription: "https://eyesopensecurity.com/#inscription",
   url_cfp: "https://eyesopensecurity.com/#cfp",

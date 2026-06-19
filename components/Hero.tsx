@@ -102,16 +102,8 @@ export default function Hero({ t, onOpenModal }: HeroProps) {
       <Particles />
 
       <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
-        {/* Edition badge */}
-        <div className="inline-flex items-center gap-2 mb-6 px-4 py-1.5 border border-neon-green/30 rounded-full bg-neon-green/5">
-          <span className="w-2 h-2 rounded-full bg-neon-green animate-ping" />
-          <span className="text-neon-green text-xs font-mono uppercase tracking-widest" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-            {t.hero.edition}
-          </span>
-        </div>
-
         {/* Main glitch title */}
-        <h1 className="text-6xl sm:text-8xl md:text-9xl font-black mb-2 leading-none select-none">
+        <h1 className="text-6xl sm:text-8xl md:text-9xl font-black mb-4 leading-none select-none">
           <span
             className="glitch neon-text"
             data-text="EOCON"
@@ -120,6 +112,14 @@ export default function Hero({ t, onOpenModal }: HeroProps) {
             EOCON
           </span>
         </h1>
+
+        {/* Edition badge — sits right below the glitch title */}
+        <div className="inline-flex items-center gap-2 mb-6 px-4 py-1.5 border border-neon-green/30 rounded-full bg-neon-green/5">
+          <span className="w-2 h-2 rounded-full bg-neon-green animate-ping" />
+          <span className="text-neon-green text-xs font-mono uppercase tracking-widest" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+            {t.hero.edition}
+          </span>
+        </div>
 
         <p className="text-neon-green/70 text-lg sm:text-2xl font-mono mb-2 tracking-widest uppercase" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
           {t.hero.tagline}

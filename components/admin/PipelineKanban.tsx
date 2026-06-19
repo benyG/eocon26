@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import CountrySelect from "@/components/CountrySelect";
 import { useConfirm } from "@/components/admin/ConfirmModal";
 
@@ -24,6 +24,11 @@ interface CFPCard {
   format?: string | null;
   abstract: string;
   bio?: string | null;
+  linkedin?: string | null;
+  twitter?: string | null;
+  whatsapp?: string | null;
+  certifications?: string | null;
+  langPresentation?: string | null;
   status: string;
   pipelineStage: Stage;
   notes?: string | null;
@@ -87,6 +92,57 @@ interface WorkshopRecord {
 }
 
 type ActiveView = "pipeline" | "speakers" | "programme" | "workshops";
+
+// Inline label/value row used throughout the CFP detail panel.
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex gap-2 text-xs">
+      <span className="text-gray-600 shrink-0 w-32">{label}</span>
+      <span className="text-gray-300 break-words min-w-0">{children}</span>
+    </div>
+  );
+}
+
+// Render the AI analysis: parse the JSON scorecard when possible, else raw text.
+function AiAnalysis({ raw }: { raw: string }) {
+  let parsed: Record<string, unknown> | null = null;
+  try { const p = JSON.parse(raw); if (p && typeof p === "object") parsed = p; } catch { /* raw text */ }
+
+  if (!parsed) return <p className="text-gray-500 text-xs italic whitespace-pre-wrap leading-relaxed">{raw}</p>;
+
+  const num = (k: string) => (typeof parsed![k] === "number" ? (parsed![k] as number) : null);
+  const metrics: { key: string; label: string }[] = [
+    { key: "relevance", label: "Pertinence" },
+    { key: "technical", label: "Technique" },
+    { key: "quality", label: "Qualité" },
+    { key: "originality", label: "Originalité" },
+  ];
+  const summary = typeof parsed.summary === "string" ? parsed.summary : null;
+  const reco = typeof parsed.recommendation === "string" ? parsed.recommendation : null;
+  const recoColor = reco === "accept" ? "#00ff9d" : reco === "reject" ? "#ff0066" : "#ffaa00";
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {metrics.map(m => {
+          const v = num(m.key);
+          if (v == null) return null;
+          return (
+            <span key={m.key} className="text-xs font-mono px-2 py-0.5 rounded border border-gray-800 text-gray-400">
+              {m.label} <span className="text-white font-bold">{v}</span>/5
+            </span>
+          );
+        })}
+        {reco && (
+          <span className="text-xs font-mono px-2 py-0.5 rounded font-bold uppercase" style={{ background: recoColor + "20", color: recoColor }}>
+            {reco}
+          </span>
+        )}
+      </div>
+      {summary && <p className="text-gray-400 text-xs italic leading-relaxed">{summary}</p>}
+    </div>
+  );
+}
 
 export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean } = {}) {
   const confirm = useConfirm();
@@ -488,19 +544,75 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
             <button onClick={() => setSelectedCard(null)} className="text-gray-600 hover:text-white">✕</button>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">Talk</p>
-              <p className="text-white text-sm font-bold">{selectedCard.talkTitle}</p>
-              <p className="text-gray-500 text-xs mt-1 line-clamp-3">{selectedCard.abstract}</p>
-            </div>
+          <div className="grid md:grid-cols-2 gap-x-6 gap-y-4 mb-4">
+            {/* Coordonnées du proposant */}
             <div className="space-y-2">
-              <div>
-                <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">Format</p>
-                <p className="text-gray-400 text-xs">{selectedCard.format || "—"}</p>
+              <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">Coordonnées</p>
+              <Field label="Email">
+                {selectedCard.email
+                  ? <a href={`mailto:${selectedCard.email}`} className="text-neon-green hover:underline break-all">{selectedCard.email}</a>
+                  : "—"}
+              </Field>
+              <Field label="Organisation">{selectedCard.org || "—"}</Field>
+              <Field label="Pays">{selectedCard.country || "—"}</Field>
+              <Field label="WhatsApp">
+                {selectedCard.whatsapp
+                  ? <a href={`https://wa.me/${selectedCard.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="text-neon-green hover:underline">{selectedCard.whatsapp}</a>
+                  : "—"}
+              </Field>
+              <Field label="LinkedIn">
+                {selectedCard.linkedin
+                  ? <a href={selectedCard.linkedin.startsWith("http") ? selectedCard.linkedin : `https://linkedin.com/in/${selectedCard.linkedin}`} target="_blank" rel="noreferrer" className="text-neon-green hover:underline break-all">{selectedCard.linkedin}</a>
+                  : "—"}
+              </Field>
+              <Field label="X / Twitter">
+                {selectedCard.twitter
+                  ? <a href={selectedCard.twitter.startsWith("http") ? selectedCard.twitter : `https://x.com/${selectedCard.twitter.replace(/^@/, "")}`} target="_blank" rel="noreferrer" className="text-neon-green hover:underline break-all">{selectedCard.twitter}</a>
+                  : "—"}
+              </Field>
+            </div>
+
+            {/* Proposition de talk */}
+            <div className="space-y-2">
+              <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">Proposition</p>
+              <Field label="Titre du talk"><span className="text-white font-bold">{selectedCard.talkTitle}</span></Field>
+              <Field label="Format">{selectedCard.format || "—"}</Field>
+              <Field label="Langue de présentation">{selectedCard.langPresentation === "en" ? "Anglais" : selectedCard.langPresentation === "fr" ? "Français" : (selectedCard.langPresentation || "—")}</Field>
+              <Field label="Soumis le">{new Date(selectedCard.createdAt).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" })}</Field>
+            </div>
+
+            {/* Abstract complet */}
+            <div className="md:col-span-2">
+              <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">Abstract</p>
+              <p className="text-gray-300 text-xs whitespace-pre-wrap leading-relaxed">{selectedCard.abstract || "—"}</p>
+            </div>
+
+            {/* Bio complète */}
+            <div className="md:col-span-2">
+              <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">Bio du proposant</p>
+              <p className="text-gray-300 text-xs whitespace-pre-wrap leading-relaxed">{selectedCard.bio || "—"}</p>
+            </div>
+
+            {/* Certifications */}
+            {!!selectedCard.certifications && (
+              <div className="md:col-span-2">
+                <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">Certifications</p>
+                <p className="text-gray-300 text-xs whitespace-pre-wrap leading-relaxed">{selectedCard.certifications}</p>
               </div>
-              <div>
-                <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">Score IA</p>
+            )}
+
+            {/* Notes internes */}
+            {!!selectedCard.notes && (
+              <div className="md:col-span-2">
+                <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">Notes internes</p>
+                <p className="text-gray-400 text-xs whitespace-pre-wrap leading-relaxed italic">{selectedCard.notes}</p>
+              </div>
+            )}
+
+            {/* Analyse IA */}
+            <div className="md:col-span-2 border-t border-gray-800 pt-3">
+              <div className="flex items-center gap-3 mb-2">
+                <p className="text-gray-600 text-xs uppercase tracking-wider">Score IA</p>
                 {selectedCard.aiScore != null ? (
                   <span className="text-sm font-mono font-bold" style={{ color: scoreColor(selectedCard.aiScore) }}>{selectedCard.aiScore.toFixed(1)}/10</span>
                 ) : (
@@ -509,7 +621,7 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                   </button>
                 )}
               </div>
-              {selectedCard.aiAnalysis && <p className="text-gray-600 text-xs italic">{selectedCard.aiAnalysis}</p>}
+              {selectedCard.aiAnalysis && <AiAnalysis raw={selectedCard.aiAnalysis} />}
             </div>
           </div>
 

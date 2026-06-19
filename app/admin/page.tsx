@@ -9,6 +9,8 @@ import ConfirmModal, { useConfirm } from "@/components/admin/ConfirmModal";
 import MediaLibraryModal from "@/components/admin/MediaLibraryModal";
 import CyberWatchPanel from "@/components/admin/CyberWatchPanel";
 import PilotagePanel from "@/components/admin/PilotagePanel";
+import CampaignsPanel from "@/components/admin/CampaignsPanel";
+import RegistrationsChart from "@/components/admin/RegistrationsChart";
 import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
 
 const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; setLang: (l: AdminLang) => void }>({
@@ -18,7 +20,7 @@ const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; 
 });
 const useAdminT = () => useContext(AdminLangContext);
 
-type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "sessions" | "video" | "transactions" | "testimony";
+type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "sessions" | "video" | "transactions" | "testimony" | "campaigns";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -3742,6 +3744,8 @@ function RegistrationsPanel({ onDetail }: { onDetail: (r: Record<string, unknown
 
       {msg && <div className="mb-4 px-4 py-2 rounded text-xs text-neon-green border border-neon-green/30 bg-neon-green/5">{msg}</div>}
 
+      {rows.length > 0 && <RegistrationsChart rows={rows} />}
+
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
@@ -4218,15 +4222,17 @@ function SponsorPackagesPanel({ canWrite = true }: { canWrite?: boolean }) {
 }
 // ---- Event Settings Panel ----
 const SETTINGS_FIELDS = [
-  { key: "event_date", label: "Date (ISO)", type: "date", group: "Événement" },
-  { key: "event_date_display_fr", label: "Date affichée (FR)", type: "text", group: "Événement" },
-  { key: "event_date_display_en", label: "Date affichée (EN)", type: "text", group: "Événement" },
+  { key: "event_date_start", label: "Date de début (ISO)", type: "date", group: "Événement" },
+  { key: "event_date", label: "Date de fin (ISO)", type: "date", group: "Événement" },
+  { key: "event_date_display_fr", label: "Date affichée (FR) — laisser vide pour auto", type: "text", group: "Événement" },
+  { key: "event_date_display_en", label: "Date affichée (EN) — laisser vide pour auto", type: "text", group: "Événement" },
   { key: "event_time_start", label: "Heure d'ouverture", type: "time", group: "Événement" },
   { key: "event_edition", label: "Édition (numéro)", type: "text", group: "Événement" },
   { key: "event_venue", label: "Lieu (nom)", type: "text", group: "Lieu" },
   { key: "event_city", label: "Ville", type: "text", group: "Lieu" },
   { key: "event_country", label: "Pays", type: "text", group: "Lieu" },
   { key: "event_address", label: "Adresse complète", type: "text", group: "Lieu" },
+  { key: "event_mode", label: "Mode (ex: Online & On-site)", type: "text", group: "Lieu" },
   { key: "ctf_tagline_fr", label: "Accroche principale (FR)", type: "text", group: "CTF" },
   { key: "ctf_tagline_en", label: "Accroche principale (EN)", type: "text", group: "CTF" },
   { key: "ctf_prize_main_fr", label: "Gains vainqueur — résumé court (FR)", type: "text", group: "CTF" },
@@ -5780,6 +5786,7 @@ export default function AdminDashboard() {
     transactions: "transactions",
     ctf: "ctf",
     communication: "communication",
+    campaigns: "campaigns",
     library: "library",
     "cyber-watch": "cyber-watch",
     logistics: "logistics",
@@ -6034,6 +6041,7 @@ export default function AdminDashboard() {
       icon: "◉",
       tabs: [
         { id: "communication", label: t.communicationPosts },
+        { id: "campaigns", label: "📣 Campagnes" },
         { id: "library", label: "📁 Library" },
         { id: "cyber-watch", label: "📡 Veille cyber" },
       ],
@@ -6586,6 +6594,9 @@ export default function AdminDashboard() {
           {tab === "communication" && (
             <CommunicationPanel canWrite={can("communication")} />
           )}
+
+          {/* CAMPAIGNS */}
+          {tab === "campaigns" && <CampaignsPanel canWrite={can("campaigns")} />}
 
           {/* LIBRARY */}
           {tab === "library" && <LibraryPanel canWrite={can("library")} />}

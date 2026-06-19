@@ -29,19 +29,46 @@ export default function Home() {
   const t = translations[lang];
 
   // Overlay i18n strings with live DB values
-  const dateFr = eventSettings.event_date_display_fr;
-  const dateEn = eventSettings.event_date_display_en;
+  const dateFrOverride = eventSettings.event_date_display_fr;
+  const dateEnOverride = eventSettings.event_date_display_en;
   const venue = eventSettings.event_venue;
   const city = eventSettings.event_city;
   const country = eventSettings.event_country;
   const address = eventSettings.event_address;
+  const eventMode = eventSettings.event_mode;
+  const dateStart = eventSettings.event_date_start;
+  const dateEnd = eventSettings.event_date;
+
+  // Auto-generate date range string (e.g. "November 23-28, 2026") when start is set
+  function buildDateRange(startIso: string, endIso: string, locale: "en" | "fr"): string {
+    const start = new Date(startIso + "T12:00:00Z");
+    const end = new Date(endIso + "T12:00:00Z");
+    const sd = start.getUTCDate();
+    const ed = end.getUTCDate();
+    const year = end.getUTCFullYear();
+    if (locale === "fr") {
+      const months = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+      const em = months[end.getUTCMonth()];
+      if (start.getUTCMonth() === end.getUTCMonth()) return `${sd}-${ed} ${em} ${year}`;
+      return `${sd} ${months[start.getUTCMonth()]} - ${ed} ${em} ${year}`;
+    }
+    const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const em = months[end.getUTCMonth()];
+    if (start.getUTCMonth() === end.getUTCMonth()) return `${months[start.getUTCMonth()]} ${sd}-${ed}, ${year}`;
+    return `${months[start.getUTCMonth()]} ${sd} - ${em} ${ed}, ${year}`;
+  }
+
+  const dateFr = dateFrOverride || (dateStart && dateEnd ? buildDateRange(dateStart, dateEnd, "fr") : dateFrOverride);
+  const dateEn = dateEnOverride || (dateStart && dateEnd ? buildDateRange(dateStart, dateEnd, "en") : dateEnOverride);
+  const locationCore = `${venue} · ${city}, ${country}`;
+  const heroLocation = eventMode ? `${eventMode}: ${locationCore}` : locationCore;
 
   const tWithSettings = {
     ...t,
     hero: {
       ...t.hero,
       date: lang === "fr" ? dateFr : dateEn,
-      location: `${venue} · ${city}, ${country}`,
+      location: heroLocation,
     },
     register: {
       ...t.register,

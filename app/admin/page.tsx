@@ -9,6 +9,7 @@ import ConfirmModal, { useConfirm } from "@/components/admin/ConfirmModal";
 import MediaLibraryModal from "@/components/admin/MediaLibraryModal";
 import CyberWatchPanel from "@/components/admin/CyberWatchPanel";
 import PilotagePanel from "@/components/admin/PilotagePanel";
+import CampaignsPanel from "@/components/admin/CampaignsPanel";
 import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
 
 const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; setLang: (l: AdminLang) => void }>({
@@ -18,7 +19,7 @@ const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; 
 });
 const useAdminT = () => useContext(AdminLangContext);
 
-type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "sessions" | "video" | "transactions" | "testimony";
+type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "sessions" | "video" | "transactions" | "testimony" | "campaigns";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -5780,6 +5781,7 @@ export default function AdminDashboard() {
     transactions: "transactions",
     ctf: "ctf",
     communication: "communication",
+    campaigns: "campaigns",
     library: "library",
     "cyber-watch": "cyber-watch",
     logistics: "logistics",
@@ -6034,6 +6036,7 @@ export default function AdminDashboard() {
       icon: "◉",
       tabs: [
         { id: "communication", label: t.communicationPosts },
+        { id: "campaigns", label: "📣 Campagnes" },
         { id: "library", label: "📁 Library" },
         { id: "cyber-watch", label: "📡 Veille cyber" },
       ],
@@ -6586,6 +6589,9 @@ export default function AdminDashboard() {
           {tab === "communication" && (
             <CommunicationPanel canWrite={can("communication")} />
           )}
+
+          {/* CAMPAIGNS */}
+          {tab === "campaigns" && <CampaignsPanel canWrite={can("campaigns")} />}
 
           {/* LIBRARY */}
           {tab === "library" && <LibraryPanel canWrite={can("library")} />}

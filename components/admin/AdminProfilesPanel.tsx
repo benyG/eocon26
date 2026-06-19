@@ -31,6 +31,7 @@ const NAV_GROUPS: { label: string; modules: { key: string; label: string }[] }[]
   ] },
   { label: "Communication", modules: [
     { key: "communication", label: "Communication" },
+    { key: "campaigns", label: "Campagnes inscrits" },
     { key: "library", label: "Library" },
     { key: "cyber-watch", label: "Veille cyber" },
   ] },

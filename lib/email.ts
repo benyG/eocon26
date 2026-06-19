@@ -64,6 +64,12 @@ function emailWrap(body: string, isFr: boolean): string {
 </body></html>`;
 }
 
+// Wrap arbitrary campaign body HTML in the branded EOCON shell. Exposed so the
+// campaign sender and the admin preview render identically.
+export function wrapCampaignHtml(body: string, lang: "fr" | "en" = "fr"): string {
+  return emailWrap(body, lang === "fr");
+}
+
 // Reusable HTML chunks
 const greenLabel = (txt: string) => `<span style="color:#00ff9d;font-weight:bold;">${txt}</span>`;
 const neonBox = (content: string) =>

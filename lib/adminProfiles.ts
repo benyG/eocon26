@@ -31,6 +31,8 @@ export interface AdminPermissions {
   certificates?: "read" | "write";
   ctf?: "read" | "write";
   website?: "read" | "write";
+  testimony?: "read" | "write";
+  campaigns?: "read" | "write";
 }
 
 export interface AdminProfile {
@@ -57,6 +59,7 @@ export const ADMIN_PROFILES: AdminProfile[] = [
       team: "write", video: "write", export: "write", users: "write",
       profiles: "write", audit: "write", settings: "write", prospection: "write",
       certificates: "write", ctf: "write", website: "write", pilotage: "write",
+      testimony: "write", campaigns: "write",
     },
   },
   {
@@ -78,6 +81,7 @@ export const ADMIN_PROFILES: AdminProfile[] = [
       communication: "write", library: "write", "cyber-watch": "write",
       newsletter: "write", speakers: "read",
       sessions: "read", sponsors: "read",
+      campaigns: "write", testimony: "write",
     },
   },
   {

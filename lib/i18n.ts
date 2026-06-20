@@ -17,7 +17,7 @@ export const translations = {
     hero: {
       edition: "7th Edition",
       tagline: "SECURE THE FUTURE",
-      subtitle: "Bilingual Conference on Information Security",
+      subtitle: "Where Africa, the diaspora and the world build the future of cybersecurity.",
       date: "November 28, 2026",
       location: "Hotel Onomo · Douala, Cameroon",
       cta_register: "Register Now",
@@ -32,8 +32,8 @@ export const translations = {
       title: "About EOCON",
       subtitle: "Where Africa Secures the Digital Future",
       description:
-        "EOCON is the leading bilingual cybersecurity event bringing together security professionals, researchers, business leaders, and students from across Africa and the diaspora. Now in its 7th edition, EOCON features expert talks, hands-on workshops, and the acclaimed EyesOpenCTF competition.",
-      p2: "The event aims to popularize digital security, foster awareness, and develop the cybersecurity ecosystem across Africa by creating opportunities for expression, exchange and sharing.",
+        "EOCON is not a cybersecurity conference. EOCON is the annual gathering where Africa, the diaspora and the global cybersecurity ecosystem come together to build the future of digital security. Expert talks, technical workshops, strategic panels and the EyesOpenCTF — all in one event, in-person in Douala and online worldwide.",
+      p2: "Joining EOCON — on-site in Douala or online from Paris, Montréal, Lagos or London — means being where tomorrow's opportunities, collaborations, careers and businesses in security are born. Where Africa secures the future.",
       stat1_num: "1000+",
       stat1_label: "Expected Attendees",
       stat2_num: "35+",
@@ -85,9 +85,9 @@ export const translations = {
     },
     ctf: {
       title: "EyesOpenCTF",
-      subtitle: "The Cybersecurity Competition",
+      subtitle: "Where Africa's Next Cybersecurity Leaders Are Revealed",
       description:
-        "The EyesOpenCTF takes place in a virtual arena where teams compete indirectly through multiple challenges in various areas of offensive and defensive security. The competition runs 48 hours and is organized before the main conference.",
+        "EyesOpenCTF is the 48-hour Capture The Flag competition open to teams from around the world. 40+ challenges across 8 disciplines — from binary exploitation to OSINT. A proving ground where the next generation of African and international cybersecurity talent emerges. The competition runs before the main event and is open to all registered participants.",
       disciplines: "8 Disciplines",
       challenges: "40+ Challenges",
       points: "10,000+ Points",
@@ -148,7 +148,7 @@ export const translations = {
       title: "Call for Speakers",
       subtitle: "Share Your Expertise. Shape the Future.",
       description:
-        "We are looking for passionate cybersecurity professionals, researchers, and practitioners to speak at EOCON 2026 in Douala, Cameroon. Whether you're presenting cutting-edge research, real-world case studies, or thought-provoking ideas — we want to hear from you.",
+        "EOCON is where cybersecurity professionals, researchers and practitioners from Africa and around the world shape the global conversation on digital security. If you have expertise, research findings, or a vision that can move the ecosystem forward — EOCON is your stage. Submit your proposal and be part of the movement.",
       topics_title: "Topics of Interest",
       topics: [
         "Offensive Security & Red Teaming",
@@ -187,9 +187,9 @@ export const translations = {
     },
     volunteer: {
       title: "Volunteer",
-      subtitle: "Join the Team. Make It Happen.",
+      subtitle: "Build the Future of African Cybersecurity From the Inside.",
       description:
-        "EOCON wouldn't be possible without our incredible volunteers. Join us and get hands-on experience, networking opportunities, and an exclusive EOCON volunteer badge.",
+        "EOCON is built by people who believe in the movement. Join the team and contribute from the inside to one of the most ambitious cybersecurity events on the continent — while gaining hands-on experience, exclusive networking access, and an official EOCON certificate.",
       perks_title: "Volunteer Perks",
       perks: [
         "Free conference access",
@@ -225,7 +225,7 @@ export const translations = {
       title: "Sponsors & Partners",
       subtitle: "Power the Future of Cybersecurity",
       description:
-        "Sponsoring EOCON gives your organization unmatched visibility with 1500+ cybersecurity professionals, students, and decision-makers from 15+ countries.",
+        "Sponsoring EOCON means investing in the future of African cybersecurity. Reach 1,000+ cybersecurity professionals, decision-makers, researchers and high-potential students from 15+ countries — in-person and online. Position your brand at the heart of a movement that shapes careers, builds ecosystems and secures the continent's digital future.",
       tiers: [
         {
           name: "PLATINUM",
@@ -360,7 +360,7 @@ export const translations = {
       contact: "Contact",
       rights: "All rights reserved.",
       privacy: "Privacy Policy",
-      org: "EyesOpen Association",
+      org: "Services examboot inc.",
       newsletter_label: "Stay informed about the latest EOCON 2026 news",
       newsletter_cta: "Subscribe",
       newsletter_ok: "Successfully subscribed!",
@@ -399,7 +399,7 @@ export const translations = {
     hero: {
       edition: "7ème Édition",
       tagline: "SÉCURISER L'AVENIR",
-      subtitle: "Conférence Bilingue sur la Sécurité Informatique",
+      subtitle: "Là où l'Afrique, la diaspora et le monde construisent l'avenir de la cybersécurité.",
       date: "28 Novembre 2026",
       location: "Hotel Onomo · Douala, Cameroun",
       cta_register: "S'inscrire",
@@ -414,8 +414,8 @@ export const translations = {
       title: "À propos d'EOCON",
       subtitle: "L'Afrique Sécurise l'Avenir Numérique",
       description:
-        "EOCON est la principale conférence bilingue sur la cybersécurité, réunissant des professionnels, chercheurs, chefs d'entreprises et étudiants d'Afrique et de la diaspora. À sa 7ème édition, EOCON propose des conférences d'experts, des ateliers pratiques et la compétition EyesOpenCTF.",
-      p2: "La conférence vise à vulgariser la sécurité numérique, à sensibiliser et à développer l'écosystème de la cybersécurité en Afrique, en créant des opportunités d'expression, d'échange et de partage.",
+        "EOCON n'est pas une conférence cybersécurité. EOCON est le rendez-vous annuel où l'Afrique, la diaspora et l'écosystème cyber mondial se retrouvent pour construire l'avenir de la sécurité numérique. Conférences d'experts, ateliers techniques, panels stratégiques et l'EyesOpenCTF — tout en un événement, en présentiel à Douala et en ligne partout dans le monde.",
+      p2: "Participer à EOCON — en présentiel à Douala ou en ligne depuis Paris, Montréal, Lagos ou Londres — c'est être là où se créent les opportunités, collaborations, carrières et business de demain dans la sécurité. Where Africa secures the future.",
       stat1_num: "1000+",
       stat1_label: "Participants attendus",
       stat2_num: "35+",
@@ -467,9 +467,9 @@ export const translations = {
     },
     ctf: {
       title: "EyesOpenCTF",
-      subtitle: "La Compétition de Cybersécurité",
+      subtitle: "Là où émergent les futurs leaders de la cybersécurité africaine",
       description:
-        "L'EyesOpenCTF se déroule dans une arène virtuelle où des équipes s'affrontent indirectement à travers de multiples défis dans divers domaines de la sécurité offensive et défensive. La compétition dure 48 heures et est organisée avant la conférence principale.",
+        "L'EyesOpenCTF est la compétition Capture The Flag de 48h ouverte aux équipes du monde entier. 40+ défis dans 8 disciplines — de l'exploitation binaire à l'OSINT. Un terrain d'expression où émerge la prochaine génération de talents cyber africains et internationaux. La compétition se déroule avant l'événement principal et est ouverte à tous les participants inscrits.",
       disciplines: "8 Disciplines",
       challenges: "40+ Défis",
       points: "10 000+ Points",
@@ -530,7 +530,7 @@ export const translations = {
       title: "Appel à Conférenciers",
       subtitle: "Partagez votre expertise. Façonnez l'avenir.",
       description:
-        "Nous recherchons des professionnels, chercheurs et praticiens de la cybersécurité pour intervenir à EOCON 2026 à Douala, Cameroun. Que vous présentiez des recherches de pointe, des études de cas ou des idées novatrices — nous voulons vous entendre.",
+        "EOCON est là où les professionnels, chercheurs et praticiens de la cybersécurité d'Afrique et du monde entier façonnent la conversation mondiale sur la sécurité numérique. Si vous avez une expertise, des recherches ou une vision qui peut faire avancer l'écosystème — EOCON est votre scène. Soumettez votre proposition et faites partie du mouvement.",
       topics_title: "Thèmes d'Intérêt",
       topics: [
         "Sécurité Offensive & Red Teaming",
@@ -569,9 +569,9 @@ export const translations = {
     },
     volunteer: {
       title: "Bénévolat",
-      subtitle: "Rejoignez l'équipe. Faites que ça arrive.",
+      subtitle: "Construisez l'avenir de la cybersécurité africaine de l'intérieur.",
       description:
-        "EOCON ne serait pas possible sans nos bénévoles incroyables. Rejoignez-nous et acquérez une expérience pratique, des opportunités de networking et un badge bénévole EOCON exclusif.",
+        "EOCON est construit par des personnes qui croient en ce mouvement. Rejoignez l'équipe et contribuez de l'intérieur à l'un des événements cybersécurité les plus ambitieux du continent — tout en acquérant de l'expérience pratique, un accès réseau exclusif et un certificat officiel EOCON.",
       perks_title: "Avantages Bénévoles",
       perks: [
         "Accès gratuit à la conférence",
@@ -607,7 +607,7 @@ export const translations = {
       title: "Sponsors & Partenaires",
       subtitle: "Propulsez l'Avenir de la Cybersécurité",
       description:
-        "Sponsoriser EOCON offre à votre organisation une visibilité incomparable auprès de 1500+ professionnels, étudiants et décideurs de la cybersécurité issus de 15+ pays.",
+        "Sponsoriser EOCON, c'est investir dans l'avenir de la cybersécurité africaine. Touchez 1 000+ professionnels, décideurs, chercheurs et étudiants à fort potentiel issus de 15+ pays — en présentiel et en ligne. Positionnez votre marque au cœur d'un mouvement qui façonne les carrières, construit les écosystèmes et sécurise l'avenir numérique du continent.",
       tiers: [
         {
           name: "PLATINE",
@@ -742,7 +742,7 @@ export const translations = {
       contact: "Contact",
       rights: "Tous droits réservés.",
       privacy: "Politique de confidentialité",
-      org: "Association EyesOpen",
+      org: "Services examboot inc.",
       newsletter_label: "Restez informés des dernières nouvelles d'EOCON 2026",
       newsletter_cta: "S'inscrire",
       newsletter_ok: "Inscrit(e) avec succès !",

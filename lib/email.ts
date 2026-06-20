@@ -319,7 +319,7 @@ export async function sendCFPDecision(email: string, name: string, talkTitle: st
              ${neonRow("Talk", `<em>&ldquo;${esc(talkTitle)}&rdquo;</em>`)}
              ${neonRow("Statut", '<span style="color:#00ff9d;font-weight:bold;">✓ ACCEPTÉ</span>')}
            </tbody></table>`)}
-           <p>L'équipe programme vous contactera prochainement pour les détails logistiques (horaire, salle, besoins techniques).</p>
+           <p>L'équipe programme vous contactera prochainement pour les détails.</p>
            ${dateLine(isFr)}`
         : `<p>${greenLabel("Hello " + esc(name))},</p>
            <p>🎉 Your proposal has been <strong style="color:#00ff9d;">selected</strong> for EOCON 2026!</p>
@@ -327,7 +327,7 @@ export async function sendCFPDecision(email: string, name: string, talkTitle: st
              ${neonRow("Talk", `<em>&ldquo;${esc(talkTitle)}&rdquo;</em>`)}
              ${neonRow("Status", '<span style="color:#00ff9d;font-weight:bold;">✓ ACCEPTED</span>')}
            </tbody></table>`)}
-           <p>The program team will contact you soon with logistics details (time slot, room, technical needs).</p>
+           <p>The program team will contact you soon with the details.</p>
            ${dateLine(isFr)}`)
     : (isFr
         ? `<p>${greenLabel("Bonjour " + esc(name))},</p>
@@ -573,7 +573,7 @@ export async function sendRegistrationTicket(
 
   const body = isFr
     ? `<p>${greenLabel("Bonjour " + esc(fname) + " " + esc(lname))},</p>
-       <p>🎟️ Votre billet EOCON 2026 est confirmé. On vous attend le 28 novembre !</p>
+       <p>🎟️ Votre billet EOCON 2026 est confirmé. On vous attend du 23 au 28 novembre en ligne et à Douala !</p>
        ${neonBox(`<table cellpadding="0" cellspacing="0" width="100%"><tbody>
          ${neonRow("Participant", `<strong>${esc(fname)} ${esc(lname)}</strong>`)}
          ${neonRow("Billet", esc(ticketType))}
@@ -590,7 +590,7 @@ export async function sendRegistrationTicket(
        </div>
        <p style="font-size:12px;color:#888;margin-top:20px;">📍 Hotel Onomo · Douala · Cameroun</p>`
     : `<p>${greenLabel("Hello " + esc(fname) + " " + esc(lname))},</p>
-       <p>🎟️ Your EOCON 2026 ticket is confirmed. See you on November 28!</p>
+       <p>🎟️ Your EOCON 2026 ticket is confirmed. See you from November 23 to 28 — online and in Douala!</p>
        ${neonBox(`<table cellpadding="0" cellspacing="0" width="100%"><tbody>
          ${neonRow("Attendee", `<strong>${esc(fname)} ${esc(lname)}</strong>`)}
          ${neonRow("Ticket", esc(ticketType))}

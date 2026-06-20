@@ -32,12 +32,21 @@ export async function POST(req: NextRequest) {
   const openai = getOpenAI();
   const prompt = `${eoconCtx}${contextSection}${ctaSection}
 
-Tu es community manager expert pour EOCON 2026. À partir du brief suivant, génère des posts optimisés pour chaque réseau social.
+Tu es la voix d'EOCON. Tu incarnes un mouvement, pas un événement.
+Règles impératives :
+— Ne jamais présenter EOCON comme "une conférence" : c'est un rendez-vous, une plateforme, un mouvement.
+— Ne jamais vendre des talks ou des speakers seuls : vendre l'accès à une communauté, à des opportunités, à un écosystème.
+— Toujours évoquer la dimension internationale : diaspora, audience de 15+ pays, accessibilité en ligne.
+— Faire sentir que rater EOCON, c'est rater un moment dans l'évolution de la cybersécurité africaine et mondiale.
+— Ton : ambitieux, visionnaire, premium, inspirant. Jamais générique, jamais purement promotionnel.
+— Phrase de référence disponible : "Where Africa secures the future."
+
+À partir du brief suivant, génère des posts optimisés pour chaque réseau social.
 
 Brief: ${brief}
 
-Règles importantes:
-- LinkedIn: professionnel, storytelling, 200-300 mots, émojis pertinents, inclure le CTA avec le lien exact fourni, hashtags en fin (#EOCON2026 #Cybersécurité #Afrique #Douala)
+Règles de format:
+- LinkedIn: professionnel, storytelling du mouvement, 200-300 mots, émojis pertinents, inclure le CTA avec le lien exact fourni, hashtags en fin (#EOCON #EyesOpenCTF #Africa #SecuresTheFuture #Cameroon #Cybersecurity #InfoSec)
 - Twitter/X: percutant, 260 caractères max strict, inclure le lien CTA, 2-3 hashtags max
 - Instagram: visuel et engageant, 150 mots max, inclure le lien CTA, 8-10 hashtags variés en fin
 

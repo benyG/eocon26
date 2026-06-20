@@ -44,15 +44,15 @@ Entreprise: ${org}
 Site: ${website || "non fourni"}
 ${apolloContext}
 
-Si tu connais cette entreprise ou son secteur, explique pourquoi elle aurait intérêt à sponsoriser EOCON 2026 et quel package lui correspond.
+Si tu connais cette entreprise ou son secteur, explique pourquoi elle aurait intérêt à sponsoriser EOCON 2026. Adapte l'argumentaire à leur secteur en utilisant l'un de ces angles : (1) accès à des talents cyber africains et de la diaspora, (2) positionnement sur le marché africain de la cybersécurité, (3) visibilité internationale auprès de 15+ pays en présentiel et en ligne, (4) association à un mouvement "Where Africa secures the future". La phrase d'accroche doit être percutante, personnalisée au secteur, et ne jamais parler de "conférence" — parler de mouvement, de rendez-vous, d'écosystème.
 
 JSON uniquement :
 {
   "known": <true|false>,
   "sector": "<secteur d'activité>",
-  "whySponsor": "<pourquoi sponsoriser EOCON, 2-3 raisons>",
+  "whySponsor": "<pourquoi sponsoriser EOCON, 2-3 raisons adaptées au secteur>",
   "recommendedPackage": "<PLATINUM|GOLD|SILVER|BRONZE>",
-  "hook": "<phrase d'accroche pour l'email de contact>"
+  "hook": "<phrase d'accroche percutante et personnalisée pour l'email de contact>"
 }`;
 
   const response = await openai.chat.completions.create({

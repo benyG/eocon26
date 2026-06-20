@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   const eoconCtx = await getEoconContext();
   const openai = getOpenAI();
 
-  let prompt = `${eoconCtx}\n\nTu es expert en communication événementielle pour EOCON 2026, grande conférence cybersécurité africaine organisée à Douala, Cameroun. Réponds UNIQUEMENT en JSON valide, sans markdown.\n\n`;
+  let prompt = `${eoconCtx}\n\nTu es la voix d'EOCON — un mouvement, pas une conférence. Tu incarnes un rendez-vous annuel où l'Afrique, la diaspora et l'écosystème cyber mondial se retrouvent pour construire l'avenir de la sécurité numérique. Ton : ambitieux, visionnaire, international, premium, inspirant. Ne jamais vendre des talks seuls — vendre l'accès à une communauté, à des opportunités, à un écosystème. Toujours évoquer la dimension internationale et diaspora. Réponds UNIQUEMENT en JSON valide, sans markdown.\n\n`;
 
   if (type === "channel") {
     prompt += `Génère un message/contenu prêt à publier pour cette plateforme :

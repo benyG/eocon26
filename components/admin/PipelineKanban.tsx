@@ -1051,6 +1051,7 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                                 {canWrite && <button onClick={() => toggleSessionVisible(sess)} title={sess.isVisible ? "Masquer" : "Publier"} className="text-xs leading-none p-0.5 hover:bg-white/10 rounded">
                                   {sess.isVisible ? "👁" : "🙈"}
                                 </button>}
+                                {canWrite && <button onClick={() => setEditSession(sess)} title="Modifier" className="text-xs leading-none p-0.5 hover:bg-white/10 rounded text-gray-500 hover:text-gray-300">✎</button>}
                                 {canWrite && <button onClick={() => unscheduleSession(sess)} title="Retirer" className="text-xs leading-none p-0.5 hover:bg-red-900/30 rounded text-gray-600 hover:text-red-400">✕</button>}
                               </div>
                             </div>
@@ -1070,6 +1071,66 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
           )}
 
           {/* Drop time picker modal */}
+          {/* ── Edit session modal ─────────────────────────────────── */}
+          {editSession && (
+            <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setEditSession(null)}>
+              <div className="cyber-card rounded-xl p-6 max-w-lg w-full border-neon-green/30 space-y-3" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-white font-bold text-sm">✎ Modifier la session</h3>
+                  <button onClick={() => setEditSession(null)} className="text-gray-500 hover:text-white text-lg">✕</button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Titre</label>
+                    <input value={editSession.title} onChange={e => setEditSession(s => s ? { ...s, title: e.target.value } : s)} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Type</label>
+                    <select value={editSession.type} onChange={e => setEditSession(s => s ? { ...s, type: e.target.value } : s)} className="cyber-input w-full text-xs rounded px-3 py-2 text-black">
+                      {["keynote","talk","panel","workshop","break","logistics"].map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Heure de début</label>
+                    <input type="time" value={editSession.time} onChange={e => setEditSession(s => s ? { ...s, time: e.target.value } : s)} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Heure de fin <span className="text-gray-700">(optionnel)</span></label>
+                    <input type="time" value={editSession.endTime || ""} onChange={e => setEditSession(s => s ? { ...s, endTime: e.target.value || null } : s)} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Salle <span className="text-gray-700">(optionnel)</span></label>
+                    <input value={editSession.room || ""} onChange={e => setEditSession(s => s ? { ...s, room: e.target.value || null } : s)} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Mode</label>
+                    <select value={editSession.mode || ""} onChange={e => setEditSession(s => s ? { ...s, mode: e.target.value || null } : s)} className="cyber-input w-full text-xs rounded px-3 py-2 text-black">
+                      <option value="">—</option>
+                      <option value="Présentiel">Présentiel</option>
+                      <option value="Online via Zoom">Online via Zoom</option>
+                      <option value="Hybride">Hybride</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Lien Zoom <span className="text-gray-700">(optionnel)</span></label>
+                  <input value={editSession.zoomLink || ""} onChange={e => setEditSession(s => s ? { ...s, zoomLink: e.target.value || null } : s)} placeholder="https://zoom.us/j/…" className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">Date limite slides <span className="text-gray-700">(optionnel)</span></label>
+                  <input value={editSession.slidesDeadline || ""} onChange={e => setEditSession(s => s ? { ...s, slidesDeadline: e.target.value || null } : s)} placeholder="ex : 21 novembre 2026" className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
+                </div>
+                {editSession.speakerId && (
+                  <p className="text-gray-600 text-xs">Les champs <span className="text-gray-400">mode / Zoom / slides deadline</span> alimentent automatiquement l&apos;email <span className="text-gray-400">🎤 Speaker — Programmé</span> via {"{{mode}} {{zoomLink}} {{slidesDeadline}}"}.</p>
+                )}
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => saveSession(editSession)} className="btn-neon px-4 py-2 rounded text-xs">💾 Sauvegarder</button>
+                  <button onClick={() => setEditSession(null)} className="text-gray-500 text-xs px-3 py-2 hover:text-gray-300">Annuler</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {pendingDrop && (
             <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
               <div className="cyber-card rounded-xl p-6 max-w-sm w-full border-neon-green/30">

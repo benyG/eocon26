@@ -5,7 +5,7 @@ import { getOpenAI, getEoconContext } from "@/lib/openai";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  if (!(await hasPermission("communication", "write")))
+  if (!(await hasPermission("strategic-plan", "write")))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { type, context } = await req.json() as {

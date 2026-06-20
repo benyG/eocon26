@@ -17,7 +17,7 @@ export const translations = {
     hero: {
       edition: "7th Edition",
       tagline: "SECURE THE FUTURE",
-      subtitle: "Where Africa, the diaspora and the world build the future of cybersecurity.",
+      subtitle: "Bilingual event to build the future of cybersecurity.",
       date: "November 28, 2026",
       location: "Hotel Onomo · Douala, Cameroon",
       cta_register: "Register Now",
@@ -399,7 +399,7 @@ export const translations = {
     hero: {
       edition: "7ème Édition",
       tagline: "SÉCURISER L'AVENIR",
-      subtitle: "Là où l'Afrique, la diaspora et le monde construisent l'avenir de la cybersécurité.",
+      subtitle: "Événement bilingue pour construire l'avenir de la cybersécurité.",
       date: "28 Novembre 2026",
       location: "Hotel Onomo · Douala, Cameroun",
       cta_register: "S'inscrire",

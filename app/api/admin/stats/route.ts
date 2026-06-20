@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { getCurrentPermissions } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!(await isAdminAuthenticated())) {
+  if (!(await getCurrentPermissions())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const [cfpTotal, cfpPending, cfpAccepted, cfpRejected, volunteers, registrations, checkedIn, speakers, sponsors, subscribers, team, pastSpeakers, workshops] =

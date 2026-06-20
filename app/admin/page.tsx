@@ -5743,7 +5743,7 @@ export default function AdminDashboard() {
     budget: "budget",
     transactions: "transactions",
     ctf: "ctf",
-    "strategic-plan": "communication",
+    "strategic-plan": "strategic-plan",
     communication: "communication",
     campaigns: "campaigns",
     library: "library",
@@ -6552,7 +6552,7 @@ export default function AdminDashboard() {
 
           {/* COMMUNICATION */}
           {tab === "strategic-plan" && (
-            <StrategicPlanPanel canWrite={can("communication")} />
+            <StrategicPlanPanel canWrite={can("strategic-plan")} />
           )}
 
           {tab === "communication" && (

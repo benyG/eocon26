@@ -289,17 +289,19 @@ const SEED_TEMPLATES = [
 <p>Thank you for your confidence.<br>The EOCON 2026 team<br><a href="mailto:speakers@eyesopensecurity.com" style="color:#00ff9d;">speakers@eyesopensecurity.com</a></p>`,
   },
   {
-    // Auto-personnalisés : {{fname}} (nom), {{talkTitle}} (sujet du talk).
-    // À compléter manuellement avant l'envoi : [DATE], [HEURE], [MODE], [LIEN ZOOM], [DATE LIMITE SLIDES].
+    // Auto-personnalisés à l'envoi : {{fname}} (nom), {{talkTitle}} (sujet du talk),
+    // et les détails de la session programmée dans le calendrier :
+    // {{date}} {{time}} {{mode}} {{zoomLink}} {{slidesDeadline}}.
     name: "🎤 Speaker — Programmé (modalités de présentation)",
     segment: "cfp_scheduled",
     subject: "EOCON 2026 — Modalités de votre présentation 🎤",
     htmlBody: `<p>Bonjour {{fname}},</p>
 <p>À la suite de nos échanges concernant l'évènement <strong>EOCON 2026</strong>, nous partageons avec vous les modalités de votre présentation :</p>
 <ul>
-<li>🖥 <strong>Mode :</strong> [MODE — ex : Online via Zoom / Présentiel] (le lien vous sera partagé ultérieurement)</li>
-<li>📅 <strong>Date :</strong> [DATE]</li>
-<li>🕓 <strong>Horaire :</strong> [HEURE]</li>
+<li>🖥 <strong>Mode :</strong> {{mode}}</li>
+<li>🔗 <strong>Connexion :</strong> {{zoomLink}} <span style="color:#888;">(le cas échéant — le lien peut vous être partagé ultérieurement)</span></li>
+<li>📅 <strong>Date :</strong> {{date}}</li>
+<li>🕓 <strong>Horaire :</strong> à partir de {{time}}</li>
 <li>🎯 <strong>Sujet :</strong> {{talkTitle}}</li>
 </ul>
 <p><em>PS : merci de bien vouloir confirmer si le timing ci-dessus vous convient.</em></p>
@@ -308,7 +310,7 @@ const SEED_TEMPLATES = [
 <li>Elle durera <strong>50 minutes</strong> (prévoir 10 minutes pour les questions de l'auditoire) ;</li>
 <li>Le modèle graphique PowerPoint est le même pour tous les speakers (voir fichiers joints) ;</li>
 <li>Pour garder une cohérence entre la durée planifiée et votre fichier, merci de ne pas dépasser <strong>20 pages</strong> (pages de garde exclues : titre, speaker, plan, questions) ;</li>
-<li>Merci de nous faire parvenir votre présentation complète au plus tard le <strong>[DATE LIMITE SLIDES]</strong> ;</li>
+<li>Merci de nous faire parvenir votre présentation complète au plus tard le <strong>{{slidesDeadline}}</strong> ;</li>
 <li>Votre présentation orale sera enregistrée pendant l'évènement et partagée sur nos réseaux ;</li>
 <li>Si vous illustrez des attaques informatiques, merci de préciser un <strong>disclaimer/avertissement</strong> à ne pas reproduire et d'expliquer à l'auditoire comment s'en protéger.</li>
 </ul>
@@ -322,9 +324,10 @@ const SEED_TEMPLATES = [
     htmlBodyEn: `<p>Hello {{fname}}!</p>
 <p>Following our discussions regarding the <strong>EOCON 2026</strong> event, we are sharing the details of your presentation with you:</p>
 <ul>
-<li>🖥 <strong>Mode:</strong> [MODE — e.g. Online via Zoom / On-site] (the link will be shared with you later)</li>
-<li>📅 <strong>Date:</strong> [DATE]</li>
-<li>🕓 <strong>Time:</strong> [TIME]</li>
+<li>🖥 <strong>Mode:</strong> {{mode}}</li>
+<li>🔗 <strong>Connection:</strong> {{zoomLink}} <span style="color:#888;">(if applicable — the link may be shared with you later)</span></li>
+<li>📅 <strong>Date:</strong> {{date}}</li>
+<li>🕓 <strong>Time:</strong> from {{time}}</li>
 <li>🎯 <strong>Topic:</strong> {{talkTitle}}</li>
 </ul>
 <p><em>PS: please confirm whether the timing above works for you.</em></p>
@@ -333,7 +336,7 @@ const SEED_TEMPLATES = [
 <li>It will last <strong>50 minutes</strong> (allow 10 minutes for audience questions);</li>
 <li>The PowerPoint graphic template is the same for all speakers (see attached files);</li>
 <li>To keep consistency between the planned duration and your file, please do not exceed <strong>20 pages</strong> (cover pages excluded: title, speaker, outline, questions);</li>
-<li>Please send us your complete presentation no later than <strong>[SLIDES DEADLINE]</strong>;</li>
+<li>Please send us your complete presentation no later than <strong>{{slidesDeadline}}</strong>;</li>
 <li>Your oral presentation will be recorded during the event and shared on our networks;</li>
 <li>If you illustrate cyberattacks, please include a <strong>disclaimer/warning</strong> not to reproduce them and explain to the audience how to protect themselves.</li>
 </ul>

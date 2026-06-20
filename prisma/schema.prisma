@@ -147,6 +147,9 @@ model ConferenceSession {
   workshop     Workshop? @relation(fields: [workshopId], references: [id], onDelete: SetNull)
   room         String?
   description  String?   @db.Text
+  mode         String?   // online | onsite | hybrid — set when the session is programmed
+  zoomLink     String?   // link shared with the speaker for online sessions
+  slidesDeadline String? // deadline to send slides (free text, e.g. "21 octobre 2026")
   sortOrder    Int       @default(0)
   isVisible    Boolean   @default(true)
   displayFrom  DateTime? // show on frontend only from this date

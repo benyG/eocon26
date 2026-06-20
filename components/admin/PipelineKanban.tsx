@@ -77,6 +77,9 @@ interface SessionRecord {
   speakerId?: number | null;
   room?: string | null;
   description?: string | null;
+  mode?: string | null;
+  zoomLink?: string | null;
+  slidesDeadline?: string | null;
   sortOrder: number;
   isVisible: boolean;
 }
@@ -207,6 +210,10 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [pendingDrop, setPendingDrop] = useState<{ date: string; item: DragItem } | null>(null);
   const [dropTime, setDropTime] = useState("09:00");
+  // Programming details captured at scheduling time — feed the speaker "Programmé" email.
+  const [dropMode, setDropMode] = useState("Présentiel");
+  const [dropZoom, setDropZoom] = useState("");
+  const [dropDeadline, setDropDeadline] = useState("");
   const [seeding, setSeeding] = useState(false);
 
   const loadAll = useCallback(async () => {
@@ -399,15 +406,16 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
       if (!card) return;
       // A session is already created when the CFP is confirmed. Schedule THAT one
       // instead of creating a second entry (avoids the workshop "double slot" bug).
+      const prog = { mode: dropMode || null, zoomLink: dropZoom || null, slidesDeadline: dropDeadline || null };
       const existing = card.speakerId ? sessions.find(s => s.speakerId === card.speakerId) : undefined;
       if (existing) {
         const res = await fetch(`/api/admin/sessions/${existing.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date, time: dropTime, isVisible: true }),
+          body: JSON.stringify({ date, time: dropTime, isVisible: true, ...prog }),
         });
         if (res.ok) {
-          setSessions(prev => prev.map(s => s.id === existing.id ? { ...s, date, time: dropTime, isVisible: true } : s));
+          setSessions(prev => prev.map(s => s.id === existing.id ? { ...s, date, time: dropTime, isVisible: true, ...prog } : s));
           await moveStage(card.id, "scheduled");
         }
       } else {
@@ -421,6 +429,7 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
             speakerName: card.name,
             speakerId: card.speakerId || null,
             isVisible: true, sortOrder: 100,
+            ...prog,
           }),
         });
         if (res.ok) {
@@ -439,6 +448,9 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
     }
     setPendingDrop(null);
     setDropTime("09:00");
+    setDropMode("Présentiel");
+    setDropZoom("");
+    setDropDeadline("");
   };
 
   const unscheduleSession = async (sess: SessionRecord) => {
@@ -665,7 +677,9 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
           <div className="border-t border-gray-800 pt-4">
             <p className="text-gray-600 text-xs uppercase tracking-wider mb-3">Faire avancer dans le pipeline</p>
             <div className="flex flex-wrap gap-2">
-              {canWrite && STAGES.filter(s => s.key !== selectedCard.pipelineStage).map(s => (
+              {/* "Programmés" is reached only by scheduling the session in the calendar
+                  (onglet Programme) — never manually — so the stage stays in sync with the agenda. */}
+              {canWrite && STAGES.filter(s => s.key !== selectedCard.pipelineStage && s.key !== "scheduled").map(s => (
                 <button
                   key={s.key}
                   onClick={() => moveStage(selectedCard.id, s.key)}
@@ -685,6 +699,9 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                 </button>
               )}
             </div>
+            {selectedCard.pipelineStage === "confirmed" && (
+              <p className="text-gray-600 text-xs mt-3">📅 Pour passer ce speaker en <span style={{ color: "#ff6600" }}>Programmé</span>, glissez sa carte sur un créneau dans l&apos;onglet <span className="text-gray-400">Programme</span>. Le statut évolue automatiquement à la programmation de la session.</p>
+            )}
             {selectedCard.speakerId && (
               <div className="mt-3 p-2 rounded-lg border border-gray-800">
                 <p className="text-xs text-neon-green">✓ Speaker créé (ID #{selectedCard.speakerId}) — visible dans l&apos;onglet Speakers</p>
@@ -1061,13 +1078,34 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                   <span className="text-white">{pendingDrop.item.type === "cfp" ? (pendingDrop.item as { name: string }).name : pendingDrop.item.title}</span>
                   {" → "}J{planDays.indexOf(pendingDrop.date) + 1} ({fmtDate(pendingDrop.date)})
                 </p>
-                <div className="mb-4">
+                <div className="mb-3">
                   <label className="text-xs text-gray-500 block mb-1">Heure de début</label>
                   <input type="time" value={dropTime} onChange={e => setDropTime(e.target.value)} className="cyber-input w-full text-sm rounded px-3 py-2 text-white" />
                 </div>
+                {pendingDrop.item.type === "cfp" && (
+                  <>
+                    <div className="mb-3">
+                      <label className="text-xs text-gray-500 block mb-1">Mode</label>
+                      <select value={dropMode} onChange={e => setDropMode(e.target.value)} className="cyber-input w-full text-sm rounded px-3 py-2 text-black">
+                        <option value="Présentiel">Présentiel</option>
+                        <option value="Online via Zoom">Online via Zoom</option>
+                        <option value="Hybride">Hybride</option>
+                      </select>
+                    </div>
+                    <div className="mb-3">
+                      <label className="text-xs text-gray-500 block mb-1">Lien Zoom <span className="text-gray-700">(optionnel)</span></label>
+                      <input type="text" value={dropZoom} onChange={e => setDropZoom(e.target.value)} placeholder="https://zoom.us/j/…" className="cyber-input w-full text-sm rounded px-3 py-2 text-white" />
+                    </div>
+                    <div className="mb-4">
+                      <label className="text-xs text-gray-500 block mb-1">Date limite d&apos;envoi des slides <span className="text-gray-700">(optionnel)</span></label>
+                      <input type="text" value={dropDeadline} onChange={e => setDropDeadline(e.target.value)} placeholder="ex : 21 novembre 2026" className="cyber-input w-full text-sm rounded px-3 py-2 text-white" />
+                    </div>
+                    <p className="text-gray-600 text-xs mb-4 leading-relaxed">Ces informations alimentent automatiquement l&apos;email « Speaker — Programmé » ({"{{date}} {{time}} {{mode}} {{zoomLink}} {{slidesDeadline}}"}).</p>
+                  </>
+                )}
                 <div className="flex gap-2">
                   {canWrite && <button onClick={confirmDrop} className="btn-neon px-4 py-2 rounded text-xs flex-1">✓ Confirmer</button>}
-                  <button onClick={() => { setPendingDrop(null); setDropTime("09:00"); }} className="text-gray-500 text-xs px-3 py-2 hover:text-gray-300">Annuler</button>
+                  <button onClick={() => { setPendingDrop(null); setDropTime("09:00"); setDropMode("Présentiel"); setDropZoom(""); setDropDeadline(""); }} className="text-gray-500 text-xs px-3 py-2 hover:text-gray-300">Annuler</button>
                 </div>
               </div>
             </div>

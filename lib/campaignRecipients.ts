@@ -23,6 +23,14 @@ export interface Recipient {
   country?: string | null;
   ticketType?: string | null;
   talkTitle?: string | null; // speaker's talk title (cfp_* audiences)
+  // Programmed-session details (cfp_scheduled audience) — auto-filled in the speaker
+  // "Programmé" template via {{date}} {{time}} {{endTime}} {{mode}} {{zoomLink}} {{slidesDeadline}}.
+  date?: string | null;
+  time?: string | null;
+  endTime?: string | null;
+  mode?: string | null;
+  zoomLink?: string | null;
+  slidesDeadline?: string | null;
   lang?: "fr" | "en"; // recipient's preferred language (drives FR/EN content)
 }
 
@@ -52,20 +60,51 @@ export async function resolveRecipients(seg: CampaignSegment): Promise<Recipient
     const subs = await prisma.newsletterSubscriber.findMany({ select: { email: true } });
     return dedupe(subs.map(s => ({ email: s.email })));
   }
-  // Speaker (CFP) pools — share the same shape, differ only by pipeline status.
-  // talkTitle is exposed so {{talkTitle}} can be auto-personalized in speaker emails.
-  const cfpStatus: Record<string, string> = {
+  // Speaker (CFP) pools — share the same shape, differ only by pipeline stage.
+  // NB: the distinguishing field is `pipelineStage` (the `status` column stays
+  // "accepted" for onboarding/confirmed/scheduled). talkTitle is exposed so
+  // {{talkTitle}} can be auto-personalized in speaker emails.
+  const cfpStage: Record<string, string> = {
     cfp_accepted: "accepted",
     cfp_onboarding: "onboarding",
     cfp_confirmed: "confirmed",
     cfp_scheduled: "scheduled",
   };
-  if (cfpStatus[seg.audience]) {
+  if (cfpStage[seg.audience]) {
     const cfps = await prisma.cFPSubmission.findMany({
-      where: { status: cfpStatus[seg.audience] },
-      select: { email: true, name: true, talkTitle: true, langPresentation: true },
+      where: { pipelineStage: cfpStage[seg.audience] },
+      select: { email: true, name: true, talkTitle: true, langPresentation: true, speakerId: true },
     });
-    return dedupe(cfps.map(c => ({ email: c.email, fname: c.name || undefined, talkTitle: c.talkTitle, lang: normLang(c.langPresentation) })));
+
+    // For scheduled speakers, pull the programmed session details so the
+    // "Programmé" template can auto-fill {{date}} {{time}} {{mode}} {{zoomLink}} {{slidesDeadline}}.
+    let sessionsBySpeaker = new Map<number, { date: string | null; time: string; endTime: string | null; mode: string | null; zoomLink: string | null; slidesDeadline: string | null }>();
+    if (seg.audience === "cfp_scheduled") {
+      const speakerIds = cfps.map(c => c.speakerId).filter((v): v is number => v != null);
+      if (speakerIds.length) {
+        const sessions = await prisma.conferenceSession.findMany({
+          where: { speakerId: { in: speakerIds }, date: { not: null } },
+          select: { speakerId: true, date: true, time: true, endTime: true, mode: true, zoomLink: true, slidesDeadline: true },
+        });
+        sessionsBySpeaker = new Map(sessions.filter(s => s.speakerId != null).map(s => [s.speakerId as number, s]));
+      }
+    }
+
+    return dedupe(cfps.map(c => {
+      const sess = c.speakerId != null ? sessionsBySpeaker.get(c.speakerId) : undefined;
+      return {
+        email: c.email,
+        fname: c.name || undefined,
+        talkTitle: c.talkTitle,
+        lang: normLang(c.langPresentation),
+        date: sess?.date ?? null,
+        time: sess?.time ?? null,
+        endTime: sess?.endTime ?? null,
+        mode: sess?.mode ?? null,
+        zoomLink: sess?.zoomLink ?? null,
+        slidesDeadline: sess?.slidesDeadline ?? null,
+      };
+    }));
   }
   if (seg.audience === "volunteers") {
     const where: Record<string, unknown> = { status: "accepted" };
@@ -123,10 +162,12 @@ export function pickContent(c: BilingualContent, lang: "fr" | "en" | undefined):
   return { subject: c.subject, htmlBody: c.htmlBody, lang: "fr" };
 }
 
-// Replace {{fname}}, {{lname}}, {{email}}, {{org}}, {{country}}, {{ticketType}}, {{talkTitle}}.
+// Replace {{fname}}, {{lname}}, {{email}}, {{org}}, {{country}}, {{ticketType}},
+// {{talkTitle}}, and the programmed-session tokens {{date}} {{time}} {{endTime}}
+// {{mode}} {{zoomLink}} {{slidesDeadline}}.
 // Unknown placeholders are left untouched; missing values become "".
 export function personalize(html: string, r: Recipient): string {
-  return html.replace(/\{\{\s*(fname|lname|email|org|country|ticketType|talkTitle)\s*\}\}/g, (_m, key: string) => {
+  return html.replace(/\{\{\s*(fname|lname|email|org|country|ticketType|talkTitle|date|time|endTime|mode|zoomLink|slidesDeadline)\s*\}\}/g, (_m, key: string) => {
     const v = (r as unknown as Record<string, unknown>)[key];
     return v == null ? "" : String(v);
   });

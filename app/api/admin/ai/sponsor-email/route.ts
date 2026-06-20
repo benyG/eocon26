@@ -18,10 +18,18 @@ export async function POST(req: NextRequest) {
   const openai = getOpenAI();
 
   let prompt = "";
+  const sponsorAngles = `Angles stratégiques pour convaincre un sponsor :
+1. Accès à un vivier de talents : 1 000+ participants, ingénieurs, chercheurs, étudiants à fort potentiel — pour recruter ou faire rayonner votre marque employeur dans l'écosystème cyber africain.
+2. Positionnement sur un marché d'avenir : l'Afrique représente la prochaine vague de croissance en cybersécurité. Être présent à EOCON, c'est s'implanter dès maintenant dans cet écosystème.
+3. Visibilité internationale et diaspora : 15+ pays représentés, audience en ligne mondiale (Paris, Montréal, Lagos, Londres). Portée bien au-delà de l'Afrique.
+4. Image de marque alignée à un mouvement : EOCON n'est pas une conférence — c'est un mouvement. Associer votre marque à "Where Africa secures the future" envoie un signal fort à vos clients, talents et partenaires.`;
+
   if (mode === "followup") {
     prompt = `${EOCON_CONTEXT}
 
-Tu es directeur partenariats pour EOCON 2026.
+Tu es directeur partenariats pour EOCON — un mouvement, pas une conférence.
+
+${sponsorAngles}
 
 Prospect: ${org} (${sector || "secteur non précisé"})
 Contact: ${contact || "non précisé"}, ${contactTitle || ""}
@@ -30,7 +38,7 @@ Statut pipeline: ${status}
 Dernier contact: ${lastContactDate || "non précisé"}
 Notes: ${notes || "aucune"}
 
-Rédige un email de relance adapté au statut "${status}". Ton professionnel mais chaleureux. 150 mots max.
+Rédige un email de relance adapté au statut "${status}". Utilise un des angles stratégiques ci-dessus adapté au secteur. Ton professionnel mais chaleureux. 150 mots max.
 
 JSON uniquement :
 {
@@ -42,13 +50,15 @@ JSON uniquement :
   } else {
     prompt = `${EOCON_CONTEXT}
 
-Tu es directeur partenariats pour EOCON 2026.
+Tu es directeur partenariats pour EOCON — un mouvement, pas une conférence.
+
+${sponsorAngles}
 
 Prospect: ${org} (${sector || "secteur non précisé"})
 Contact: ${contact || "le/la responsable"}, ${contactTitle || ""}
 Package ciblé: ${pkg || "partenariat sponsor"}
 
-Rédige un email de prospection personnalisé. Mentionne l'organisation par son nom. Adapte l'argumentaire au secteur. Ton professionnel mais chaleureux. 200 mots max.
+Rédige un email de prospection personnalisé. Mentionne l'organisation par son nom. Choisis l'angle stratégique le plus pertinent pour leur secteur parmi les 4 ci-dessus. Ton professionnel mais chaleureux. 200 mots max.
 
 JSON uniquement :
 {

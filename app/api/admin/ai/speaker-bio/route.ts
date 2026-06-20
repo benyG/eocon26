@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const openai = getOpenAI();
   const prompt = `${EOCON_CONTEXT}
 
-Tu es rédacteur éditorial pour EOCON 2026.
+Tu es rédacteur éditorial pour EOCON — un mouvement, pas une conférence. Chaque speaker ne présente pas "un talk à EOCON" : il contribue à façonner l'écosystème cyber africain et international. Mets en valeur l'impact, la vision, l'expertise — jamais juste un titre ou une entreprise.
 
 Speaker: ${name || "Speaker"}
 Bio brute: ${bio || "non fournie"}

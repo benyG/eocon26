@@ -10,6 +10,7 @@ import MediaLibraryModal from "@/components/admin/MediaLibraryModal";
 import CyberWatchPanel from "@/components/admin/CyberWatchPanel";
 import PilotagePanel from "@/components/admin/PilotagePanel";
 import CampaignsPanel from "@/components/admin/CampaignsPanel";
+import StrategicPlanPanel from "@/components/admin/StrategicPlanPanel";
 import RegistrationsChart from "@/components/admin/RegistrationsChart";
 import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
 
@@ -20,7 +21,7 @@ const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; 
 });
 const useAdminT = () => useContext(AdminLangContext);
 
-type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "sessions" | "video" | "transactions" | "testimony" | "campaigns";
+type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "sessions" | "video" | "transactions" | "testimony" | "campaigns" | "strategic-plan";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -5729,6 +5730,7 @@ export default function AdminDashboard() {
     budget: "budget",
     transactions: "transactions",
     ctf: "ctf",
+    "strategic-plan": "communication",
     communication: "communication",
     campaigns: "campaigns",
     library: "library",
@@ -5984,6 +5986,7 @@ export default function AdminDashboard() {
       label: t.communication,
       icon: "◉",
       tabs: [
+        { id: "strategic-plan", label: "📋 Plan stratégique" },
         { id: "communication", label: t.communicationPosts },
         { id: "campaigns", label: "📣 Campagnes" },
         { id: "library", label: "📁 Library" },
@@ -6535,6 +6538,10 @@ export default function AdminDashboard() {
           {tab === "settings" && <EventSettingsPanel canWrite={can("settings")} />}
 
           {/* COMMUNICATION */}
+          {tab === "strategic-plan" && (
+            <StrategicPlanPanel canWrite={can("communication")} />
+          )}
+
           {tab === "communication" && (
             <CommunicationPanel canWrite={can("communication")} />
           )}

@@ -12,11 +12,17 @@ export async function POST(req: NextRequest) {
 
   const eoconCtx = await getEoconContext();
 
-  const prompt = `Tu es un expert en sponsoring d'événements tech africains, conseillant l'équipe EOCON.
+  const prompt = `Tu es un expert en partenariats pour EOCON — un mouvement, pas une conférence. Tu conseilles l'équipe sur la façon de convaincre des sponsors potentiels lors de rencontres.
 
 Contexte EOCON : ${eoconCtx}
 
-Tu dois préparer un brief stratégique INTERNE (200 mots max) pour convaincre ce sponsor potentiel lors d'une rencontre.
+Angles stratégiques disponibles :
+1. Accès à un vivier de talents : recruter ou rayonner dans l'écosystème cyber africain et diaspora.
+2. Positionnement sur le marché africain de la cybersécurité — la prochaine vague de croissance mondiale.
+3. Visibilité internationale : 15+ pays, audience en ligne (Paris, Montréal, Lagos, Londres).
+4. Association à un mouvement : "Where Africa secures the future" — signal fort pour clients, talents et partenaires.
+
+Tu dois préparer un brief stratégique INTERNE (200 mots max) pour convaincre ce sponsor potentiel.
 
 Sponsor : ${org}
 Secteur : ${sector || "non précisé"}
@@ -26,10 +32,10 @@ Package recommandé : ${recommendedPackage || "à déterminer"}
 ${aiScoreReason ? `Analyse préliminaire : ${aiScoreReason}` : ""}
 
 Génère un brief concis comprenant :
-1. **Accroche** (1-2 phrases) : l'argument central adapté à leur secteur
-2. **Valeur concrète** (3-4 points) : ce qu'ils gagnent concrètement avec EOCON (visibilité, leads, image)
+1. **Accroche** (1-2 phrases) : l'argument central adapté à leur secteur — jamais "une conférence", toujours un mouvement/écosystème
+2. **Valeur concrète** (3-4 points) : ce qu'ils gagnent concrètement (talents, marché, visibilité internationale, image)
 3. **Objection probable** + réponse préparée
-4. **Ouverture de réunion** : une question d'amorce pour engager la conversation
+4. **Ouverture de réunion** : une question sur leur stratégie talents ou positionnement Afrique pour engager la conversation
 
 Réponds uniquement en JSON :
 {

@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
   if (!user || !user.mfaSecret) return NextResponse.json({ error: "Setup MFA d'abord" }, { status: 400 });
 
   const secret = decryptSecret(user.mfaSecret);
-  const result = await verify({ secret, token: totp, window: 1 });
+  const result = await verify({ secret, token: totp, epochTolerance: 30 });
   if (!result.valid) return NextResponse.json({ error: "Code incorrect — réessayez" }, { status: 400 });
 
   await prisma.adminUser.update({

@@ -29,9 +29,9 @@ export async function POST(req: NextRequest) {
   if (!user.mfaSecret) return NextResponse.json({ error: "MFA non configuré" }, { status: 400 });
 
   const secret = decryptSecret(user.mfaSecret);
-  // window:1 accepts the previous, current, and next 30-second period to handle
-  // minor clock drift and codes entered at a period boundary.
-  const result = await verify({ secret, token: totp, window: 1 });
+  // epochTolerance:30 allows ±30 seconds tolerance to handle clock drift and
+  // codes entered at a period boundary.
+  const result = await verify({ secret, token: totp, epochTolerance: 30 });
   if (!result.valid) return NextResponse.json({ error: "Code incorrect" }, { status: 401 });
 
   // First successful verification (forced enrollment at login) activates MFA.

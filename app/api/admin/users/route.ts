@@ -33,7 +33,7 @@ function esc(s: string): string {
 export async function GET() {
   if (!(await hasPermission("users", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const users = await prisma.adminUser.findMany({
-    select: { id: true, name: true, email: true, permissions: true, isActive: true, profileId: true, createdAt: true },
+    select: { id: true, name: true, email: true, permissions: true, isActive: true, profileId: true, createdAt: true, mfaEnabled: true },
     orderBy: { createdAt: "desc" },
   });
   return NextResponse.json(users);

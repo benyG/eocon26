@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
 - Objectif : ${context.objective}
 - Ce qu'il faut publier : ${context.what}
 - Action recommandée : ${context.action}
+- URL de la plateforme : ${context.url || "Non renseignée"}
 - Priorité : ${context.priority === 1 ? "Haute" : context.priority === 2 ? "Moyenne" : "Basse"}
 
 Adapte le ton et le format à la plateforme. Inclus les éléments essentiels (hashtags si pertinent, lien d'inscription, CTA clair).
@@ -72,7 +73,7 @@ JSON attendu :
     model: process.env.OPENAI_MODEL || "gpt-4o-mini",
     messages: [{ role: "user", content: prompt }],
     temperature: 0.7,
-    max_tokens: 1200,
+    max_completion_tokens: 1200,
   });
 
   const text = response.choices[0]?.message?.content || "{}";

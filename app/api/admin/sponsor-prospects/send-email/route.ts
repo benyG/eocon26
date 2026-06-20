@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
       to: prospect.email,
       subject,
       html,
+      replyTo: "sponsors@eyesopensecurity.com",
       attachments: attachments.map(a => ({ filename: a.filename, content: a.content })),
     });
   } catch (e) {

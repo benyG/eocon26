@@ -199,6 +199,21 @@ export async function templateSnapshot(
   };
 }
 
+// Map a campaign segment to the appropriate reply-to address.
+export function getReplyTo(seg: CampaignSegment): string | undefined {
+  const a = seg.audience;
+  if (a === "cfp_accepted" || a === "cfp_onboarding" || a === "cfp_confirmed" || a === "cfp_scheduled") {
+    return "speakers@eyesopensecurity.com";
+  }
+  if (seg.hasCtf === true) {
+    return "ctf@eyesopensecurity.com";
+  }
+  if (a === "registrations" || a === "volunteers") {
+    return "registration@eyesopensecurity.com";
+  }
+  return undefined;
+}
+
 // Distinct values available for building the filter UI.
 export async function audienceFacets() {
   const regs = await prisma.registration.findMany({

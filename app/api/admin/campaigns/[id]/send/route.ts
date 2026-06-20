@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
 import { wrapCampaignHtml } from "@/lib/email";
-import { parseSegment, resolveRecipients, personalize, pickContent } from "@/lib/campaignRecipients";
+import { parseSegment, resolveRecipients, personalize, pickContent, getReplyTo } from "@/lib/campaignRecipients";
 import { Resend } from "resend";
 
 export const dynamic = "force-dynamic";
@@ -23,8 +23,11 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "Campagne déjà envoyée ou en cours" }, { status: 409 });
   }
 
-  const recipients = await resolveRecipients(parseSegment(campaign.segment));
+  const seg = parseSegment(campaign.segment);
+  const recipients = await resolveRecipients(seg);
   if (!recipients.length) return NextResponse.json({ error: "Aucun destinataire pour ce segment" }, { status: 400 });
+
+  const replyTo = getReplyTo(seg);
 
   await prisma.campaign.update({
     where: { id },
@@ -44,7 +47,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
       const html = wrapCampaignHtml(personalize(c.htmlBody, r), c.lang);
       const subject = personalize(c.subject, r);
       try {
-        const res = await resend.emails.send({ from: getFrom(), to: r.email, subject, html });
+        const res = await resend.emails.send({ from: getFrom(), to: r.email, subject, html, ...(replyTo ? { replyTo } : {}) });
         await prisma.emailLog.create({ data: { campaignId: id, recipient: r.email, subject, status: "sent", resendId: res.data?.id ?? null } });
         sent++;
       } catch {

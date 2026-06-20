@@ -1313,6 +1313,32 @@ function LibraryPickerModal({ onPick, onClose }: { onPick: (url: string) => void
 
 // ---- Communication Panel ----
 
+// Standard HTML boilerplate prefilled when creating a new email template, so the
+// user follows the EOCON visual pattern (heading, greeting, body, neon CTA, signature).
+const STANDARD_TEMPLATE_HTML_FR = `<h1>Titre de l'email 🎉</h1>
+<p>Bonjour {{fname}},</p>
+<p>Votre message principal ici. Présentez l'essentiel en une ou deux phrases claires.</p>
+<p>📅 <strong>28 novembre 2026</strong> · 📍 <strong>Hotel Onomo, Douala, Cameroun</strong></p>
+<ul>
+<li>Point clé n°1</li>
+<li>Point clé n°2</li>
+<li>Point clé n°3</li>
+</ul>
+<p><a href="https://eyesopensecurity.com/#inscription" style="background:#00ff9d;color:#000;padding:12px 24px;border-radius:4px;font-weight:bold;text-decoration:none;display:inline-block;">Bouton d'action →</a></p>
+<p>À très bientôt,<br>L'équipe EOCON 2026</p>`;
+
+const STANDARD_TEMPLATE_HTML_EN = `<h1>Email title 🎉</h1>
+<p>Hi {{fname}},</p>
+<p>Your main message here. Get the essentials across in one or two clear sentences.</p>
+<p>📅 <strong>November 28, 2026</strong> · 📍 <strong>Hotel Onomo, Douala, Cameroon</strong></p>
+<ul>
+<li>Key point #1</li>
+<li>Key point #2</li>
+<li>Key point #3</li>
+</ul>
+<p><a href="https://eyesopensecurity.com/#inscription" style="background:#00ff9d;color:#000;padding:12px 24px;border-radius:4px;font-weight:bold;text-decoration:none;display:inline-block;">Call to action →</a></p>
+<p>See you soon,<br>The EOCON 2026 team</p>`;
+
 function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   const { t } = useAdminT();
   const today = new Date();
@@ -2108,7 +2134,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
           <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">{t.campaignTemplatesLabel}</h3>
           {canWrite && <div className="flex gap-2">
             <button onClick={seedTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>{t.seedTemplatesBtn}</button>
-            <button onClick={() => { if (showTemplateForm) { setShowTemplateForm(false); } else { setTemplateForm({}); setTemplateFormError(""); setShowTemplateForm(true); } }} className="btn-neon px-3 py-1.5 rounded text-xs">{t.createTemplateBtn}</button>
+            <button onClick={() => { if (showTemplateForm) { setShowTemplateForm(false); } else { setTemplateForm({ htmlBody: STANDARD_TEMPLATE_HTML_FR, htmlBodyEn: STANDARD_TEMPLATE_HTML_EN }); setTemplateFormError(""); setShowTemplateForm(true); } }} className="btn-neon px-3 py-1.5 rounded text-xs">{t.createTemplateBtn}</button>
           </div>}
         </div>
         {canWrite && showTemplateForm && (
@@ -4688,6 +4714,8 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [addForm, setAddForm] = useState({ title: "", category: "Web", difficulty: "medium", points: 100, author: "", notes: "" });
   const [showAddForm, setShowAddForm] = useState(false);
   const [dragId, setDragId] = useState<number | null>(null);
+  const [editChallenge, setEditChallenge] = useState<Record<string, unknown> | null>(null);
+  const [savingChallenge, setSavingChallenge] = useState(false);
 
   const [participants, setParticipants] = useState<Record<string, unknown>[]>([]);
   const [syncing, setSyncing] = useState(false);
@@ -4750,6 +4778,27 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
 
   const moveChallenge = async (id: number, status: string) => {
     await fetch(`/api/admin/ctf/challenges/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    loadChallenges();
+  };
+
+  const saveChallenge = async () => {
+    if (!editChallenge) return;
+    setSavingChallenge(true);
+    await fetch(`/api/admin/ctf/challenges/${editChallenge.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: editChallenge.title,
+        category: editChallenge.category,
+        difficulty: editChallenge.difficulty,
+        points: editChallenge.points,
+        author: editChallenge.author,
+        status: editChallenge.status,
+        notes: editChallenge.notes,
+      }),
+    });
+    setSavingChallenge(false);
+    setEditChallenge(null);
     loadChallenges();
   };
 
@@ -4927,7 +4976,8 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                   <div className="space-y-2 min-h-[80px]">
                     {cards.map(c => (
                       <div key={c.id as number} draggable={canWrite} onDragStart={() => canWrite && setDragId(c.id as number)}
-                        className="rounded-lg p-2.5 cursor-grab active:cursor-grabbing"
+                        onClick={() => canWrite && setEditChallenge({ ...c })}
+                        className={`rounded-lg p-2.5 ${canWrite ? "cursor-pointer active:cursor-grabbing hover:brightness-125" : ""} transition-all`}
                         style={{ background: (CTF_CATEGORY_COLORS[c.category as string] || "#888") + "15", border: `1px solid ${(CTF_CATEGORY_COLORS[c.category as string] || "#888")}40` }}>
                         <div className="text-xs font-bold text-white mb-1">{c.title as string}</div>
                         <div className="flex items-center gap-1 flex-wrap">
@@ -4936,7 +4986,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                           <span className="text-xs text-gray-400 ml-auto">{c.points as number}pts</span>
                         </div>
                         {!!c.author && <div className="text-xs text-gray-600 mt-1">{c.author as string}</div>}
-                        {canWrite && <button onClick={() => deleteChallenge(c.id as number)} className="text-red-800 hover:text-red-400 text-xs mt-1">✗</button>}
+                        {canWrite && <button onClick={e => { e.stopPropagation(); deleteChallenge(c.id as number); }} className="text-red-800 hover:text-red-400 text-xs mt-1">✗ Supprimer</button>}
                       </div>
                     ))}
                   </div>
@@ -4944,6 +4994,63 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
               );
             })}
           </div>
+
+          {/* Challenge edit modal */}
+          {canWrite && editChallenge && (
+            <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setEditChallenge(null)}>
+              <div className="cyber-card rounded-xl p-5 max-w-lg w-full border-neon-green/30" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-white font-bold text-sm">Éditer le challenge</h3>
+                  <button onClick={() => setEditChallenge(null)} className="text-gray-500 hover:text-white">✕</button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-500 block mb-1">Titre</label>
+                    <input value={(editChallenge.title as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, title: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Catégorie</label>
+                    <select value={(editChallenge.category as string) || "Web"} onChange={e => setEditChallenge(p => p ? { ...p, category: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
+                      {CTF_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Difficulté</label>
+                    <select value={(editChallenge.difficulty as string) || "medium"} onChange={e => setEditChallenge(p => p ? { ...p, difficulty: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
+                      <option value="easy">Easy</option>
+                      <option value="medium">Medium</option>
+                      <option value="hard">Hard</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Points</label>
+                    <input type="number" value={(editChallenge.points as number) ?? 0} onChange={e => setEditChallenge(p => p ? { ...p, points: parseInt(e.target.value) || 0 } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Statut</label>
+                    <select value={(editChallenge.status as string) || "idea"} onChange={e => setEditChallenge(p => p ? { ...p, status: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
+                      {CTF_STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-500 block mb-1">Auteur</label>
+                    <input value={(editChallenge.author as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, author: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-500 block mb-1">Notes</label>
+                    <textarea value={(editChallenge.notes as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, notes: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm h-20 resize-none" />
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <button onClick={saveChallenge} disabled={savingChallenge} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
+                    {savingChallenge ? "Sauvegarde…" : "💾 Sauvegarder"}
+                  </button>
+                  <button onClick={() => { deleteChallenge(editChallenge.id as number); setEditChallenge(null); }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>Supprimer</button>
+                  <button onClick={() => setEditChallenge(null)} className="text-xs text-gray-500 px-3 py-2 hover:text-gray-300">Annuler</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

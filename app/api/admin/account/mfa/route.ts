@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   const user = await prisma.adminUser.findUnique({ where: { id: userId } });
   if (!user?.mfaSecret) return NextResponse.json({ error: "Démarrez la configuration MFA d'abord" }, { status: 400 });
 
-  const result = await verify({ secret: decryptSecret(user.mfaSecret), token: String(totp), window: 1 });
+  const result = await verify({ secret: decryptSecret(user.mfaSecret), token: String(totp), epochTolerance: 30 });
   if (!result.valid) return NextResponse.json({ error: "Code incorrect — réessayez" }, { status: 400 });
 
   await prisma.adminUser.update({ where: { id: userId }, data: { mfaEnabled: true, mfaEnrolledAt: new Date() } });

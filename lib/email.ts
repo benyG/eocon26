@@ -217,7 +217,7 @@ export async function sendVolunteerConfirmation(to: string, name: string, lang: 
   await sendWithTemplate(
     "volunteer_confirmation", to, { name: esc(name) },
     isFr ? `✅ Candidature bénévole reçue — EOCON 2026` : `✅ Volunteer application received — EOCON 2026`,
-    emailWrap(body, isFr), lang,
+    emailWrap(body, isFr), lang, undefined, "registration@eyesopensecurity.com",
   );
 }
 
@@ -242,7 +242,7 @@ export async function sendVolunteerAccepted(to: string, name: string, assignedRo
   await sendWithTemplate(
     "volunteer_accepted", to, { name: esc(name), assignedRole: esc(role) },
     isFr ? `🎉 Candidature bénévole acceptée — EOCON 2026` : `🎉 Volunteer application accepted — EOCON 2026`,
-    emailWrap(body, isFr), lang,
+    emailWrap(body, isFr), lang, undefined, "registration@eyesopensecurity.com",
   );
 }
 
@@ -258,7 +258,7 @@ export async function sendVolunteerShortlisted(to: string, name: string, lang: "
        ${dateLine(isFr)}`;
   await sendWithTemplate("volunteer_shortlisted", to, { name: nameSafe },
     isFr ? `👀 Votre candidature bénévole — EOCON 2026` : `👀 Your volunteer application — EOCON 2026`,
-    emailWrap(body, isFr), lang,
+    emailWrap(body, isFr), lang, undefined, "registration@eyesopensecurity.com",
   );
 }
 
@@ -287,7 +287,7 @@ export async function sendVolunteerOnboarding(to: string, name: string, assigned
        ${dateLine(isFr)}`;
   await sendWithTemplate("volunteer_onboarding", to, { name: nameSafe, assignedRole: roleSafe },
     isFr ? `🎽 Informations bénévole — EOCON 2026` : `🎽 Volunteer briefing — EOCON 2026`,
-    emailWrap(body, isFr), lang,
+    emailWrap(body, isFr), lang, undefined, "registration@eyesopensecurity.com",
   );
 }
 
@@ -303,7 +303,7 @@ export async function sendVolunteerRejected(to: string, name: string, lang: "fr"
        <p>We appreciate your interest and hope to see you at EOCON 2027.</p>`;
   await sendWithTemplate("volunteer_rejected", to, { name: nameSafe },
     isFr ? `Candidature bénévole — EOCON 2026` : `Volunteer application — EOCON 2026`,
-    emailWrap(body, isFr), lang,
+    emailWrap(body, isFr), lang, undefined, "registration@eyesopensecurity.com",
   );
 }
 
@@ -493,7 +493,7 @@ export async function sendRegistrationPending(
   await sendWithTemplate(
     "registration_pending", to, vars,
     isFr ? `⏳ Inscription enregistrée — EOCON 2026 [${ticketRef}]` : `⏳ Registration recorded — EOCON 2026 [${ticketRef}]`,
-    emailWrap(body, isFr), lang,
+    emailWrap(body, isFr), lang, undefined, "registration@eyesopensecurity.com",
   );
 }
 
@@ -621,6 +621,7 @@ export async function sendRegistrationTicket(
       { filename: "EOCON2026.ics", content: icsBuffer, content_id: "event_ics" },
       ...(badgePdf ? [{ filename: `badge-EOCON2026-${ticketRef}.pdf`, content: badgePdf }] : []),
     ],
+    "registration@eyesopensecurity.com",
   );
 }
 

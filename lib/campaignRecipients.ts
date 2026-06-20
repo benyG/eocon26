@@ -208,6 +208,9 @@ export function getReplyTo(seg: CampaignSegment): string | undefined {
   if (seg.hasCtf === true) {
     return "ctf@eyesopensecurity.com";
   }
+  if (a === "registrations" || a === "volunteers") {
+    return "registration@eyesopensecurity.com";
+  }
   return undefined;
 }
 

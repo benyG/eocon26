@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
 - Objectif : ${context.objective}
 - Ce qu'il faut publier : ${context.what}
 - Action recommandée : ${context.action}
+- URL de la plateforme : ${context.url || "Non renseignée"}
 - Priorité : ${context.priority === 1 ? "Haute" : context.priority === 2 ? "Moyenne" : "Basse"}
 
 Adapte le ton et le format à la plateforme. Inclus les éléments essentiels (hashtags si pertinent, lien d'inscription, CTA clair).

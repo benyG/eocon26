@@ -326,7 +326,7 @@ interface ProfileLite {
   isSystem: boolean;
 }
 
-function AdminUsersPanel({ canWrite = true }: { canWrite?: boolean }) {
+function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: boolean; canDelete?: boolean }) {
   const { t } = useAdminT();
   const confirm = useConfirm();
   const [users, setUsers] = useState<Record<string, unknown>[]>([]);
@@ -441,6 +441,14 @@ function AdminUsersPanel({ canWrite = true }: { canWrite?: boolean }) {
     });
     if (res.ok) {
       setUsers(prev => prev.map(u => u.id === id ? { ...u, mfaEnabled: false } : u));
+    }
+  };
+
+  const deleteUser = async (u: Record<string, unknown>) => {
+    if (!(await confirm({ message: `Supprimer définitivement le compte "${u.name as string}" (${u.email as string}) ? Cette action est irréversible.`, danger: true }))) return;
+    const res = await fetch(`/api/admin/users/${u.id as number}`, { method: "DELETE" });
+    if (res.ok) {
+      setUsers(prev => prev.filter(x => x.id !== u.id));
     }
   };
 
@@ -633,6 +641,11 @@ function AdminUsersPanel({ canWrite = true }: { canWrite?: boolean }) {
                       Activer MFA
                     </button>
                   ))}
+                  {canDelete && (
+                    <button onClick={() => deleteUser(u)} className="text-xs text-red-600 hover:text-red-400 transition-colors border border-red-900/40 hover:border-red-500/50 px-2 py-0.5 rounded">
+                      Supprimer
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -6531,7 +6544,7 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {tab === "users" && <AdminUsersPanel canWrite={can("users")} />}
+          {tab === "users" && <AdminUsersPanel canWrite={can("users")} canDelete={!!(userInfo?.isLegacy || userInfo?.isRoot)} />}
           {tab === "profiles" && <AdminProfilesPanel />}
 
           {tab === "pilotage" && <PilotagePanel canWrite={can("pilotage")} />}

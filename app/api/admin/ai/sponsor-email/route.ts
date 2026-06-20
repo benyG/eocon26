@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { hasPermission } from "@/lib/adminPermissions";
 import { getOpenAI, EOCON_CONTEXT } from "@/lib/openai";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ interface EmailResult {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await hasPermission("prospection", "write"))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { org, contact, contactTitle, package: pkg, sector, status, lastContactDate, notes, mode } = await req.json();
 
   const openai = getOpenAI();

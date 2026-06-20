@@ -4,13 +4,14 @@ import EmailTemplatesPanel from "@/components/admin/EmailTemplatesPanel";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface Segment {
-  audience: "registrations" | "newsletter" | "cfp_accepted" | "volunteers";
+  audience: "registrations" | "newsletter" | "cfp_accepted" | "cfp_onboarding" | "cfp_confirmed" | "cfp_scheduled" | "volunteers";
   statuses?: string[];
   ticketTypes?: string[];
   countries?: string[];
   langs?: string[];
   hasCtf?: boolean;
   checkedIn?: boolean;
+  roles?: string[];
 }
 
 interface Campaign {
@@ -49,6 +50,7 @@ interface Facets {
   ticketTypes: string[];
   countries: string[];
   langs: string[];
+  volunteerRoles: string[];
   total: number;
 }
 
@@ -56,12 +58,16 @@ const AUDIENCES: { key: Segment["audience"]; label: string }[] = [
   { key: "registrations", label: "Inscrits" },
   { key: "newsletter", label: "Newsletter" },
   { key: "cfp_accepted", label: "Speakers acceptés" },
+  { key: "cfp_onboarding", label: "Speakers — onboarding" },
+  { key: "cfp_confirmed", label: "Speakers — confirmés" },
+  { key: "cfp_scheduled", label: "Speakers — programmés" },
   { key: "volunteers", label: "Bénévoles acceptés" },
 ];
 
 function parseSeg(raw: string): Segment {
   try { const p = JSON.parse(raw); if (p?.audience) return p; } catch { /* legacy */ }
   if (raw === "newsletter" || raw === "cfp_accepted" || raw === "volunteers") return { audience: raw };
+  if (raw === "cfp_onboarding" || raw === "cfp_confirmed" || raw === "cfp_scheduled") return { audience: raw };
   return { audience: "registrations" };
 }
 
@@ -371,6 +377,7 @@ function CampaignEditor({ campaign, templates, facets, onClose }: { campaign: Ca
   );
 
   const isReg = seg.audience === "registrations";
+  const isVol = seg.audience === "volunteers";
 
   return (
     <div>
@@ -503,6 +510,29 @@ function CampaignEditor({ campaign, templates, facets, onClose }: { campaign: Ca
                   </button>
                 </div>
               </>
+            )}
+
+            {isVol && facets && facets.volunteerRoles?.length > 0 && (
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Affectation (rôle)</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {facets.volunteerRoles.map(v => {
+                    const on = (seg.roles || []).includes(v);
+                    return (
+                      <button key={v} disabled={readOnly} onClick={() => {
+                        setSeg(s => {
+                          const cur = new Set(s.roles || []);
+                          if (cur.has(v)) cur.delete(v); else cur.add(v);
+                          return { ...s, roles: Array.from(cur) };
+                        });
+                      }}
+                        className={`text-xs px-2 py-1 rounded border transition-all ${on ? "border-neon-green text-neon-green bg-neon-green/10" : "border-gray-700 text-gray-500 hover:border-gray-500"} disabled:opacity-50`}>
+                        {v}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
 
             {/* Live count */}

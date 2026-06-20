@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 // `audience` picks the base pool; the remaining keys further narrow it and only
 // apply to the "registrations" pool (the others have no such attributes).
 export interface CampaignSegment {
-  audience: "registrations" | "newsletter" | "cfp_accepted" | "volunteers";
+  audience: "registrations" | "newsletter" | "cfp_accepted" | "cfp_onboarding" | "cfp_confirmed" | "cfp_scheduled" | "volunteers";
   // registrations-only granular filters (empty/undefined = no constraint):
   statuses?: string[];     // registration.status (pending | paid | …)
   ticketTypes?: string[];  // registration.ticketType
@@ -12,6 +12,7 @@ export interface CampaignSegment {
   langs?: string[];        // registration.langExpression (fr | en)
   hasCtf?: boolean;        // true = only CTF competitors, false = only non-CTF
   checkedIn?: boolean;     // true = only checked-in, false = only not-checked-in
+  roles?: string[];        // volunteers-only filter by role/affectation
 }
 
 export interface Recipient {
@@ -39,6 +40,7 @@ export function parseSegment(raw: string | null | undefined): CampaignSegment {
   const legacy = String(raw);
   if (legacy === "newsletter") return { audience: "newsletter" };
   if (legacy === "cfp_accepted") return { audience: "cfp_accepted" };
+  if (legacy === "cfp_onboarding" || legacy === "cfp_confirmed" || legacy === "cfp_scheduled") return { audience: legacy };
   if (legacy === "volunteers") return { audience: "volunteers" };
   return { audience: "registrations" };
 }
@@ -53,8 +55,22 @@ export async function resolveRecipients(seg: CampaignSegment): Promise<Recipient
     const cfps = await prisma.cFPSubmission.findMany({ where: { status: "accepted" }, select: { email: true, name: true, langPresentation: true } });
     return dedupe(cfps.map(c => ({ email: c.email, fname: c.name || undefined, lang: normLang(c.langPresentation) })));
   }
+  if (seg.audience === "cfp_onboarding") {
+    const cfps = await prisma.cFPSubmission.findMany({ where: { status: "onboarding" }, select: { email: true, name: true, langPresentation: true } });
+    return dedupe(cfps.map(c => ({ email: c.email, fname: c.name || undefined, lang: normLang(c.langPresentation) })));
+  }
+  if (seg.audience === "cfp_confirmed") {
+    const cfps = await prisma.cFPSubmission.findMany({ where: { status: "confirmed" }, select: { email: true, name: true, langPresentation: true } });
+    return dedupe(cfps.map(c => ({ email: c.email, fname: c.name || undefined, lang: normLang(c.langPresentation) })));
+  }
+  if (seg.audience === "cfp_scheduled") {
+    const cfps = await prisma.cFPSubmission.findMany({ where: { status: "scheduled" }, select: { email: true, name: true, langPresentation: true } });
+    return dedupe(cfps.map(c => ({ email: c.email, fname: c.name || undefined, lang: normLang(c.langPresentation) })));
+  }
   if (seg.audience === "volunteers") {
-    const vols = await prisma.volunteerApplication.findMany({ where: { status: "accepted" }, select: { email: true, name: true, langExpression: true } });
+    const where: Record<string, unknown> = { status: "accepted" };
+    if (seg.roles?.length) where.role = { in: seg.roles };
+    const vols = await prisma.volunteerApplication.findMany({ where, select: { email: true, name: true, langExpression: true } });
     return dedupe(vols.map(v => ({ email: v.email, fname: v.name || undefined, lang: normLang(v.langExpression) })));
   }
 
@@ -147,6 +163,7 @@ export async function audienceFacets() {
   const regs = await prisma.registration.findMany({
     select: { status: true, ticketType: true, country: true, langExpression: true },
   });
+  const vols = await prisma.volunteerApplication.findMany({ where: { status: "accepted" }, select: { role: true } });
   const uniq = (arr: (string | null)[]) =>
     Array.from(new Set(arr.filter((v): v is string => !!v))).sort();
   return {
@@ -154,6 +171,7 @@ export async function audienceFacets() {
     ticketTypes: uniq(regs.map(r => r.ticketType)),
     countries: uniq(regs.map(r => r.country)),
     langs: uniq(regs.map(r => r.langExpression)),
+    volunteerRoles: uniq(vols.map(v => v.role)),
     total: regs.length,
   };
 }

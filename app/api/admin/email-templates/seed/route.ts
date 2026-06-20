@@ -163,6 +163,144 @@ const SEED_TEMPLATES = [
 <p>Visit our website for all the details.</p>
 <p>Stay tuned!<br>The EOCON 2026 team</p>`,
   },
+  {
+    name: "🔑 CTF — Accès CTFd & identifiants de connexion",
+    segment: "registered",
+    subject: "EOCTF 2026 — Votre compte CTFd est prêt 🔑",
+    htmlBody: `<h1>Vos identifiants EOCTF 2026 🔑</h1>
+<p>Bonjour {{fname}},</p>
+<p>Votre compte sur la plateforme <strong>CTFd EOCTF</strong> vient d'être créé. Voici vos informations de connexion :</p>
+<ul>
+<li>🌐 <strong>Plateforme :</strong> <a href="https://ctf.eyesopensecurity.com" style="color:#00ff9d;">ctf.eyesopensecurity.com</a></li>
+<li>👤 <strong>Nom d'utilisateur :</strong> {{fname}}</li>
+<li>📧 <strong>Email :</strong> {{email}}</li>
+<li>🔒 <strong>Mot de passe :</strong> défini lors de votre inscription — réinitialisable via la plateforme</li>
+</ul>
+<p>⚠️ Connectez-vous <strong>avant le début de la compétition</strong> pour vérifier votre accès et rejoindre ou créer votre équipe (max 4 personnes).</p>
+<p>La compétition démarre le <strong>27 novembre 2026 à 20h00</strong> et se termine le <strong>28 novembre à 20h00</strong>.</p>
+<p>May the flags be with you 🚩<br>L'équipe EOCON 2026</p>`,
+    subjectEn: "EOCTF 2026 — Your CTFd account is ready 🔑",
+    htmlBodyEn: `<h1>Your EOCTF 2026 credentials 🔑</h1>
+<p>Hi {{fname}},</p>
+<p>Your account on the <strong>EOCTF CTFd</strong> platform has just been created. Here are your login details:</p>
+<ul>
+<li>🌐 <strong>Platform:</strong> <a href="https://ctf.eyesopensecurity.com" style="color:#00ff9d;">ctf.eyesopensecurity.com</a></li>
+<li>👤 <strong>Username:</strong> {{fname}}</li>
+<li>📧 <strong>Email:</strong> {{email}}</li>
+<li>🔒 <strong>Password:</strong> set during registration — can be reset via the platform</li>
+</ul>
+<p>⚠️ Log in <strong>before the competition starts</strong> to verify your access and join or create your team (max 4 members).</p>
+<p>The competition runs from <strong>November 27, 2026 at 8:00 PM</strong> to <strong>November 28 at 8:00 PM</strong>.</p>
+<p>May the flags be with you 🚩<br>The EOCON 2026 team</p>`,
+  },
+  {
+    name: "🤝 CTF — Participation sans équipe (solo)",
+    segment: "registered",
+    subject: "EOCTF 2026 — Vous participez en solo 🤝",
+    htmlBody: `<h1>Vous jouez en solo à EOCTF 2026 🤝</h1>
+<p>Bonjour {{fname}},</p>
+<p>Nous avons constaté que vous n'êtes encore rattaché(e) à aucune équipe pour le <strong>CTF EOCTF 2026</strong>. Pas de panique — vous pouvez tout à fait participer en <strong>solo</strong> !</p>
+<p>Quelques options s'offrent à vous :</p>
+<ul>
+<li>🔍 <strong>Rejoindre une équipe existante</strong> — consultez le forum Discord EOCON pour trouver une équipe qui recrute</li>
+<li>🆕 <strong>Créer votre propre équipe</strong> — invitez jusqu'à 3 autres participants via la plateforme CTFd</li>
+<li>🎯 <strong>Jouer en solo</strong> — tout à fait valide, le classement individuel est actif</li>
+</ul>
+<p>💬 Rejoignez le serveur Discord EOCON pour échanger avec d'autres participants : <a href="https://discord.gg/eocon" style="color:#00ff9d;">discord.gg/eocon</a></p>
+<p>La compétition démarre le <strong>27 novembre 2026 à 20h00</strong>. Bonne chance !<br>L'équipe EOCON 2026</p>`,
+    subjectEn: "EOCTF 2026 — You're participating solo 🤝",
+    htmlBodyEn: `<h1>You're playing solo at EOCTF 2026 🤝</h1>
+<p>Hi {{fname}},</p>
+<p>We noticed you haven't joined a team yet for the <strong>EOCTF 2026 CTF</strong>. No worries — you can absolutely compete <strong>solo</strong>!</p>
+<p>Here are your options:</p>
+<ul>
+<li>🔍 <strong>Join an existing team</strong> — check the EOCON Discord forum to find a team that's recruiting</li>
+<li>🆕 <strong>Create your own team</strong> — invite up to 3 other participants via the CTFd platform</li>
+<li>🎯 <strong>Play solo</strong> — totally valid, the individual leaderboard is live</li>
+</ul>
+<p>💬 Join the EOCON Discord server to connect with other participants: <a href="https://discord.gg/eocon" style="color:#00ff9d;">discord.gg/eocon</a></p>
+<p>The competition starts <strong>November 27, 2026 at 8:00 PM</strong>. Good luck!<br>The EOCON 2026 team</p>`,
+  },
+  {
+    name: "⏰ CTF — Rappel J-1 EOCTF",
+    segment: "registered",
+    subject: "EOCTF 2026 — La compétition commence demain soir ! ⚡",
+    htmlBody: `<h1>EOCTF 2026, c'est demain ! ⚡</h1>
+<p>Bonjour {{fname}},</p>
+<p>La compétition <strong>EOCTF 2026</strong> démarre dans moins de 24 heures. Êtes-vous prêt(e) ?</p>
+<p>📋 <strong>Checklist avant le départ :</strong></p>
+<ul>
+<li>✅ Compte CTFd vérifié — <a href="https://ctf.eyesopensecurity.com" style="color:#00ff9d;">ctf.eyesopensecurity.com</a></li>
+<li>✅ Équipe rejointe ou créée (ou prêt(e) à jouer en solo)</li>
+<li>✅ Environnement prêt : Kali Linux / VM / outils CTF installés</li>
+<li>✅ Laptop chargé & chargeur dans le sac</li>
+<li>✅ Connexion internet fiable prévue</li>
+</ul>
+<p>🕗 <strong>Démarrage :</strong> 27 novembre 2026 à <strong>20h00</strong> (heure de Douala)<br>
+🏁 <strong>Fin :</strong> 28 novembre 2026 à <strong>20h00</strong><br>
+📍 Plateforme en ligne + présence sur site possible</p>
+<p>Le classement en direct sera visible sur la plateforme dès le début. Les flags vous attendent — bonne chasse ! 🚩<br>L'équipe EOCON 2026</p>`,
+    subjectEn: "EOCTF 2026 — The competition starts tomorrow night! ⚡",
+    htmlBodyEn: `<h1>EOCTF 2026 is tomorrow! ⚡</h1>
+<p>Hi {{fname}},</p>
+<p>The <strong>EOCTF 2026</strong> competition kicks off in less than 24 hours. Are you ready?</p>
+<p>📋 <strong>Pre-game checklist:</strong></p>
+<ul>
+<li>✅ CTFd account verified — <a href="https://ctf.eyesopensecurity.com" style="color:#00ff9d;">ctf.eyesopensecurity.com</a></li>
+<li>✅ Team joined or created (or ready to play solo)</li>
+<li>✅ Environment ready: Kali Linux / VM / CTF tools installed</li>
+<li>✅ Laptop charged & charger in your bag</li>
+<li>✅ Reliable internet connection secured</li>
+</ul>
+<p>🕗 <strong>Start:</strong> November 27, 2026 at <strong>8:00 PM</strong> (Douala time)<br>
+🏁 <strong>End:</strong> November 28, 2026 at <strong>8:00 PM</strong><br>
+📍 Online platform + on-site presence possible</p>
+<p>The live leaderboard will be visible on the platform from the start. The flags are waiting — happy hunting! 🚩<br>The EOCON 2026 team</p>`,
+  },
+  {
+    name: "🎤 Speaker — Onboarding & bienvenue",
+    segment: "cfp_onboarding",
+    subject: "EOCON 2026 — Bienvenue, vous êtes speaker ! 🎉",
+    htmlBody: `<h1>Félicitations, vous êtes speaker EOCON 2026 ! 🎤</h1>
+<p>Bonjour {{fname}},</p>
+<p>C'est avec grand plaisir que nous vous confirmons votre sélection comme <strong>intervenant(e)</strong> à <strong>EOCON 2026</strong>, l'évènement cybersécurité de référence en Afrique centrale.</p>
+<p>📅 <strong>28 novembre 2026</strong> · 📍 <strong>Hotel Onomo, Douala, Cameroun</strong></p>
+<h2 style="color:#00ff9d;font-size:1rem;margin-top:1.5rem;">📋 Prochaines étapes</h2>
+<ul>
+<li>✅ Confirmez votre participation en répondant à cet email</li>
+<li>📝 Envoyez votre <strong>biographie</strong> (150 mots max) et votre <strong>photo professionnelle</strong> (JPG, min 800×800px)</li>
+<li>🎯 Précisez le <strong>titre définitif</strong> de votre talk et le résumé (200 mots max)</li>
+<li>📊 Les slides devront être envoyées au plus tard <strong>7 jours avant l'évènement</strong></li>
+</ul>
+<h2 style="color:#00ff9d;font-size:1rem;margin-top:1.5rem;">🎁 Ce que nous prenons en charge</h2>
+<ul>
+<li>🏨 Hébergement la nuit du 27 au 28 novembre</li>
+<li>🍽 Repas et pauses café</li>
+<li>🎫 Accès VIP à l'intégralité de l'évènement</li>
+</ul>
+<p>Notre équipe vous contactera prochainement pour discuter de la logistique.</p>
+<p>À très bientôt,<br>L'équipe EOCON 2026<br><a href="mailto:speakers@eyesopensecurity.com" style="color:#00ff9d;">speakers@eyesopensecurity.com</a></p>`,
+    subjectEn: "EOCON 2026 — Welcome, you are a speaker! 🎉",
+    htmlBodyEn: `<h1>Congratulations, you are an EOCON 2026 speaker! 🎤</h1>
+<p>Hi {{fname}},</p>
+<p>We are thrilled to confirm your selection as a <strong>speaker</strong> at <strong>EOCON 2026</strong>, Central Africa's leading cybersecurity event.</p>
+<p>📅 <strong>November 28, 2026</strong> · 📍 <strong>Hotel Onomo, Douala, Cameroon</strong></p>
+<h2 style="color:#00ff9d;font-size:1rem;margin-top:1.5rem;">📋 Next steps</h2>
+<ul>
+<li>✅ Confirm your participation by replying to this email</li>
+<li>📝 Send your <strong>biography</strong> (150 words max) and <strong>professional photo</strong> (JPG, min 800×800px)</li>
+<li>🎯 Specify the <strong>final title</strong> of your talk and summary (200 words max)</li>
+<li>📊 Slides must be submitted no later than <strong>7 days before the event</strong></li>
+</ul>
+<h2 style="color:#00ff9d;font-size:1rem;margin-top:1.5rem;">🎁 What we cover</h2>
+<ul>
+<li>🏨 Accommodation on the night of November 27–28</li>
+<li>🍽 Meals and coffee breaks</li>
+<li>🎫 VIP access to the entire event</li>
+</ul>
+<p>Our team will contact you soon to discuss logistics.</p>
+<p>See you soon,<br>The EOCON 2026 team<br><a href="mailto:speakers@eyesopensecurity.com" style="color:#00ff9d;">speakers@eyesopensecurity.com</a></p>`,
+  },
 ];
 
 export async function POST() {

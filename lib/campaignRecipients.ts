@@ -22,6 +22,7 @@ export interface Recipient {
   org?: string | null;
   country?: string | null;
   ticketType?: string | null;
+  talkTitle?: string | null; // speaker's talk title (cfp_* audiences)
   lang?: "fr" | "en"; // recipient's preferred language (drives FR/EN content)
 }
 
@@ -51,21 +52,20 @@ export async function resolveRecipients(seg: CampaignSegment): Promise<Recipient
     const subs = await prisma.newsletterSubscriber.findMany({ select: { email: true } });
     return dedupe(subs.map(s => ({ email: s.email })));
   }
-  if (seg.audience === "cfp_accepted") {
-    const cfps = await prisma.cFPSubmission.findMany({ where: { status: "accepted" }, select: { email: true, name: true, langPresentation: true } });
-    return dedupe(cfps.map(c => ({ email: c.email, fname: c.name || undefined, lang: normLang(c.langPresentation) })));
-  }
-  if (seg.audience === "cfp_onboarding") {
-    const cfps = await prisma.cFPSubmission.findMany({ where: { status: "onboarding" }, select: { email: true, name: true, langPresentation: true } });
-    return dedupe(cfps.map(c => ({ email: c.email, fname: c.name || undefined, lang: normLang(c.langPresentation) })));
-  }
-  if (seg.audience === "cfp_confirmed") {
-    const cfps = await prisma.cFPSubmission.findMany({ where: { status: "confirmed" }, select: { email: true, name: true, langPresentation: true } });
-    return dedupe(cfps.map(c => ({ email: c.email, fname: c.name || undefined, lang: normLang(c.langPresentation) })));
-  }
-  if (seg.audience === "cfp_scheduled") {
-    const cfps = await prisma.cFPSubmission.findMany({ where: { status: "scheduled" }, select: { email: true, name: true, langPresentation: true } });
-    return dedupe(cfps.map(c => ({ email: c.email, fname: c.name || undefined, lang: normLang(c.langPresentation) })));
+  // Speaker (CFP) pools — share the same shape, differ only by pipeline status.
+  // talkTitle is exposed so {{talkTitle}} can be auto-personalized in speaker emails.
+  const cfpStatus: Record<string, string> = {
+    cfp_accepted: "accepted",
+    cfp_onboarding: "onboarding",
+    cfp_confirmed: "confirmed",
+    cfp_scheduled: "scheduled",
+  };
+  if (cfpStatus[seg.audience]) {
+    const cfps = await prisma.cFPSubmission.findMany({
+      where: { status: cfpStatus[seg.audience] },
+      select: { email: true, name: true, talkTitle: true, langPresentation: true },
+    });
+    return dedupe(cfps.map(c => ({ email: c.email, fname: c.name || undefined, talkTitle: c.talkTitle, lang: normLang(c.langPresentation) })));
   }
   if (seg.audience === "volunteers") {
     const where: Record<string, unknown> = { status: "accepted" };
@@ -123,10 +123,10 @@ export function pickContent(c: BilingualContent, lang: "fr" | "en" | undefined):
   return { subject: c.subject, htmlBody: c.htmlBody, lang: "fr" };
 }
 
-// Replace {{fname}}, {{lname}}, {{email}}, {{org}}, {{country}}, {{ticketType}}.
+// Replace {{fname}}, {{lname}}, {{email}}, {{org}}, {{country}}, {{ticketType}}, {{talkTitle}}.
 // Unknown placeholders are left untouched; missing values become "".
 export function personalize(html: string, r: Recipient): string {
-  return html.replace(/\{\{\s*(fname|lname|email|org|country|ticketType)\s*\}\}/g, (_m, key: string) => {
+  return html.replace(/\{\{\s*(fname|lname|email|org|country|ticketType|talkTitle)\s*\}\}/g, (_m, key: string) => {
     const v = (r as unknown as Record<string, unknown>)[key];
     return v == null ? "" : String(v);
   });

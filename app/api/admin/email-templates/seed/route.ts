@@ -258,48 +258,91 @@ const SEED_TEMPLATES = [
 <p>The live leaderboard will be visible on the platform from the start. The flags are waiting — happy hunting! 🚩<br>The EOCON 2026 team</p>`,
   },
   {
-    name: "🎤 Speaker — Onboarding & bienvenue",
+    // Auto-personnalisés : {{fname}} (nom), {{talkTitle}} (sujet du talk).
+    name: "🎤 Speaker — Onboarding (proposition retenue)",
     segment: "cfp_onboarding",
-    subject: "EOCON 2026 — Bienvenue, vous êtes speaker ! 🎉",
-    htmlBody: `<h1>Félicitations, vous êtes speaker EOCON 2026 ! 🎤</h1>
-<p>Bonjour {{fname}},</p>
-<p>C'est avec grand plaisir que nous vous confirmons votre sélection comme <strong>intervenant(e)</strong> à <strong>EOCON 2026</strong>, l'évènement cybersécurité de référence en Afrique centrale.</p>
-<p>📅 <strong>28 novembre 2026</strong> · 📍 <strong>Hotel Onomo, Douala, Cameroun</strong></p>
-<h2 style="color:#00ff9d;font-size:1rem;margin-top:1.5rem;">📋 Prochaines étapes</h2>
+    subject: "EOCON 2026 — Votre proposition a été retenue ! 🎉",
+    htmlBody: `<p>Bonjour {{fname}},</p>
+<p>L'équipe EyesOpen a le plaisir de vous informer que votre proposition a été <strong>retenue</strong> pour l'évènement cybersécurité <strong>EOCON 2026</strong>. Merci pour votre contribution et votre intérêt pour cet évènement.</p>
+<p>🎯 <strong>Talk :</strong> {{talkTitle}}</p>
+<p>Afin de promouvoir votre intervention, nous aurons besoin des éléments suivants :</p>
 <ul>
-<li>✅ Confirmez votre participation en répondant à cet email</li>
-<li>📝 Envoyez votre <strong>biographie</strong> (150 mots max) et votre <strong>photo professionnelle</strong> (JPG, min 800×800px)</li>
-<li>🎯 Précisez le <strong>titre définitif</strong> de votre talk et le résumé (200 mots max)</li>
-<li>📊 Les slides devront être envoyées au plus tard <strong>7 jours avant l'évènement</strong></li>
+<li>📷 Une <strong>photo portrait</strong> à jour (de préférence avec un fond clair et uniforme) ;</li>
+<li>📍 Votre <strong>localisation</strong> (pays, ville, fuseau horaire) ;</li>
+<li>🧑‍💼 Votre <strong>occupation actuelle</strong>, vos titres, réalisations, et une brève description de vous-même (la manière dont vous vous présenteriez en une, deux phrases ou plus).</li>
 </ul>
-<h2 style="color:#00ff9d;font-size:1rem;margin-top:1.5rem;">🎁 Ce que nous prenons en charge</h2>
+<p>Ces informations serviront à assurer votre branding sur nos réseaux et à donner de la visibilité à votre intervention.</p>
+<p>À la suite de cet email, vous recevrez le <strong>modèle PowerPoint</strong> qui servira de trame à toutes les présentations de l'évènement. Vous recevrez également le programme et les modalités pour nos speakers (avantages et règles d'engagement).</p>
+<p>Merci de votre confiance.<br>L'équipe EOCON 2026<br><a href="mailto:speakers@eyesopensecurity.com" style="color:#00ff9d;">speakers@eyesopensecurity.com</a></p>`,
+    subjectEn: "EOCON 2026 — Your proposal has been selected! 🎉",
+    htmlBodyEn: `<p>Hello {{fname}}!</p>
+<p>The EyesOpen team would like to inform you that your proposal has been <strong>selected</strong> for the <strong>EOCON 2026</strong> cybersecurity event. Thank you for your contribution and interest in this event.</p>
+<p>🎯 <strong>Talk:</strong> {{talkTitle}}</p>
+<p>We take this opportunity to inform you that to promote your presentation, we will need:</p>
 <ul>
-<li>🏨 Hébergement la nuit du 27 au 28 novembre</li>
-<li>🍽 Repas et pauses café</li>
-<li>🎫 Accès VIP à l'intégralité de l'évènement</li>
+<li>📷 An <strong>up-to-date portrait photo</strong> of you (preferably with a bright and uniform background);</li>
+<li>📍 Your <strong>permanent location</strong> (country, town, time zone);</li>
+<li>🧑‍💼 Your <strong>current occupation</strong>, titles, achievements, and a brief description of yourself (roughly, how you would present yourself in one, two, or more sentences).</li>
 </ul>
-<p>Notre équipe vous contactera prochainement pour discuter de la logistique.</p>
-<p>À très bientôt,<br>L'équipe EOCON 2026<br><a href="mailto:speakers@eyesopensecurity.com" style="color:#00ff9d;">speakers@eyesopensecurity.com</a></p>`,
-    subjectEn: "EOCON 2026 — Welcome, you are a speaker! 🎉",
-    htmlBodyEn: `<h1>Congratulations, you are an EOCON 2026 speaker! 🎤</h1>
-<p>Hi {{fname}},</p>
-<p>We are thrilled to confirm your selection as a <strong>speaker</strong> at <strong>EOCON 2026</strong>, Central Africa's leading cybersecurity event.</p>
-<p>📅 <strong>November 28, 2026</strong> · 📍 <strong>Hotel Onomo, Douala, Cameroon</strong></p>
-<h2 style="color:#00ff9d;font-size:1rem;margin-top:1.5rem;">📋 Next steps</h2>
+<p>This information will be used to ensure your branding on our networks and to give visibility to your intervention.</p>
+<p>As a result of this email, you will receive the <strong>PowerPoint template</strong> which will serve as a cover for all the presentations during the event. You will also receive the program and orderliness for our speakers (benefits and rules of engagement).</p>
+<p>Thank you for your confidence.<br>The EOCON 2026 team<br><a href="mailto:speakers@eyesopensecurity.com" style="color:#00ff9d;">speakers@eyesopensecurity.com</a></p>`,
+  },
+  {
+    // Auto-personnalisés : {{fname}} (nom), {{talkTitle}} (sujet du talk).
+    // À compléter manuellement avant l'envoi : [DATE], [HEURE], [MODE], [LIEN ZOOM], [DATE LIMITE SLIDES].
+    name: "🎤 Speaker — Programmé (modalités de présentation)",
+    segment: "cfp_scheduled",
+    subject: "EOCON 2026 — Modalités de votre présentation 🎤",
+    htmlBody: `<p>Bonjour {{fname}},</p>
+<p>À la suite de nos échanges concernant l'évènement <strong>EOCON 2026</strong>, nous partageons avec vous les modalités de votre présentation :</p>
 <ul>
-<li>✅ Confirm your participation by replying to this email</li>
-<li>📝 Send your <strong>biography</strong> (150 words max) and <strong>professional photo</strong> (JPG, min 800×800px)</li>
-<li>🎯 Specify the <strong>final title</strong> of your talk and summary (200 words max)</li>
-<li>📊 Slides must be submitted no later than <strong>7 days before the event</strong></li>
+<li>🖥 <strong>Mode :</strong> [MODE — ex : Online via Zoom / Présentiel] (le lien vous sera partagé ultérieurement)</li>
+<li>📅 <strong>Date :</strong> [DATE]</li>
+<li>🕓 <strong>Horaire :</strong> [HEURE]</li>
+<li>🎯 <strong>Sujet :</strong> {{talkTitle}}</li>
 </ul>
-<h2 style="color:#00ff9d;font-size:1rem;margin-top:1.5rem;">🎁 What we cover</h2>
+<p><em>PS : merci de bien vouloir confirmer si le timing ci-dessus vous convient.</em></p>
+<h2 style="color:#00ff9d;font-size:1rem;margin-top:1.5rem;">📊 La présentation</h2>
 <ul>
-<li>🏨 Accommodation on the night of November 27–28</li>
-<li>🍽 Meals and coffee breaks</li>
-<li>🎫 VIP access to the entire event</li>
+<li>Elle durera <strong>50 minutes</strong> (prévoir 10 minutes pour les questions de l'auditoire) ;</li>
+<li>Le modèle graphique PowerPoint est le même pour tous les speakers (voir fichiers joints) ;</li>
+<li>Pour garder une cohérence entre la durée planifiée et votre fichier, merci de ne pas dépasser <strong>20 pages</strong> (pages de garde exclues : titre, speaker, plan, questions) ;</li>
+<li>Merci de nous faire parvenir votre présentation complète au plus tard le <strong>[DATE LIMITE SLIDES]</strong> ;</li>
+<li>Votre présentation orale sera enregistrée pendant l'évènement et partagée sur nos réseaux ;</li>
+<li>Si vous illustrez des attaques informatiques, merci de préciser un <strong>disclaimer/avertissement</strong> à ne pas reproduire et d'expliquer à l'auditoire comment s'en protéger.</li>
 </ul>
-<p>Our team will contact you soon to discuss logistics.</p>
-<p>See you soon,<br>The EOCON 2026 team<br><a href="mailto:speakers@eyesopensecurity.com" style="color:#00ff9d;">speakers@eyesopensecurity.com</a></p>`,
+<h2 style="color:#00ff9d;font-size:1rem;margin-top:1.5rem;">📣 Publicités et annonces</h2>
+<p>Vous n'êtes malheureusement pas autorisé(e) à faire de la publicité ou la promotion d'un produit/service (que vous en soyez le représentant ou non), aussi bien dans votre fichier que dans le contenu de votre présentation. Si toutefois vous le souhaitez, nous avons des formules flexibles adaptées à ce besoin (prendre attache avec le comité).</p>
+<h2 style="color:#00ff9d;font-size:1rem;margin-top:1.5rem;">📍 L'évènement</h2>
+<p>Quel que soit votre horaire de passage, votre présence est requise <strong>30 minutes avant le début effectif</strong> de l'évènement. Cette disposition est importante pour l'organisation de nos équipes et les modalités pratiques.</p>
+<p>Merci de nous prévenir bien à l'avance de tout éventuel contretemps ou absence. Nous faisons confiance à votre sens des responsabilités.</p>
+<p>Merci encore d'être de la partie. Nous restons disponibles pour toutes vos questions.<br>L'équipe EOCON 2026</p>`,
+    subjectEn: "EOCON 2026 — Your presentation details 🎤",
+    htmlBodyEn: `<p>Hello {{fname}}!</p>
+<p>Following our discussions regarding the <strong>EOCON 2026</strong> event, we are sharing the details of your presentation with you:</p>
+<ul>
+<li>🖥 <strong>Mode:</strong> [MODE — e.g. Online via Zoom / On-site] (the link will be shared with you later)</li>
+<li>📅 <strong>Date:</strong> [DATE]</li>
+<li>🕓 <strong>Time:</strong> [TIME]</li>
+<li>🎯 <strong>Topic:</strong> {{talkTitle}}</li>
+</ul>
+<p><em>PS: please confirm whether the timing above works for you.</em></p>
+<h2 style="color:#00ff9d;font-size:1rem;margin-top:1.5rem;">📊 The presentation</h2>
+<ul>
+<li>It will last <strong>50 minutes</strong> (allow 10 minutes for audience questions);</li>
+<li>The PowerPoint graphic template is the same for all speakers (see attached files);</li>
+<li>To keep consistency between the planned duration and your file, please do not exceed <strong>20 pages</strong> (cover pages excluded: title, speaker, outline, questions);</li>
+<li>Please send us your complete presentation no later than <strong>[SLIDES DEADLINE]</strong>;</li>
+<li>Your oral presentation will be recorded during the event and shared on our networks;</li>
+<li>If you illustrate cyberattacks, please include a <strong>disclaimer/warning</strong> not to reproduce them and explain to the audience how to protect themselves.</li>
+</ul>
+<h2 style="color:#00ff9d;font-size:1rem;margin-top:1.5rem;">📣 Advertising and announcements</h2>
+<p>Unfortunately, you are not allowed to advertise or promote a product/service (whether or not you are its representative), either in your file or in the content of your presentation. However, if you wish to do so, we have flexible packages suited to this need (please contact the committee).</p>
+<h2 style="color:#00ff9d;font-size:1rem;margin-top:1.5rem;">📍 The event</h2>
+<p>Regardless of your speaking time, your presence is required <strong>30 minutes before the actual start</strong> of the event. This is important for the organization of our teams and practical arrangements.</p>
+<p>Please notify us well in advance of any possible delay or absence. We trust your sense of responsibility.</p>
+<p>Thank you again for being part of it. We remain available for any questions.<br>The EOCON 2026 team</p>`,
   },
 ];
 

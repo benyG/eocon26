@@ -89,9 +89,9 @@ export default function Footer({ t, eventSettings }: { t: Translations; eventSet
             </div>
             <p className="text-gray-500 text-sm mb-4">{t.footer.tagline}</p>
             <p className="text-gray-600 text-xs leading-relaxed">
-              {t.footer.org} · eyesopensecurity.com<br />
-              contact@eyesopensecurity.com<br />
-              +1 581-849-3838
+              Operator Services examboot inc.<br />
+              events@eyesopensecurity.com<br />
+              via WhatsApp: +1 581-988-9001
             </p>
             <div className="flex gap-3 mt-4">
               {socials.map(s => (

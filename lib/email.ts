@@ -102,8 +102,8 @@ function buildEventICS(isFr: boolean): Buffer {
     `SUMMARY:EOCON 2026 — EyesOpen Security Conference`,
     "LOCATION:Hotel Onomo\\, Douala\\, Cameroun",
     `DESCRIPTION:${isFr
-      ? "Conférence cybersécurité africaine — EyesOpen Security. Douala, Cameroun."
-      : "African cybersecurity conference — EyesOpen Security. Douala, Cameroon."}`,
+      ? "Évènement cybersécurité africain — EyesOpen Security. Douala, Cameroun."
+      : "African cybersecurity event — EyesOpen Security. Douala, Cameroon."}`,
     "URL:https://eyesopensecurity.com",
     "END:VEVENT",
     "END:VCALENDAR",
@@ -115,8 +115,8 @@ function googleCalEventUrl(isFr: boolean): string {
   const text = encodeURIComponent("EOCON 2026 — EyesOpen Security Conference");
   const loc = encodeURIComponent("Hotel Onomo, Douala, Cameroun");
   const desc = encodeURIComponent(isFr
-    ? "Conférence cybersécurité africaine. eyesopensecurity.com"
-    : "African cybersecurity conference. eyesopensecurity.com");
+    ? "Évènement cybersécurité africain. eyesopensecurity.com"
+    : "African cybersecurity event. eyesopensecurity.com");
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=20261128T080000/20261128T190000&location=${loc}&details=${desc}`;
 }
 
@@ -423,6 +423,45 @@ export async function sendPilotageMeetingReminder(to: string, meeting: PilotageM
        ${meeting.agenda ? neonRow("Ordre du jour", esc(meeting.agenda)) : ""}
      </tbody></table>`)}`;
   await sendPilotage(to, `📅 Rappel réunion (${stage}) — ${meeting.title}`, body);
+}
+
+// ── CTF challenge assignment ──────────────────────────────────────────────────
+
+interface CTFChallengeLike {
+  title: string;
+  category: string;
+  difficulty: string;
+  points: number;
+  status: string;
+}
+
+const CTF_STATUS_LABELS_FR: Record<string, string> = {
+  idea: "Idée", in_progress: "En cours", testing: "En test", validated: "Validé", published: "Publié CTFd",
+};
+
+export async function sendCTFChallengeAssigned(to: string, name: string, challenge: CTFChallengeLike) {
+  if (!to) return;
+  const statusLabel = CTF_STATUS_LABELS_FR[challenge.status] || challenge.status;
+  const body = `<p>${greenLabel("Bonjour " + esc(name || ""))},</p>
+     <p>Un challenge du CTF EOCON 2026 (EOCTF) vous a été assigné. Vous en êtes désormais responsable.</p>
+     ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
+       ${neonRow("Challenge", `<strong style="color:#00ff9d;">${esc(challenge.title)}</strong>`)}
+       ${neonRow("Catégorie", esc(challenge.category))}
+       ${neonRow("Difficulté", esc(challenge.difficulty))}
+       ${neonRow("Points", String(challenge.points))}
+       ${neonRow("Statut", esc(statusLabel))}
+     </tbody></table>`)}
+     <p>Connectez-vous à l'espace d'administration (onglet ⚡ CTF → Challenges) pour faire avancer cette tâche et mettre à jour son statut.</p>
+     ${dateLine(true)}`;
+  try {
+    await getResend().emails.send({
+      from: FROM, to,
+      subject: `🏁 Challenge CTF assigné — ${challenge.title}`,
+      html: emailWrap(body, true),
+    });
+  } catch (e) {
+    console.error("[ctf challenge assigned email]", e);
+  }
 }
 
 export async function sendRegistrationPending(

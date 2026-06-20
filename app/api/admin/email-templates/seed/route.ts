@@ -11,7 +11,7 @@ const SEED_TEMPLATES = [
     subject: "EOCON 2026 — Les inscriptions sont ouvertes !",
     htmlBody: `<h1>EOCON 2026 est là 🎉</h1>
 <p>Bonjour {{fname}},</p>
-<p>La 7ème édition de <strong>EOCON</strong> — la conférence cybersécurité de référence en Afrique centrale — ouvre officiellement ses inscriptions.</p>
+<p>La 7ème édition de <strong>EOCON</strong> — l'évènement cybersécurité de référence en Afrique centrale — ouvre officiellement ses inscriptions.</p>
 <p>📅 <strong>28 novembre 2026</strong> · 📍 <strong>Hotel Onomo, Douala, Cameroun</strong></p>
 <p>Au programme : keynotes, talks techniques, ateliers pratiques, CTF et bien plus encore.</p>
 <p><a href="https://eyesopensecurity.com/#inscription" style="background:#00ff9d;color:#000;padding:12px 24px;border-radius:4px;font-weight:bold;text-decoration:none;">Je m'inscris maintenant</a></p>
@@ -19,7 +19,7 @@ const SEED_TEMPLATES = [
     subjectEn: "EOCON 2026 — Registration is now open!",
     htmlBodyEn: `<h1>EOCON 2026 is here 🎉</h1>
 <p>Hi {{fname}},</p>
-<p>The 7th edition of <strong>EOCON</strong> — Central Africa's leading cybersecurity conference — has officially opened registration.</p>
+<p>The 7th edition of <strong>EOCON</strong> — Central Africa's leading cybersecurity event — has officially opened registration.</p>
 <p>📅 <strong>November 28, 2026</strong> · 📍 <strong>Hotel Onomo, Douala, Cameroon</strong></p>
 <p>On the agenda: keynotes, technical talks, hands-on workshops, a CTF and much more.</p>
 <p><a href="https://eyesopensecurity.com/#inscription" style="background:#00ff9d;color:#000;padding:12px 24px;border-radius:4px;font-weight:bold;text-decoration:none;">Register now</a></p>
@@ -31,7 +31,7 @@ const SEED_TEMPLATES = [
     subject: "EOCON 2026 — Plus que 30 jours !",
     htmlBody: `<h1>J-30 avant EOCON 2026 ⚡</h1>
 <p>Bonjour {{fname}},</p>
-<p>Il ne reste que <strong>30 jours</strong> avant la conférence ! Êtes-vous prêt(e) ?</p>
+<p>Il ne reste que <strong>30 jours</strong> avant l'évènement ! Êtes-vous prêt(e) ?</p>
 <p>✅ Programme complet disponible sur le site<br>
 ✅ Experts confirmés<br>
 ✅ Ateliers pratiques<br>
@@ -41,7 +41,7 @@ const SEED_TEMPLATES = [
     subjectEn: "EOCON 2026 — Only 30 days left!",
     htmlBodyEn: `<h1>30 days until EOCON 2026 ⚡</h1>
 <p>Hi {{fname}},</p>
-<p>Only <strong>30 days</strong> left before the conference! Are you ready?</p>
+<p>Only <strong>30 days</strong> left before the event! Are you ready?</p>
 <p>✅ Full program available on the website<br>
 ✅ Confirmed experts<br>
 ✅ Hands-on workshops<br>

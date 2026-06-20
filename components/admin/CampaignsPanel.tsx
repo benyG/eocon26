@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
+import EmailTemplatesPanel from "@/components/admin/EmailTemplatesPanel";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface Segment {
@@ -78,6 +79,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Campaign | null>(null);
   const [showEditor, setShowEditor] = useState(false);
+  const [subTab, setSubTab] = useState<"campaigns" | "templates">("campaigns");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -115,6 +117,26 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
 
   return (
     <div>
+      {/* Sub-tab switcher: campaigns vs email templates */}
+      <div className="flex gap-1 border-b border-gray-800 mb-6">
+        {([
+          { key: "campaigns", label: "📣 Campagnes" },
+          { key: "templates", label: "✉ Modèles & Emails" },
+        ] as const).map(st => (
+          <button
+            key={st.key}
+            onClick={() => setSubTab(st.key)}
+            className={`text-xs px-4 py-2 border-b-2 transition-all ${subTab === st.key ? "border-neon-green text-neon-green" : "border-transparent text-gray-500 hover:text-gray-300"}`}
+          >
+            {st.label}
+          </button>
+        ))}
+      </div>
+
+      {subTab === "templates" ? (
+        <EmailTemplatesPanel canWrite={canWrite} />
+      ) : (
+      <>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black text-white">📣 Campagnes inscrits</h1>
@@ -190,6 +212,8 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
             </tbody>
           </table>
         </div>
+      )}
+      </>
       )}
     </div>
   );
@@ -377,7 +401,7 @@ function CampaignEditor({ campaign, templates, facets, onClose }: { campaign: Ca
                 </div>
               ) : templates.length === 0 ? (
                 <p className="text-yellow-500/80 text-xs py-2">
-                  Aucun modèle disponible. Créez-en un dans <span className="font-bold">Communication → Emails &amp; Templates</span>.
+                  Aucun modèle disponible. Créez-en un dans l&apos;onglet <span className="font-bold">✉ Modèles &amp; Emails</span> ci-dessus.
                 </p>
               ) : (
                 <select

@@ -6,6 +6,15 @@ import { ADMIN_PROFILES } from "@/lib/adminProfiles";
 
 export const dynamic = "force-dynamic";
 
+// The root super-admin is identified by the ROOT_ADMIN_EMAIL environment variable
+// (case-insensitive match on the logged-in user's email). Used to gate sensitive
+// QA actions such as the manual ticket validation bypass.
+function isRootAdmin(email?: string | null): boolean {
+  const root = process.env.ROOT_ADMIN_EMAIL?.trim().toLowerCase();
+  if (!root || !email) return false;
+  return email.trim().toLowerCase() === root;
+}
+
 export async function GET() {
   const cookieStore = await cookies();
 
@@ -50,6 +59,8 @@ export async function GET() {
           email: u.email,
           mfaEnabled: u.mfaEnabled,
           mfaRequired: mfaSetting?.value === "true",
+          isRoot: isRootAdmin(u.email),
+          currencySelectorEnabled: process.env.PAYMENT_ALLOW_CURRENCY_SELECTOR === "true",
           permissions,
         });
       }
@@ -59,7 +70,13 @@ export async function GET() {
   // Legacy shared-password token → full access
   const legacyToken = cookieStore.get("admin_token")?.value;
   if (legacyToken && isValidToken(legacyToken)) {
-    return NextResponse.json({ isLegacy: true, name: "Admin", permissions: {} });
+    return NextResponse.json({
+      isLegacy: true,
+      name: "Admin",
+      isRoot: true, // shared super-admin password = root
+      currencySelectorEnabled: process.env.PAYMENT_ALLOW_CURRENCY_SELECTOR === "true",
+      permissions: {},
+    });
   }
 
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

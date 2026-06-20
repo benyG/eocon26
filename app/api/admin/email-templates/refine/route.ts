@@ -15,9 +15,9 @@ export async function POST(req: NextRequest) {
 
   const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
-  const prompt = `Tu es expert en communication événementielle pour des conférences tech. Tu dois améliorer ce template d'email pour EOCON 2026, 7ème édition de la conférence cybersécurité de référence en Afrique centrale.
+  const prompt = `Tu es expert en communication événementielle pour des évènements tech. Tu dois améliorer ce template d'email pour EOCON 2026, 7ème édition de l'évènement cybersécurité de référence en Afrique centrale. EOCON est un évènement (et non une simple conférence) : emploie toujours le mot « évènement », jamais « conférence ».
 
-Conférence : EOCON 2026
+Évènement : EOCON 2026
 Date : 28 novembre 2026
 Lieu : Hotel Onomo, Douala, Cameroun
 Organisateur : EyesOpen Association

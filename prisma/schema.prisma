@@ -362,11 +362,13 @@ model CTFChallenge {
   difficulty  String   @default("medium") // easy | medium | hard
   points      Int      @default(0)
   author      String?
-  status      String   @default("idea") // idea | in_progress | testing | validated | published
-  ctfdId      Int?     // CTFd challenge ID after publish
-  notes       String?  @db.Text
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
+  status        String   @default("idea") // idea | in_progress | testing | validated | published
+  ctfdId        Int?     // CTFd challenge ID after publish
+  notes         String?  @db.Text
+  assigneeName  String?  // Team member responsible for this challenge
+  assigneeEmail String?  // Notified when (re)assigned
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
 
   @@map("ctf_challenges")
 }

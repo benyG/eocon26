@@ -1313,32 +1313,6 @@ function LibraryPickerModal({ onPick, onClose }: { onPick: (url: string) => void
 
 // ---- Communication Panel ----
 
-// Standard HTML boilerplate prefilled when creating a new email template, so the
-// user follows the EOCON visual pattern (heading, greeting, body, neon CTA, signature).
-const STANDARD_TEMPLATE_HTML_FR = `<h1>Titre de l'email 🎉</h1>
-<p>Bonjour {{fname}},</p>
-<p>Votre message principal ici. Présentez l'essentiel en une ou deux phrases claires.</p>
-<p>📅 <strong>28 novembre 2026</strong> · 📍 <strong>Hotel Onomo, Douala, Cameroun</strong></p>
-<ul>
-<li>Point clé n°1</li>
-<li>Point clé n°2</li>
-<li>Point clé n°3</li>
-</ul>
-<p><a href="https://eyesopensecurity.com/#inscription" style="background:#00ff9d;color:#000;padding:12px 24px;border-radius:4px;font-weight:bold;text-decoration:none;display:inline-block;">Bouton d'action →</a></p>
-<p>À très bientôt,<br>L'équipe EOCON 2026</p>`;
-
-const STANDARD_TEMPLATE_HTML_EN = `<h1>Email title 🎉</h1>
-<p>Hi {{fname}},</p>
-<p>Your main message here. Get the essentials across in one or two clear sentences.</p>
-<p>📅 <strong>November 28, 2026</strong> · 📍 <strong>Hotel Onomo, Douala, Cameroon</strong></p>
-<ul>
-<li>Key point #1</li>
-<li>Key point #2</li>
-<li>Key point #3</li>
-</ul>
-<p><a href="https://eyesopensecurity.com/#inscription" style="background:#00ff9d;color:#000;padding:12px 24px;border-radius:4px;font-weight:bold;text-decoration:none;display:inline-block;">Call to action →</a></p>
-<p>See you soon,<br>The EOCON 2026 team</p>`;
-
 function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   const { t } = useAdminT();
   const today = new Date();
@@ -1356,18 +1330,6 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [publishing, setPublishing] = useState<number | null>(null);
   const [scheduleId, setScheduleId] = useState<number | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
-  // Email templates
-  const [templates, setTemplates] = useState<Record<string, unknown>[]>([]);
-  const [showTemplateForm, setShowTemplateForm] = useState(false);
-  const [templateForm, setTemplateForm] = useState<Record<string, unknown>>({});
-  const [templateFormError, setTemplateFormError] = useState("");
-  // Transactional template editing
-  const [txEdits, setTxEdits] = useState<Record<number, { subject: string; htmlBody: string }>>({});
-  const [txSaving, setTxSaving] = useState<number | null>(null);;
-  const [sending, setSending] = useState<number | null>(null);
-  const [refining, setRefining] = useState<number | null>(null);
-  const [refineInstructions, setRefineInstructions] = useState("");
-  const [previewTemplate, setPreviewTemplate] = useState<Record<string, unknown> | null>(null);
   // Dynamic context
   const [contextType, setContextType] = useState<"speaker" | "session" | "workshop" | "sponsor" | "countdown" | "cfp" | "inscriptions" | "ctf" | "custom">("speaker");
   const [contextData, setContextData] = useState<{
@@ -1418,20 +1380,15 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
     if (res.ok) setLinkedinPosts(await res.json());
   }, []);
 
-  const loadTemplates = useCallback(async () => {
-    const res = await fetch("/api/admin/email-templates");
-    if (res.ok) setTemplates(await res.json());
-  }, []);
-
   const loadContext = useCallback(async () => {
     const res = await fetch("/api/admin/communication-context");
     if (res.ok) setContextData(await res.json());
   }, []);
 
   useEffect(() => {
-    loadLinkedinPosts(); loadTemplates(); loadContext();
+    loadLinkedinPosts(); loadContext();
     fetch("/api/admin/settings").then(r => r.json()).then(setEventSettings).catch(() => {});
-  }, [loadLinkedinPosts, loadTemplates, loadContext]);
+  }, [loadLinkedinPosts, loadContext]);
 
   // Calendar helpers
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -1550,114 +1507,14 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
     await loadLinkedinPosts();
   };
 
-  const sendTemplate = async (id: number) => {
-    setSending(id);
-    await fetch("/api/admin/email-templates/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ templateId: id }),
-    });
-    setSending(null);
-    await loadTemplates();
-  };
-
-  const refineTemplate = async (id: number) => {
-    setRefining(id);
-    const res = await fetch("/api/admin/email-templates/refine", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ templateId: id, instructions: refineInstructions || undefined }),
-    });
-    if (res.ok) {
-      const updated = await res.json() as Record<string, unknown>;
-      setTemplates(prev => prev.map(t => t.id === id ? updated : t));
-    }
-    setRefining(null);
-    setRefineInstructions("");
-  };
-
-  const seedTemplates = async () => {
-    await fetch("/api/admin/email-templates/seed", { method: "POST" });
-    await loadTemplates();
-  };
-
-  const seedTransactionalTemplates = async () => {
-    await fetch("/api/admin/email-templates/seed-transactional", { method: "POST" });
-    await loadTemplates();
-  };
-
-  const saveTxTemplate = async (id: number) => {
-    const edit = txEdits[id];
-    if (!edit) return;
-    setTxSaving(id);
-    await fetch(`/api/admin/email-templates/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(edit),
-    });
-    setTxSaving(null);
-    await loadTemplates();
-  };
-
-  const saveTemplate = async () => {
-    // Bilingual templates require both FR and EN versions so a campaign can always
-    // send the right language to every recipient.
-    const f = templateForm as Record<string, string>;
-    if (!f.name?.trim() || !f.subject?.trim() || !f.htmlBody?.trim() || !f.subjectEn?.trim() || !f.htmlBodyEn?.trim()) {
-      setTemplateFormError("Nom + versions FR et EN (sujet & contenu) obligatoires.");
-      return;
-    }
-    setTemplateFormError("");
-    const editId = f.id ? parseInt(String(f.id)) : null;
-    await fetch(editId ? `/api/admin/email-templates/${editId}` : "/api/admin/email-templates", {
-      method: editId ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: f.name, segment: f.segment || "all",
-        subject: f.subject, htmlBody: f.htmlBody,
-        subjectEn: f.subjectEn, htmlBodyEn: f.htmlBodyEn,
-      }),
-    });
-    setShowTemplateForm(false);
-    setTemplateForm({});
-    await loadTemplates();
-  };
-
-  const editTemplate = (tpl: Record<string, unknown>) => {
-    setTemplateForm({
-      id: tpl.id, name: tpl.name, segment: tpl.segment || "all",
-      subject: tpl.subject, htmlBody: tpl.htmlBody,
-      subjectEn: tpl.subjectEn || "", htmlBodyEn: tpl.htmlBodyEn || "",
-    });
-    setTemplateFormError("");
-    setShowTemplateForm(true);
-  };
-
   const statusColors: Record<string, string> = { draft: "#888", scheduled: "#ffaa00", published: "#00ff9d", failed: "#ff0066" };
-  const [commTab, setCommTab] = useState<"social" | "email">("social");
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-black text-white">{t.communicationTitle}</h1>
 
-      {/* Sub-tab switcher: social vs email */}
-      <div className="flex gap-1 border-b border-gray-800">
-        {([
-          { key: "social", label: "📱 Réseaux Sociaux" },
-          { key: "email", label: "✉ Emails & Templates" },
-        ] as const).map(stab => (
-          <button
-            key={stab.key}
-            onClick={() => setCommTab(stab.key)}
-            className={`text-xs px-4 py-2 border-b-2 transition-all ${commTab === stab.key ? "border-neon-green text-neon-green" : "border-transparent text-gray-500 hover:text-gray-300"}`}
-          >
-            {stab.label}
-          </button>
-        ))}
-      </div>
-
       {/* ── RÉSEAUX SOCIAUX ── */}
-      {commTab === "social" && (<>
+      <>
 
       {/* Calendar + Panel */}
       <div className="flex gap-4">
@@ -2076,170 +1933,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
         })()}
       </div>
 
-      </>)}
-
-      {/* ── EMAILS & TEMPLATES ── */}
-      {commTab === "email" && (<>
-
-      {/* Transactional templates */}
-      <div className="cyber-card rounded-xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">{t.transactionalTemplatesLabel}</h3>
-          {canWrite && <button onClick={seedTransactionalTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>{t.initTransactionalBtn}</button>}
-        </div>
-        <div className="space-y-3">
-          {templates.filter(tpl => tpl.slug).length === 0 && (
-            <p className="text-gray-600 text-xs text-center py-4">{t.noTransactionalTemplates}</p>
-          )}
-          {templates.filter(tpl => tpl.slug).map(tpl => {
-            const id = tpl.id as number;
-            const edit = txEdits[id] || { subject: tpl.subject as string, htmlBody: tpl.htmlBody as string };
-            let vars: string[] = [];
-            try { vars = JSON.parse(tpl.variables as string || "[]"); } catch { vars = []; }
-            return (
-              <div key={id} className="border border-gray-800 rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: "#00ff9d10", color: "#00ff9d", border: "1px solid #00ff9d30" }}>{tpl.slug as string}</span>
-                  <span className="text-white text-xs font-bold">{tpl.name as string}</span>
-                </div>
-                {vars.length > 0 && (
-                  <p className="text-gray-600 text-xs mb-2">{t.variablesLabel} {vars.map(v => `{{${v}}}`).join(", ")}</p>
-                )}
-                <input
-                  className="cyber-input w-full text-xs rounded px-3 py-2 text-white mb-2"
-                  value={edit.subject}
-                  onChange={e => setTxEdits(prev => ({ ...prev, [id]: { ...edit, subject: e.target.value } }))}
-                  placeholder={t.emailSubjectLabelTpl}
-                />
-                <textarea
-                  className="cyber-input w-full text-xs rounded px-3 py-2 text-white h-40 resize-none"
-                  value={edit.htmlBody}
-                  onChange={e => setTxEdits(prev => ({ ...prev, [id]: { ...edit, htmlBody: e.target.value } }))}
-                  placeholder={t.htmlBodyLabelTpl}
-                />
-                {canWrite && <div className="mt-2 flex justify-end">
-                  <button onClick={() => saveTxTemplate(id)} disabled={txSaving === id} className="text-xs px-3 py-1.5 rounded" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>
-                    {txSaving === id ? "..." : t.saveTemplateBtn}
-                  </button>
-                </div>}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Email templates */}
-      <div className="cyber-card rounded-xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">{t.campaignTemplatesLabel}</h3>
-          {canWrite && <div className="flex gap-2">
-            <button onClick={seedTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>{t.seedTemplatesBtn}</button>
-            <button onClick={() => { if (showTemplateForm) { setShowTemplateForm(false); } else { setTemplateForm({ htmlBody: STANDARD_TEMPLATE_HTML_FR, htmlBodyEn: STANDARD_TEMPLATE_HTML_EN }); setTemplateFormError(""); setShowTemplateForm(true); } }} className="btn-neon px-3 py-1.5 rounded text-xs">{t.createTemplateBtn}</button>
-          </div>}
-        </div>
-        {canWrite && showTemplateForm && (
-          <div className="border border-gray-800 rounded-lg p-4 mb-4 space-y-3">
-            <input placeholder={t.templateNamePlaceholder} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" value={(templateForm.name as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, name: e.target.value }))} />
-            <select className="cyber-input w-full text-xs rounded px-3 py-2 text-black" value={(templateForm.segment as string) || "all"} onChange={e => setTemplateForm(f => ({ ...f, segment: e.target.value }))}>
-              <option value="all">Tous</option>
-              <option value="registered">Inscrits</option>
-              <option value="cfp_accepted">Speakers acceptés</option>
-              <option value="volunteers">Bénévoles acceptés</option>
-              <option value="newsletter">Newsletter</option>
-            </select>
-            <p className="text-gray-600 text-xs">Renseignez les deux langues. L&apos;application envoie automatiquement la version FR ou EN selon la langue du destinataire. Variables : {"{{fname}} {{lname}} {{org}} {{country}} {{ticketType}}"}</p>
-            <div className="grid md:grid-cols-2 gap-3">
-              {/* FR column */}
-              <div className="space-y-2">
-                <p className="text-xs font-bold uppercase tracking-widest text-neon-green">🇫🇷 Français *</p>
-                <input placeholder="Sujet FR" className="cyber-input w-full text-xs rounded px-3 py-2 text-white" value={(templateForm.subject as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, subject: e.target.value }))} />
-                <textarea placeholder="Contenu HTML FR" className="cyber-input w-full text-xs rounded px-3 py-2 h-40 resize-y text-white font-mono" value={(templateForm.htmlBody as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, htmlBody: e.target.value }))} />
-              </div>
-              {/* EN column */}
-              <div className="space-y-2">
-                <p className="text-xs font-bold uppercase tracking-widest text-neon-blue">🇬🇧 English *</p>
-                <input placeholder="Subject EN" className="cyber-input w-full text-xs rounded px-3 py-2 text-white" value={(templateForm.subjectEn as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, subjectEn: e.target.value }))} />
-                <textarea placeholder="HTML body EN" className="cyber-input w-full text-xs rounded px-3 py-2 h-40 resize-y text-white font-mono" value={(templateForm.htmlBodyEn as string) || ""} onChange={e => setTemplateForm(f => ({ ...f, htmlBodyEn: e.target.value }))} />
-              </div>
-            </div>
-            <div className="flex gap-2 items-center">
-              <button onClick={saveTemplate} className="btn-neon px-3 py-1.5 rounded text-xs">{t.saveTemplateBtn}</button>
-              <button onClick={() => setShowTemplateForm(false)} className="text-gray-500 text-xs hover:text-white px-2">{t.cancelTemplateBtn}</button>
-              {templateFormError && <span className="text-red-400 text-xs">{templateFormError}</span>}
-            </div>
-          </div>
-        )}
-
-        {/* Preview modal */}
-        {previewTemplate && (
-          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setPreviewTemplate(null)}>
-            <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-              <div className="flex items-center justify-between p-4 border-b">
-                <div>
-                  <p className="font-bold text-gray-900 text-sm">{previewTemplate.name as string}</p>
-                  <p className="text-gray-500 text-xs">{t.subjectDisplayLabel} {previewTemplate.subject as string}</p>
-                </div>
-                <button onClick={() => setPreviewTemplate(null)} className="text-gray-400 hover:text-gray-900">✕</button>
-              </div>
-              <div className="p-4" dangerouslySetInnerHTML={{ __html: `<style>td,p,span,div,a,h1,h2,h3,h4,li,body{color:#111!important}</style>${previewTemplate.htmlBody as string}` }} />
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-2">
-          {templates.filter(tpl => !tpl.slug).length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-gray-600 text-xs mb-3">{t.noCampaignTemplates}</p>
-              {canWrite && <button onClick={seedTemplates} className="text-xs px-4 py-2 rounded" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>{t.seedEoconTemplates}</button>}
-            </div>
-          )}
-          {templates.filter(tpl => !tpl.slug).map(tpl => (
-            <div key={tpl.id as number} className="border border-gray-800 rounded-lg p-3">
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-white text-xs font-bold">{tpl.name as string}</p>
-                    {tpl.subjectEn && tpl.htmlBodyEn
-                      ? <span className="text-xs px-1.5 py-0.5 rounded" style={{ color: "#00ff9d", background: "#00ff9d15" }}>FR + EN</span>
-                      : <span className="text-xs px-1.5 py-0.5 rounded" style={{ color: "#ffaa00", background: "#ffaa0015" }}>FR seul</span>}
-                  </div>
-                  <p className="text-gray-500 text-xs">{t.subjectDisplayLabel} {tpl.subject as string}</p>
-                  <span className="text-xs px-1.5 py-0.5 rounded mt-1 inline-block" style={{ color: "#888", background: "#88888815" }}>{tpl.segment as string}</span>
-                  {!!tpl.sentAt && <p className="text-gray-700 text-xs mt-1">{t.sentOnLabel} {new Date(tpl.sentAt as string).toLocaleDateString("fr-FR")}</p>}
-                </div>
-                <div className="flex gap-1 shrink-0 flex-wrap justify-end">
-                  <button onClick={() => setPreviewTemplate(tpl)} className="text-xs px-2 py-1 rounded" style={{ color: "#888", border: "1px solid #33333380" }}>👁</button>
-                  {canWrite && <button onClick={() => editTemplate(tpl)} className="text-xs px-2 py-1 rounded" style={{ color: "#00d4ff", border: "1px solid #00d4ff40" }}>✎ Éditer</button>}
-                  {canWrite && <button onClick={() => sendTemplate(tpl.id as number)} disabled={sending === (tpl.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>
-                    {sending === (tpl.id as number) ? "..." : t.sendCampaignBtn}
-                  </button>}
-                </div>
-              </div>
-              {/* AI refine row */}
-              {canWrite && <div className="flex gap-2 pt-2 border-t border-gray-800/50">
-                <input
-                  type="text"
-                  placeholder={t.refineInstructions}
-                  className="cyber-input flex-1 text-xs rounded px-2 py-1 text-white"
-                  onFocus={() => setRefineInstructions("")}
-                  onChange={e => setRefineInstructions(e.target.value)}
-                />
-                <button
-                  onClick={() => refineTemplate(tpl.id as number)}
-                  disabled={refining === (tpl.id as number)}
-                  className="text-xs px-3 py-1 rounded shrink-0 transition-all"
-                  style={{ background: "#cc00ff15", color: "#cc00ff", border: "1px solid #cc00ff30" }}
-                >
-                  {refining === (tpl.id as number) ? t.improvingLabel : t.improveBtn}
-                </button>
-              </div>}
-            </div>
-          ))}
-          {!templates.filter(tpl => !tpl.slug).length && <p className="text-gray-700 text-xs text-center py-3">{t.noCampaignTemplates}</p>}
-        </div>
-      </div>
-
-      </>)}
+      </>
     </div>
   );
 }
@@ -3790,7 +3484,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
   );
 }
 
-function RegistrationsPanel({ onDetail }: { onDetail: (r: Record<string, unknown>) => void }) {
+function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail: (r: Record<string, unknown>) => void; canManualValidate?: boolean }) {
   const { t } = useAdminT();
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
@@ -3913,9 +3607,12 @@ function RegistrationsPanel({ onDetail }: { onDetail: (r: Record<string, unknown
                       <button onClick={() => onDetail(r)} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">Détails</button>
                       {awaiting && (
                         <>
-                          <button disabled={busyId === r.id} onClick={() => validate(r)} className="text-xs px-3 py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/20 hover:bg-neon-green/20 transition-colors disabled:opacity-50">
-                            {t.validateAndSend}
-                          </button>
+                          {/* Manual payment-bypass validation: root super-admin + QA currency mode only */}
+                          {canManualValidate && (
+                            <button disabled={busyId === r.id} onClick={() => validate(r)} className="text-xs px-3 py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/20 hover:bg-neon-green/20 transition-colors disabled:opacity-50">
+                              {t.validateAndSend}
+                            </button>
+                          )}
                           <button disabled={busyId === r.id} onClick={() => remind(r)} className="text-xs px-3 py-1 rounded border border-yellow-600/40 text-yellow-400 hover:bg-yellow-500/10 transition-colors disabled:opacity-50">
                             {busyId === r.id ? "…" : "✉ Relancer"}
                           </button>
@@ -4716,6 +4413,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [dragId, setDragId] = useState<number | null>(null);
   const [editChallenge, setEditChallenge] = useState<Record<string, unknown> | null>(null);
   const [savingChallenge, setSavingChallenge] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<{ id: number; name: string; role: string; email: string | null }[]>([]);
 
   const [participants, setParticipants] = useState<Record<string, unknown>[]>([]);
   const [syncing, setSyncing] = useState(false);
@@ -4740,7 +4438,11 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   }, []);
 
   useEffect(() => {
-    if (subTab === "challenges") loadChallenges();
+    if (subTab === "challenges") {
+      loadChallenges();
+      // Team members are the assignable owners for challenges.
+      fetch("/api/admin/team").then(r => r.ok ? r.json() : []).then(setTeamMembers).catch(() => {});
+    }
     if (subTab === "participants") loadParticipants();
   }, [subTab, loadChallenges, loadParticipants]);
 
@@ -4795,6 +4497,8 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
         author: editChallenge.author,
         status: editChallenge.status,
         notes: editChallenge.notes,
+        assigneeName: editChallenge.assigneeName || null,
+        assigneeEmail: editChallenge.assigneeEmail || null,
       }),
     });
     setSavingChallenge(false);
@@ -4986,6 +4690,9 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                           <span className="text-xs text-gray-400 ml-auto">{c.points as number}pts</span>
                         </div>
                         {!!c.author && <div className="text-xs text-gray-600 mt-1">{c.author as string}</div>}
+                        <div className="text-xs mt-1" style={{ color: c.assigneeName ? "#00ccff" : "#555" }}>
+                          {c.assigneeName ? `👤 ${c.assigneeName as string}` : "👤 non assigné"}
+                        </div>
                         {canWrite && <button onClick={e => { e.stopPropagation(); deleteChallenge(c.id as number); }} className="text-red-800 hover:text-red-400 text-xs mt-1">✗ Supprimer</button>}
                       </div>
                     ))}
@@ -5035,6 +4742,23 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                   <div className="col-span-2">
                     <label className="text-xs text-gray-500 block mb-1">Auteur</label>
                     <input value={(editChallenge.author as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, author: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-500 block mb-1">Responsable (membre d&apos;équipe)</label>
+                    <select
+                      value={(editChallenge.assigneeEmail as string) || ""}
+                      onChange={e => {
+                        const m = teamMembers.find(x => x.email === e.target.value);
+                        setEditChallenge(p => p ? { ...p, assigneeEmail: e.target.value || null, assigneeName: m?.name || null } : p);
+                      }}
+                      className="cyber-input w-full px-3 py-1.5 rounded text-sm"
+                    >
+                      <option value="">— Non assigné —</option>
+                      {teamMembers.filter(m => m.email).map(m => (
+                        <option key={m.id} value={m.email!}>{m.name} ({m.role})</option>
+                      ))}
+                    </select>
+                    <p className="text-gray-600 text-xs mt-1">Le responsable reçoit un email de notification lors de l&apos;assignation.</p>
                   </div>
                   <div className="col-span-2">
                     <label className="text-xs text-gray-500 block mb-1">Notes</label>
@@ -5976,7 +5700,7 @@ export default function AdminDashboard() {
   const router = useRouter();
 
   // Current user identity + permissions
-  const [userInfo, setUserInfo] = useState<{ isLegacy: boolean; id?: number; name: string; email?: string; mfaEnabled?: boolean; mfaRequired?: boolean; permissions: Record<string, string> } | null>(null);
+  const [userInfo, setUserInfo] = useState<{ isLegacy: boolean; id?: number; name: string; email?: string; mfaEnabled?: boolean; mfaRequired?: boolean; isRoot?: boolean; currencySelectorEnabled?: boolean; permissions: Record<string, string> } | null>(null);
   const [showAccount, setShowAccount] = useState(false);
 
   const refreshMe = useCallback(() => {
@@ -6588,7 +6312,7 @@ export default function AdminDashboard() {
           )}
 
           {/* REGISTRATIONS */}
-          {tab === "registrations" && <RegistrationsPanel onDetail={r => setDetail({ type: "registration", item: r })} />}
+          {tab === "registrations" && <RegistrationsPanel onDetail={r => setDetail({ type: "registration", item: r })} canManualValidate={!!userInfo?.isRoot && !!userInfo?.currencySelectorEnabled} />}
 
           {/* NEWSLETTER */}
           {tab === "newsletter" && (

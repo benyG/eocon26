@@ -646,7 +646,7 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
       if (r.ok) {
         const result = await r.json();
         setAiResults(prev => ({ ...prev, [ch.platform]: result }));
-        setExpandedChannels(prev => new Set([...prev, ch.platform]));
+        setExpandedChannels(prev => new Set(Array.from(prev).concat(ch.platform)));
       }
     } finally {
       setGenerating(null);

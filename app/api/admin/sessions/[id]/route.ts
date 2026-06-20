@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
 import { getEventSettings } from "@/lib/settings";
 import { logAction } from "@/lib/auditLog";
+import { syncCfpScheduleStage } from "@/lib/cfpSessionSync";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const effectiveDate = date ?? fullSession?.date;
   const effectiveSpeakerId = speakerId ?? fullSession?.speakerId;
   const effectiveTime = time ?? fullSession?.time;
+
+  // Keep the speaker's CFP stage in sync with the session schedule.
+  if (effectiveSpeakerId) {
+    await syncCfpScheduleStage(effectiveSpeakerId, !!effectiveDate);
+  }
 
   if (effectiveDate && effectiveSpeakerId) {
     await syncReminderPost(effectiveSpeakerId, effectiveDate, effectiveTime ?? null);
@@ -48,6 +54,8 @@ export async function DELETE(_: NextRequest, { params }: { params: { id: string 
       where: { speakerId: session.speakerId, contentType: "speaker_reminder", status: "scheduled" },
       data: { status: "cancelled" },
     });
+    // Removing the programmed session reverts the speaker from "Programmé" to "confirmé".
+    await syncCfpScheduleStage(session.speakerId, false);
   }
 
   await prisma.conferenceSession.delete({ where: { id: Number(params.id) } });

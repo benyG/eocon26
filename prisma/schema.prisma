@@ -147,6 +147,9 @@ model ConferenceSession {
   workshop     Workshop? @relation(fields: [workshopId], references: [id], onDelete: SetNull)
   room         String?
   description  String?   @db.Text
+  mode         String?   // online | onsite | hybrid — set when the session is programmed
+  zoomLink     String?   // link shared with the speaker for online sessions
+  slidesDeadline String? // deadline to send slides (free text, e.g. "21 octobre 2026")
   sortOrder    Int       @default(0)
   isVisible    Boolean   @default(true)
   displayFrom  DateTime? // show on frontend only from this date
@@ -362,11 +365,13 @@ model CTFChallenge {
   difficulty  String   @default("medium") // easy | medium | hard
   points      Int      @default(0)
   author      String?
-  status      String   @default("idea") // idea | in_progress | testing | validated | published
-  ctfdId      Int?     // CTFd challenge ID after publish
-  notes       String?  @db.Text
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
+  status        String   @default("idea") // idea | in_progress | testing | validated | published
+  ctfdId        Int?     // CTFd challenge ID after publish
+  notes         String?  @db.Text
+  assigneeName  String?  // Team member responsible for this challenge
+  assigneeEmail String?  // Notified when (re)assigned
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
 
   @@map("ctf_challenges")
 }

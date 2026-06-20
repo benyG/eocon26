@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   }
 
   const secret = decryptSecret(user.mfaSecret);
-  const result = await verify({ secret, token: String(code) });
+  const result = await verify({ secret, token: String(code), window: 1 });
   if (!result.valid) return NextResponse.json({ error: "Code invalide ou expiré" }, { status: 401 });
 
   const res = NextResponse.json({ success: true });

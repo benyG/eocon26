@@ -32,6 +32,12 @@ export async function GET(req: NextRequest) {
   const user = await prisma.adminUser.findUnique({ where: { id: userId } });
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
+  // Refuse to overwrite an active MFA secret — admin must disable it first.
+  // This prevents accidentally invalidating an enrolled user's authenticator app.
+  if (user.mfaEnabled && user.mfaSecret) {
+    return NextResponse.json({ error: "MFA déjà actif pour cet utilisateur. Désactivez-le d'abord avant de re-configurer." }, { status: 409 });
+  }
+
   const secret = generateSecret();
   const otpauth = generateURI({
     issuer: "EOCON 2026 Admin",
@@ -60,7 +66,7 @@ export async function POST(req: NextRequest) {
   if (!user || !user.mfaSecret) return NextResponse.json({ error: "Setup MFA d'abord" }, { status: 400 });
 
   const secret = decryptSecret(user.mfaSecret);
-  const result = await verify({ secret, token: totp });
+  const result = await verify({ secret, token: totp, window: 1 });
   if (!result.valid) return NextResponse.json({ error: "Code incorrect — réessayez" }, { status: 400 });
 
   await prisma.adminUser.update({

@@ -6,7 +6,7 @@ import { Resend } from "resend";
 export const dynamic = "force-dynamic";
 
 const FROM = process.env.EMAIL_FROM || "EOCON 2026 <noreply@eyesopensecurity.com>";
-const REPLY_TO = "contact@eyesopensecurity.com";
+const REPLY_TO = "ctf@eyesopensecurity.com";
 
 export async function POST(req: NextRequest) {
   if (!(await hasPermission("ctf", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });

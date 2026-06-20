@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
 import { wrapCampaignHtml } from "@/lib/email";
-import { resolveRecipients, personalize, pickContent, type CampaignSegment } from "@/lib/campaignRecipients";
+import { resolveRecipients, personalize, pickContent, getReplyTo, type CampaignSegment } from "@/lib/campaignRecipients";
 import { Resend } from "resend";
 
 export const dynamic = "force-dynamic";
@@ -31,8 +31,11 @@ export async function POST(req: NextRequest) {
   const template = await prisma.emailTemplate.findUnique({ where: { id: templateId } });
   if (!template) return NextResponse.json({ error: "Template not found" }, { status: 404 });
 
-  const recipients = await resolveRecipients(segmentToAudience(template.segment));
+  const seg = segmentToAudience(template.segment);
+  const recipients = await resolveRecipients(seg);
   if (!recipients.length) return NextResponse.json({ error: "No recipients found" }, { status: 400 });
+
+  const replyTo = getReplyTo(seg);
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   let sent = 0;
@@ -45,7 +48,7 @@ export async function POST(req: NextRequest) {
       const html = wrapCampaignHtml(personalize(c.htmlBody, r), c.lang);
       const subject = personalize(c.subject, r);
       try {
-        const res = await resend.emails.send({ from: getFrom(), to: r.email, subject, html });
+        const res = await resend.emails.send({ from: getFrom(), to: r.email, subject, html, ...(replyTo ? { replyTo } : {}) });
         await prisma.emailLog.create({ data: { templateId, recipient: r.email, subject, status: "sent", resendId: res.data?.id ?? null } });
         sent++;
       } catch {

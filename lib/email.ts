@@ -158,13 +158,14 @@ async function sendWithTemplate(
   fallbackHtml: string,
   lang: "fr" | "en" = "fr",
   attachments?: Array<{ filename: string; content: Buffer; content_id?: string }>,
+  replyTo?: string,
 ) {
   const tpl = lang === "en"
     ? (await getTransactionalTemplate(`${slug}_en`)) ?? (await getTransactionalTemplate(slug))
     : (await getTransactionalTemplate(slug));
   const subject = tpl ? renderTemplate(tpl.subject, vars) : fallbackSubject;
   const html = tpl ? renderTemplate(tpl.htmlBody, vars) : fallbackHtml;
-  await getResend().emails.send({ from: FROM, to, subject, html, attachments });
+  await getResend().emails.send({ from: FROM, to, subject, html, attachments, ...(replyTo ? { replyTo } : {}) });
 }
 
 // ── Public email functions ────────────────────────────────────────────────────
@@ -200,7 +201,7 @@ export async function sendCFPConfirmation(to: string, name: string, talkTitle: s
   await sendWithTemplate(
     "cfp_confirmation", to, vars,
     isFr ? `✅ Proposition de talk reçue — EOCON 2026` : `✅ Talk proposal received — EOCON 2026`,
-    emailWrap(body, isFr), lang,
+    emailWrap(body, isFr), lang, undefined, "speakers@eyesopensecurity.com",
   );
 }
 
@@ -339,7 +340,7 @@ export async function sendCFPDecision(email: string, name: string, talkTitle: st
   const subject = isAccepted
     ? (isFr ? `🎉 CFP Accepté — EOCON 2026 : "${talkTitle}"` : `🎉 CFP Accepted — EOCON 2026: "${talkTitle}"`)
     : (isFr ? `CFP — EOCON 2026 : "${talkTitle}"` : `CFP — EOCON 2026: "${talkTitle}"`);
-  await sendWithTemplate(slug, email, vars, subject, emailWrap(body, isFr));
+  await sendWithTemplate(slug, email, vars, subject, emailWrap(body, isFr), isFr ? "fr" : "en", undefined, "speakers@eyesopensecurity.com");
 }
 
 // ── Pilotage Global (steering) ────────────────────────────────────────────────

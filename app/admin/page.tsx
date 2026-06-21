@@ -6593,7 +6593,7 @@ export default function AdminDashboard() {
           {tab === "users" && <AdminUsersPanel canWrite={can("users")} canDelete={!!(userInfo?.isLegacy || userInfo?.isRoot)} />}
           {tab === "profiles" && <AdminProfilesPanel />}
 
-          {tab === "pilotage" && <PilotagePanel canWrite={can("pilotage")} />}
+          {tab === "pilotage" && <PilotagePanel canWrite={can("pilotage")} currentUserEmail={userInfo?.email} />}
           {tab === "settings" && <EventSettingsPanel canWrite={can("settings")} />}
 
           {/* COMMUNICATION */}

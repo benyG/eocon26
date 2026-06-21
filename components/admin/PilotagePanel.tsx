@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 type Status = "backlog" | "todo" | "in_progress" | "blocked" | "review" | "done";
 
@@ -119,12 +119,21 @@ function daysUntil(d?: string | null) {
   if (!d) return Infinity;
   return Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
 }
+function endOfCurrentWeek(): Date {
+  const now = new Date();
+  // ISO week ends on Sunday
+  const daysToSunday = now.getDay() === 0 ? 0 : 7 - now.getDay();
+  const sunday = new Date(now);
+  sunday.setDate(now.getDate() + daysToSunday);
+  sunday.setHours(23, 59, 59, 999);
+  return sunday;
+}
 
 function emptyMeetingForm(): MeetingForm {
   return { title: "", type: "collective", subTeam: "", scheduledAt: "", location: "", agenda: "", convenerEmail: "", attendeeEmails: [] };
 }
 
-export default function PilotagePanel({ canWrite = true }: { canWrite?: boolean }) {
+export default function PilotagePanel({ canWrite = true, currentUserEmail }: { canWrite?: boolean; currentUserEmail?: string }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -139,6 +148,16 @@ export default function PilotagePanel({ canWrite = true }: { canWrite?: boolean 
   const [fAssignee, setFAssignee] = useState("");
   const [fLate, setFLate] = useState(false);
   const [fSoon, setFSoon] = useState(false);
+  const [fThisWeekAndBefore, setFThisWeekAndBefore] = useState(false);
+
+  // Pre-filter to current user's email once it's available (runs once on mount)
+  const assigneeInitialized = useRef(false);
+  useEffect(() => {
+    if (currentUserEmail && !assigneeInitialized.current) {
+      setFAssignee(currentUserEmail);
+      assigneeInitialized.current = true;
+    }
+  }, [currentUserEmail]);
 
   // drag + detail
   const [dragId, setDragId] = useState<number | null>(null);
@@ -163,15 +182,23 @@ export default function PilotagePanel({ canWrite = true }: { canWrite?: boolean 
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const filtered = useMemo(() => tasks.filter((t) => {
-    if (fPhase && t.phase !== Number(fPhase)) return false;
-    if (fPole && t.pole !== fPole) return false;
-    if (fSubTeam && t.subTeam !== fSubTeam) return false;
-    if (fAssignee && t.assigneeEmail !== fAssignee) return false;
-    if (fLate && !isOverdue(t)) return false;
-    if (fSoon && !(daysUntil(t.dueDate) <= 30 && t.status !== "done")) return false;
-    return true;
-  }), [tasks, fPhase, fPole, fSubTeam, fAssignee, fLate, fSoon]);
+  const filtered = useMemo(() => {
+    const weekEnd = fThisWeekAndBefore ? endOfCurrentWeek() : null;
+    return tasks.filter((t) => {
+      if (fPhase && t.phase !== Number(fPhase)) return false;
+      if (fPole && t.pole !== fPole) return false;
+      if (fSubTeam && t.subTeam !== fSubTeam) return false;
+      if (fAssignee && t.assigneeEmail !== fAssignee) return false;
+      if (fLate && !isOverdue(t)) return false;
+      if (fSoon && !(daysUntil(t.dueDate) <= 30 && t.status !== "done")) return false;
+      if (weekEnd) {
+        // Show only non-done tasks due on or before end of current week
+        if (t.status === "done") return false;
+        if (!t.dueDate || new Date(t.dueDate) > weekEnd) return false;
+      }
+      return true;
+    });
+  }, [tasks, fPhase, fPole, fSubTeam, fAssignee, fLate, fSoon, fThisWeekAndBefore]);
 
   const kpi = useMemo(() => {
     const total = tasks.length;
@@ -327,12 +354,33 @@ export default function PilotagePanel({ canWrite = true }: { canWrite?: boolean 
               <option value="" className="bg-dark-800">Toutes sous-équipes</option>
               {SUBTEAMS.map((s) => <option key={s} value={s} className="bg-dark-800">{s}</option>)}
             </select>
-            <select value={fAssignee} onChange={(e) => setFAssignee(e.target.value)} className="cyber-input rounded px-2 py-1 bg-transparent text-white">
+            <select
+              value={fAssignee}
+              onChange={(e) => setFAssignee(e.target.value)}
+              className={`cyber-input rounded px-2 py-1 bg-transparent text-white ${fAssignee === currentUserEmail && currentUserEmail ? "border-neon-green/40 text-neon-green" : ""}`}
+            >
               <option value="" className="bg-dark-800">Tous responsables</option>
-              {assigneeOptions.map((m) => <option key={m.id} value={m.email!} className="bg-dark-800">{m.name}</option>)}
+              {assigneeOptions.map((m) => <option key={m.id} value={m.email!} className="bg-dark-800">{m.name}{m.email === currentUserEmail ? " (moi)" : ""}</option>)}
             </select>
+            {currentUserEmail && fAssignee !== currentUserEmail && (
+              <button
+                onClick={() => setFAssignee(currentUserEmail)}
+                className="text-xs px-2 py-1 rounded border border-neon-green/30 text-neon-green/70 hover:text-neon-green hover:border-neon-green/60 font-mono transition-colors"
+                title="Filtrer mes tâches"
+              >
+                👤 Mes tâches
+              </button>
+            )}
             <label className="flex items-center gap-1 text-gray-400 cursor-pointer"><input type="checkbox" checked={fLate} onChange={(e) => setFLate(e.target.checked)} /> En retard</label>
             <label className="flex items-center gap-1 text-gray-400 cursor-pointer"><input type="checkbox" checked={fSoon} onChange={(e) => setFSoon(e.target.checked)} /> 30 prochains jours</label>
+            <label className="flex items-center gap-1 cursor-pointer" style={{ color: fThisWeekAndBefore ? "#00ff9d" : "#9ca3af" }}>
+              <input
+                type="checkbox"
+                checked={fThisWeekAndBefore}
+                onChange={(e) => setFThisWeekAndBefore(e.target.checked)}
+              />
+              📅 Semaine en cours &amp; antérieures
+            </label>
           </div>
 
           {/* Kanban */}

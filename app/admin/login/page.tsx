@@ -4,6 +4,11 @@ import { useRouter } from "next/navigation";
 
 type Step = "credentials" | "mfa" | "legacy";
 
+const CHECKIN_EMAILS = new Set(["hotesse@eocon.local"]);
+function loginRedirect(userEmail: string) {
+  return CHECKIN_EMAILS.has(userEmail.toLowerCase()) ? "/checkin/scan" : "/admin";
+}
+
 export default function AdminLogin() {
   const router = useRouter();
 
@@ -56,7 +61,7 @@ export default function AdminLogin() {
         setStep("mfa");
         return;
       }
-      router.push("/admin");
+      router.push(loginRedirect(data.user?.email ?? email));
     } catch {
       setError("Erreur réseau");
     } finally {
@@ -80,7 +85,8 @@ export default function AdminLogin() {
         setError(data.error || "Code incorrect");
         return;
       }
-      router.push("/admin");
+      // email state still holds the value from step 1
+      router.push(loginRedirect(email));
     } catch {
       setError("Erreur réseau");
     } finally {

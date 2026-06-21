@@ -5957,9 +5957,9 @@ export default function AdminDashboard() {
     },
     {
       label: t.speakersProgram,
-      icon: "🎤",
+      icon: "🎙️",
       tabs: [
-        { id: "pipeline", label: t.pipeline, icon: "🎤", count: stats.cfp },
+        { id: "pipeline", label: t.pipeline, icon: "🧑‍🏫", count: stats.cfp },
       ],
     },
     {
@@ -5986,26 +5986,26 @@ export default function AdminDashboard() {
       tabs: [
         { id: "tickets", label: t.tickets, icon: "🎟️" },
         { id: "sponsor-packages", label: t.sponsorPackages, icon: "📦" },
-        { id: "budget", label: t.budgetTracking, icon: "💰" },
+        { id: "budget", label: t.budgetTracking, icon: "💸" },
         { id: "transactions", label: "Transactions", icon: "💳" },
       ],
     },
     {
       label: "CTF",
-      icon: "⚡",
+      icon: "🏆",
       tabs: [
-        { id: "ctf", label: "EyesOpen CTF", icon: "⚡" },
+        { id: "ctf", label: "EyesOpen CTF", icon: "👩‍💻" },
       ],
     },
     {
       label: t.communication,
-      icon: "📣",
+      icon: "⚡",
       tabs: [
-        { id: "strategic-plan", label: "Plan stratégique", icon: "📋" },
-        { id: "communication", label: t.communicationPosts, icon: "📝" },
-        { id: "campaigns", label: "Campagnes", icon: "📩" },
+        { id: "strategic-plan", label: "Plan stratégique", icon: "♚" },
+        { id: "communication", label: t.communicationPosts, icon: "📢" },
+        { id: "campaigns", label: "Campagnes", icon: "📬" },
         { id: "library", label: "Library", icon: "📁" },
-        { id: "cyber-watch", label: "Veille cyber", icon: "📡" },
+        { id: "cyber-watch", label: "Veille cyber", icon: "📰" },
       ],
     },
     {
@@ -6013,10 +6013,10 @@ export default function AdminDashboard() {
       icon: "⚙️",
       tabs: [
         { id: "logistics", label: t.logistics, icon: "🚛" },
-        { id: "certificates", label: t.certificates, icon: "🏆" },
+        { id: "certificates", label: t.certificates, icon: "🎓" },
         { id: "export", label: t.exportCsv, icon: "📤" },
         { id: "users", label: t.users, icon: "👤" },
-        { id: "profiles", label: t.profiles, icon: "🔑" },
+        { id: "profiles", label: t.profiles, icon: "🛡️" },
         { id: "audit", label: t.auditLog, icon: "📜" },
       ],
     },
@@ -6024,7 +6024,7 @@ export default function AdminDashboard() {
       label: "Web Site",
       icon: "🌐",
       tabs: [
-        { id: "past-speakers", label: t.pastSpeakers, icon: "🎙️" },
+        { id: "past-speakers", label: t.pastSpeakers, icon: "🎤" },
         { id: "team", label: t.team, icon: "👥", count: stats.team },
         { id: "video", label: "Vidéothèque", icon: "📹" },
         { id: "testimony", label: "Témoignages", icon: "💬" },

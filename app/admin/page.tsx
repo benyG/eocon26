@@ -4469,9 +4469,9 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   const testConnection = async () => {
     setTestResult("Test en cours…");
     try {
-      const url = config.ctfdUrl.replace(/\/$/, "");
-      const r = await fetch(`${url}/api/v1/users`, { headers: { "Authorization": `Token ${config.ctfdApiKey}` } });
-      setTestResult(r.ok ? "✓ Connexion CTFd réussie" : `✗ Erreur ${r.status}`);
+      const r = await fetch("/api/admin/ctf/test-connection");
+      const data = await r.json();
+      setTestResult(data.ok ? "✓ Connexion CTFd réussie" : `✗ ${data.error || "Impossible de joindre CTFd"}`);
     } catch {
       setTestResult("✗ Impossible de joindre CTFd");
     }

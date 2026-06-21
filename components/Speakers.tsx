@@ -165,17 +165,17 @@ function SpeakerModal({ speaker, color, onClose }: { speaker: Speaker; color: st
 
         {/* Calendar card */}
         <div className="px-6 py-4">
-          <h4 className="text-xs font-mono uppercase tracking-widest mb-3" style={{ color }}>📅 EOCON 2026</h4>
+          <h4 className="text-xs font-mono uppercase tracking-widest mb-3" style={{ color }}>📅 EOCON</h4>
           <div className="rounded-xl p-4 flex items-center gap-4" style={{ background: `${color}08`, border: `1px solid ${color}20` }}>
             <div className="text-center shrink-0 rounded-lg p-3" style={{ background: `${color}15`, minWidth: 64 }}>
               <div className="text-xs font-mono uppercase" style={{ color }}>NOV</div>
-              <div className="text-3xl font-black text-white leading-none">28</div>
+              <div className="text-3xl font-black text-white leading-none">23-28</div>
               <div className="text-xs font-mono text-gray-500">2026</div>
             </div>
             <div>
-              <p className="text-white font-bold text-sm">EOCON 2026 — 7ème Édition</p>
+              <p className="text-white font-bold text-sm">EOCON — 7ème Édition</p>
               <p className="text-gray-400 text-xs mt-0.5">📍 Hotel Onomo · Douala, Cameroon</p>
-              <p className="text-gray-500 text-xs mt-0.5">Conférence internationale en cybersécurité</p>
+              <p className="text-gray-500 text-xs mt-0.5">Evenement internationale en cybersécurité</p>
             </div>
           </div>
         </div>

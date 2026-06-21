@@ -44,17 +44,21 @@ export async function POST(req: NextRequest) {
     await prisma.adminUser.update({ where: { id: user.id }, data: { passwordHash: hashPassword(password) } }).catch(() => {});
   }
 
+  // Accounts exempt from MFA (e.g. kiosk/hotesse accounts that have no TOTP device)
+  const MFA_EXEMPT = new Set(["hotesse@eocon.local"]);
+  const mfaExempt = MFA_EXEMPT.has(user.email.toLowerCase());
+
   // Check if MFA required (global setting)
-  const mfaSetting = await prisma.eventSetting.findUnique({ where: { key: "mfa_required" } });
+  const mfaSetting = mfaExempt ? null : await prisma.eventSetting.findUnique({ where: { key: "mfa_required" } });
   const mfaRequired = mfaSetting?.value === "true";
 
-  if (user.mfaEnabled) {
+  if (!mfaExempt && user.mfaEnabled) {
     // MFA enabled — return a pending token, client must verify TOTP
     const mfaPendingToken = signMfaPending(user.id);
     return NextResponse.json({ mfaRequired: true, mfaPendingToken });
   }
 
-  if (mfaRequired && !user.mfaEnabled) {
+  if (!mfaExempt && mfaRequired && !user.mfaEnabled) {
     // MFA required globally but user hasn't enrolled — force enrollment
     const mfaPendingToken = signMfaPending(user.id);
     return NextResponse.json({ mfaRequired: true, mfaEnrollmentRequired: true, mfaPendingToken });

@@ -14,7 +14,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   if (!(await hasPermission("pilotage", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json();
-  const { title, type, subTeam, scheduledAt, location, agenda, attendees } = body;
+  const { title, type, subTeam, scheduledAt, location, agenda, attendees, convenerEmail, convenerName } = body;
   if (!title || !scheduledAt) return NextResponse.json({ error: "title et scheduledAt requis" }, { status: 400 });
   const meeting = await prisma.steeringMeeting.create({
     data: {
@@ -25,6 +25,8 @@ export async function POST(req: NextRequest) {
       location: location || null,
       agenda: agenda || null,
       attendees: attendees || null,
+      convenerEmail: convenerEmail || null,
+      convenerName: convenerName || null,
     },
   });
   logAction(req, "CREATE", "pilotage", meeting.id, { meeting: title });

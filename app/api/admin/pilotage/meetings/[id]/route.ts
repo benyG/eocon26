@@ -10,7 +10,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const id = Number(params.id);
   const body = await req.json();
   const data: Record<string, unknown> = {};
-  for (const f of ["title", "type", "subTeam", "location", "agenda", "attendees", "reminderStage"]) {
+  for (const f of ["title", "type", "subTeam", "location", "agenda", "attendees", "convenerEmail", "convenerName", "reminderStage"]) {
     if (body[f] !== undefined) data[f] = body[f];
   }
   if (body.scheduledAt !== undefined) data.scheduledAt = new Date(body.scheduledAt);

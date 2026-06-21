@@ -5770,6 +5770,16 @@ export default function AdminDashboard() {
     return !!userInfo.permissions[permKey as string];
   };
 
+  const canRenderTab = (tabId: Tab): boolean => {
+    if (!userInfo) return tabId === "dashboard"; // deny all protected tabs until identity confirmed
+    if (userInfo.isLegacy) return true;
+    const permKey = TAB_PERMISSION[tabId];
+    if (permKey === undefined) return true;
+    return !!userInfo.permissions[permKey as string];
+  };
+
+  const activeTab = canRenderTab(tab) ? tab : "dashboard";
+
   // Permission level check for a module (drives read-only UI in panels).
   const can = (moduleKey: string, level: "read" | "write" = "write"): boolean => {
     if (!userInfo || userInfo.isLegacy) return true;
@@ -6144,7 +6154,7 @@ export default function AdminDashboard() {
                       {group.tabs.map(tabItem => (
                         <button
                           key={tabItem.id}
-                          onClick={() => setTab(tabItem.id)}
+                          onClick={() => { if (canSeeTab(tabItem.id)) setTab(tabItem.id); }}
                           className={`w-full text-left px-2 py-1.5 rounded text-xs transition-all flex items-center gap-2 mb-0.5 ${tab === tabItem.id ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 hover:text-gray-300 hover:bg-white/[0.02]"}`}
                         >
                           <span className="shrink-0 opacity-70">{tabItem.icon}</span>
@@ -6166,10 +6176,10 @@ export default function AdminDashboard() {
         <main className="flex-1 p-6 min-w-0">
 
           {/* PIPELINE — Speakers & Programme unified */}
-          {tab === "pipeline" && <PipelineKanban canWrite={can("cfp")} />}
+          {activeTab === "pipeline" && <PipelineKanban canWrite={can("cfp")} />}
 
           {/* DASHBOARD */}
-          {tab === "dashboard" && (
+          {activeTab === "dashboard" && (
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-black text-white">{t.dashboardTitle}</h1>
@@ -6194,13 +6204,13 @@ export default function AdminDashboard() {
                 stats={stats}
                 extra={dashboardExtra}
                 analyticsData={(data.analytics?.[0] as Record<string, unknown>) || null}
-                onNavigate={setTab}
+                onNavigate={(t: Tab) => { if (canSeeTab(t)) setTab(t); }}
               />
             </div>
           )}
 
           {/* SPONSORS */}
-          {tab === "sponsors" && (
+          {activeTab === "sponsors" && (
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-black text-white">{t.sponsorsTitle}</h1>
@@ -6282,7 +6292,7 @@ export default function AdminDashboard() {
           )}
 
           {/* VOLUNTEERS */}
-          {tab === "volunteers" && (
+          {activeTab === "volunteers" && (
             <div>
               <h1 className="text-2xl font-black text-white mb-6">{t.benevoles} ({(data.volunteers || []).length})</h1>
               <div className="mb-8">
@@ -6374,10 +6384,10 @@ export default function AdminDashboard() {
           )}
 
           {/* REGISTRATIONS */}
-          {tab === "registrations" && <RegistrationsPanel onDetail={r => setDetail({ type: "registration", item: r })} canManualValidate={!!userInfo?.isRoot && !!userInfo?.currencySelectorEnabled} />}
+          {activeTab === "registrations" && <RegistrationsPanel onDetail={r => setDetail({ type: "registration", item: r })} canManualValidate={!!userInfo?.isRoot && !!userInfo?.currencySelectorEnabled} />}
 
           {/* NEWSLETTER */}
-          {tab === "newsletter" && (
+          {activeTab === "newsletter" && (
             <div>
               <h1 className="text-2xl font-black text-white mb-6">Newsletter ({(data.newsletter || []).length} abonnés)</h1>
               <div className="overflow-x-auto">
@@ -6405,7 +6415,7 @@ export default function AdminDashboard() {
           )}
 
           {/* TEAM */}
-          {tab === "team" && (
+          {activeTab === "team" && (
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-black text-white">Équipe d&apos;organisation</h1>
@@ -6497,7 +6507,7 @@ export default function AdminDashboard() {
           )}
 
           {/* PAST-SPEAKERS */}
-          {tab === "past-speakers" && (
+          {activeTab === "past-speakers" && (
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-black text-white">Anciens Intervenants</h1>
@@ -6590,32 +6600,32 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {tab === "users" && <AdminUsersPanel canWrite={can("users")} canDelete={!!(userInfo?.isLegacy || userInfo?.isRoot)} />}
-          {tab === "profiles" && <AdminProfilesPanel />}
+          {activeTab === "users" && <AdminUsersPanel canWrite={can("users")} canDelete={!!(userInfo?.isLegacy || userInfo?.isRoot)} />}
+          {activeTab === "profiles" && <AdminProfilesPanel />}
 
-          {tab === "pilotage" && <PilotagePanel canWrite={can("pilotage")} currentUserEmail={userInfo?.email} />}
-          {tab === "settings" && <EventSettingsPanel canWrite={can("settings")} />}
+          {activeTab === "pilotage" && <PilotagePanel canWrite={can("pilotage")} currentUserEmail={userInfo?.email} />}
+          {activeTab === "settings" && <EventSettingsPanel canWrite={can("settings")} />}
 
           {/* COMMUNICATION */}
-          {tab === "strategic-plan" && (
+          {activeTab === "strategic-plan" && (
             <StrategicPlanPanel canWrite={can("strategic-plan")} />
           )}
 
-          {tab === "communication" && (
+          {activeTab === "communication" && (
             <CommunicationPanel canWrite={can("communication")} />
           )}
 
           {/* CAMPAIGNS */}
-          {tab === "campaigns" && <CampaignsPanel canWrite={can("campaigns")} />}
+          {activeTab === "campaigns" && <CampaignsPanel canWrite={can("campaigns")} />}
 
           {/* LIBRARY */}
-          {tab === "library" && <LibraryPanel canWrite={can("library")} />}
+          {activeTab === "library" && <LibraryPanel canWrite={can("library")} />}
 
           {/* CYBER WATCH */}
-          {tab === "cyber-watch" && <CyberWatchPanel canWrite={can("cyber-watch")} />}
+          {activeTab === "cyber-watch" && <CyberWatchPanel canWrite={can("cyber-watch")} />}
 
           {/* SPONSOR PIPELINE */}
-          {tab === "sponsor-pipeline" && (
+          {activeTab === "sponsor-pipeline" && (
             <SponsorPipelinePanel
               prospects={(data["sponsor-pipeline"] || []) as Record<string, unknown>[]}
               onRefresh={() => fetchData("sponsor-pipeline")}
@@ -6624,12 +6634,12 @@ export default function AdminDashboard() {
           )}
 
           {/* SPONSOR PACKAGES */}
-          {tab === "sponsor-packages" && (
+          {activeTab === "sponsor-packages" && (
             <SponsorPackagesPanel canWrite={can("sponsor-packages")} />
           )}
 
           {/* PROSPECTION IA */}
-          {tab === "prospection" && (
+          {activeTab === "prospection" && (
             <ProspectionPanel
               leads={(data.prospection || []) as Record<string, unknown>[]}
               onRefresh={() => fetchData("prospection")}
@@ -6638,7 +6648,7 @@ export default function AdminDashboard() {
           )}
 
           {/* BUDGET */}
-          {tab === "budget" && (
+          {activeTab === "budget" && (
             <BudgetPanel
               items={(data.budget || []) as Record<string, unknown>[]}
               onRefresh={() => fetchData("budget")}
@@ -6647,7 +6657,7 @@ export default function AdminDashboard() {
           )}
 
           {/* LOGISTICS */}
-          {tab === "logistics" && (
+          {activeTab === "logistics" && (
             <LogisticsPanel
               tasks={(data.logistics || []) as Record<string, unknown>[]}
               onRefresh={() => fetchData("logistics")}
@@ -6656,33 +6666,33 @@ export default function AdminDashboard() {
           )}
 
           {/* CTF */}
-          {tab === "ctf" && <CTFPanel canWrite={can("ctf")} />}
+          {activeTab === "ctf" && <CTFPanel canWrite={can("ctf")} />}
 
           {/* TICKETS */}
-          {tab === "tickets" && <TicketsPanel canWrite={can("tickets")} />}
+          {activeTab === "tickets" && <TicketsPanel canWrite={can("tickets")} />}
 
           {/* CERTIFICATES */}
-          {tab === "certificates" && (
+          {activeTab === "certificates" && (
             <CertificatesPanel canWrite={can("certificates")} />
           )}
 
           {/* SESSIONS */}
-          {tab === "sessions" && <SessionsPanel canWrite={can("sessions")} />}
+          {activeTab === "sessions" && <SessionsPanel canWrite={can("sessions")} />}
 
           {/* TRANSACTIONS */}
-          {tab === "transactions" && <TransactionsPanel canWrite={can("transactions")} />}
+          {activeTab === "transactions" && <TransactionsPanel canWrite={can("transactions")} />}
 
           {/* VIDEO */}
-          {tab === "video" && <VideoPanel canWrite={can("video")} />}
+          {activeTab === "video" && <VideoPanel canWrite={can("video")} />}
 
           {/* TESTIMONY */}
-          {tab === "testimony" && <TestimonyPanel canWrite={can("testimony")} />}
+          {activeTab === "testimony" && <TestimonyPanel canWrite={can("testimony")} />}
 
           {/* AUDIT LOG — super_admin only */}
-          {tab === "audit" && <AuditPanel />}
+          {activeTab === "audit" && <AuditPanel />}
 
           {/* EXPORT */}
-          {tab === "export" && (
+          {activeTab === "export" && (
             <div>
               <h1 className="text-2xl font-black text-white mb-6">{t.exportTitle}</h1>
               <div className="grid sm:grid-cols-2 gap-4">

@@ -107,7 +107,7 @@ function googleCalUrl(s: Session): string {
   const date = s.date || EVENT_DATE;
   const dtStart = toICSDateTime(date, s.time);
   const dtEnd = endICSDateTime(date, s.time, s.endTime, s.type);
-  const text = encodeURIComponent(`EOCON 2026 — ${s.speakerName ? `${s.title} — ${s.speakerName}` : s.title}`);
+  const text = encodeURIComponent(`EOCON — ${s.speakerName ? `${s.title} — ${s.speakerName}` : s.title}`);
   const loc = encodeURIComponent(s.room ? `${s.room}, ${EVENT_LOCATION}` : EVENT_LOCATION);
   const desc = encodeURIComponent(s.description || "");
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${dtStart}/${dtEnd}&location=${loc}&details=${desc}`;

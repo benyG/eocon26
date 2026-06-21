@@ -5716,6 +5716,8 @@ export default function AdminDashboard() {
   // Current user identity + permissions
   const [userInfo, setUserInfo] = useState<{ isLegacy: boolean; id?: number; name: string; email?: string; mfaEnabled?: boolean; mfaRequired?: boolean; isRoot?: boolean; currencySelectorEnabled?: boolean; permissions: Record<string, string> } | null>(null);
   const [showAccount, setShowAccount] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   const refreshMe = useCallback(() => {
     fetch("/api/admin/me").then(r => r.ok ? r.json() : null).then(info => {
@@ -5941,92 +5943,92 @@ export default function AdminDashboard() {
   type TabGroup = {
     label: string;
     icon: string;
-    tabs: { id: Tab; label: string; count?: number }[];
+    tabs: { id: Tab; label: string; icon: string; count?: number }[];
   };
 
   const tabGroups: TabGroup[] = [
     {
       label: t.overview,
-      icon: "◈",
+      icon: "🏠",
       tabs: [
-        { id: "dashboard", label: t.dashboard },
-        { id: "pilotage", label: "🎯 Pilotage global" },
+        { id: "dashboard", label: t.dashboard, icon: "📊" },
+        { id: "pilotage", label: "Pilotage global", icon: "🎯" },
       ],
     },
     {
       label: t.speakersProgram,
-      icon: "◆",
+      icon: "🎤",
       tabs: [
-        { id: "pipeline", label: t.pipeline, count: stats.cfp },
+        { id: "pipeline", label: t.pipeline, icon: "🎤", count: stats.cfp },
       ],
     },
     {
       label: t.participants,
-      icon: "◉",
+      icon: "👥",
       tabs: [
-        { id: "registrations", label: t.registrations, count: stats.registrations },
-        { id: "volunteers", label: t.volunteers, count: stats.volunteers },
-        { id: "newsletter", label: t.newsletter, count: stats.newsletter },
+        { id: "registrations", label: t.registrations, icon: "🎫", count: stats.registrations },
+        { id: "volunteers", label: t.volunteers, icon: "🙋", count: stats.volunteers },
+        { id: "newsletter", label: t.newsletter, icon: "📧", count: stats.newsletter },
       ],
     },
     {
       label: t.sponsorsGroup,
-      icon: "◇",
+      icon: "🤝",
       tabs: [
-        { id: "sponsors", label: t.sponsorsActive, count: stats.sponsors },
-        { id: "sponsor-pipeline", label: t.sponsorPipeline },
-        { id: "prospection", label: t.prospection },
+        { id: "sponsors", label: t.sponsorsActive, icon: "🏅", count: stats.sponsors },
+        { id: "sponsor-pipeline", label: t.sponsorPipeline, icon: "📈" },
+        { id: "prospection", label: t.prospection, icon: "🔍" },
       ],
     },
     {
       label: t.budget,
-      icon: "◈",
+      icon: "💰",
       tabs: [
-        { id: "tickets", label: t.tickets },
-        { id: "sponsor-packages", label: t.sponsorPackages },
-        { id: "budget", label: t.budgetTracking },
-        { id: "transactions", label: "💳 Transactions" },
+        { id: "tickets", label: t.tickets, icon: "🎟️" },
+        { id: "sponsor-packages", label: t.sponsorPackages, icon: "📦" },
+        { id: "budget", label: t.budgetTracking, icon: "💰" },
+        { id: "transactions", label: "Transactions", icon: "💳" },
       ],
     },
     {
       label: "CTF",
       icon: "⚡",
       tabs: [
-        { id: "ctf", label: "⚡ EyesOpen CTF" },
+        { id: "ctf", label: "EyesOpen CTF", icon: "⚡" },
       ],
     },
     {
       label: t.communication,
-      icon: "◉",
+      icon: "📣",
       tabs: [
-        { id: "strategic-plan", label: "📋 Plan stratégique" },
-        { id: "communication", label: t.communicationPosts },
-        { id: "campaigns", label: "📣 Campagnes" },
-        { id: "library", label: "📁 Library" },
-        { id: "cyber-watch", label: "📡 Veille cyber" },
+        { id: "strategic-plan", label: "Plan stratégique", icon: "📋" },
+        { id: "communication", label: t.communicationPosts, icon: "📝" },
+        { id: "campaigns", label: "Campagnes", icon: "📩" },
+        { id: "library", label: "Library", icon: "📁" },
+        { id: "cyber-watch", label: "Veille cyber", icon: "📡" },
       ],
     },
     {
       label: t.operations,
-      icon: "◎",
+      icon: "⚙️",
       tabs: [
-        { id: "logistics", label: t.logistics },
-        { id: "certificates", label: t.certificates },
-        { id: "export", label: t.exportCsv },
-        { id: "users", label: t.users },
-        { id: "profiles", label: t.profiles },
-        { id: "audit", label: t.auditLog },
+        { id: "logistics", label: t.logistics, icon: "🚛" },
+        { id: "certificates", label: t.certificates, icon: "🏆" },
+        { id: "export", label: t.exportCsv, icon: "📤" },
+        { id: "users", label: t.users, icon: "👤" },
+        { id: "profiles", label: t.profiles, icon: "🔑" },
+        { id: "audit", label: t.auditLog, icon: "📜" },
       ],
     },
     {
       label: "Web Site",
       icon: "🌐",
       tabs: [
-        { id: "past-speakers", label: t.pastSpeakers },
-        { id: "team", label: t.team, count: stats.team },
-        { id: "video", label: "📹 Vidéothèque" },
-        { id: "testimony", label: "💬 Témoignages" },
-        { id: "settings", label: t.eventSettings },
+        { id: "past-speakers", label: t.pastSpeakers, icon: "🎙️" },
+        { id: "team", label: t.team, icon: "👥", count: stats.team },
+        { id: "video", label: "Vidéothèque", icon: "📹" },
+        { id: "testimony", label: "Témoignages", icon: "💬" },
+        { id: "settings", label: t.eventSettings, icon: "⚙️" },
       ],
     },
   ];
@@ -6093,27 +6095,71 @@ export default function AdminDashboard() {
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-56 min-h-screen border-r border-neon-green/10 bg-black/40 p-3 shrink-0 overflow-y-auto">
-          {visibleTabGroups.map(group => (
-            <div key={group.label} className="mb-4">
-              <div className="flex items-center gap-1.5 px-2 py-1 mb-1">
-                <span className="text-neon-green/40 text-xs">{group.icon}</span>
-                <span className="text-gray-600 text-xs uppercase tracking-widest font-bold">{group.label}</span>
-              </div>
-              {group.tabs.map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => setTab(t.id)}
-                  className={`w-full text-left px-3 py-1.5 rounded text-xs transition-all flex items-center justify-between mb-0.5 ${tab === t.id ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 hover:text-gray-300 hover:bg-white/[0.02]"}`}
-                >
-                  <span>{t.label}</span>
-                  {t.count !== undefined && t.count > 0 && (
-                    <span className="text-neon-green/50 text-xs font-mono">{t.count}</span>
+        <aside className={`${sidebarCollapsed ? "w-12" : "w-56"} transition-[width] duration-200 min-h-screen border-r border-neon-green/10 bg-black/40 shrink-0 overflow-y-auto flex flex-col`}>
+          {/* Collapse toggle */}
+          <button
+            onClick={() => setSidebarCollapsed(c => !c)}
+            title={sidebarCollapsed ? "Développer" : "Réduire"}
+            className="flex items-center justify-center h-8 border-b border-neon-green/10 text-neon-green/30 hover:text-neon-green hover:bg-neon-green/5 transition-all shrink-0 w-full"
+          >
+            <span className="text-sm font-mono">{sidebarCollapsed ? "»" : "«"}</span>
+          </button>
+
+          <nav className="flex-1 py-2">
+            {visibleTabGroups.map(group => {
+              const isGroupCollapsed = collapsedGroups.has(group.label);
+              const groupHasActive = group.tabs.some(tabItem => tabItem.id === tab);
+              return (
+                <div key={group.label} className="mb-1">
+                  {/* Group header */}
+                  <button
+                    onClick={() => {
+                      if (sidebarCollapsed) {
+                        setSidebarCollapsed(false);
+                      } else {
+                        setCollapsedGroups(prev => {
+                          const next = new Set(Array.from(prev));
+                          if (next.has(group.label)) next.delete(group.label);
+                          else next.add(group.label);
+                          return next;
+                        });
+                      }
+                    }}
+                    title={sidebarCollapsed ? group.label : undefined}
+                    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded mx-1 transition-all ${groupHasActive ? "bg-neon-green/8" : "hover:bg-neon-green/5"}`}
+                    style={{ width: sidebarCollapsed ? "calc(100% - 8px)" : "calc(100% - 8px)" }}
+                  >
+                    <span className="text-base leading-none shrink-0">{group.icon}</span>
+                    {!sidebarCollapsed && (
+                      <>
+                        <span className="flex-1 text-left text-xs font-bold uppercase tracking-wider text-neon-green truncate">{group.label}</span>
+                        <span className="text-neon-green/40 text-xs shrink-0 transition-transform duration-150" style={{ transform: isGroupCollapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▾</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Tab children */}
+                  {!sidebarCollapsed && !isGroupCollapsed && (
+                    <div className="pl-3 pr-1 mt-0.5 mb-1">
+                      {group.tabs.map(tabItem => (
+                        <button
+                          key={tabItem.id}
+                          onClick={() => setTab(tabItem.id)}
+                          className={`w-full text-left px-2 py-1.5 rounded text-xs transition-all flex items-center gap-2 mb-0.5 ${tab === tabItem.id ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 hover:text-gray-300 hover:bg-white/[0.02]"}`}
+                        >
+                          <span className="shrink-0 opacity-70">{tabItem.icon}</span>
+                          <span className="flex-1 truncate">{tabItem.label}</span>
+                          {tabItem.count !== undefined && tabItem.count > 0 && (
+                            <span className="text-neon-green/50 text-xs font-mono shrink-0">{tabItem.count}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
                   )}
-                </button>
-              ))}
-            </div>
-          ))}
+                </div>
+              );
+            })}
+          </nav>
         </aside>
 
         {/* Main */}
@@ -6547,7 +6593,7 @@ export default function AdminDashboard() {
           {tab === "users" && <AdminUsersPanel canWrite={can("users")} canDelete={!!(userInfo?.isLegacy || userInfo?.isRoot)} />}
           {tab === "profiles" && <AdminProfilesPanel />}
 
-          {tab === "pilotage" && <PilotagePanel canWrite={can("pilotage")} />}
+          {tab === "pilotage" && <PilotagePanel canWrite={can("pilotage")} currentUserEmail={userInfo?.email} />}
           {tab === "settings" && <EventSettingsPanel canWrite={can("settings")} />}
 
           {/* COMMUNICATION */}

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 type Status = "backlog" | "todo" | "in_progress" | "blocked" | "review" | "done";
 
@@ -50,6 +50,8 @@ interface Task {
   notes?: string | null;
 }
 
+interface MeetingAttendee { name: string; email: string; }
+
 interface Meeting {
   id: number;
   title: string;
@@ -58,7 +60,20 @@ interface Meeting {
   scheduledAt: string;
   location?: string | null;
   agenda?: string | null;
-  attendees?: string | null;
+  attendees?: string | null; // JSON: [{name, email}]
+  convenerEmail?: string | null;
+  convenerName?: string | null;
+}
+
+interface MeetingForm {
+  title: string;
+  type: string;
+  subTeam: string;
+  scheduledAt: string; // datetime-local format YYYY-MM-DDTHH:mm
+  location: string;
+  agenda: string;
+  convenerEmail: string;
+  attendeeEmails: string[];
 }
 
 interface Member { id: number; name: string; role: string; email?: string | null; }
@@ -69,6 +84,34 @@ function fmtDate(d?: string | null) {
   if (isNaN(date.getTime())) return "—";
   return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 }
+
+function fmtTime(d?: string | null) {
+  if (!d) return "";
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function fmtDayOfWeek(d?: string | null) {
+  if (!d) return "";
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("fr-FR", { weekday: "short" });
+}
+
+function toDatetimeLocal(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  // Format local time as YYYY-MM-DDTHH:mm
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function parseAttendees(raw?: string | null): MeetingAttendee[] {
+  if (!raw) return [];
+  try { return JSON.parse(raw) as MeetingAttendee[]; } catch { return []; }
+}
+
 function isOverdue(t: Task) {
   return !!t.dueDate && t.status !== "done" && new Date(t.dueDate).getTime() < Date.now();
 }
@@ -76,8 +119,21 @@ function daysUntil(d?: string | null) {
   if (!d) return Infinity;
   return Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
 }
+function endOfCurrentWeek(): Date {
+  const now = new Date();
+  // ISO week ends on Sunday
+  const daysToSunday = now.getDay() === 0 ? 0 : 7 - now.getDay();
+  const sunday = new Date(now);
+  sunday.setDate(now.getDate() + daysToSunday);
+  sunday.setHours(23, 59, 59, 999);
+  return sunday;
+}
 
-export default function PilotagePanel({ canWrite = true }: { canWrite?: boolean }) {
+function emptyMeetingForm(): MeetingForm {
+  return { title: "", type: "collective", subTeam: "", scheduledAt: "", location: "", agenda: "", convenerEmail: "", attendeeEmails: [] };
+}
+
+export default function PilotagePanel({ canWrite = true, currentUserEmail }: { canWrite?: boolean; currentUserEmail?: string }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -92,6 +148,16 @@ export default function PilotagePanel({ canWrite = true }: { canWrite?: boolean 
   const [fAssignee, setFAssignee] = useState("");
   const [fLate, setFLate] = useState(false);
   const [fSoon, setFSoon] = useState(false);
+  const [fThisWeekAndBefore, setFThisWeekAndBefore] = useState(false);
+
+  // Pre-filter to current user's email once it's available (runs once on mount)
+  const assigneeInitialized = useRef(false);
+  useEffect(() => {
+    if (currentUserEmail && !assigneeInitialized.current) {
+      setFAssignee(currentUserEmail);
+      assigneeInitialized.current = true;
+    }
+  }, [currentUserEmail]);
 
   // drag + detail
   const [dragId, setDragId] = useState<number | null>(null);
@@ -116,15 +182,23 @@ export default function PilotagePanel({ canWrite = true }: { canWrite?: boolean 
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const filtered = useMemo(() => tasks.filter((t) => {
-    if (fPhase && t.phase !== Number(fPhase)) return false;
-    if (fPole && t.pole !== fPole) return false;
-    if (fSubTeam && t.subTeam !== fSubTeam) return false;
-    if (fAssignee && t.assigneeEmail !== fAssignee) return false;
-    if (fLate && !isOverdue(t)) return false;
-    if (fSoon && !(daysUntil(t.dueDate) <= 30 && t.status !== "done")) return false;
-    return true;
-  }), [tasks, fPhase, fPole, fSubTeam, fAssignee, fLate, fSoon]);
+  const filtered = useMemo(() => {
+    const weekEnd = fThisWeekAndBefore ? endOfCurrentWeek() : null;
+    return tasks.filter((t) => {
+      if (fPhase && t.phase !== Number(fPhase)) return false;
+      if (fPole && t.pole !== fPole) return false;
+      if (fSubTeam && t.subTeam !== fSubTeam) return false;
+      if (fAssignee && t.assigneeEmail !== fAssignee) return false;
+      if (fLate && !isOverdue(t)) return false;
+      if (fSoon && !(daysUntil(t.dueDate) <= 30 && t.status !== "done")) return false;
+      if (weekEnd) {
+        // Show only non-done tasks due on or before end of current week
+        if (t.status === "done") return false;
+        if (!t.dueDate || new Date(t.dueDate) > weekEnd) return false;
+      }
+      return true;
+    });
+  }, [tasks, fPhase, fPole, fSubTeam, fAssignee, fLate, fSoon, fThisWeekAndBefore]);
 
   const kpi = useMemo(() => {
     const total = tasks.length;
@@ -225,7 +299,7 @@ export default function PilotagePanel({ canWrite = true }: { canWrite?: boolean 
           <button onClick={() => setView(view === "kanban" ? "meetings" : "kanban")} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-300 hover:text-white font-mono">
             {view === "kanban" ? "📅 Réunions" : "📋 Kanban"}
           </button>
-          {canWrite && <button onClick={createTask} className="text-xs px-3 py-1.5 rounded border border-neon-green/50 text-neon-green font-mono">+ Tâche</button>}
+          {canWrite && view === "kanban" && <button onClick={createTask} className="text-xs px-3 py-1.5 rounded border border-neon-green/50 text-neon-green font-mono">+ Tâche</button>}
           {canWrite && (
             <button onClick={() => seed(false)} disabled={seeding} className="text-xs px-3 py-1.5 rounded bg-neon-green text-black font-bold font-mono">
               {seeding ? "…" : "↻ Feuille de route"}
@@ -280,12 +354,33 @@ export default function PilotagePanel({ canWrite = true }: { canWrite?: boolean 
               <option value="" className="bg-dark-800">Toutes sous-équipes</option>
               {SUBTEAMS.map((s) => <option key={s} value={s} className="bg-dark-800">{s}</option>)}
             </select>
-            <select value={fAssignee} onChange={(e) => setFAssignee(e.target.value)} className="cyber-input rounded px-2 py-1 bg-transparent text-white">
+            <select
+              value={fAssignee}
+              onChange={(e) => setFAssignee(e.target.value)}
+              className={`cyber-input rounded px-2 py-1 bg-transparent text-white ${fAssignee === currentUserEmail && currentUserEmail ? "border-neon-green/40 text-neon-green" : ""}`}
+            >
               <option value="" className="bg-dark-800">Tous responsables</option>
-              {assigneeOptions.map((m) => <option key={m.id} value={m.email!} className="bg-dark-800">{m.name}</option>)}
+              {assigneeOptions.map((m) => <option key={m.id} value={m.email!} className="bg-dark-800">{m.name}{m.email === currentUserEmail ? " (moi)" : ""}</option>)}
             </select>
+            {currentUserEmail && fAssignee !== currentUserEmail && (
+              <button
+                onClick={() => setFAssignee(currentUserEmail)}
+                className="text-xs px-2 py-1 rounded border border-neon-green/30 text-neon-green/70 hover:text-neon-green hover:border-neon-green/60 font-mono transition-colors"
+                title="Filtrer mes tâches"
+              >
+                👤 Mes tâches
+              </button>
+            )}
             <label className="flex items-center gap-1 text-gray-400 cursor-pointer"><input type="checkbox" checked={fLate} onChange={(e) => setFLate(e.target.checked)} /> En retard</label>
             <label className="flex items-center gap-1 text-gray-400 cursor-pointer"><input type="checkbox" checked={fSoon} onChange={(e) => setFSoon(e.target.checked)} /> 30 prochains jours</label>
+            <label className="flex items-center gap-1 cursor-pointer" style={{ color: fThisWeekAndBefore ? "#00ff9d" : "#9ca3af" }}>
+              <input
+                type="checkbox"
+                checked={fThisWeekAndBefore}
+                onChange={(e) => setFThisWeekAndBefore(e.target.checked)}
+              />
+              📅 Semaine en cours &amp; antérieures
+            </label>
           </div>
 
           {/* Kanban */}
@@ -335,10 +430,10 @@ export default function PilotagePanel({ canWrite = true }: { canWrite?: boolean 
           </div>
         </>
       ) : (
-        <MeetingsView meetings={meetings} reload={load} canWrite={canWrite} />
+        <MeetingsView meetings={meetings} reload={load} canWrite={canWrite} members={members} />
       )}
 
-      {/* Detail drawer */}
+      {/* Detail drawer — tasks */}
       {selected && (
         <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setSelected(null)}>
           <div className="w-full max-w-md h-full bg-[#0a0a0a] border-l border-gray-800 overflow-y-auto p-6 space-y-3" onClick={(e) => e.stopPropagation()}>
@@ -428,35 +523,383 @@ export default function PilotagePanel({ canWrite = true }: { canWrite?: boolean 
   );
 }
 
-function MeetingsView({ meetings, reload, canWrite = true }: { meetings: Meeting[]; reload: () => void; canWrite?: boolean }) {
-  const sorted = [...meetings].sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
-  const now = Date.now();
-  const del = async (id: number) => {
+// ─── MeetingsView ────────────────────────────────────────────────────────────
+
+function MeetingsView({
+  meetings,
+  reload,
+  canWrite = true,
+  members,
+}: {
+  meetings: Meeting[];
+  reload: () => void;
+  canWrite?: boolean;
+  members: Member[];
+}) {
+  const [editTarget, setEditTarget] = useState<Meeting | "new" | null>(null);
+  const [form, setForm] = useState<MeetingForm>(emptyMeetingForm());
+  const [saving, setSaving] = useState(false);
+  const [sendingReminders, setSendingReminders] = useState(false);
+  const [reminderResult, setReminderResult] = useState<string | null>(null);
+
+  const membersWithEmail = members.filter((m) => m.email);
+
+  function openCreate() {
+    setForm(emptyMeetingForm());
+    setEditTarget("new");
+  }
+
+  function openEdit(m: Meeting) {
+    const attendees = parseAttendees(m.attendees);
+    setForm({
+      title: m.title,
+      type: m.type,
+      subTeam: m.subTeam || "",
+      scheduledAt: toDatetimeLocal(m.scheduledAt),
+      location: m.location || "",
+      agenda: m.agenda || "",
+      convenerEmail: m.convenerEmail || "",
+      attendeeEmails: attendees.map((a) => a.email),
+    });
+    setEditTarget(m);
+  }
+
+  async function save() {
+    if (!form.title || !form.scheduledAt) return;
+    setSaving(true);
+    const convener = membersWithEmail.find((m) => m.email === form.convenerEmail);
+    const attendees = membersWithEmail
+      .filter((m) => m.email && form.attendeeEmails.includes(m.email))
+      .map((m) => ({ name: m.name, email: m.email! }));
+
+    const body = {
+      title: form.title,
+      type: form.type,
+      subTeam: form.subTeam || null,
+      scheduledAt: new Date(form.scheduledAt).toISOString(),
+      location: form.location || null,
+      agenda: form.agenda || null,
+      convenerEmail: form.convenerEmail || null,
+      convenerName: convener?.name || null,
+      attendees: attendees.length ? JSON.stringify(attendees) : null,
+    };
+
+    const isNew = editTarget === "new";
+    const url = isNew
+      ? "/api/admin/pilotage/meetings"
+      : `/api/admin/pilotage/meetings/${(editTarget as Meeting).id}`;
+    const res = await fetch(url, {
+      method: isNew ? "POST" : "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setSaving(false);
+    if (res.ok) { setEditTarget(null); reload(); }
+  }
+
+  async function del(id: number) {
     if (!confirm("Supprimer cette réunion ?")) return;
     const res = await fetch(`/api/admin/pilotage/meetings/${id}`, { method: "DELETE" });
     if (res.ok) reload();
-  };
+  }
+
+  async function sendReminders() {
+    setSendingReminders(true);
+    setReminderResult(null);
+    try {
+      const res = await fetch("/api/admin/pilotage/meetings/reminders", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setReminderResult(`✓ ${data.sent} email(s) envoyé(s), ${data.skipped} ignoré(s).`);
+      } else {
+        setReminderResult("✗ Erreur lors de l'envoi des rappels.");
+      }
+    } catch {
+      setReminderResult("✗ Impossible d'envoyer les rappels.");
+    } finally {
+      setSendingReminders(false);
+    }
+  }
+
+  const sorted = [...meetings].sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+  const now = Date.now();
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {/* Header actions */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          {reminderResult && (
+            <span className={`text-xs font-mono ${reminderResult.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>
+              {reminderResult}
+            </span>
+          )}
+        </div>
+        <div className="flex gap-2">
+          {canWrite && (
+            <button
+              onClick={sendReminders}
+              disabled={sendingReminders}
+              className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white font-mono disabled:opacity-50"
+              title="Envoie les rappels J-1 et J0 pour les réunions d'aujourd'hui et demain"
+            >
+              {sendingReminders ? "…" : "🔔 Envoyer rappels"}
+            </button>
+          )}
+          {canWrite && (
+            <button onClick={openCreate} className="text-xs px-3 py-1.5 rounded border border-neon-green/50 text-neon-green font-mono">
+              + Réunion
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Meeting cards */}
       {sorted.map((m) => {
         const upcoming = new Date(m.scheduledAt).getTime() >= now;
+        const attendees = parseAttendees(m.attendees);
         return (
-          <div key={m.id} className="cyber-card rounded-lg p-3 flex items-start gap-3" style={{ opacity: upcoming ? 1 : 0.5 }}>
-            <div className="text-center shrink-0 w-16">
-              <p className="text-xs font-mono" style={{ color: m.type === "collective" ? "#00ff9d" : "#00ccff" }}>{m.type === "collective" ? "Collectif" : "Sous-éq."}</p>
-              <p className="text-xs text-gray-500">{fmtDate(m.scheduledAt)}</p>
+          <div
+            key={m.id}
+            className="cyber-card rounded-lg p-4 transition-opacity"
+            style={{ opacity: upcoming ? 1 : 0.5 }}
+          >
+            <div className="flex items-start gap-3">
+              {/* Date badge */}
+              <div className="shrink-0 text-center w-16 pt-0.5">
+                <p className="text-xs font-mono mb-0.5" style={{ color: m.type === "collective" ? "#00ff9d" : "#00ccff" }}>
+                  {m.type === "collective" ? "Collectif" : "Sous-éq."}
+                </p>
+                <p className="text-xs text-gray-400 font-mono">{fmtDayOfWeek(m.scheduledAt)}</p>
+                <p className="text-xs text-gray-500">{fmtDate(m.scheduledAt)}</p>
+                <p className="text-xs text-gray-600 font-mono">{fmtTime(m.scheduledAt)}</p>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <p className="text-sm font-bold text-white leading-tight">{m.title}</p>
+                {m.subTeam && (
+                  <span className="inline-block text-xs font-mono px-2 py-0.5 rounded" style={{ background: "#00ccff15", color: "#00ccff" }}>
+                    {m.subTeam}
+                  </span>
+                )}
+                {m.agenda && <p className="text-xs text-gray-400 line-clamp-2 whitespace-pre-line">{m.agenda}</p>}
+                {m.location && <p className="text-xs text-gray-600">📍 {m.location}</p>}
+
+                {/* People */}
+                <div className="flex flex-wrap gap-1.5 items-center pt-0.5">
+                  {m.convenerName && (
+                    <span className="text-xs px-2 py-0.5 rounded-full font-mono" style={{ background: "#fbbf2415", color: "#fbbf24", border: "1px solid #fbbf2430" }}>
+                      👤 {m.convenerName}
+                    </span>
+                  )}
+                  {attendees.map((a) => (
+                    <span key={a.email} className="text-xs px-2 py-0.5 rounded-full font-mono" style={{ background: "#3b82f615", color: "#93c5fd", border: "1px solid #3b82f630" }}>
+                      {a.name}
+                    </span>
+                  ))}
+                  {!m.convenerName && !attendees.length && (
+                    <span className="text-xs text-gray-700 font-mono italic">Aucun participant renseigné</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions */}
+              {canWrite && (
+                <div className="flex flex-col gap-1 shrink-0">
+                  <button
+                    onClick={() => openEdit(m)}
+                    className="text-xs text-gray-400 hover:text-white px-2 py-1 border border-gray-700 rounded hover:border-gray-500 transition-colors"
+                    title="Modifier"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => del(m.id)}
+                    className="text-xs text-red-400 hover:text-red-300 px-2 py-1 border border-red-900/50 rounded hover:border-red-700 transition-colors"
+                    title="Supprimer"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-white">{m.title}</p>
-              {m.subTeam && <p className="text-xs text-gray-500">{m.subTeam}</p>}
-              {m.agenda && <p className="text-xs text-gray-400 mt-0.5">{m.agenda}</p>}
-              {m.location && <p className="text-xs text-gray-600 mt-0.5">📍 {m.location}</p>}
-            </div>
-            {canWrite && <button onClick={() => del(m.id)} className="text-xs text-red-400 hover:text-red-300 shrink-0">✕</button>}
           </div>
         );
       })}
-      {!meetings.length && <p className="text-gray-600 text-xs py-8 text-center">Aucune réunion — importez la feuille de route.</p>}
+
+      {!meetings.length && (
+        <p className="text-gray-600 text-xs py-10 text-center font-mono">
+          Aucune réunion planifiée — créez-en une ou importez la feuille de route.
+        </p>
+      )}
+
+      {/* Create / Edit drawer */}
+      {editTarget !== null && (
+        <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setEditTarget(null)}>
+          <div
+            className="w-full max-w-md h-full bg-[#0a0a0a] border-l border-gray-800 overflow-y-auto p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black text-neon-green font-mono">
+                {editTarget === "new" ? "Nouvelle réunion" : "Modifier la réunion"}
+              </h3>
+              <button onClick={() => setEditTarget(null)} className="text-gray-600 hover:text-white text-lg">✕</button>
+            </div>
+
+            {/* Title */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Titre *</label>
+              <input
+                value={form.title}
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                className="cyber-input w-full px-3 py-2 rounded text-xs"
+                placeholder="Réunion de coordination…"
+              />
+            </div>
+
+            {/* Type + subTeam */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Type</label>
+                <select
+                  value={form.type}
+                  onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
+                  className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white"
+                >
+                  <option value="collective" className="bg-dark-800">Collectif</option>
+                  <option value="subteam" className="bg-dark-800">Sous-équipe</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Sous-équipe</label>
+                <select
+                  value={form.subTeam}
+                  onChange={(e) => setForm((f) => ({ ...f, subTeam: e.target.value }))}
+                  disabled={form.type !== "subteam"}
+                  className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-40"
+                >
+                  <option value="" className="bg-dark-800">—</option>
+                  {SUBTEAMS.map((s) => <option key={s} value={s} className="bg-dark-800">{s}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Date/time */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Date et heure *</label>
+              <input
+                type="datetime-local"
+                value={form.scheduledAt}
+                onChange={(e) => setForm((f) => ({ ...f, scheduledAt: e.target.value }))}
+                className="cyber-input w-full px-3 py-2 rounded text-xs"
+              />
+            </div>
+
+            {/* Location */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Lieu / lien</label>
+              <input
+                value={form.location}
+                onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+                className="cyber-input w-full px-3 py-2 rounded text-xs"
+                placeholder="Salle A, Zoom, Google Meet…"
+              />
+            </div>
+
+            {/* Agenda */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Ordre du jour</label>
+              <textarea
+                rows={3}
+                value={form.agenda}
+                onChange={(e) => setForm((f) => ({ ...f, agenda: e.target.value }))}
+                className="cyber-input w-full px-3 py-2 rounded text-xs resize-none"
+                placeholder="Points à aborder…"
+              />
+            </div>
+
+            {/* Convener */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">
+                👤 Convocateur
+                <span className="text-gray-700 ml-1">(responsable d&apos;organiser la rencontre)</span>
+              </label>
+              <select
+                value={form.convenerEmail}
+                onChange={(e) => setForm((f) => ({ ...f, convenerEmail: e.target.value }))}
+                className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white"
+              >
+                <option value="" className="bg-dark-800">— sélectionner —</option>
+                {membersWithEmail.map((m) => (
+                  <option key={m.id} value={m.email!} className="bg-dark-800">
+                    {m.name} ({m.role})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Attendees */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-2">
+                Convoqués
+                <span className="text-gray-700 ml-1">(reçoivent rappel J-1 et J0)</span>
+              </label>
+              <div className="space-y-1 max-h-48 overflow-y-auto border border-gray-800 rounded p-2">
+                {membersWithEmail.length === 0 && (
+                  <p className="text-xs text-gray-600 py-2 text-center">
+                    Aucun membre avec email configuré dans l&apos;équipe.
+                  </p>
+                )}
+                {membersWithEmail.map((m) => (
+                  <label
+                    key={m.id}
+                    className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer hover:text-white py-0.5 px-1 rounded hover:bg-white/5"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={form.attendeeEmails.includes(m.email!)}
+                      onChange={(e) => {
+                        setForm((f) => ({
+                          ...f,
+                          attendeeEmails: e.target.checked
+                            ? [...f.attendeeEmails, m.email!]
+                            : f.attendeeEmails.filter((x) => x !== m.email),
+                        }));
+                      }}
+                    />
+                    <span className="font-medium">{m.name}</span>
+                    <span className="text-gray-600 truncate">({m.role})</span>
+                  </label>
+                ))}
+              </div>
+              {form.attendeeEmails.length > 0 && (
+                <p className="text-xs text-gray-600 mt-1 font-mono">
+                  {form.attendeeEmails.length} personne(s) convoquée(s)
+                </p>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={save}
+                disabled={saving || !form.title || !form.scheduledAt}
+                className="flex-1 btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green disabled:opacity-50"
+              >
+                {saving ? "…" : editTarget === "new" ? "Créer la réunion" : "Enregistrer"}
+              </button>
+              <button
+                onClick={() => setEditTarget(null)}
+                className="px-4 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

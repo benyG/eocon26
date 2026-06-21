@@ -6009,10 +6009,10 @@ export default function AdminDashboard() {
     },
     {
       label: t.communication,
-      icon: "⚡",
+      icon: "📢",
       tabs: [
         { id: "strategic-plan", label: "Plan stratégique", icon: "♚" },
-        { id: "communication", label: t.communicationPosts, icon: "📢" },
+        { id: "communication", label: t.communicationPosts, icon: "" },
         { id: "campaigns", label: "Campagnes", icon: "📬" },
         { id: "library", label: "Library", icon: "📁" },
         { id: "cyber-watch", label: "Veille cyber", icon: "📰" },

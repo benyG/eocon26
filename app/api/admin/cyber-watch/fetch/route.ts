@@ -48,13 +48,13 @@ function parseRSS(xml: string, feedId: string, feedName: string): RawItem[] {
   return items.slice(0, 15);
 }
 
-// ── Freshness filter — skip articles older than 48h ──────────────────────────
+// ── Freshness filter ─────────────────────────────────────────────────────────
 
-function isFresh(pubDate: string): boolean {
+function isFresh(pubDate: string, maxAgeDays: number): boolean {
   if (!pubDate) return true; // unknown date → keep
   const d = new Date(pubDate);
   if (isNaN(d.getTime())) return true;
-  return Date.now() - d.getTime() < 48 * 3600 * 1000;
+  return Date.now() - d.getTime() < maxAgeDays * 24 * 3600 * 1000;
 }
 
 // ── EOCON CTA phrases ─────────────────────────────────────────────────────────
@@ -184,9 +184,10 @@ export async function POST() {
   const settingsRow = await prisma.eventSetting.findUnique({ where: { key: "cyber_watch_settings" } });
   const settings = settingsRow ? JSON.parse(settingsRow.value) : {};
   const activeSources: string[] = settings.activeSources ?? RSS_FEEDS.map(f => f.id);
-  const minScore: number = 0.55;
+  const minScore: number = settings.minScore ?? 0.55;
   const dailyCount: number = settings.dailyCount ?? 3;
   const daysExpiry: number = 5;
+  const maxAgeDays: number = settings.maxAgeDays ?? 7; // default: keep articles up to 7 days old
 
   const feeds = RSS_FEEDS.filter(f => activeSources.includes(f.id));
   if (!feeds.length) return NextResponse.json({ fetched: 0, scored: 0, saved: 0 });
@@ -240,13 +241,13 @@ export async function POST() {
 
     for (const item of items) {
       if (existingUrls.has(item.url)) continue;
-      if (!isFresh(item.pubDate)) continue;
+      if (!isFresh(item.pubDate, maxAgeDays)) continue;
       existingUrls.add(item.url);
       candidates.push(item);
     }
   }
 
-  if (!candidates.length) return NextResponse.json({ fetched, scored: 0, saved: 0 });
+  if (!candidates.length) return NextResponse.json({ fetched, candidates: 0, scored: 0, saved: 0, skipped: "all_filtered" });
 
   // ── Step 2: Batch score all candidates (1 API call per 20 items) ──────────
   const allScores: ScoreResult[] = [];
@@ -295,5 +296,5 @@ export async function POST() {
     saved++;
   }
 
-  return NextResponse.json({ fetched, scored, saved });
+  return NextResponse.json({ fetched, candidates: candidates.length, scored, saved });
 }

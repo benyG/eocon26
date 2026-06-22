@@ -133,7 +133,7 @@ function emptyMeetingForm(): MeetingForm {
   return { title: "", type: "collective", subTeam: "", scheduledAt: "", location: "", agenda: "", convenerEmail: "", attendeeEmails: [] };
 }
 
-export default function PilotagePanel({ canWrite = true, currentUserEmail }: { canWrite?: boolean; currentUserEmail?: string }) {
+export default function PilotagePanel({ canWrite = true, canReadKanban, canWriteKanban, canReadMeetings, canWriteMeetings, currentUserEmail }: { canWrite?: boolean; canReadKanban?: boolean; canWriteKanban?: boolean; canReadMeetings?: boolean; canWriteMeetings?: boolean; currentUserEmail?: string }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -296,10 +296,17 @@ export default function PilotagePanel({ canWrite = true, currentUserEmail }: { c
           <p className="text-xs text-gray-500 font-mono">{tasks.length} tâches · {meetings.length} réunions</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <button onClick={() => setView(view === "kanban" ? "meetings" : "kanban")} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-300 hover:text-white font-mono">
-            {view === "kanban" ? "📅 Réunions" : "📋 Kanban"}
-          </button>
-          {canWrite && view === "kanban" && <button onClick={createTask} className="text-xs px-3 py-1.5 rounded border border-neon-green/50 text-neon-green font-mono">+ Tâche</button>}
+          {(canReadKanban !== false || canWrite) && (
+            <button onClick={() => setView("kanban")} className={`px-5 py-2.5 text-sm font-semibold rounded border font-mono transition-colors ${view === "kanban" ? "border-neon-green text-neon-green bg-neon-green/10" : "border-gray-700 text-gray-300 hover:text-white"}`}>
+              📋 Plan kanban
+            </button>
+          )}
+          {(canReadMeetings !== false || canWrite) && (
+            <button onClick={() => setView("meetings")} className={`px-5 py-2.5 text-sm font-semibold rounded border font-mono transition-colors ${view === "meetings" ? "border-neon-green text-neon-green bg-neon-green/10" : "border-gray-700 text-gray-300 hover:text-white"}`}>
+              📅 Réunions
+            </button>
+          )}
+          {(canWriteKanban !== false ? canWriteKanban : canWrite) && view === "kanban" && <button onClick={createTask} className="text-sm px-5 py-2.5 rounded border border-neon-green/50 text-neon-green font-semibold font-mono">+ Tâche</button>}
           {canWrite && (
             <button onClick={() => seed(false)} disabled={seeding} className="text-xs px-3 py-1.5 rounded bg-neon-green text-black font-bold font-mono">
               {seeding ? "…" : "↻ Feuille de route"}
@@ -338,7 +345,7 @@ export default function PilotagePanel({ canWrite = true, currentUserEmail }: { c
         </div>
       </div>
 
-      {view === "kanban" ? (
+      {view === "kanban" && (canReadKanban !== false || canWrite) ? (
         <>
           {/* Filters */}
           <div className="flex flex-wrap gap-2 items-center text-xs">
@@ -429,9 +436,9 @@ export default function PilotagePanel({ canWrite = true, currentUserEmail }: { c
             </div>
           </div>
         </>
-      ) : (
-        <MeetingsView meetings={meetings} reload={load} canWrite={canWrite} members={members} />
-      )}
+      ) : view === "meetings" && (canReadMeetings !== false || canWrite) ? (
+        <MeetingsView meetings={meetings} reload={load} canWrite={canWriteMeetings !== undefined ? canWriteMeetings : canWrite} members={members} />
+      ) : null}
 
       {/* Detail drawer — tasks */}
       {selected && (

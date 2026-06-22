@@ -6622,7 +6622,7 @@ export default function AdminDashboard() {
           {activeTab === "users" && <AdminUsersPanel canWrite={can("users")} canDelete={!!(userInfo?.isLegacy || userInfo?.isRoot)} />}
           {activeTab === "profiles" && <AdminProfilesPanel />}
 
-          {activeTab === "pilotage" && <PilotagePanel canWrite={can("pilotage")} currentUserEmail={userInfo?.email} />}
+          {activeTab === "pilotage" && <PilotagePanel canWrite={can("pilotage")} canReadKanban={can("pilotage", "read")} canWriteKanban={can("pilotage", "write")} canReadMeetings={can("pilotage-meetings", "read")} canWriteMeetings={can("pilotage-meetings", "write")} currentUserEmail={userInfo?.email} />}
           {activeTab === "settings" && <EventSettingsPanel canWrite={can("settings")} />}
 
           {/* COMMUNICATION */}

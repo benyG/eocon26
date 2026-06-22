@@ -100,21 +100,6 @@ Réponds en JSON uniquement, sans markdown :
     return NextResponse.json({ error: "Failed to parse AI response" }, { status: 500 });
   }
 
-  // Post-process: strip any URL not in the authorized list
-  const authorizedUrls = allCtas.map(c => c.url).filter(Boolean) as string[];
-  const stripHallucinatedUrls = (content: string): string => {
-    // Match http(s) URLs and remove any that aren't in the authorized list
-    return content.replace(/https?:\/\/[^\s)"\]]+/g, match => {
-      const clean = match.replace(/[.,;!?]+$/, ""); // strip trailing punctuation
-      return authorizedUrls.some(u => clean.startsWith(u) || u.startsWith(clean)) ? match : "";
-    }).replace(/\s{2,}/g, " ").trim();
-  };
-  if (authorizedUrls.length > 0) {
-    for (const key of Object.keys(posts) as (keyof PostsResult)[]) {
-      posts[key] = stripHallucinatedUrls(posts[key]);
-    }
-  }
-
   // Save to DB
   const platforms: Array<{ platform: string; lang: string; content: string }> = [
     { platform: "linkedin", lang: "fr", content: posts.linkedin_fr },

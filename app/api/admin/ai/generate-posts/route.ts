@@ -38,21 +38,20 @@ export async function POST(req: NextRequest) {
   ].filter(c => c.url);
 
   const ctaBlock = allCtas.length > 0
-    ? `URLs AUTORISÉES (liste exhaustive — aucune autre URL ne peut apparaître dans les posts) :\n${allCtas.map(c => `  • ${c.label} : ${c.url}`).join("\n")}`
-    : "Aucune URL CTA n'est configurée. N'inclure AUCUNE URL dans les posts.";
+    ? `CTAs EOCON autorisés (les seules URLs liées à l'événement que tu peux utiliser) :\n${allCtas.map(c => `  • ${c.label} : ${c.url}`).join("\n")}`
+    : "Aucun CTA EOCON n'est configuré pour l'instant. N'invente aucune URL liée à l'événement.";
 
   const ctaForThisType = cta
     ? `\nCTA recommandé pour ce type de contenu (${contextType}) : "${cta.text}" → ${cta.url}`
-    : "\nAucun CTA spécifique pour ce type de contenu. N'inclure aucun lien.";
+    : "";
 
   const openai = getOpenAI();
   const prompt = `${eoconCtx}${contextSection ? "\n" + contextSection : ""}
 
-⛔ RÈGLE ABSOLUE — URLS :
-Tu n'as JAMAIS le droit d'inventer une URL.
-Tu n'as JAMAIS le droit d'utiliser un domaine tel que eocon.africa, eocon.com, eocon2026.com, eyesopen.com ou tout autre domaine non listé ci-dessous.
-Si tu ne disposes d'aucune URL autorisée pour ce contenu, tu n'inclus AUCUN lien.
-Toute URL présente dans un post DOIT être copiée mot pour mot depuis la liste ci-dessous, sans modification.
+⛔ RÈGLE — CTAs EOCON :
+Lorsque tu souhaites inclure un lien vers l'événement EOCON (inscription, programme, CFP, CTF, partenariat…), tu dois OBLIGATOIREMENT utiliser une URL de la liste ci-dessous.
+Tu n'as JAMAIS le droit d'inventer un domaine EOCON (eocon.africa, eocon.com, eocon2026.com, ou tout autre domaine imaginaire lié à l'événement).
+Si la liste ne contient pas d'URL adaptée à ton besoin, tu omets simplement le lien — tu ne l'inventes pas.
 
 ${ctaBlock}
 ${ctaForThisType}

@@ -37,7 +37,7 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [loadingItems, setLoadingItems] = useState(true);
   const [fetching, setFetching] = useState(false);
-  const [fetchResult, setFetchResult] = useState<{ fetched: number; saved: number } | null>(null);
+  const [fetchResult, setFetchResult] = useState<{ fetched: number; candidates?: number; scored?: number; saved: number; skipped?: string } | null>(null);
   const [editId, setEditId] = useState<number | null>(null);
   const [editDraftFr, setEditDraftFr] = useState("");
   const [editDraftEn, setEditDraftEn] = useState("");
@@ -186,7 +186,21 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
             </button>}
             {fetchResult && (
               <span className="text-xs text-gray-500 font-mono">
-                {fetchResult.fetched} articles analysés · <span className="text-neon-green">{fetchResult.saved} nouvelles propositions</span>
+                {fetchResult.fetched} récupérés
+                {fetchResult.candidates !== undefined && ` · ${fetchResult.candidates} nouveaux`}
+                {fetchResult.scored !== undefined && fetchResult.scored > 0 && ` · ${fetchResult.scored} scorés`}
+                {" · "}
+                <span className={fetchResult.saved > 0 ? "text-neon-green" : "text-yellow-500"}>
+                  {fetchResult.saved > 0
+                    ? `${fetchResult.saved} nouvelles propositions`
+                    : fetchResult.skipped === "queue_full"
+                      ? "file d'attente déjà pleine"
+                      : fetchResult.skipped === "all_filtered"
+                        ? "tous déjà vus ou trop anciens"
+                        : fetchResult.scored === 0
+                          ? "aucun candidat retenu"
+                          : "score IA insuffisant"}
+                </span>
               </span>
             )}
             {!settings.enabled && (

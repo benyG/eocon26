@@ -37,24 +37,15 @@ export async function POST(req: NextRequest) {
     { label: "Partenariat sponsor", url: settings.url_sponsor },
   ].filter(c => c.url);
 
-  const ctaBlock = allCtas.length > 0
-    ? `CTAs EOCON autorisés (les seules URLs liées à l'événement que tu peux utiliser) :\n${allCtas.map(c => `  • ${c.label} : ${c.url}`).join("\n")}`
-    : "Aucun CTA EOCON n'est configuré pour l'instant. N'invente aucune URL liée à l'événement.";
-
-  const ctaForThisType = cta
-    ? `\nCTA recommandé pour ce type de contenu (${contextType}) : "${cta.text}" → ${cta.url}`
-    : "";
-
   const openai = getOpenAI();
+
+  // The CTA for this content type is mandatory when configured — build explicit instruction
+  const ctaInstruction = cta
+    ? `\n🔗 CTA IMPOSÉ — tu DOIS terminer chaque post par exactement ce lien, mot pour mot, sans le modifier :\n  "${cta.text}" → ${cta.url}\nN'utilise AUCUNE autre URL EOCON. N'invente rien. Ce lien et ce libellé uniquement.`
+    : `\nAucun CTA configuré pour ce type de contenu. N'invente aucune URL liée à l'événement EOCON.`;
+
   const prompt = `${eoconCtx}${contextSection ? "\n" + contextSection : ""}
-
-⛔ RÈGLE — CTAs EOCON :
-Lorsque tu souhaites inclure un lien vers l'événement EOCON (inscription, programme, CFP, CTF, partenariat…), tu dois OBLIGATOIREMENT utiliser une URL de la liste ci-dessous.
-Tu n'as JAMAIS le droit d'inventer un domaine EOCON (eocon.africa, eocon.com, eocon2026.com, ou tout autre domaine imaginaire lié à l'événement).
-Si la liste ne contient pas d'URL adaptée à ton besoin, tu omets simplement le lien — tu ne l'inventes pas.
-
-${ctaBlock}
-${ctaForThisType}
+${ctaInstruction}
 
 Tu es la voix d'EOCON. Tu incarnes un mouvement, pas un événement.
 Règles éditoriales :
@@ -70,9 +61,9 @@ Règles éditoriales :
 Brief: ${brief}
 
 Règles de format :
-- LinkedIn : professionnel, storytelling du mouvement, 200-300 mots, émojis pertinents, terminer par le CTA autorisé si disponible, hashtags en fin (#EOCON #EyesOpenCTF #Africa #SecuresTheFuture #Cameroon #Cybersecurity #InfoSec)
-- Twitter/X : percutant, 260 caractères max strict, CTA autorisé si disponible, 2-3 hashtags max
-- Instagram : visuel et engageant, 150 mots max, CTA autorisé si disponible, 8-10 hashtags variés en fin
+- LinkedIn : professionnel, storytelling du mouvement, 200-300 mots, émojis pertinents, terminer par le CTA imposé ci-dessus, hashtags en fin (#EOCON #EyesOpenCTF #Africa #SecuresTheFuture #Cameroon #Cybersecurity #InfoSec)
+- Twitter/X : percutant, 260 caractères max strict, inclure le CTA imposé, 2-3 hashtags max
+- Instagram : visuel et engageant, 150 mots max, inclure le CTA imposé, 8-10 hashtags variés en fin
 
 Réponds en JSON uniquement, sans markdown :
 {

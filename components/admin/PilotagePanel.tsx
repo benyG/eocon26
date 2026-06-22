@@ -548,6 +548,31 @@ function MeetingsView({
   const [saving, setSaving] = useState(false);
   const [sendingReminders, setSendingReminders] = useState(false);
   const [reminderResult, setReminderResult] = useState<string | null>(null);
+  const [meetDropdownOpen, setMeetDropdownOpen] = useState(false);
+  const meetDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (meetDropdownRef.current && !meetDropdownRef.current.contains(e.target as Node)) {
+        setMeetDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const generateJitsiLink = () => {
+    const code = Math.random().toString(36).slice(2, 10).toUpperCase();
+    const url = `https://meet.jit.si/EOCON-${code}`;
+    setForm((f) => ({ ...f, location: url }));
+    setMeetDropdownOpen(false);
+  };
+
+  const openGoogleMeet = () => {
+    window.open("https://meet.google.com/new", "_blank", "noopener,noreferrer");
+    setMeetDropdownOpen(false);
+  };
 
   const membersWithEmail = members.filter((m) => m.email);
 
@@ -806,13 +831,58 @@ function MeetingsView({
 
             {/* Location */}
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Lieu / lien</label>
-              <input
-                value={form.location}
-                onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
-                className="cyber-input w-full px-3 py-2 rounded text-xs"
-                placeholder="Salle A, Zoom, Google Meet…"
-              />
+              <label className="block text-xs text-gray-500 mb-1">Lieu / lien de la rencontre</label>
+              <div className="flex gap-1.5 items-center">
+                <input
+                  value={form.location}
+                  onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+                  className="cyber-input flex-1 px-3 py-2 rounded text-xs"
+                  placeholder="Salle A, lien Zoom, Google Meet…"
+                />
+                {/* Quick video link dropdown */}
+                <div className="relative shrink-0" ref={meetDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setMeetDropdownOpen((o) => !o)}
+                    title="Générer un lien visio"
+                    className="cyber-input px-2.5 py-2 rounded text-base hover:text-neon-green hover:border-neon-green/50 transition-colors"
+                  >
+                    📹
+                  </button>
+                  {meetDropdownOpen && (
+                    <div className="absolute right-0 top-full mt-1 z-50 cyber-card rounded-lg border border-gray-700 shadow-xl min-w-[190px] overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={generateJitsiLink}
+                        className="w-full text-left px-4 py-2.5 text-xs hover:bg-white/5 flex items-center gap-2.5 transition-colors"
+                      >
+                        <span className="text-base">🔵</span>
+                        <div>
+                          <p className="text-white font-semibold">Jitsi (instantané)</p>
+                          <p className="text-gray-500" style={{ fontSize: "10px" }}>Génère et colle le lien</p>
+                        </div>
+                      </button>
+                      <div className="border-t border-gray-800" />
+                      <button
+                        type="button"
+                        onClick={openGoogleMeet}
+                        className="w-full text-left px-4 py-2.5 text-xs hover:bg-white/5 flex items-center gap-2.5 transition-colors"
+                      >
+                        <span className="text-base">🟢</span>
+                        <div>
+                          <p className="text-white font-semibold">Google Meet</p>
+                          <p className="text-gray-500" style={{ fontSize: "10px" }}>Ouvre le navigateur</p>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {form.location?.startsWith("https://") && (
+                <a href={form.location} target="_blank" rel="noreferrer" className="text-neon-green/70 text-xs font-mono mt-1 block truncate hover:text-neon-green">
+                  ↗ {form.location}
+                </a>
+              )}
             </div>
 
             {/* Agenda */}

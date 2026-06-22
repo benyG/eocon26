@@ -5,32 +5,28 @@ const TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken";
 
 // ── Token refresh ────────────────────────────────────────────────────────────
 
-async function refreshAccessToken(): Promise<string> {
+export async function refreshAccessToken(): Promise<string> {
   const clientId = process.env.LINKEDIN_CLIENT_ID;
   const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
 
-  // Prefer refresh token stored in DB (updated after each refresh),
-  // fall back to the bootstrap value from env.
   const storedRefresh = await prisma.eventSetting.findUnique({ where: { key: "linkedin_refresh_token" } });
   const refreshToken = storedRefresh?.value || process.env.LINKEDIN_REFRESH_TOKEN;
 
   if (!clientId || !clientSecret || !refreshToken) {
     throw new Error(
-      "LinkedIn token refresh requires LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET, and LINKEDIN_REFRESH_TOKEN"
+      "Renouvellement impossible : LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET et LINKEDIN_REFRESH_TOKEN sont requis."
     );
   }
-
-  const body = new URLSearchParams({
-    grant_type: "refresh_token",
-    refresh_token: refreshToken,
-    client_id: clientId,
-    client_secret: clientSecret,
-  });
 
   const res = await fetch(TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+      client_id: clientId,
+      client_secret: clientSecret,
+    }).toString(),
   });
 
   if (!res.ok) {
@@ -42,12 +38,10 @@ async function refreshAccessToken(): Promise<string> {
     access_token: string;
     expires_in: number;
     refresh_token?: string;
-    refresh_token_expires_in?: number;
   };
 
   const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
 
-  // Persist new access token + expiry in DB
   await Promise.all([
     prisma.eventSetting.upsert({
       where: { key: "linkedin_access_token" },
@@ -59,7 +53,6 @@ async function refreshAccessToken(): Promise<string> {
       update: { value: expiresAt },
       create: { key: "linkedin_access_token_expires_at", value: expiresAt },
     }),
-    // LinkedIn may issue a new refresh token — persist it if present
     ...(data.refresh_token ? [
       prisma.eventSetting.upsert({
         where: { key: "linkedin_refresh_token" },
@@ -72,40 +65,78 @@ async function refreshAccessToken(): Promise<string> {
   return data.access_token;
 }
 
-// ── Token resolution (with auto-refresh) ─────────────────────────────────────
+// ── Token resolution ──────────────────────────────────────────────────────────
+
+function hasRefreshCredentials(): boolean {
+  const hasEnvRefresh = !!(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET && process.env.LINKEDIN_REFRESH_TOKEN);
+  return hasEnvRefresh;
+}
+
+async function hasDbRefreshToken(): Promise<boolean> {
+  const r = await prisma.eventSetting.findUnique({ where: { key: "linkedin_refresh_token" } });
+  return !!(r?.value && process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET);
+}
 
 async function getAccessToken(): Promise<string> {
-  // Check DB for a stored token + expiry
   const [storedToken, storedExpiry] = await Promise.all([
     prisma.eventSetting.findUnique({ where: { key: "linkedin_access_token" } }),
     prisma.eventSetting.findUnique({ where: { key: "linkedin_access_token_expires_at" } }),
   ]);
 
-  const hasRefreshCredentials =
-    !!(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET &&
-      (process.env.LINKEDIN_REFRESH_TOKEN || storedToken));
-
+  // DB token with known expiry — most reliable path
   if (storedToken?.value && storedExpiry?.value) {
     const expiresAt = new Date(storedExpiry.value).getTime();
-    // Refresh proactively 5 minutes before expiry
     const needsRefresh = Date.now() > expiresAt - 5 * 60 * 1000;
     if (!needsRefresh) return storedToken.value;
-    if (hasRefreshCredentials) return refreshAccessToken();
-    throw new Error("LinkedIn access token expired and no refresh credentials configured");
+    // Token about to expire or already expired — try to refresh
+    if (hasRefreshCredentials() || await hasDbRefreshToken()) return refreshAccessToken();
+    throw new Error("Token LinkedIn expiré et aucun credential de refresh configuré (LINKEDIN_CLIENT_ID/SECRET/REFRESH_TOKEN).");
   }
 
-  // No DB token — try env fallback, then refresh
+  // DB token without expiry info — use it but note it may be expired (will catch 401 on use)
+  if (storedToken?.value) return storedToken.value;
+
+  // Env var fallback — no expiry info available, may be expired
   const envToken = process.env.LINKEDIN_ACCESS_TOKEN;
   if (envToken) return envToken;
-  if (hasRefreshCredentials) return refreshAccessToken();
 
-  throw new Error("No LinkedIn access token available. Set LINKEDIN_ACCESS_TOKEN or configure OAuth refresh credentials.");
+  // No token at all — try refresh flow to obtain a first token
+  if (hasRefreshCredentials() || await hasDbRefreshToken()) return refreshAccessToken();
+
+  throw new Error("Aucun token LinkedIn disponible. Configurez LINKEDIN_ACCESS_TOKEN ou les credentials OAuth (CLIENT_ID/SECRET/REFRESH_TOKEN).");
+}
+
+// Invalidate any cached token so the next call will refresh from scratch
+async function invalidateToken(): Promise<void> {
+  await prisma.eventSetting.deleteMany({
+    where: { key: { in: ["linkedin_access_token", "linkedin_access_token_expires_at"] } },
+  });
 }
 
 function getAuthorUrn(): string {
   const urn = process.env.LINKEDIN_AUTHOR_URN;
   if (!urn) throw new Error("LINKEDIN_AUTHOR_URN env var is required");
   return urn;
+}
+
+// ── LinkedIn API call with 401 retry ─────────────────────────────────────────
+
+async function linkedInFetch(url: string, options: RequestInit, retry = true): Promise<Response> {
+  const res = await fetch(url, options);
+  if (res.status === 401 && retry) {
+    // Token is expired — invalidate, force refresh, retry once
+    await invalidateToken();
+    const newToken = await refreshAccessToken();
+    const newOptions = {
+      ...options,
+      headers: {
+        ...(options.headers as Record<string, string>),
+        Authorization: `Bearer ${newToken}`,
+      },
+    };
+    return linkedInFetch(url, newOptions, false);
+  }
+  return res;
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -141,7 +172,7 @@ export async function publishPost(text: string, imageUrl?: string): Promise<Link
     },
   };
 
-  const res = await fetch(`${LINKEDIN_API}/ugcPosts`, {
+  const res = await linkedInFetch(`${LINKEDIN_API}/ugcPosts`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -166,10 +197,7 @@ export async function publishPost(text: string, imageUrl?: string): Promise<Link
 async function uploadImage(imageUrl: string, token: string, author: string): Promise<string> {
   const registerRes = await fetch(`${LINKEDIN_API}/assets?action=registerUpload`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       registerUploadRequest: {
         recipes: ["urn:li:digitalmediaRecipe:feedshare-image"],
@@ -192,7 +220,6 @@ async function uploadImage(imageUrl: string, token: string, author: string): Pro
 
   const imgRes = await fetch(imageUrl);
   const imgBuffer = await imgRes.arrayBuffer();
-
   await fetch(uploadUrl, {
     method: "PUT",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "image/jpeg" },
@@ -204,10 +231,35 @@ async function uploadImage(imageUrl: string, token: string, author: string): Pro
 
 export async function getProfile(): Promise<{ id: string; name: string }> {
   const token = await getAccessToken();
-  const res = await fetch(`${LINKEDIN_API}/me?projection=(id,localizedFirstName,localizedLastName)`, {
+  const res = await linkedInFetch(`${LINKEDIN_API}/me?projection=(id,localizedFirstName,localizedLastName)`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error(`LinkedIn profile error: ${res.status}`);
   const data = await res.json() as { id: string; localizedFirstName: string; localizedLastName: string };
   return { id: data.id, name: `${data.localizedFirstName} ${data.localizedLastName}` };
+}
+
+// ── Token status (for admin UI) ───────────────────────────────────────────────
+
+export async function getTokenStatus(): Promise<{
+  hasToken: boolean;
+  source: "db" | "env" | "none";
+  expiresAt: string | null;
+  isExpired: boolean;
+  canRefresh: boolean;
+}> {
+  const [storedToken, storedExpiry] = await Promise.all([
+    prisma.eventSetting.findUnique({ where: { key: "linkedin_access_token" } }),
+    prisma.eventSetting.findUnique({ where: { key: "linkedin_access_token_expires_at" } }),
+  ]);
+
+  const dbToken = storedToken?.value;
+  const envToken = process.env.LINKEDIN_ACCESS_TOKEN;
+  const expiresAt = storedExpiry?.value || null;
+  const isExpired = expiresAt ? Date.now() > new Date(expiresAt).getTime() : false;
+  const canRefresh = hasRefreshCredentials() || await hasDbRefreshToken();
+
+  if (dbToken) return { hasToken: true, source: "db", expiresAt, isExpired, canRefresh };
+  if (envToken) return { hasToken: true, source: "env", expiresAt: null, isExpired: false, canRefresh };
+  return { hasToken: false, source: "none", expiresAt: null, isExpired: false, canRefresh };
 }

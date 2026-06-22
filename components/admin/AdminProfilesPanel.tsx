@@ -5,7 +5,8 @@ import { useState, useEffect } from "react";
 // Each entry's `key` is the permission key checked by canSeeTab in the dashboard.
 const NAV_GROUPS: { label: string; modules: { key: string; label: string }[] }[] = [
   { label: "Vue d'ensemble", modules: [
-    { key: "pilotage", label: "🎯 Pilotage global" },
+    { key: "pilotage", label: "🎯 Pilotage global (kanban)" },
+    { key: "pilotage-meetings", label: "📅 Pilotage — Réunions" },
   ] },
   { label: "Speakers & Programme", modules: [
     { key: "cfp", label: "Pipeline (CFP / Programme)" },

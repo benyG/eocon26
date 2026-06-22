@@ -18,7 +18,12 @@ export async function PATCH(req: NextRequest) {
   if (!(await hasPermission("communication", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id, content, imageUrl, scheduledAt } = await req.json();
   const data: Record<string, unknown> = {};
-  if (content !== undefined) data.content = content;
+  if (content !== undefined) {
+    data.content = content;
+    // Editing content on a failed post → reset to draft so it can be retried
+    const current = await prisma.socialPost.findUnique({ where: { id }, select: { status: true } });
+    if (current?.status === "failed") { data.status = "draft"; data.errorMessage = null; }
+  }
   if (imageUrl !== undefined) data.imageUrl = imageUrl;
   if (scheduledAt !== undefined) data.scheduledAt = scheduledAt ? new Date(scheduledAt) : null;
   return NextResponse.json(await prisma.socialPost.update({ where: { id }, data }));

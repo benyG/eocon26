@@ -1785,17 +1785,22 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                 {generating ? t.generatingPosts : t.generateWithAI}
               </button>
 
-              {/* Generated posts preview */}
+              {/* Generated posts preview — fully editable before save */}
               {generatedPosts && (
                 <div className="space-y-2">
                   <p className="text-xs text-gray-500 uppercase tracking-wider">{t.postsPreviewLabel}</p>
                   {(["linkedin", "twitter", "instagram"] as const).filter(p => platforms[p]).map(platform => (
-                    <div key={platform} className="border border-gray-800 rounded-lg p-3">
-                      <p className="text-xs font-bold mb-1 capitalize" style={{ color: platform === "linkedin" ? "#0066ff" : platform === "twitter" ? "#00ccff" : "#cc00ff" }}>{platform}</p>
+                    <div key={platform} className="border border-gray-800 rounded-lg p-3 space-y-2">
+                      <p className="text-xs font-bold capitalize" style={{ color: platform === "linkedin" ? "#0066ff" : platform === "twitter" ? "#00ccff" : "#cc00ff" }}>{platform}</p>
                       {(lang === "both" ? ["fr", "en"] : [lang]).map(l => (
-                        <div key={l} className="mb-1">
-                          <span className="text-gray-600 text-xs">[{l.toUpperCase()}] </span>
-                          <span className="text-gray-400 text-xs">{generatedPosts[`${platform}_${l}`]?.slice(0, 120)}...</span>
+                        <div key={l}>
+                          <p className="text-gray-600 text-xs mb-1">[{l.toUpperCase()}] <span className="text-gray-700">{(generatedPosts[`${platform}_${l}`] || "").length} car.</span></p>
+                          <textarea
+                            value={generatedPosts[`${platform}_${l}`] || ""}
+                            onChange={e => setGeneratedPosts(prev => prev ? { ...prev, [`${platform}_${l}`]: e.target.value } : prev)}
+                            className="cyber-input w-full text-xs rounded p-2 resize-y text-gray-200"
+                            style={{ minHeight: platform === "twitter" ? "64px" : "130px" }}
+                          />
                         </div>
                       ))}
                     </div>
@@ -1889,10 +1894,19 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                         {!!post.scheduledAt && <span className="text-xs text-gray-600">📅 {new Date(post.scheduledAt as string).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>}
                       </div>
                       <textarea
-                        readOnly
-                        value={post.content as string}
-                        className="cyber-input w-full text-xs rounded p-2 h-24 resize-none text-gray-300"
+                        key={post.id as number}
+                        defaultValue={post.content as string}
+                        onBlur={async e => {
+                          if (e.target.value !== post.content) {
+                            await fetch("/api/admin/ai/social-posts", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: post.id, content: e.target.value }) });
+                            await loadLinkedinPosts();
+                          }
+                        }}
+                        className="cyber-input w-full text-xs rounded p-2 h-28 resize-y text-gray-200"
                       />
+                      {post.status === "failed" && !!post.errorMessage && (
+                        <p className="text-xs text-red-400 font-mono break-all bg-red-900/10 rounded p-2 border border-red-900/30">{post.errorMessage as string}</p>
+                      )}
                       {!!post.imageUrl && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={post.imageUrl as string} alt="" className="h-12 w-20 object-cover rounded" />
@@ -1922,6 +1936,11 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                               : `https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`}
                             target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded" style={{ color: "#00ff9d" }}
                           >↗ Voir</a>
+                        )}
+                        {canWrite && post.status === "failed" && (
+                          <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#ff006615", color: "#ff6666", border: "1px solid #ff006630" }}>
+                            {publishing === (post.id as number) ? "..." : "🔄 Réessayer"}
+                          </button>
                         )}
                         {canWrite && <button
                           onClick={async () => {

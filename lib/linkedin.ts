@@ -184,7 +184,8 @@ export async function publishPost(text: string, imageUrl?: string): Promise<Link
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`LinkedIn API error ${res.status}: ${err}`);
+    const authorUrn = process.env.LINKEDIN_ORGANIZATION_URN || process.env.LINKEDIN_AUTHOR_URN || "NOT_SET";
+    throw new Error(`LinkedIn API error ${res.status} (author=${authorUrn}): ${err}`);
   }
 
   const postId = res.headers.get("x-restli-id") || (await res.json() as { id: string }).id;

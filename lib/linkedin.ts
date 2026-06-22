@@ -114,8 +114,8 @@ async function invalidateToken(): Promise<void> {
 }
 
 function getAuthorUrn(): string {
-  const urn = process.env.LINKEDIN_AUTHOR_URN;
-  if (!urn) throw new Error("LINKEDIN_AUTHOR_URN env var is required");
+  const urn = process.env.LINKEDIN_ORGANIZATION_URN || process.env.LINKEDIN_AUTHOR_URN;
+  if (!urn) throw new Error("LINKEDIN_ORGANIZATION_URN (or LINKEDIN_AUTHOR_URN) env var is required");
   return urn;
 }
 

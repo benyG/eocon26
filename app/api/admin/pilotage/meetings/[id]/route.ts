@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 function extractEmails(json: string | null | undefined): Set<string> {
   const matches = (json || "").match(/[\w.+-]+@[\w-]+\.[\w.-]+/g) || [];
-  return new Set(matches);
+  return new Set<string>(matches);
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -32,7 +32,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   // Send invitations only to newly added participants
   const newEmails = extractEmails(updated.attendees);
   if (updated.convenerEmail) newEmails.add(updated.convenerEmail);
-  const added = [...newEmails].filter(e => !prevEmails.has(e));
+  const added = Array.from(newEmails).filter(e => !prevEmails.has(e));
   if (added.length) {
     await Promise.allSettled(added.map(to => sendPilotageMeetingInvitation(to, updated)));
   }

@@ -1381,7 +1381,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
       case "inscriptions":
         return `Les inscriptions pour EOCON 2026 sont ouvertes ! ${data.registrationCount > 0 ? `Déjà ${data.registrationCount} participants inscrits. ` : ""}Inviter à s'inscrire, mettre en avant les types de billets disponibles (Standard, Student, VIP, Early Bird). Rappeler que l'événement est accessible en ligne pour la diaspora africaine.`;
       case "ctf":
-        return "Annonce de l'EOCTF — le Capture The Flag d'EOCON 2026. Présenter le challenge cybersécurité, ses catégories, les lots à remporter et le niveau attendu des participants. Inviter les équipes et individus à s'inscrire et à se challenger.";
+        return "Annonce de l'EyesOpenCTF — le Capture The Flag d'EOCON 2026. Présenter le challenge cybersécurité, ses catégories, les lots à remporter et le niveau attendu des participants. Inviter les équipes et individus à s'inscrire et à se challenger.";
       case "custom":
         return "";
       default:
@@ -1724,7 +1724,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
               const ctaMap: Record<string, { text: string; urlKey: string }> = {
                 inscriptions: { text: "S'inscrire à EOCON 2026 →", urlKey: "url_inscription" },
                 cfp: { text: "Soumettre mon talk →", urlKey: "url_cfp" },
-                ctf: { text: "Rejoindre l'EOCTF →", urlKey: "url_ctf" },
+                ctf: { text: "Rejoindre l'EyesOpenCTF →", urlKey: "url_ctf" },
                 speaker: { text: "Voir le programme →", urlKey: "url_programme" },
                 session: { text: "Voir le programme →", urlKey: "url_programme" },
                 workshop: { text: "S'inscrire →", urlKey: "url_inscription" },

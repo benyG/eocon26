@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   const allCtas = [
     { label: "Inscriptions", url: settings.url_inscription },
     { label: "CFP", url: settings.url_cfp },
-    { label: "CTF / EOCTF", url: settings.url_ctf },
+    { label: "CTF / EyesOpenCTF", url: settings.url_ctf },
     { label: "Programme", url: settings.url_programme },
     { label: "Partenariat sponsor", url: settings.url_sponsor },
   ].filter(c => c.url);

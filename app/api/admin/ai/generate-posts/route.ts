@@ -39,9 +39,9 @@ export async function POST(req: NextRequest) {
 
   const openai = getOpenAI();
 
-  // The CTA for this content type is mandatory when configured — build explicit instruction
+  // The CTA for this content type is mandatory when configured — per-language instruction
   const ctaInstruction = cta
-    ? `\n🔗 CTA IMPOSÉ — tu DOIS terminer chaque post par exactement ce lien, mot pour mot, sans le modifier :\n  "${cta.text}" → ${cta.url}\nN'utilise AUCUNE autre URL EOCON. N'invente rien. Ce lien et ce libellé uniquement.`
+    ? `\n🔗 CTA IMPOSÉ — tu DOIS terminer chaque post par exactement ce lien, en respectant la langue du post :\n  • Posts en français : "${cta.text}" → ${cta.url}\n  • Posts en anglais : "${cta.textEn}" → ${cta.url}\nN'utilise AUCUNE autre URL EOCON. N'invente rien. Ce lien et ce libellé (dans la bonne langue) uniquement.`
     : `\nAucun CTA configuré pour ce type de contenu. N'invente aucune URL liée à l'événement EOCON.`;
 
   const prompt = `${eoconCtx}${contextSection ? "\n" + contextSection : ""}

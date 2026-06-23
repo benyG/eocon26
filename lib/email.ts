@@ -413,8 +413,22 @@ export async function sendPilotageEscalation(coordoEmail: string, task: Pilotage
   await sendPilotage(coordoEmail, `🚨 Tâche en retard — ${task.title}`, body);
 }
 
+export async function sendPilotageMeetingInvitation(to: string, meeting: PilotageMeetingLike & { convenerName?: string | null }) {
+  const body = `<p>${greenLabel("Bonjour")},</p>
+     <p>Vous avez été ajouté(e) à une réunion de pilotage EOCON 2026.</p>
+     ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
+       ${neonRow("Réunion", `<strong style="color:#00ff9d;">${esc(meeting.title)}</strong>`)}
+       ${neonRow("Date", fmtFrDate(meeting.scheduledAt))}
+       ${meeting.location ? neonRow("Lieu", esc(meeting.location)) : ""}
+       ${meeting.agenda ? neonRow("Ordre du jour", esc(meeting.agenda)) : ""}
+       ${meeting.convenerName ? neonRow("Organisateur", esc(meeting.convenerName)) : ""}
+     </tbody></table>`)}
+     <p>Pensez à noter cette date dans votre agenda.</p>`;
+  await sendPilotage(to, `📅 Invitation — ${meeting.title}`, body);
+}
+
 export async function sendPilotageMeetingReminder(to: string, meeting: PilotageMeetingLike, stage: string) {
-  const when = stage === "H-2" ? "dans 2 heures" : "demain";
+  const when = stage === "H-2" ? "dans 2 heures" : stage === "J0" ? "aujourd'hui" : "demain";
   const body = `<p>${greenLabel("Bonjour")},</p>
      <p>📅 Rappel : une réunion de pilotage a lieu <strong style="color:#00ff9d;">${when}</strong>.</p>
      ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>

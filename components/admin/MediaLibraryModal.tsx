@@ -123,7 +123,7 @@ export default function MediaLibraryModal({ onSelect, onClose }: Props) {
                 >
                   {isImage(f.name) ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={f.url} alt={f.name} className="w-full aspect-square object-cover bg-gray-900" loading="lazy" />
+                    <img src={f.url} alt={f.name} className="w-full aspect-square object-contain bg-gray-900 p-1" loading="lazy" />
                   ) : (
                     <div className="w-full aspect-square bg-gray-900 flex items-center justify-center text-2xl">📄</div>
                   )}

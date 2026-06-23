@@ -5703,7 +5703,17 @@ function DashboardHealthPanel({
 }
 
 export default function AdminDashboard() {
-  const [tab, setTab] = useState<Tab>("dashboard");
+  const [tab, setTabRaw] = useState<Tab>(() => {
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("admin_tab") as Tab | null;
+      if (saved) return saved;
+    }
+    return "dashboard";
+  });
+  const setTab = useCallback((t: Tab) => {
+    sessionStorage.setItem("admin_tab", t);
+    setTabRaw(t);
+  }, []);
   const [stats, setStats] = useState<Record<string, number>>({});
   const [data, setData] = useState<Record<string, unknown[]>>({});
   const [loading, setLoading] = useState(false);

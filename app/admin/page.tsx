@@ -5744,7 +5744,15 @@ export default function AdminDashboard() {
     }).catch(() => {});
   }, []);
 
-  useEffect(() => { refreshMe(); }, [refreshMe]);
+  useEffect(() => {
+    refreshMe();
+    // Re-fetch permissions every 30 s so changes take effect without reconnecting
+    const interval = setInterval(refreshMe, 30_000);
+    // Re-fetch immediately when the user switches back to this tab
+    const onVisible = () => { if (document.visibilityState === "visible") refreshMe(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); };
+  }, [refreshMe]);
 
   // Tab → required permission key (undefined = always visible)
   const TAB_PERMISSION: Partial<Record<Tab, string | undefined>> = {

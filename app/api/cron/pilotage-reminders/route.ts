@@ -69,6 +69,7 @@ export async function GET(req: NextRequest) {
     let stage: string | null = null;
     if (msUntil > 0 && msUntil <= 2 * 3600 * 1000) stage = "H-2";
     else if (diff === 1) stage = "J-1";
+    else if (diff === 0 && !sent.includes("J0")) stage = "J0";
     if (!stage || sent.includes(stage)) continue;
 
     // Recipients: emails found in attendees, otherwise the Coordo.

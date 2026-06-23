@@ -150,13 +150,16 @@ export async function publishPost(text: string, imageUrl?: string): Promise<Link
   const token = await getAccessToken();
   const author = getAuthorUrn();
 
+  // Extract first URL from text to use as article preview when no image is provided
+  const firstUrl = !imageUrl ? (text.match(/https?:\/\/[^\s)>\]"']+/) || [])[0] : undefined;
+
   const body: Record<string, unknown> = {
     author,
     lifecycleState: "PUBLISHED",
     specificContent: {
       "com.linkedin.ugc.ShareContent": {
         shareCommentary: { text },
-        shareMediaCategory: imageUrl ? "IMAGE" : "NONE",
+        shareMediaCategory: imageUrl ? "IMAGE" : firstUrl ? "ARTICLE" : "NONE",
         ...(imageUrl ? {
           media: [{
             status: "READY",
@@ -164,6 +167,8 @@ export async function publishPost(text: string, imageUrl?: string): Promise<Link
             media: await uploadImage(imageUrl, token, author),
             title: { text: "EOCON 2026" },
           }],
+        } : firstUrl ? {
+          media: [{ status: "READY", originalUrl: firstUrl }],
         } : {}),
       },
     },
@@ -184,7 +189,8 @@ export async function publishPost(text: string, imageUrl?: string): Promise<Link
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`LinkedIn API error ${res.status}: ${err}`);
+    const authorUrn = process.env.LINKEDIN_ORGANIZATION_URN || process.env.LINKEDIN_AUTHOR_URN || "NOT_SET";
+    throw new Error(`LinkedIn API error ${res.status} (author=${authorUrn}): ${err}`);
   }
 
   const postId = res.headers.get("x-restli-id") || (await res.json() as { id: string }).id;

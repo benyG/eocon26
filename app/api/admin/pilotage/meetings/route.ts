@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
 import { logAction } from "@/lib/auditLog";
+import { sendPilotageMeetingInvitation } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -30,5 +31,12 @@ export async function POST(req: NextRequest) {
     },
   });
   logAction(req, "CREATE", "pilotage", meeting.id, { meeting: title });
+
+  // Send invitation to all attendees + convener
+  const emailsInAttendees: string[] = (attendees || "").match(/[\w.+-]+@[\w-]+\.[\w.-]+/g) || [];
+  const allRecipients = new Set<string>(emailsInAttendees);
+  if (convenerEmail) allRecipients.add(convenerEmail);
+  await Promise.allSettled([...allRecipients].map(to => sendPilotageMeetingInvitation(to, meeting)));
+
   return NextResponse.json(meeting, { status: 201 });
 }

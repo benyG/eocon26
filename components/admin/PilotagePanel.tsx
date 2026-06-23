@@ -437,7 +437,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
           </div>
         </>
       ) : view === "meetings" && (canReadMeetings !== false || canWrite) ? (
-        <MeetingsView meetings={meetings} reload={load} canWrite={canWriteMeetings !== undefined ? canWriteMeetings : canWrite} members={members} />
+        <MeetingsView meetings={meetings} reload={load} canWrite={canWriteMeetings !== undefined ? canWriteMeetings : canWrite} members={members} currentUserEmail={currentUserEmail} />
       ) : null}
 
       {/* Detail drawer — tasks */}
@@ -537,11 +537,13 @@ function MeetingsView({
   reload,
   canWrite = true,
   members,
+  currentUserEmail,
 }: {
   meetings: Meeting[];
   reload: () => void;
   canWrite?: boolean;
   members: Member[];
+  currentUserEmail?: string;
 }) {
   const [editTarget, setEditTarget] = useState<Meeting | "new" | null>(null);
   const [form, setForm] = useState<MeetingForm>(emptyMeetingForm());
@@ -577,7 +579,9 @@ function MeetingsView({
   const membersWithEmail = members.filter((m) => m.email);
 
   function openCreate() {
-    setForm(emptyMeetingForm());
+    const base = emptyMeetingForm();
+    if (currentUserEmail) base.convenerEmail = currentUserEmail;
+    setForm(base);
     setEditTarget("new");
   }
 

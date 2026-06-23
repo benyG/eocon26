@@ -14,18 +14,18 @@ export async function getEventSettings(): Promise<Record<string, string>> {
   return map;
 }
 
-export function getCtaForContentType(type: string, settings: Record<string, string>): { text: string; url: string } | null {
+export function getCtaForContentType(type: string, settings: Record<string, string>): { text: string; textEn: string; url: string } | null {
   const base = settings.site_base_url || "https://eyesopensecurity.com";
-  const ctaMap: Record<string, { text: string; url: string }> = {
-    speaker: { text: "Voir le programme →", url: settings.url_programme || `${base}/#programme` },
-    session: { text: "Voir le programme →", url: settings.url_programme || `${base}/#programme` },
-    workshop: { text: "S'inscrire maintenant →", url: settings.url_inscription || `${base}/#inscription` },
-    inscriptions: { text: "S'inscrire à EOCON 2026 →", url: settings.url_inscription || `${base}/#inscription` },
-    cfp: { text: "Soumettre mon talk →", url: settings.url_cfp || `${base}/#cfp` },
-    ctf: { text: "Rejoindre l'EOCTF →", url: settings.url_ctf || `${base}/#ctf` },
-    countdown: { text: "S'inscrire →", url: settings.url_inscription || `${base}/#inscription` },
-    sponsor: { text: "Devenir partenaire →", url: settings.url_sponsor || `${base}/#sponsors` },
-    custom: null as unknown as { text: string; url: string },
+  const ctaMap: Record<string, { text: string; textEn: string; url: string }> = {
+    speaker:      { text: "Voir le programme →",        textEn: "View the programme →",      url: settings.url_programme  || `${base}/#programme` },
+    session:      { text: "Voir le programme →",        textEn: "View the programme →",      url: settings.url_programme  || `${base}/#programme` },
+    workshop:     { text: "S'inscrire maintenant →",    textEn: "Register now →",             url: settings.url_inscription || `${base}/#inscription` },
+    inscriptions: { text: "S'inscrire à EOCON 2026 →", textEn: "Register for EOCON 2026 →", url: settings.url_inscription || `${base}/#inscription` },
+    cfp:          { text: "Soumettre mon talk →",       textEn: "Submit my talk →",           url: settings.url_cfp       || `${base}/#cfp` },
+    ctf:          { text: "Rejoindre l'EyesOpenCTF →", textEn: "Join EyesOpenCTF →",         url: settings.url_ctf       || `${base}/#ctf` },
+    countdown:    { text: "S'inscrire →",               textEn: "Register →",                 url: settings.url_inscription || `${base}/#inscription` },
+    sponsor:      { text: "Devenir partenaire →",       textEn: "Become a partner →",         url: settings.url_sponsor   || `${base}/#sponsors` },
+    custom: null as unknown as { text: string; textEn: string; url: string },
   };
   return ctaMap[type] || null;
 }

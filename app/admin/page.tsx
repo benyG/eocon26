@@ -1235,7 +1235,7 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
             {filtered.map(f => (
               <div key={f.name} className="group relative rounded-lg overflow-hidden border border-gray-800 hover:border-gray-600 transition-all">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={f.url} alt={f.name} className="w-full aspect-square object-cover bg-gray-900" loading="lazy" />
+                <img src={f.url} alt={f.name} className="w-full aspect-square object-contain bg-gray-900 p-1" loading="lazy" />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors" />
                 {canWrite && <button
                   onClick={() => deleteFile(f.name)}
@@ -1309,7 +1309,7 @@ function LibraryPickerModal({ onPick, onClose }: { onPick: (url: string) => void
                   className="group relative rounded-lg overflow-hidden border border-gray-800 hover:border-neon-green transition-all text-left"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={f.url} alt={f.name} className="w-full aspect-square object-cover bg-gray-900" loading="lazy" />
+                  <img src={f.url} alt={f.name} className="w-full aspect-square object-contain bg-gray-900 p-1" loading="lazy" />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-neon-green/10 transition-colors" />
                   <div className="absolute bottom-0 inset-x-0 bg-black/70 px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <p className="text-white text-xs truncate leading-tight">{f.name.split("/").pop()}</p>
@@ -1363,25 +1363,25 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
     if (!data) return "";
     switch (type) {
       case "speaker":
-        if (!item) return "";
+        if (!item) return "Annonce d'un speaker EOCON 2026. Sélectionner un speaker ci-dessous pour personnaliser ce brief avec son nom, son expertise et son sujet de talk.";
         return `Annonce de la conférence de ${item.name as string}, ${item.title as string}${item.company ? ` chez ${item.company}` : ""}${item.country ? ` (${item.country})` : ""}. Talk : "${item.talkTitle || "à confirmer"}". ${item.isKeynote ? "Keynote speaker de l'événement. " : ""}Créer de l'enthousiasme et mettre en avant son expertise pour EOCON 2026.`;
       case "session":
-        if (!item) return "";
+        if (!item) return "Mise en avant d'une session du programme EOCON 2026. Sélectionner une session ci-dessous pour personnaliser ce brief avec son titre, son intervenant et sa date.";
         return `Mise en avant de la session "${item.title as string}"${item.speakerName ? ` par ${item.speakerName}` : ""}${item.date ? ` le ${item.date}` : ""}${item.time ? ` à ${item.time}` : ""}. ${item.description ? `Contexte : ${(item.description as string).slice(0, 150)}...` : ""}`;
       case "workshop":
-        if (!item) return "";
+        if (!item) return "Annonce d'un workshop EOCON 2026. Sélectionner un workshop ci-dessous pour personnaliser ce brief avec son titre, son animateur, son niveau et sa durée.";
         return `Annonce du workshop "${item.title as string}"${item.instructor ? ` animé par ${item.instructor}` : ""}, niveau ${item.level as string}, durée ${item.duration as string}. ${(item.description as string).slice(0, 150)}... Inviter les participants à s'inscrire.`;
       case "sponsor":
-        if (!item) return "";
+        if (!item) return "Mise en avant d'un partenaire EOCON 2026. Sélectionner un sponsor ci-dessous pour personnaliser ce brief avec son nom et son niveau de partenariat.";
         return `Mise en avant et remerciement de ${item.name as string}, partenaire ${item.tier as string} d'EOCON 2026. Valoriser leur soutien et leur engagement pour la cybersécurité en Afrique.`;
       case "countdown":
         return `Compte à rebours EOCON 2026 : J-${data.daysUntil} ! Créer l'urgence et l'excitation. ${data.daysUntil <= 7 ? "Derniers rappels pratiques (lieu, programme)." : data.daysUntil <= 30 ? "Rappeler les points clés de l'événement." : "Présenter les highlights du programme à venir."}`;
       case "cfp":
-        return "Annonce liée au Call for Papers (CFP) d'EOCON 2026. Préciser s'il s'agit de l'ouverture, d'un rappel de deadline, ou de l'annonce des résultats de sélection.";
+        return "Annonce liée au Call for Papers (CFP) d'EOCON 2026. Préciser s'il s'agit de l'ouverture du CFP, d'un rappel de deadline, ou de l'annonce des résultats de sélection. Inciter les experts en cybersécurité à soumettre leur proposition de talk.";
       case "inscriptions":
-        return `Les inscriptions pour EOCON 2026 sont ouvertes ! ${data.registrationCount > 0 ? `Déjà ${data.registrationCount} participants inscrits. ` : ""}Inviter à s'inscrire, mettre en avant les types de billets disponibles (Standard, Student, VIP, Early Bird).`;
+        return `Les inscriptions pour EOCON 2026 sont ouvertes ! ${data.registrationCount > 0 ? `Déjà ${data.registrationCount} participants inscrits. ` : ""}Inviter à s'inscrire, mettre en avant les types de billets disponibles (Standard, Student, VIP, Early Bird). Rappeler que l'événement est accessible en ligne pour la diaspora africaine.`;
       case "ctf":
-        return "Annonce du CTF (Capture The Flag) EOCON 2026 — EOCTF. Présenter le challenge cybersécurité, inviter les participants à s'inscrire à la compétition, mettre en avant les lots et le niveau attendu.";
+        return "Annonce de l'EyesOpenCTF — le Capture The Flag d'EOCON 2026. Présenter le challenge cybersécurité, ses catégories, les lots à remporter et le niveau attendu des participants. Inviter les équipes et individus à s'inscrire et à se challenger.";
       case "custom":
         return "";
       default:
@@ -1724,7 +1724,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
               const ctaMap: Record<string, { text: string; urlKey: string }> = {
                 inscriptions: { text: "S'inscrire à EOCON 2026 →", urlKey: "url_inscription" },
                 cfp: { text: "Soumettre mon talk →", urlKey: "url_cfp" },
-                ctf: { text: "Rejoindre l'EOCTF →", urlKey: "url_ctf" },
+                ctf: { text: "Rejoindre l'EyesOpenCTF →", urlKey: "url_ctf" },
                 speaker: { text: "Voir le programme →", urlKey: "url_programme" },
                 session: { text: "Voir le programme →", urlKey: "url_programme" },
                 workshop: { text: "S'inscrire →", urlKey: "url_inscription" },
@@ -5703,7 +5703,17 @@ function DashboardHealthPanel({
 }
 
 export default function AdminDashboard() {
-  const [tab, setTab] = useState<Tab>("dashboard");
+  const [tab, setTabRaw] = useState<Tab>(() => {
+    if (typeof window !== "undefined") {
+      const saved = sessionStorage.getItem("admin_tab") as Tab | null;
+      if (saved) return saved;
+    }
+    return "dashboard";
+  });
+  const setTab = useCallback((t: Tab) => {
+    sessionStorage.setItem("admin_tab", t);
+    setTabRaw(t);
+  }, []);
   const [stats, setStats] = useState<Record<string, number>>({});
   const [data, setData] = useState<Record<string, unknown[]>>({});
   const [loading, setLoading] = useState(false);
@@ -5744,7 +5754,15 @@ export default function AdminDashboard() {
     }).catch(() => {});
   }, []);
 
-  useEffect(() => { refreshMe(); }, [refreshMe]);
+  useEffect(() => {
+    refreshMe();
+    // Re-fetch permissions every 30 s so changes take effect without reconnecting
+    const interval = setInterval(refreshMe, 30_000);
+    // Re-fetch immediately when the user switches back to this tab
+    const onVisible = () => { if (document.visibilityState === "visible") refreshMe(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); };
+  }, [refreshMe]);
 
   // Tab → required permission key (undefined = always visible)
   const TAB_PERMISSION: Partial<Record<Tab, string | undefined>> = {

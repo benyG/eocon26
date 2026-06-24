@@ -21,6 +21,12 @@ const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; 
 });
 const useAdminT = () => useContext(AdminLangContext);
 
+const AdminThemeContext = createContext<{ theme: "dark" | "light"; toggleTheme: () => void }>({
+  theme: "dark",
+  toggleTheme: () => {},
+});
+const useAdminTheme = () => useContext(AdminThemeContext);
+
 type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "sessions" | "video" | "transactions" | "testimony" | "campaigns" | "strategic-plan";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
@@ -5723,6 +5729,19 @@ export default function AdminDashboard() {
   });
   const t = adminI18n[lang];
   const changeLang = (l: AdminLang) => { setLang(l); localStorage.setItem("admin_lang", l); };
+
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    if (typeof window !== "undefined") return (localStorage.getItem("admin_theme") as "dark" | "light") || "dark";
+    return "dark";
+  });
+  const toggleTheme = () => {
+    setTheme(t => {
+      const next = t === "dark" ? "light" : "dark";
+      localStorage.setItem("admin_theme", next);
+      return next;
+    });
+  };
+
   const router = useRouter();
 
   // Current user identity + permissions
@@ -6100,8 +6119,9 @@ export default function AdminDashboard() {
   })();
 
   return (
+    <AdminThemeContext.Provider value={{ theme, toggleTheme }}>
     <AdminLangContext.Provider value={{ lang, t, setLang: changeLang }}>
-    <div className="min-h-screen bg-dark-900" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+    <div data-theme={theme} className="min-h-screen bg-dark-900" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
       {/* Detail drawer */}
       {detail && <DetailDrawer item={detail.item} type={detail.type} onClose={() => setDetail(null)} />}
       {showAccount && userInfo && !userInfo.isLegacy && (
@@ -6122,6 +6142,18 @@ export default function AdminDashboard() {
             className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-neon-green hover:border-neon-green/40 transition-all font-mono"
           >
             {lang === "fr" ? "EN" : "FR"}
+          </button>
+          {/* Light / dark theme toggle */}
+          <button
+            onClick={toggleTheme}
+            title={theme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
+            className="admin-theme-toggle flex items-center gap-1.5 text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-neon-green hover:border-neon-green/40 transition-all font-mono select-none"
+          >
+            {theme === "dark" ? (
+              <><span>☀</span><span className="hidden sm:inline">Clair</span></>
+            ) : (
+              <><span>🌙</span><span className="hidden sm:inline">Sombre</span></>
+            )}
           </button>
           <button onClick={logout} className="text-xs text-red-400 hover:text-red-300 transition-colors">{t.logout}</button>
         </div>
@@ -6749,6 +6781,7 @@ export default function AdminDashboard() {
       </div>
     </div>
     </AdminLangContext.Provider>
+    </AdminThemeContext.Provider>
   );
 }
 

@@ -251,9 +251,17 @@ model PastSpeaker {
 }
 
 model NewsletterSubscriber {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  createdAt DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  email      String   @unique
+  firstName  String?
+  lastName   String?
+  phone      String?
+  profession String?
+  company    String?
+  twitter    String?
+  linkedin   String?
+  source     String?  @default("form")
+  createdAt  DateTime @default(now())
 
   @@map("newsletter_subscribers")
 }

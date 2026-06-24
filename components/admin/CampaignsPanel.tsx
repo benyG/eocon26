@@ -2,6 +2,21 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import EmailTemplatesPanel from "@/components/admin/EmailTemplatesPanel";
 
+// ── Contact / Subscriber types ─────────────────────────────────────────────────
+interface Subscriber {
+  id: number;
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  phone?: string | null;
+  profession?: string | null;
+  company?: string | null;
+  twitter?: string | null;
+  linkedin?: string | null;
+  source?: string | null;
+  createdAt: string;
+}
+
 // ── Types ────────────────────────────────────────────────────────────────────
 interface Segment {
   audience: "registrations" | "newsletter" | "cfp_accepted" | "cfp_onboarding" | "cfp_confirmed" | "cfp_scheduled" | "volunteers";
@@ -100,8 +115,54 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Campaign | null>(null);
   const [showEditor, setShowEditor] = useState(false);
-  const [subTab, setSubTab] = useState<"campaigns" | "templates" | "system">("campaigns");
+  const [subTab, setSubTab] = useState<"campaigns" | "templates" | "system" | "contacts">("campaigns");
   const [initialTemplateId, setInitialTemplateId] = useState<number | null>(null);
+
+  // Contacts / subscriber state
+  const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
+  const [subLoading, setSubLoading] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [csvText, setCsvText] = useState("");
+  const [importResult, setImportResult] = useState<{ imported: number; updated: number; skipped: number; total: number } | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const loadSubscribers = useCallback(async () => {
+    setSubLoading(true);
+    const r = await fetch("/api/admin/newsletter/subscribers");
+    if (r.ok) setSubscribers(await r.json());
+    setSubLoading(false);
+  }, []);
+
+  const deleteSubscriber = async (id: number) => {
+    if (!confirm("Supprimer ce contact ?")) return;
+    await fetch("/api/admin/newsletter/subscribers", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    setSubscribers(prev => prev.filter(s => s.id !== id));
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setCsvText((ev.target?.result as string) || "");
+    reader.readAsText(file, "UTF-8");
+  };
+
+  const runImport = async () => {
+    if (!csvText.trim()) return;
+    setImporting(true);
+    setImportError(null);
+    setImportResult(null);
+    const r = await fetch("/api/admin/newsletter/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ csv: csvText }),
+    });
+    const data = await r.json();
+    if (!r.ok) { setImportError(data.error || "Erreur"); } else { setImportResult(data); loadSubscribers(); }
+    setImporting(false);
+  };
 
   // Template modal state
   const [showTplModal, setShowTplModal] = useState(false);
@@ -130,6 +191,10 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
     fetch("/api/admin/campaigns/audience").then(r => r.ok ? r.json() : null).then(setFacets).catch(() => {});
     loadTemplates();
   }, [load, loadTemplates]);
+
+  useEffect(() => {
+    if (subTab === "contacts") loadSubscribers();
+  }, [subTab, loadSubscribers]);
 
   const openNew = (tplId?: number) => {
     setEditing(null);
@@ -196,6 +261,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
   const TABS = [
     { key: "campaigns" as const, label: "📣 Campagnes", count: campaigns.length },
     { key: "templates" as const, label: "📋 Modèles campagne", count: campaignTemplates.length },
+    { key: "contacts" as const, label: "📇 Contacts", count: subscribers.length || undefined },
     { key: "system" as const, label: "📧 Templates système" },
   ];
 
@@ -436,6 +502,163 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── CONTACTS TAB ─────────────────────────────────────────────────── */}
+      {subTab === "contacts" && (
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-2xl font-black text-white">📇 Contacts newsletter</h1>
+              <p className="text-gray-500 text-xs mt-1">
+                {subscribers.length} contact{subscribers.length !== 1 ? "s" : ""} · audience utilisée pour les campagnes &ldquo;Newsletter&rdquo;
+              </p>
+            </div>
+            {canWrite && (
+              <button
+                onClick={() => { setShowImport(true); setCsvText(""); setImportResult(null); setImportError(null); }}
+                className="btn-neon px-4 py-2 rounded text-xs"
+              >
+                ⬆ Importer CSV Mailchimp
+              </button>
+            )}
+          </div>
+
+          {subLoading ? (
+            <p className="text-gray-600 text-xs">Chargement…</p>
+          ) : subscribers.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-gray-600 text-xs gap-3">
+              <span className="text-4xl">📭</span>
+              <span>Aucun contact pour l&apos;instant.</span>
+              {canWrite && (
+                <button onClick={() => { setShowImport(true); setCsvText(""); setImportResult(null); setImportError(null); }} className="text-neon-green text-xs underline">
+                  Importer depuis Mailchimp
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-gray-500 border-b border-gray-800 text-left">
+                    <th className="py-2 px-3 font-medium">Email</th>
+                    <th className="py-2 px-3 font-medium">Prénom</th>
+                    <th className="py-2 px-3 font-medium">Nom</th>
+                    <th className="py-2 px-3 font-medium">Téléphone</th>
+                    <th className="py-2 px-3 font-medium">Profession</th>
+                    <th className="py-2 px-3 font-medium">Entreprise</th>
+                    <th className="py-2 px-3 font-medium">Source</th>
+                    {canWrite && <th className="py-2 px-3 font-medium text-right">Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {subscribers.map(s => (
+                    <tr key={s.id} className="border-b border-gray-900 hover:bg-white/5">
+                      <td className="py-2 px-3 text-white font-mono">{s.email}</td>
+                      <td className="py-2 px-3 text-gray-300">{s.firstName || <span className="text-gray-700">—</span>}</td>
+                      <td className="py-2 px-3 text-gray-300">{s.lastName || <span className="text-gray-700">—</span>}</td>
+                      <td className="py-2 px-3 text-gray-400">{s.phone || <span className="text-gray-700">—</span>}</td>
+                      <td className="py-2 px-3 text-gray-400">{s.profession || <span className="text-gray-700">—</span>}</td>
+                      <td className="py-2 px-3 text-gray-400">{s.company || <span className="text-gray-700">—</span>}</td>
+                      <td className="py-2 px-3">
+                        <span className={`px-1.5 py-0.5 rounded text-xs font-mono ${s.source === "import" ? "bg-blue-900/40 text-blue-400" : "bg-gray-800 text-gray-500"}`}>
+                          {s.source || "form"}
+                        </span>
+                      </td>
+                      {canWrite && (
+                        <td className="py-2 px-3 text-right">
+                          <button onClick={() => deleteSubscriber(s.id)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded hover:bg-red-900/20">✕</button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* ── IMPORT MODAL ──────────────────────────────────────────────── */}
+          {showImport && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowImport(false)}>
+              <div className="bg-[#0d0d0d] border border-gray-700 rounded-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800">
+                  <h2 className="text-white font-bold text-sm">⬆ Importer des contacts Mailchimp</h2>
+                  <button onClick={() => setShowImport(false)} className="text-gray-500 hover:text-white">✕</button>
+                </div>
+
+                <div className="p-5 overflow-y-auto flex flex-col gap-4">
+                  {/* Format hint */}
+                  <div className="bg-blue-950/40 border border-blue-800/40 rounded-lg p-3 text-xs text-blue-300">
+                    <p className="font-semibold mb-1">Format attendu (export Mailchimp CSV) :</p>
+                    <code className="font-mono text-blue-200 text-[11px]">
+                      Email Address,First Name,Last Name,Phone Number,Profession,Company,Twitter,Linkedin
+                    </code>
+                    <p className="mt-1.5 text-blue-400">Les contacts déjà présents seront enrichis (données manquantes complétées) et non dupliqués.</p>
+                  </div>
+
+                  {/* File picker */}
+                  <div>
+                    <p className="text-gray-400 text-xs mb-2">Choisir un fichier CSV :</p>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".csv,text/csv"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="text-xs px-3 py-1.5 rounded border border-gray-600 text-gray-300 hover:border-neon-green hover:text-neon-green transition-colors"
+                      >
+                        📂 Parcourir…
+                      </button>
+                      {csvText && <span className="text-xs text-neon-green">✓ Fichier chargé ({csvText.split("\n").length - 1} lignes)</span>}
+                    </div>
+                  </div>
+
+                  {/* Or paste */}
+                  <div>
+                    <p className="text-gray-400 text-xs mb-2">— ou coller le contenu CSV ici :</p>
+                    <textarea
+                      value={csvText}
+                      onChange={e => setCsvText(e.target.value)}
+                      placeholder={"Email Address,First Name,Last Name,Phone Number,Profession,Company,Twitter,Linkedin\njohn@example.com,John,Doe,..."}
+                      rows={6}
+                      className="cyber-input w-full text-xs rounded px-3 py-2 font-mono resize-y"
+                    />
+                  </div>
+
+                  {importError && (
+                    <p className="text-red-400 text-xs bg-red-950/30 border border-red-800/40 rounded p-2">{importError}</p>
+                  )}
+
+                  {importResult && (
+                    <div className="bg-neon-green/10 border border-neon-green/30 rounded-lg p-3 text-xs">
+                      <p className="text-neon-green font-bold mb-1">✓ Import terminé ({importResult.total} lignes traitées)</p>
+                      <div className="flex gap-4 text-gray-300">
+                        <span><span className="text-neon-green font-mono">{importResult.imported}</span> nouveau{importResult.imported !== 1 ? "x" : ""}</span>
+                        <span><span className="text-blue-400 font-mono">{importResult.updated}</span> enrichi{importResult.updated !== 1 ? "s" : ""}</span>
+                        <span><span className="text-gray-500 font-mono">{importResult.skipped}</span> ignoré{importResult.skipped !== 1 ? "s" : ""}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2 px-5 py-3 border-t border-gray-800">
+                  <button
+                    onClick={runImport}
+                    disabled={importing || !csvText.trim()}
+                    className="btn-neon px-5 py-2 rounded text-xs disabled:opacity-40"
+                  >
+                    {importing ? "Import en cours…" : "Importer"}
+                  </button>
+                  <button onClick={() => setShowImport(false)} className="text-gray-500 text-xs hover:text-white px-3 py-2">Fermer</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

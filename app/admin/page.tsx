@@ -1353,6 +1353,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [lang, setLang] = useState<"fr" | "en" | "both">("both");
   const [generating, setGenerating] = useState(false);
   const [generatedPosts, setGeneratedPosts] = useState<Record<string, string> | null>(null);
+  const [generatedPostIds, setGeneratedPostIds] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
   const [linkedinPosts, setLinkedinPosts] = useState<Record<string, unknown>[]>([]);
   const [publishing, setPublishing] = useState<number | null>(null);
@@ -1438,6 +1439,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
     const date = new Date(currentYear, currentMonth, day);
     setSelectedDay(date);
     setGeneratedPosts(null);
+    setGeneratedPostIds({});
     setPanelOpen(true);
     setPostImage(null);
     setScheduleDate(date.toISOString().slice(0, 10) + "T10:00");
@@ -1453,13 +1455,20 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ brief, contextType, contextItem: selectedItem }),
     });
-    if (res.ok) setGeneratedPosts(await res.json());
+    if (res.ok) {
+      const data = await res.json() as Record<string, unknown>;
+      const { _ids, ...postsData } = data;
+      setGeneratedPosts(postsData as Record<string, string>);
+      setGeneratedPostIds((_ids as Record<string, number>) || {});
+    }
     setGenerating(false);
   };
 
   const savePosts = async () => {
     if (!generatedPosts || !selectedDay) return;
     setSaving(true);
+    // PATCH each generated post's content (edited by user) and scheduling data in-place.
+    // Never re-generate — that would create duplicate DB records.
     const entries: { platform: string; lang: string; content: string }[] = [];
     if (platforms.linkedin) {
       if (lang !== "en") entries.push({ platform: "linkedin", lang: "fr", content: generatedPosts.linkedin_fr || "" });
@@ -1474,41 +1483,18 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
       if (lang !== "fr") entries.push({ platform: "instagram", lang: "en", content: generatedPosts.instagram_en || "" });
     }
     for (const entry of entries) {
-      // Save post via generate-posts then PATCH with imageUrl + scheduledAt
-      const saveRes = await fetch("/api/admin/ai/generate-posts", {
-        method: "POST",
+      const postId = generatedPostIds[`${entry.platform}_${entry.lang}`];
+      if (!postId) continue;
+      await fetch("/api/admin/ai/social-posts", {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          brief: entry.content,
-          contextType,
-          contextItem: selectedItem,
-          platform: entry.platform,
-          lang: entry.lang,
-          saveOnly: true,
-          content: entry.content,
-          imageUrl: postImage || undefined,
-          scheduledAt: scheduleDate || undefined,
-        }),
+        body: JSON.stringify({ id: postId, content: entry.content, imageUrl: postImage || undefined, scheduledAt: scheduleDate || undefined }),
       });
-      if (!saveRes.ok) {
-        // Fallback: create via social-posts PATCH on existing draft
-        const freshRes = await fetch("/api/admin/ai/social-posts");
-        if (freshRes.ok) {
-          const fresh = await freshRes.json() as Record<string, unknown>[];
-          const match = fresh.find(p => p.platform === entry.platform && p.lang === entry.lang && p.status === "draft");
-          if (match) {
-            await fetch("/api/admin/ai/social-posts", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id: match.id, content: entry.content, imageUrl: postImage || undefined, scheduledAt: scheduleDate || undefined }),
-            });
-          }
-        }
-      }
     }
     await loadLinkedinPosts();
     setPanelOpen(false);
     setGeneratedPosts(null);
+    setGeneratedPostIds({});
     setSaving(false);
   };
 
@@ -1629,6 +1615,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                       const newBrief = generateBriefFromContext(ctx.key, null, contextData);
                       setBrief(newBrief);
                       setGeneratedPosts(null);
+                      setGeneratedPostIds({});
                     }}
                     className={`p-2 rounded-lg border text-left transition-all ${contextType === ctx.key ? "border-neon-green/50 bg-neon-green/10" : "border-gray-800 hover:border-gray-600"}`}
                   >
@@ -1663,6 +1650,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                     const newBrief = generateBriefFromContext(contextType, item, contextData);
                     setBrief(newBrief);
                     setGeneratedPosts(null);
+                    setGeneratedPostIds({});
                     // Auto-fill speaker photo
                     if (contextType === "speaker" && item?.photoUrl) setPostImage(item.photoUrl as string);
                   }}
@@ -1840,19 +1828,54 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={async () => {
-                      await savePosts();
-                      // publish all saved drafts immediately
-                      const fresh = await fetch("/api/admin/ai/social-posts").then(r => r.json()) as Record<string, unknown>[];
-                      for (const p of fresh.filter(p => p.status === "draft")) {
-                        await fetch("/api/admin/ai/publish-post", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: p.id }) });
+                      if (saving) return;
+                      setSaving(true);
+                      // Save edited content in-place (PATCH), then publish only the current-session posts.
+                      // Snapshot IDs before savePosts() clears them.
+                      const toPublish = Object.entries(generatedPostIds)
+                        .filter(([key]) => {
+                          const [plat] = key.split("_");
+                          return platforms[plat as keyof typeof platforms];
+                        })
+                        .map(([, id]) => id);
+                      // Update content in DB (no new records created)
+                      const entries: { platform: string; lang: string; content: string }[] = [];
+                      if (platforms.linkedin) {
+                        if (lang !== "en") entries.push({ platform: "linkedin", lang: "fr", content: generatedPosts.linkedin_fr || "" });
+                        if (lang !== "fr") entries.push({ platform: "linkedin", lang: "en", content: generatedPosts.linkedin_en || "" });
                       }
+                      if (platforms.twitter) {
+                        if (lang !== "en") entries.push({ platform: "twitter", lang: "fr", content: generatedPosts.twitter_fr || "" });
+                        if (lang !== "fr") entries.push({ platform: "twitter", lang: "en", content: generatedPosts.twitter_en || "" });
+                      }
+                      if (platforms.instagram) {
+                        if (lang !== "en") entries.push({ platform: "instagram", lang: "fr", content: generatedPosts.instagram_fr || "" });
+                        if (lang !== "fr") entries.push({ platform: "instagram", lang: "en", content: generatedPosts.instagram_en || "" });
+                      }
+                      for (const entry of entries) {
+                        const postId = generatedPostIds[`${entry.platform}_${entry.lang}`];
+                        if (!postId) continue;
+                        await fetch("/api/admin/ai/social-posts", {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ id: postId, content: entry.content, imageUrl: postImage || undefined }),
+                        });
+                      }
+                      // Publish only this generation's posts (not all drafts)
+                      for (const postId of toPublish) {
+                        await fetch("/api/admin/ai/publish-post", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: postId }) });
+                      }
+                      setGeneratedPosts(null);
+                      setGeneratedPostIds({});
+                      setSaving(false);
+                      setPanelOpen(false);
                       await loadLinkedinPosts();
                     }}
                     disabled={saving}
                     className="py-2 rounded text-xs font-bold transition-all"
                     style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}
                   >
-                    {t.postNowBtn}
+                    {saving ? "..." : t.postNowBtn}
                   </button>
                   <button
                     onClick={savePosts}
@@ -4449,7 +4472,7 @@ function levenshtein(a: string, b: string): number {
 }
 
 function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
-  const [subTab, setSubTab] = useState<"config" | "challenges" | "participants" | "emails">("config");
+  const [subTab, setSubTab] = useState<"config" | "challenges" | "participants">("config");
   const [config, setConfig] = useState({ ctfdUrl: "", ctfdApiKey: "", ctfDefaultPassword: "", ctfEnabled: "false" });
   const [configSaving, setConfigSaving] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -4597,7 +4620,6 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
     { key: "config", label: "⚙ Config" },
     { key: "challenges", label: "🏁 Challenges" },
     { key: "participants", label: "👤 Participants" },
-    { key: "emails", label: "✉ Emails" },
   ] as const;
 
   return (
@@ -4911,59 +4933,6 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
         </div>
       )}
 
-      {subTab === "emails" && (
-        <div className="max-w-2xl">
-          <p className="text-xs text-gray-500 mb-4">Les emails sont envoyés automatiquement dans la langue choisie par le participant (FR ou EN).</p>
-          {[
-            { key: "ctf_account_created", label: "Accès CTFd — identifiants de connexion", desc: "Envoyé après création du compte CTFd" },
-            { key: "ctf_no_teammate", label: "Participation sans équipe", desc: "Participant sans binôme — joue en solo" },
-            { key: "ctf_reminder", label: "Rappel CTF — J-1", desc: "Rappel envoyé la veille" },
-          ].map(tpl => (
-            <CTFEmailTemplate key={tpl.key} templateKey={tpl.key} label={tpl.label} desc={tpl.desc} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CTFEmailTemplate({ templateKey, label, desc }: { templateKey: string; label: string; desc: string }) {
-  const [tpl, setTpl] = useState({ subjectFr: "", bodyFr: "", subjectEn: "", bodyEn: "" });
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/admin/settings").then(r => r.json()).then((s: Record<string, string>) => {
-      try { const v = JSON.parse(s[`emailTemplate_${templateKey}`] || "{}"); setTpl(v); } catch { /* ignore */ }
-    });
-  }, [templateKey]);
-
-  const save = async () => {
-    setSaving(true);
-    await fetch("/api/admin/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [`emailTemplate_${templateKey}`]: JSON.stringify(tpl) }) });
-    setSaving(false);
-  };
-
-  return (
-    <div className="cyber-card rounded-xl p-5 mb-4">
-      <div className="mb-3">
-        <div className="text-sm font-bold text-white">{label}</div>
-        <div className="text-xs text-gray-500">{desc}</div>
-      </div>
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <label className="text-xs text-gray-500 block mb-1">Objet FR</label>
-          <input value={tpl.subjectFr} onChange={e => setTpl(t => ({ ...t, subjectFr: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-xs mb-2" />
-          <label className="text-xs text-gray-500 block mb-1">Corps FR</label>
-          <textarea rows={5} value={tpl.bodyFr} onChange={e => setTpl(t => ({ ...t, bodyFr: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-xs" />
-        </div>
-        <div>
-          <label className="text-xs text-gray-500 block mb-1">Subject EN</label>
-          <input value={tpl.subjectEn} onChange={e => setTpl(t => ({ ...t, subjectEn: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-xs mb-2" />
-          <label className="text-xs text-gray-500 block mb-1">Body EN</label>
-          <textarea rows={5} value={tpl.bodyEn} onChange={e => setTpl(t => ({ ...t, bodyEn: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-xs" />
-        </div>
-      </div>
-      <button onClick={save} disabled={saving} className="btn-neon px-3 py-1.5 rounded text-xs mt-3">{saving ? "Sauvegarde…" : "Sauvegarder"}</button>
     </div>
   );
 }
@@ -5818,6 +5787,8 @@ export default function AdminDashboard() {
     if (userInfo.isLegacy) return true; // legacy token = full access
     const permKey = TAB_PERMISSION[tabId];
     if (permKey === undefined) return true; // always visible
+    // Pilotage tab is also accessible via pilotage-meetings permission
+    if (tabId === "pilotage" && !!userInfo.permissions["pilotage-meetings"]) return true;
     return !!userInfo.permissions[permKey as string];
   };
 
@@ -5826,6 +5797,8 @@ export default function AdminDashboard() {
     if (userInfo.isLegacy) return true;
     const permKey = TAB_PERMISSION[tabId];
     if (permKey === undefined) return true;
+    // Pilotage tab is also accessible via pilotage-meetings permission
+    if (tabId === "pilotage" && !!userInfo.permissions["pilotage-meetings"]) return true;
     return !!userInfo.permissions[permKey as string];
   };
 
@@ -6654,7 +6627,12 @@ export default function AdminDashboard() {
           {activeTab === "users" && <AdminUsersPanel canWrite={can("users")} canDelete={!!(userInfo?.isLegacy || userInfo?.isRoot)} />}
           {activeTab === "profiles" && <AdminProfilesPanel />}
 
-          {activeTab === "pilotage" && <PilotagePanel canWrite={can("pilotage")} canReadKanban={can("pilotage", "read")} canWriteKanban={can("pilotage", "write")} canReadMeetings={can("pilotage-meetings", "read")} canWriteMeetings={can("pilotage-meetings", "write")} currentUserEmail={userInfo?.email} />}
+          {activeTab === "pilotage" && (() => {
+            // Only pass meetings-specific perms when the user has an explicit "pilotage-meetings" key;
+            // otherwise fall back to the general "pilotage" write/read permission inside PilotagePanel.
+            const hasMeetingPerm = !!(userInfo && !userInfo.isLegacy && userInfo.permissions["pilotage-meetings"]);
+            return <PilotagePanel canWrite={can("pilotage")} canReadKanban={can("pilotage", "read")} canWriteKanban={can("pilotage", "write")} canReadMeetings={hasMeetingPerm ? can("pilotage-meetings", "read") : undefined} canWriteMeetings={hasMeetingPerm ? can("pilotage-meetings", "write") : undefined} currentUserEmail={userInfo?.email} />;
+          })()}
           {activeTab === "settings" && <EventSettingsPanel canWrite={can("settings")} />}
 
           {/* COMMUNICATION */}

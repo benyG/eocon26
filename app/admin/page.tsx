@@ -692,6 +692,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
   const [apolloKeywords, setApolloKeywords] = useState("cybersecurity,technology,telecom,finance");
   const [placesQuery, setPlacesQuery] = useState("");
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [emailTarget, setEmailTarget] = useState<Record<string, unknown> | null>(null);
   const [emailResult, setEmailResult] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
   const [generatingEmail, setGeneratingEmail] = useState(false);
@@ -722,13 +723,23 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
 
   const runApolloSearch = async () => {
     setSearching(true);
-    await fetch("/api/admin/ai/apollo-search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ keywords: apolloKeywords.split(",").map(k => k.trim()).filter(Boolean) }),
-    });
-    await onRefresh();
-    setSearching(false);
+    setSearchError(null);
+    try {
+      const res = await fetch("/api/admin/ai/apollo-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keywords: apolloKeywords.split(",").map(k => k.trim()).filter(Boolean) }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` })) as { error?: string };
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      await onRefresh();
+    } catch (e) {
+      setSearchError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSearching(false);
+    }
   };
 
   const runPlacesSearch = async () => {
@@ -968,14 +979,17 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
           ))}
         </div>
         {searchTab === "apollo" ? (
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="text-xs text-gray-500 block mb-1">{t.apolloKeywordsLabel}</label>
-              <input value={apolloKeywords} onChange={e => setApolloKeywords(e.target.value)} className="cyber-input w-full text-xs rounded px-3 py-2" placeholder="cybersecurity,technology,telecom,finance,banking" />
+          <div className="space-y-2">
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="text-xs text-gray-500 block mb-1">{t.apolloKeywordsLabel}</label>
+                <input value={apolloKeywords} onChange={e => { setApolloKeywords(e.target.value); setSearchError(null); }} className="cyber-input w-full text-xs rounded px-3 py-2" placeholder="cybersecurity,technology,telecom,finance,banking" />
+              </div>
+              {canWrite && <button onClick={runApolloSearch} disabled={searching} className="btn-neon px-5 py-2 rounded text-xs self-end shrink-0">
+                {searching ? t.searchingLabel : t.searchBtn}
+              </button>}
             </div>
-            {canWrite && <button onClick={runApolloSearch} disabled={searching} className="btn-neon px-5 py-2 rounded text-xs self-end shrink-0">
-              {searching ? t.searchingLabel : t.searchBtn}
-            </button>}
+            {searchError && <p className="text-xs text-red-400 font-mono bg-red-400/5 border border-red-400/20 rounded px-3 py-2">⚠ {searchError}</p>}
           </div>
         ) : (
           <div className="flex gap-3">

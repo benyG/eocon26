@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   const emailsInAttendees: string[] = (attendees || "").match(/[\w.+-]+@[\w-]+\.[\w.-]+/g) || [];
   const allRecipients = new Set<string>(emailsInAttendees);
   if (convenerEmail) allRecipients.add(convenerEmail);
-  await Promise.allSettled([...allRecipients].map(to => sendPilotageMeetingInvitation(to, meeting)));
+  await Promise.allSettled(Array.from(allRecipients).map(to => sendPilotageMeetingInvitation(to, meeting)));
 
   return NextResponse.json(meeting, { status: 201 });
 }

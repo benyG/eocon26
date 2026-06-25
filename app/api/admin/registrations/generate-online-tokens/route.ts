@@ -16,7 +16,7 @@ export async function POST() {
       status: { in: ["validated", "paid"] },
       onlineToken: null,
     },
-    select: { id: true, fname: true, lname: true, email: true },
+    select: { id: true, fname: true, lname: true, email: true, langExpression: true },
   });
 
   let generated = 0;
@@ -26,7 +26,7 @@ export async function POST() {
       where: { id: reg.id },
       data: { onlineToken: token, onlineAccessSentAt: new Date() },
     });
-    await sendOnlineAccessLink(reg.email, reg.fname, reg.lname, token, "fr");
+    await sendOnlineAccessLink(reg.email, reg.fname, reg.lname, token, reg.langExpression === "en" ? "en" : "fr");
     generated++;
   }
 

@@ -16,7 +16,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const reg = await prisma.registration.findUnique({
     where: { id },
-    select: { id: true, fname: true, lname: true, email: true, status: true, onlineToken: true },
+    select: { id: true, fname: true, lname: true, email: true, status: true, onlineToken: true, langExpression: true },
   });
 
   if (!reg) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     data: { onlineToken: token, onlineAccessSentAt: new Date() },
   });
 
-  await sendOnlineAccessLink(reg.email, reg.fname, reg.lname, token, "fr");
+  await sendOnlineAccessLink(reg.email, reg.fname, reg.lname, token, reg.langExpression === "en" ? "en" : "fr");
 
   return NextResponse.json({ ok: true });
 }

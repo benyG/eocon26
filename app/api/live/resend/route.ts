@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     orderBy: { createdAt: "desc" },
     select: {
       id: true, fname: true, lname: true, email: true,
-      status: true, onlineToken: true, onlineAccessSentAt: true,
+      status: true, onlineToken: true, onlineAccessSentAt: true, langExpression: true,
     },
   });
 
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     registration.fname,
     registration.lname,
     registration.onlineToken,
-    (lang === "en" ? "en" : "fr") as "fr" | "en",
+    registration.langExpression === "en" ? "en" : "fr",
   );
 
   await prisma.registration.update({

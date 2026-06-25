@@ -8,6 +8,17 @@ import { logAction } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
+async function recipientLang(email: string): Promise<"fr" | "en"> {
+  if (!email) return "fr";
+  const reg = await prisma.registration.findFirst({ where: { email }, select: { langExpression: true } });
+  if (reg) return reg.langExpression === "en" ? "en" : "fr";
+  const cfp = await prisma.cFPSubmission.findFirst({ where: { email }, select: { langPresentation: true } });
+  if (cfp) return cfp.langPresentation === "en" ? "en" : "fr";
+  const vol = await prisma.volunteerApplication.findFirst({ where: { email }, select: { langExpression: true } });
+  if (vol) return vol.langExpression === "en" ? "en" : "fr";
+  return "fr";
+}
+
 export async function GET(req: NextRequest) {
   if (!(await hasPermission("certificates", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const type = req.nextUrl.searchParams.get("type") || undefined;
@@ -129,6 +140,7 @@ export async function POST(req: NextRequest) {
       subtype: badge.subtype,
       uuid: badge.uuid,
       credentialJson: badge.credentialJson,
+      lang: await recipientLang(badge.recipientEmail),
     });
     await prisma.badgeCredential.update({ where: { id: badge.id }, data: { emailSentAt: new Date() } });
     logAction(req, "UPDATE", "badge", badge.id, { action: "resend_email" });
@@ -148,6 +160,7 @@ export async function POST(req: NextRequest) {
       subtype: badge.subtype,
       uuid: badge.uuid,
       credentialJson: badge.credentialJson,
+      lang: await recipientLang(badge.recipientEmail),
     });
     await prisma.badgeCredential.update({ where: { id }, data: { emailSentAt: new Date() } });
     logAction(req, "UPDATE", "badge", id, { action: "send_email" });
@@ -175,6 +188,7 @@ export async function POST(req: NextRequest) {
           subtype: badge.subtype,
           uuid: badge.uuid,
           credentialJson: badge.credentialJson,
+          lang: await recipientLang(badge.recipientEmail),
         });
         await prisma.badgeCredential.update({ where: { id: badge.id }, data: { emailSentAt: new Date() } });
         sent++;

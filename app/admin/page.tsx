@@ -4251,14 +4251,14 @@ function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black text-white">{lang === "en" ? "⚙ Event Settings" : "⚙ Paramètres Événement"}</h1>
-          <p className="text-gray-500 text-xs mt-1">Date, lieu et URLs utilisés sur tout le site et dans les communications</p>
+          <p className="text-gray-500 text-xs mt-1">{lang === "en" ? "Date, location and URLs used across the site and in communications" : "Date, lieu et URLs utilisés sur tout le site et dans les communications"}</p>
         </div>
         {canWrite && <button
           onClick={save}
           disabled={saving}
           style={{ background: "#00ff9d", color: "#000", border: "none", borderRadius: "6px", padding: "10px 20px", fontWeight: "bold", cursor: "pointer", fontSize: "13px" }}
         >
-          {saving ? "Sauvegarde…" : saved ? "✓ Sauvegardé" : "Enregistrer"}
+          {saving ? (lang === "en" ? "Saving…" : "Sauvegarde…") : saved ? (lang === "en" ? "✓ Saved" : "✓ Sauvegardé") : (lang === "en" ? "Save" : "Enregistrer")}
         </button>}
       </div>
 
@@ -4305,14 +4305,14 @@ function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
 
       {/* Preview */}
       <div className="cyber-card rounded-xl p-5 mt-6">
-        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Aperçu — CTAs par type de contenu</h3>
+        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">{lang === "en" ? "Preview — CTAs by content type" : "Aperçu — CTAs par type de contenu"}</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {[
             { type: "inscriptions", icon: "🎟", label: "Inscriptions" },
             { type: "cfp", icon: "📝", label: "CFP" },
             { type: "ctf", icon: "🏆", label: "CTF" },
             { type: "speaker", icon: "🎤", label: "Speaker/Session" },
-            { type: "countdown", icon: "⏱", label: "Compte à rebours" },
+            { type: "countdown", icon: "⏱", label: lang === "en" ? "Countdown" : "Compte à rebours" },
             { type: "sponsor", icon: "🏢", label: "Sponsor" },
           ].map(({ type, icon, label }) => {
             const urlKey = type === "inscriptions" || type === "countdown" ? "url_inscription"
@@ -4385,7 +4385,7 @@ function SessionsPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer cette session ?")) return;
+    if (!confirm(lang === "en" ? "Delete this session?" : "Supprimer cette session ?")) return;
     await fetch(`/api/admin/sessions/${id}`, { method: "DELETE" });
     load();
   };
@@ -4479,7 +4479,7 @@ function SessionsPanel({ canWrite = true }: { canWrite?: boolean }) {
       )}
 
       {loading ? (
-        <p className="text-gray-600 text-sm font-mono">Chargement…</p>
+        <p className="text-gray-600 text-sm font-mono">{t.loading}</p>
       ) : sessions.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-600 text-sm font-mono mb-4">{t.noSessions}</p>
@@ -4532,6 +4532,7 @@ function levenshtein(a: string, b: string): number {
 }
 
 function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
+  const { lang } = useAdminT();
   const [subTab, setSubTab] = useState<"config" | "challenges" | "participants">("config");
   const [config, setConfig] = useState({ ctfdUrl: "", ctfdApiKey: "", ctfDefaultPassword: "", ctfEnabled: "false" });
   const [configSaving, setConfigSaving] = useState(false);
@@ -4583,13 +4584,13 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const testConnection = async () => {
-    setTestResult("Test en cours…");
+    setTestResult(lang === "en" ? "Test in progress…" : "Test en cours…");
     try {
       const r = await fetch("/api/admin/ctf/test-connection");
       const data = await r.json();
-      setTestResult(data.ok ? "✓ Connexion CTFd réussie" : `✗ ${data.error || "Impossible de joindre CTFd"}`);
+      setTestResult(data.ok ? (lang === "en" ? "✓ CTFd connection successful" : "✓ Connexion CTFd réussie") : `✗ ${data.error || (lang === "en" ? "Cannot reach CTFd" : "Impossible de joindre CTFd")}`);
     } catch {
-      setTestResult("✗ Impossible de joindre CTFd");
+      setTestResult(lang === "en" ? "✗ Cannot reach CTFd" : "✗ Impossible de joindre CTFd");
     }
   };
 
@@ -4602,10 +4603,10 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const seedChallenges = async () => {
-    if (!confirm("Importer les 40 challenges de référence (WEB·CRYPTO·FORENSICS·REVERSE·PWN·OSINT·MISC) ?")) return;
+    if (!confirm(lang === "en" ? "Import the 40 reference challenges (WEB·CRYPTO·FORENSICS·REVERSE·PWN·OSINT·MISC)?" : "Importer les 40 challenges de référence (WEB·CRYPTO·FORENSICS·REVERSE·PWN·OSINT·MISC) ?")) return;
     const r = await fetch("/api/admin/seed", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "ctf" }) });
     if (r.ok) { loadChallenges(); }
-    else { const j = await r.json().catch(() => ({})); alert(j.error || "Échec de l'import (des challenges existent peut-être déjà)."); }
+    else { const j = await r.json().catch(() => ({})); alert(j.error || (lang === "en" ? "Import failed (challenges may already exist)." : "Échec de l'import (des challenges existent peut-être déjà).")); }
   };
 
   const moveChallenge = async (id: number, status: string) => {
@@ -4637,7 +4638,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const deleteChallenge = async (id: number) => {
-    if (!confirm("Supprimer ce challenge ?")) return;
+    if (!confirm(lang === "en" ? "Delete this challenge?" : "Supprimer ce challenge ?")) return;
     await fetch(`/api/admin/ctf/challenges/${id}`, { method: "DELETE" });
     loadChallenges();
   };
@@ -4648,7 +4649,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
     const j = await r.json();
     const ok = j.results?.filter((x: Record<string, unknown>) => x.success).length ?? 0;
     const fail = j.results?.filter((x: Record<string, unknown>) => !x.success).length ?? 0;
-    setSyncResult(r.ok ? `✓ ${ok} comptes créés${fail > 0 ? `, ${fail} erreurs` : ""}` : `✗ ${j.error}`);
+    setSyncResult(r.ok ? (lang === "en" ? `✓ ${ok} accounts created${fail > 0 ? `, ${fail} errors` : ""}` : `✓ ${ok} comptes créés${fail > 0 ? `, ${fail} erreurs` : ""}`) : `✗ ${j.error}`);
     setSyncing(false); loadParticipants();
   };
 
@@ -4701,37 +4702,37 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
       {subTab === "config" && (
         <div className="max-w-lg space-y-4">
           <div className="cyber-card rounded-xl p-5">
-            <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">Connexion CTFd</h3>
+            <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">{lang === "en" ? "CTFd Connection" : "Connexion CTFd"}</h3>
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-gray-500 block mb-1">URL CTFd</label>
                 <input value={config.ctfdUrl} onChange={e => setConfig(c => ({ ...c, ctfdUrl: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="https://ctf.eyesopensecurity.com" />
               </div>
               <div>
-                <label className="text-xs text-gray-500 block mb-1">Clé API CTFd</label>
+                <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "CTFd API Key" : "Clé API CTFd"}</label>
                 <input type="password" value={config.ctfdApiKey} onChange={e => setConfig(c => ({ ...c, ctfdApiKey: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="ctfd_…" />
               </div>
               <div className="flex items-center gap-3">
-                <button onClick={testConnection} className="px-3 py-1.5 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">Tester la connexion</button>
+                <button onClick={testConnection} className="px-3 py-1.5 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">{lang === "en" ? "Test connection" : "Tester la connexion"}</button>
                 {testResult && <span className={`text-xs ${testResult.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{testResult}</span>}
               </div>
             </div>
           </div>
           <div className="cyber-card rounded-xl p-5">
-            <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">Paramètres CTF</h3>
+            <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">{lang === "en" ? "CTF Settings" : "Paramètres CTF"}</h3>
             <div className="space-y-3">
-              <p className="text-xs text-gray-500">Les mots de passe sont générés automatiquement — 7 caractères uniques par compétiteur, 7 caractères uniques par équipe. Ils sont envoyés aux participants par email.</p>
+              <p className="text-xs text-gray-500">{lang === "en" ? "Passwords are automatically generated — 7 unique characters per competitor, 7 unique characters per team. They are sent to participants by email." : "Les mots de passe sont générés automatiquement — 7 caractères uniques par compétiteur, 7 caractères uniques par équipe. Ils sont envoyés aux participants par email."}</p>
               <label className="flex items-center gap-3 cursor-pointer">
                 <div className={`w-10 h-5 rounded-full transition-colors relative ${config.ctfEnabled === "true" ? "bg-neon-green/30" : "bg-gray-700"}`}>
                   <div className={`absolute top-0.5 w-4 h-4 rounded-full transition-all ${config.ctfEnabled === "true" ? "right-0.5 bg-neon-green" : "left-0.5 bg-gray-500"}`} />
                 </div>
                 <input type="checkbox" className="sr-only" checked={config.ctfEnabled === "true"} onChange={e => setConfig(c => ({ ...c, ctfEnabled: e.target.checked ? "true" : "false" }))} />
-                <span className="text-sm text-gray-300">CTF activé (scoreboard public visible)</span>
+                <span className="text-sm text-gray-300">{lang === "en" ? "CTF enabled (public scoreboard visible)" : "CTF activé (scoreboard public visible)"}</span>
               </label>
             </div>
           </div>
           {canWrite && <button onClick={saveConfig} disabled={configSaving} className="btn-neon px-4 py-2 rounded text-xs">
-            {configSaving ? "Sauvegarde…" : "Sauvegarder"}
+            {configSaving ? (lang === "en" ? "Saving…" : "Sauvegarde…") : (lang === "en" ? "Save" : "Sauvegarder")}
           </button>}
         </div>
       )}
@@ -4750,29 +4751,29 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
             })}
             <span className="text-xs px-2 py-1 rounded bg-gray-800 text-gray-400 font-mono">Total: {challenges.length}</span>
             <span className="text-xs px-2 py-1 rounded font-mono" style={{ background: "#00ff9d20", color: "#00ff9d" }}>
-              ✓ {challenges.filter(c => c.status === "validated" || c.status === "published").length} prêts
+              {lang === "en" ? `✓ ${challenges.filter(c => c.status === "validated" || c.status === "published").length} ready` : `✓ ${challenges.filter(c => c.status === "validated" || c.status === "published").length} prêts`}
             </span>
             {canWrite && challenges.length === 0 && (
-              <button onClick={seedChallenges} className="px-3 py-1 rounded text-xs border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition-colors ml-auto">⚡ Importer les 40 challenges</button>
+              <button onClick={seedChallenges} className="px-3 py-1 rounded text-xs border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition-colors ml-auto">{lang === "en" ? "⚡ Import 40 challenges" : "⚡ Importer les 40 challenges"}</button>
             )}
-            {canWrite && <button onClick={() => setShowAddForm(v => !v)} className={`btn-neon px-3 py-1 rounded text-xs ${challenges.length === 0 ? "" : "ml-auto"}`}>+ Ajouter challenge</button>}
+            {canWrite && <button onClick={() => setShowAddForm(v => !v)} className={`btn-neon px-3 py-1 rounded text-xs ${challenges.length === 0 ? "" : "ml-auto"}`}>{lang === "en" ? "+ Add challenge" : "+ Ajouter challenge"}</button>}
           </div>
 
           {canWrite && showAddForm && (
             <div className="cyber-card rounded-xl p-4 mb-5">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                 <div className="md:col-span-2">
-                  <label className="text-xs text-gray-500 block mb-1">Titre</label>
+                  <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Title" : "Titre"}</label>
                   <input value={addForm.title} onChange={e => setAddForm(f => ({ ...f, title: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">Catégorie</label>
+                  <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Category" : "Catégorie"}</label>
                   <select value={addForm.category} onChange={e => setAddForm(f => ({ ...f, category: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
                     {CTF_CATEGORIES.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">Difficulté</label>
+                  <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Difficulty" : "Difficulté"}</label>
                   <select value={addForm.difficulty} onChange={e => setAddForm(f => ({ ...f, difficulty: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
                     <option value="easy">Easy</option>
                     <option value="medium">Medium</option>
@@ -4784,13 +4785,13 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                   <input type="number" value={addForm.points} onChange={e => setAddForm(f => ({ ...f, points: parseInt(e.target.value) || 0 }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">Auteur</label>
+                  <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Author" : "Auteur"}</label>
                   <input value={addForm.author} onChange={e => setAddForm(f => ({ ...f, author: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
                 </div>
               </div>
               <div className="flex gap-2 mt-2">
-                <button onClick={addChallenge} className="btn-neon px-3 py-1.5 rounded text-xs">Ajouter</button>
-                <button onClick={() => setShowAddForm(false)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
+                <button onClick={addChallenge} className="btn-neon px-3 py-1.5 rounded text-xs">{lang === "en" ? "Add" : "Ajouter"}</button>
+                <button onClick={() => setShowAddForm(false)} className="text-gray-500 text-xs hover:text-white">{lang === "en" ? "Cancel" : "Annuler"}</button>
               </div>
             </div>
           )}
@@ -4804,7 +4805,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                   onDragOver={e => e.preventDefault()}
                   onDrop={() => { if (dragId !== null) { moveChallenge(dragId, stage.key); setDragId(null); } }}>
                   <div className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3 flex items-center justify-between">
-                    {stage.label} <span className="text-gray-600">{cards.length}</span>
+                    {lang === "en" ? ({ idea: "Idea", in_progress: "In progress", testing: "Testing", validated: "Validated", published: "Published CTFd" } as Record<string, string>)[stage.key] || stage.label : stage.label} <span className="text-gray-600">{cards.length}</span>
                   </div>
                   <div className="space-y-2 min-h-[80px]">
                     {cards.map(c => (
@@ -4820,9 +4821,9 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                         </div>
                         {!!c.author && <div className="text-xs text-gray-600 mt-1">{c.author as string}</div>}
                         <div className="text-xs mt-1" style={{ color: c.assigneeName ? "#00ccff" : "#555" }}>
-                          {c.assigneeName ? `👤 ${c.assigneeName as string}` : "👤 non assigné"}
+                          {c.assigneeName ? `👤 ${c.assigneeName as string}` : lang === "en" ? "👤 unassigned" : "👤 non assigné"}
                         </div>
-                        {canWrite && <button onClick={e => { e.stopPropagation(); deleteChallenge(c.id as number); }} className="text-red-800 hover:text-red-400 text-xs mt-1">✗ Supprimer</button>}
+                        {canWrite && <button onClick={e => { e.stopPropagation(); deleteChallenge(c.id as number); }} className="text-red-800 hover:text-red-400 text-xs mt-1">{lang === "en" ? "✗ Delete" : "✗ Supprimer"}</button>}
                       </div>
                     ))}
                   </div>
@@ -4836,22 +4837,22 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
             <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setEditChallenge(null)}>
               <div className="cyber-card rounded-xl p-5 max-w-lg w-full border-neon-green/30" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-white font-bold text-sm">Éditer le challenge</h3>
+                  <h3 className="text-white font-bold text-sm">{lang === "en" ? "Edit challenge" : "Éditer le challenge"}</h3>
                   <button onClick={() => setEditChallenge(null)} className="text-gray-500 hover:text-white">✕</button>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
-                    <label className="text-xs text-gray-500 block mb-1">Titre</label>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Title" : "Titre"}</label>
                     <input value={(editChallenge.title as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, title: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Catégorie</label>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Category" : "Catégorie"}</label>
                     <select value={(editChallenge.category as string) || "Web"} onChange={e => setEditChallenge(p => p ? { ...p, category: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
                       {CTF_CATEGORIES.map(c => <option key={c}>{c}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Difficulté</label>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Difficulty" : "Difficulté"}</label>
                     <select value={(editChallenge.difficulty as string) || "medium"} onChange={e => setEditChallenge(p => p ? { ...p, difficulty: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
                       <option value="easy">Easy</option>
                       <option value="medium">Medium</option>
@@ -4863,13 +4864,13 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                     <input type="number" value={(editChallenge.points as number) ?? 0} onChange={e => setEditChallenge(p => p ? { ...p, points: parseInt(e.target.value) || 0 } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Statut</label>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Status" : "Statut"}</label>
                     <select value={(editChallenge.status as string) || "idea"} onChange={e => setEditChallenge(p => p ? { ...p, status: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
-                      {CTF_STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+                      {CTF_STAGES.map(s => <option key={s.key} value={s.key}>{lang === "en" ? ({ idea: "Idea", in_progress: "In progress", testing: "Testing", validated: "Validated", published: "Published CTFd" } as Record<string, string>)[s.key] || s.label : s.label}</option>)}
                     </select>
                   </div>
                   <div className="col-span-2">
-                    <label className="text-xs text-gray-500 block mb-1">Auteur</label>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Author" : "Auteur"}</label>
                     <input value={(editChallenge.author as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, author: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
                   </div>
                   <div className="col-span-2">
@@ -4896,10 +4897,10 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                 </div>
                 <div className="flex gap-2 mt-4">
                   <button onClick={saveChallenge} disabled={savingChallenge} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
-                    {savingChallenge ? "Sauvegarde…" : "💾 Sauvegarder"}
+                    {savingChallenge ? (lang === "en" ? "Saving…" : "Sauvegarde…") : (lang === "en" ? "💾 Save" : "💾 Sauvegarder")}
                   </button>
-                  <button onClick={() => { deleteChallenge(editChallenge.id as number); setEditChallenge(null); }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>Supprimer</button>
-                  <button onClick={() => setEditChallenge(null)} className="text-xs text-gray-500 px-3 py-2 hover:text-gray-300">Annuler</button>
+                  <button onClick={() => { deleteChallenge(editChallenge.id as number); setEditChallenge(null); }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>{lang === "en" ? "Delete" : "Supprimer"}</button>
+                  <button onClick={() => setEditChallenge(null)} className="text-xs text-gray-500 px-3 py-2 hover:text-gray-300">{lang === "en" ? "Cancel" : "Annuler"}</button>
                 </div>
               </div>
             </div>
@@ -4910,25 +4911,25 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
       {subTab === "participants" && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <div className="text-xs text-gray-500">{participants.length} participant(s) CTF</div>
+            <div className="text-xs text-gray-500">{lang === "en" ? `${participants.length} CTF participant(s)` : `${participants.length} participant(s) CTF`}</div>
             <div className="flex gap-2 items-center">
               {syncResult && <span className={`text-xs ${syncResult.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{syncResult}</span>}
               {canWrite && <button onClick={syncAll} disabled={syncing} className="btn-neon px-3 py-1.5 rounded text-xs disabled:opacity-50">
-                {syncing ? "Sync…" : "⚡ Tout synchroniser sur CTFd"}
+                {syncing ? "Sync…" : lang === "en" ? "⚡ Sync all to CTFd" : "⚡ Tout synchroniser sur CTFd"}
               </button>}
             </div>
           </div>
 
           {teamConflicts.length > 0 && (
             <div className="cyber-card rounded-xl p-4 mb-4" style={{ border: "1px solid #ffaa0040", background: "#ffaa0008" }}>
-              <div className="text-xs font-bold text-yellow-400 mb-2">⚠ Conflits de noms d&apos;équipe détectés</div>
+              <div className="text-xs font-bold text-yellow-400 mb-2">{lang === "en" ? "⚠ Team name conflicts detected" : "⚠ Conflits de noms d'équipe détectés"}</div>
               {teamConflicts.map((c, i) => (
                 <div key={i} className="flex items-center gap-3 text-xs mb-2">
                   <span className="text-gray-300 font-mono">&quot;{c.team1}&quot;</span>
                   <span className="text-gray-600">≈</span>
                   <span className="text-gray-300 font-mono">&quot;{c.team2}&quot;</span>
                   {canWrite && <button onClick={() => { setReconcileTeam(c); setReconcileTo(c.team1); }} className="px-2 py-0.5 rounded text-xs border border-yellow-600 text-yellow-400 hover:bg-yellow-900/20">
-                    Réconcilier
+                    {lang === "en" ? "Reconcile" : "Réconcilier"}
                   </button>}
                 </div>
               ))}
@@ -4937,18 +4938,18 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
 
           {reconcileTeam && (
             <div className="cyber-card rounded-xl p-4 mb-4">
-              <div className="text-xs font-bold text-white mb-3">Réconcilier &quot;{reconcileTeam.team1}&quot; et &quot;{reconcileTeam.team2}&quot;</div>
+              <div className="text-xs font-bold text-white mb-3">{lang === "en" ? `Reconcile "${reconcileTeam.team1}" and "${reconcileTeam.team2}"` : `Réconcilier "${reconcileTeam.team1}" et "${reconcileTeam.team2}"`}</div>
               <div className="flex gap-2 mb-3">
                 {[reconcileTeam.team1, reconcileTeam.team2].map(name => (
                   <button key={name} onClick={() => setReconcileTo(name)}
                     className={`px-3 py-1.5 rounded text-xs border transition-all ${reconcileTo === name ? "border-neon-green text-neon-green bg-neon-green/10" : "border-gray-700 text-gray-400"}`}>
-                    Garder &quot;{name}&quot;
+                    {lang === "en" ? `Keep "${name}"` : `Garder "${name}"`}
                   </button>
                 ))}
               </div>
               <div className="flex gap-2">
-                <button onClick={reconcileTeams} className="btn-neon px-3 py-1.5 rounded text-xs">Confirmer</button>
-                <button onClick={() => setReconcileTeam(null)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
+                <button onClick={reconcileTeams} className="btn-neon px-3 py-1.5 rounded text-xs">{lang === "en" ? "Confirm" : "Confirmer"}</button>
+                <button onClick={() => setReconcileTeam(null)} className="text-gray-500 text-xs hover:text-white">{lang === "en" ? "Cancel" : "Annuler"}</button>
               </div>
             </div>
           )}
@@ -4957,11 +4958,11 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-gray-800 text-gray-500">
-                  <th className="text-left py-2 px-3 font-normal">Participant</th>
-                  <th className="text-left py-2 px-3 font-normal">Pseudo CTF</th>
-                  <th className="text-left py-2 px-3 font-normal">Équipe</th>
-                  <th className="text-left py-2 px-3 font-normal">Ticket</th>
-                  <th className="text-left py-2 px-3 font-normal">Compte CTFd</th>
+                  <th className="text-left py-2 px-3 font-normal">{lang === "en" ? "Participant" : "Participant"}</th>
+                  <th className="text-left py-2 px-3 font-normal">{lang === "en" ? "CTF Username" : "Pseudo CTF"}</th>
+                  <th className="text-left py-2 px-3 font-normal">{lang === "en" ? "Team" : "Équipe"}</th>
+                  <th className="text-left py-2 px-3 font-normal">{lang === "en" ? "Ticket" : "Ticket"}</th>
+                  <th className="text-left py-2 px-3 font-normal">{lang === "en" ? "CTFd Account" : "Compte CTFd"}</th>
                   <th className="py-2 px-3" />
                 </tr>
               </thead>
@@ -4974,13 +4975,13 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                     <td className="py-2 px-3 text-gray-400">{p.ticketType as string}</td>
                     <td className="py-2 px-3">
                       {p.ctfAccountCreated
-                        ? <span className="text-neon-green text-xs">✓ Créé</span>
-                        : <span className="text-gray-600 text-xs">En attente</span>}
+                        ? <span className="text-neon-green text-xs">{lang === "en" ? "✓ Created" : "✓ Créé"}</span>
+                        : <span className="text-gray-600 text-xs">{lang === "en" ? "Pending" : "En attente"}</span>}
                     </td>
                     <td className="py-2 px-3">
                       {canWrite && !p.ctfAccountCreated && (
                         <button onClick={() => syncOne(p.id as number)} className="text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">
-                          Créer compte
+                          {lang === "en" ? "Create account" : "Créer compte"}
                         </button>
                       )}
                     </td>
@@ -4988,7 +4989,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                 ))}
               </tbody>
             </table>
-            {!participants.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun participant CTF (inscriptions avec ticket CTF validées)</p>}
+            {!participants.length && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No CTF participants (registrations with validated CTF ticket)" : "Aucun participant CTF (inscriptions avec ticket CTF validées)"}</p>}
           </div>
         </div>
       )}
@@ -4998,6 +4999,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
 }
 
 function TransactionsPanel({ canWrite = true }: { canWrite?: boolean }) {
+  const { lang } = useAdminT();
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
   const [fState, setFState] = useState("");
@@ -5021,7 +5023,7 @@ function TransactionsPanel({ canWrite = true }: { canWrite?: boolean }) {
       body: JSON.stringify({ action: "resend", registrationId }),
     });
     setBusyId(null);
-    setMsg(res.ok ? "Billet renvoyé ✓" : "Échec de l'envoi");
+    setMsg(res.ok ? (lang === "en" ? "Ticket resent ✓" : "Billet renvoyé ✓") : (lang === "en" ? "Send failed" : "Échec de l'envoi"));
     if (res.ok) load();
     setTimeout(() => setMsg(null), 3000);
   };
@@ -5037,15 +5039,15 @@ function TransactionsPanel({ canWrite = true }: { canWrite?: boolean }) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black text-white">💳 Transactions ({filtered.length})</h1>
-          <p className="text-gray-500 text-xs mt-1">Toutes les tentatives de paiement (Mobile Money · Stripe)</p>
+          <p className="text-gray-500 text-xs mt-1">{lang === "en" ? "All payment attempts (Mobile Money · Stripe)" : "Toutes les tentatives de paiement (Mobile Money · Stripe)"}</p>
         </div>
-        <button onClick={load} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white transition-colors">↻ Rafraîchir</button>
+        <button onClick={load} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white transition-colors">{lang === "en" ? "↻ Refresh" : "↻ Rafraîchir"}</button>
       </div>
 
       <div className="flex gap-2 mb-4">
         {["", "success", "pending", "failed"].map(s => (
           <button key={s || "all"} onClick={() => setFState(s)} className={`text-xs px-3 py-1.5 rounded border transition-all ${fState === s ? "border-neon-green/40 text-neon-green bg-neon-green/10" : "border-gray-800 text-gray-500 hover:text-white"}`}>
-            {s === "" ? "Toutes" : s === "success" ? "Réussies" : s === "pending" ? "En attente" : "Échecs"}
+            {s === "" ? (lang === "en" ? "All" : "Toutes") : s === "success" ? (lang === "en" ? "Successful" : "Réussies") : s === "pending" ? (lang === "en" ? "Pending" : "En attente") : (lang === "en" ? "Failed" : "Échecs")}
           </button>
         ))}
       </div>
@@ -5056,7 +5058,7 @@ function TransactionsPanel({ canWrite = true }: { canWrite?: boolean }) {
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-neon-green/10 text-gray-500 text-left">
-              {["Inscrit", "Moyen / Devise", "Montant", "Réf. fournisseur", "État", "Réponse finale", "Ticket envoyé", "Date", "Actions"].map(h => (
+              {(lang === "en" ? ["Registrant", "Method / Currency", "Amount", "Provider ref.", "State", "Final response", "Ticket sent", "Date", "Actions"] : ["Inscrit", "Moyen / Devise", "Montant", "Réf. fournisseur", "État", "Réponse finale", "Ticket envoyé", "Date", "Actions"]).map(h => (
                 <th key={h} className="py-2 px-3 font-normal">{h}</th>
               ))}
             </tr>
@@ -5100,13 +5102,13 @@ function TransactionsPanel({ canWrite = true }: { canWrite?: boolean }) {
                   <td className="py-2 px-3">{stateBadge(r.state as string)}</td>
                   <td className="py-2 px-3 text-gray-500 max-w-[180px] truncate" title={r.message as string}>{(r.message as string) || "—"}</td>
                   <td className="py-2 px-3">
-                    {r.ticketEmailSent ? <span className="text-neon-green">✓ Oui</span> : <span className="text-gray-600">✗ Non</span>}
+                    {r.ticketEmailSent ? <span className="text-neon-green">{lang === "en" ? "✓ Yes" : "✓ Oui"}</span> : <span className="text-gray-600">{lang === "en" ? "✗ No" : "✗ Non"}</span>}
                   </td>
                   <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</td>
                   <td className="py-2 px-3">
                     {canWrite && !!r.registrationId && r.state === "success" && (
                       <button disabled={busyId === r.registrationId} onClick={() => resend(r.registrationId as number)} className="text-xs px-3 py-1 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-colors disabled:opacity-50">
-                        {busyId === r.registrationId ? "…" : "✉ Renvoyer"}
+                        {busyId === r.registrationId ? "…" : lang === "en" ? "✉ Resend" : "✉ Renvoyer"}
                       </button>
                     )}
                     {isStripe && !!r.providerRef && (
@@ -5124,7 +5126,7 @@ function TransactionsPanel({ canWrite = true }: { canWrite?: boolean }) {
             })}
           </tbody>
         </table>
-        {!filtered.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune transaction</p>}
+        {!filtered.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No transactions" : "Aucune transaction"}</p>}
       </div>
     </div>
   );
@@ -5132,6 +5134,7 @@ function TransactionsPanel({ canWrite = true }: { canWrite?: boolean }) {
 
 function TestimonyPanel({ canWrite = true }: { canWrite?: boolean }) {
   const confirm = useConfirm();
+  const { lang } = useAdminT();
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -5157,7 +5160,7 @@ function TestimonyPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const del = async (id: number) => {
-    if (!(await confirm({ message: "Supprimer ce témoignage ?", danger: true, confirmLabel: "Supprimer" }))) return;
+    if (!(await confirm({ message: lang === "en" ? "Delete this testimony?" : "Supprimer ce témoignage ?", danger: true, confirmLabel: lang === "en" ? "Delete" : "Supprimer" }))) return;
     await fetch(`/api/admin/testimonies/${id}`, { method: "DELETE" });
     load();
   };
@@ -5166,46 +5169,46 @@ function TestimonyPanel({ canWrite = true }: { canWrite?: boolean }) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-white">💬 Témoignages</h1>
-          <p className="text-gray-500 text-xs mt-1">Gérez les avis affichés dans la section &quot;What They Say&quot; du site</p>
+          <h1 className="text-2xl font-black text-white">{lang === "en" ? "💬 Testimonies" : "💬 Témoignages"}</h1>
+          <p className="text-gray-500 text-xs mt-1">{lang === "en" ? "Manage reviews displayed in the &quot;What They Say&quot; section of the site" : "Gérez les avis affichés dans la section &quot;What They Say&quot; du site"}</p>
         </div>
-        {canWrite && <button onClick={() => { resetForm(); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter</button>}
+        {canWrite && <button onClick={() => { resetForm(); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "+ Add" : "+ Ajouter"}</button>}
       </div>
 
       {canWrite && showForm && (
         <div className="cyber-card rounded-xl p-6 mb-6">
-          <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier le témoignage" : "Nouveau témoignage"}</h3>
+          <h3 className="text-neon-green text-sm mb-4">{editing ? (lang === "en" ? "Edit testimony" : "Modifier le témoignage") : (lang === "en" ? "New testimony" : "Nouveau témoignage")}</h3>
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
-              <label className="block text-xs text-gray-500 mb-1">Citation (EN) *</label>
+              <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Quote (EN) *" : "Citation (EN) *"}</label>
               <textarea rows={3} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.quoteEn as string) || ""} onChange={e => setForm({ ...form, quoteEn: e.target.value })} placeholder="Quote in English…" />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-xs text-gray-500 mb-1">Citation (FR) <span className="text-gray-700">— optionnel</span></label>
-              <textarea rows={3} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.quoteFr as string) || ""} onChange={e => setForm({ ...form, quoteFr: e.target.value })} placeholder="Citation en français… (si vide, la version EN sera utilisée)" />
+              <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Quote (FR)" : "Citation (FR)"} <span className="text-gray-700">— {lang === "en" ? "optional" : "optionnel"}</span></label>
+              <textarea rows={3} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.quoteFr as string) || ""} onChange={e => setForm({ ...form, quoteFr: e.target.value })} placeholder={lang === "en" ? "Quote in French… (if empty, EN version will be used)" : "Citation en français… (si vide, la version EN sera utilisée)"} />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Auteur *</label>
+              <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Author *" : "Auteur *"}</label>
               <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.author as string) || ""} onChange={e => setForm({ ...form, author: e.target.value })} placeholder="ex : EOCON 2024 Attendee" />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Ordre d&apos;affichage</label>
+              <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Display order" : "Ordre d'affichage"}</label>
               <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.sortOrder as number) || 0} onChange={e => setForm({ ...form, sortOrder: Number(e.target.value) })} />
             </div>
             <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
               <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
-              Visible sur le site
+              {lang === "en" ? "Visible on site" : "Visible sur le site"}
             </label>
           </div>
           <div className="flex gap-3 mt-4">
-            <button onClick={save} disabled={!(form.quoteEn as string)?.trim() || !(form.author as string)?.trim()} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green disabled:opacity-40">Sauvegarder</button>
-            <button onClick={resetForm} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+            <button onClick={save} disabled={!(form.quoteEn as string)?.trim() || !(form.author as string)?.trim()} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green disabled:opacity-40">{lang === "en" ? "Save" : "Sauvegarder"}</button>
+            <button onClick={resetForm} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "Cancel" : "Annuler"}</button>
           </div>
         </div>
       )}
 
-      {loading ? <p className="text-gray-600 text-xs">Chargement…</p> : items.length === 0 ? (
-        <p className="text-gray-600 text-xs text-center py-12">Aucun témoignage — le site affiche les textes par défaut de i18n.</p>
+      {loading ? <p className="text-gray-600 text-xs">{lang === "en" ? "Loading…" : "Chargement…"}</p> : items.length === 0 ? (
+        <p className="text-gray-600 text-xs text-center py-12">{lang === "en" ? "No testimonies — the site displays default i18n texts." : "Aucun témoignage — le site affiche les textes par défaut de i18n."}</p>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map(item => (
@@ -5218,7 +5221,7 @@ function TestimonyPanel({ canWrite = true }: { canWrite?: boolean }) {
               <div className="flex items-center justify-between pt-2 border-t border-neon-green/10">
                 <p className="text-neon-green/60 text-xs font-mono">— {item.author as string}</p>
                 <div className="flex items-center gap-2">
-                  {!item.isVisible && <span className="text-xs text-gray-600">Masqué</span>}
+                  {!item.isVisible && <span className="text-xs text-gray-600">{lang === "en" ? "Hidden" : "Masqué"}</span>}
                   <span className="text-xs text-gray-700">#{item.sortOrder as number}</span>
                   {canWrite && <>
                     <button onClick={() => { setForm({ ...item }); setEditing(item.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">✏</button>
@@ -5236,6 +5239,7 @@ function TestimonyPanel({ canWrite = true }: { canWrite?: boolean }) {
 
 function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
   const confirm = useConfirm();
+  const { lang } = useAdminT();
   const [videos, setVideos] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -5260,7 +5264,7 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const del = async (id: number) => {
-    if (!(await confirm({ message: "Supprimer cette vidéo ?", danger: true, confirmLabel: "Supprimer" }))) return;
+    if (!(await confirm({ message: lang === "en" ? "Delete this video?" : "Supprimer cette vidéo ?", danger: true, confirmLabel: lang === "en" ? "Delete" : "Supprimer" }))) return;
     await fetch(`/api/admin/videos/${id}`, { method: "DELETE" });
     load();
   };
@@ -5276,15 +5280,15 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-white">📹 Vidéothèque</h1>
-          <p className="text-gray-500 text-xs mt-1">Gérez les vidéos des sessions des éditions passées</p>
+          <h1 className="text-2xl font-black text-white">{lang === "en" ? "📹 Video Library" : "📹 Vidéothèque"}</h1>
+          <p className="text-gray-500 text-xs mt-1">{lang === "en" ? "Manage session videos from past editions" : "Gérez les vidéos des sessions des éditions passées"}</p>
         </div>
         {canWrite && <button onClick={() => { setForm({ isVisible: true, sortOrder: 0, edition: "2025" }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter</button>}
       </div>
 
       {canWrite && showForm && (
         <div className="cyber-card rounded-xl p-6 mb-6">
-          <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier la vidéo" : "Nouvelle vidéo"}</h3>
+          <h3 className="text-neon-green text-sm mb-4">{editing ? (lang === "en" ? "Edit video" : "Modifier la vidéo") : (lang === "en" ? "New video" : "Nouvelle vidéo")}</h3>
           <div className="grid sm:grid-cols-2 gap-3">
             {[
               { key: "title", label: "Titre (FR) *" },
@@ -5298,13 +5302,13 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
               </div>
             ))}
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Édition</label>
+              <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Edition" : "Édition"}</label>
               <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.edition as string) || "2025"} onChange={e => setForm({ ...form, edition: e.target.value })} />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Catégorie</label>
+              <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Category" : "Catégorie"}</label>
               <select className="cyber-input w-full px-3 py-2 rounded text-xs bg-transparent" value={(form.category as string) || ""} onChange={e => setForm({ ...form, category: e.target.value })}>
-                <option value="">— Aucune —</option>
+                <option value="">{lang === "en" ? "— None —" : "— Aucune —"}</option>
                 {CATEGORIES.map(c => <option key={c} value={c} className="bg-dark-800">{c}</option>)}
               </select>
             </div>
@@ -5313,7 +5317,7 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
               <textarea rows={2} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.description as string) || ""} onChange={e => setForm({ ...form, description: e.target.value })} />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Ordre</label>
+              <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Order" : "Ordre"}</label>
               <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.sortOrder as number) || 0} onChange={e => setForm({ ...form, sortOrder: Number(e.target.value) })} />
             </div>
             <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer mt-5">
@@ -5432,7 +5436,7 @@ function AuditPanel() {
       </div>
 
       {loading ? (
-        <p className="text-gray-600 text-sm font-mono">Chargement…</p>
+        <p className="text-gray-600 text-sm font-mono">{t.loading}</p>
       ) : logs.length === 0 ? (
         <p className="text-gray-600 text-sm font-mono">{t.noEntries}</p>
       ) : (
@@ -6174,13 +6178,14 @@ export default function AdminDashboard() {
     const sessions = (data.sessions || []) as Record<string, unknown>[];
     const groups: Record<string, Record<string, unknown>[]> = {};
     for (const s of sessions) {
-      const key = (s.date as string) || "Sans date";
+      const key = (s.date as string) || (lang === "en" ? "No date" : "Sans date");
       if (!groups[key]) groups[key] = [];
       groups[key].push(s);
     }
     const sortedKeys = Object.keys(groups).sort((a, b) => {
-      if (a === "Sans date") return 1;
-      if (b === "Sans date") return -1;
+      const noDate = lang === "en" ? "No date" : "Sans date";
+      if (a === noDate) return 1;
+      if (b === noDate) return -1;
       return a.localeCompare(b);
     });
     return { groups, sortedKeys };
@@ -6214,13 +6219,13 @@ export default function AdminDashboard() {
           {/* Light / dark theme toggle */}
           <button
             onClick={toggleTheme}
-            title={theme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
+            title={theme === "dark" ? (lang === "en" ? "Switch to light mode" : "Passer en mode clair") : (lang === "en" ? "Switch to dark mode" : "Passer en mode sombre")}
             className="admin-theme-toggle flex items-center gap-1.5 text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-neon-green hover:border-neon-green/40 transition-all font-mono select-none"
           >
             {theme === "dark" ? (
-              <><span>☀</span><span className="hidden sm:inline">Clair</span></>
+              <><span>☀</span><span className="hidden sm:inline">{lang === "en" ? "Light" : "Clair"}</span></>
             ) : (
-              <><span>🌙</span><span className="hidden sm:inline">Sombre</span></>
+              <><span>🌙</span><span className="hidden sm:inline">{lang === "en" ? "Dark" : "Sombre"}</span></>
             )}
           </button>
           <button onClick={logout} className="text-xs text-red-400 hover:text-red-300 transition-colors">{t.logout}</button>
@@ -6233,7 +6238,7 @@ export default function AdminDashboard() {
           {/* Collapse toggle */}
           <button
             onClick={() => setSidebarCollapsed(c => !c)}
-            title={sidebarCollapsed ? "Développer" : "Réduire"}
+            title={sidebarCollapsed ? (lang === "en" ? "Expand" : "Développer") : (lang === "en" ? "Collapse" : "Réduire")}
             className="flex items-center justify-center h-8 border-b border-neon-green/10 text-neon-green/30 hover:text-neon-green hover:bg-neon-green/5 transition-all shrink-0 w-full"
           >
             <span className="text-sm font-mono">{sidebarCollapsed ? "»" : "«"}</span>
@@ -6343,16 +6348,16 @@ export default function AdminDashboard() {
 
               {can("sponsors") && showForm && (
                 <div className="cyber-card rounded-xl p-6 mb-6">
-                  <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier le Sponsor" : "Nouveau Sponsor"}</h3>
+                  <h3 className="text-neon-green text-sm mb-4">{editing ? (lang === "en" ? "Edit Sponsor" : "Modifier le Sponsor") : (lang === "en" ? "New Sponsor" : "Nouveau Sponsor")}</h3>
                   <div className="grid sm:grid-cols-2 gap-3">
-                    {[{ key: "name", label: "Nom du Sponsor *" }, { key: "website", label: "Site Web" }].map(f => (
+                    {(lang === "en" ? [{ key: "name", label: "Sponsor Name *" }, { key: "website", label: "Website" }] : [{ key: "name", label: "Nom du Sponsor *" }, { key: "website", label: "Site Web" }]).map(f => (
                       <div key={f.key}>
                         <label className="block text-xs text-gray-500 mb-1">{f.label}</label>
                         <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form[f.key] as string) || ""} onChange={e => setForm({ ...form, [f.key]: e.target.value })} />
                       </div>
                     ))}
                     <div className="sm:col-span-2">
-                      <label className="block text-xs text-gray-500 mb-1">Logo du Sponsor</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Sponsor Logo" : "Logo du Sponsor"}</label>
                       <PhotoUploadField
                         value={(form.logoUrl as string) || ""}
                         folder="sponsors"
@@ -6372,16 +6377,16 @@ export default function AdminDashboard() {
                     </div>
                     <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
                       <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
-                      Visible sur le site
+                      {lang === "en" ? "Visible on site" : "Visible sur le site"}
                     </label>
                     <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
                       <input type="checkbox" checked={!!form.showOnLive} onChange={e => setForm({ ...form, showOnLive: e.target.checked })} />
-                      🔴 Afficher logo sur la page <span className="text-neon-green">/live</span>
+                      {lang === "en" ? "🔴 Show logo on " : "🔴 Afficher logo sur la page "}<span className="text-neon-green">/live</span>
                     </label>
                   </div>
                   <div className="flex gap-3 mt-4">
-                    <button onClick={() => save("/api/admin/sponsors")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
-                    <button onClick={cancelForm} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+                    <button onClick={() => save("/api/admin/sponsors")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">{lang === "en" ? "Save" : "Sauvegarder"}</button>
+                    <button onClick={cancelForm} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "Cancel" : "Annuler"}</button>
                   </div>
                 </div>
               )}
@@ -6403,14 +6408,14 @@ export default function AdminDashboard() {
                             <p className="text-white font-bold text-sm">{s.name as string}</p>
                             {!!s.website && <p className="text-gray-500 text-xs truncate">{s.website as string}</p>}
                             <div className="flex gap-2 flex-wrap">
-                              {!s.isVisible && <span className="text-xs text-gray-600">Masqué</span>}
+                              {!s.isVisible && <span className="text-xs text-gray-600">{lang === "en" ? "Hidden" : "Masqué"}</span>}
                               {!!s.showOnLive && <span className="text-xs text-red-400">🔴 /live</span>}
                             </div>
                           </div>
                           <div className="flex gap-2 shrink-0">
-                            <button onClick={() => setDetail({ type: "sponsor", item: s })} className="text-xs text-gray-400 hover:text-white px-2 py-1 border border-gray-700 rounded">Détails</button>
-                            {can("sponsors") && <button onClick={() => { setForm({ ...s }); setEditing(s.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">Éditer</button>}
-                            {can("sponsors") && <button onClick={() => del("/api/admin/sponsors", s.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">Suppr.</button>}
+                            <button onClick={() => setDetail({ type: "sponsor", item: s })} className="text-xs text-gray-400 hover:text-white px-2 py-1 border border-gray-700 rounded">{lang === "en" ? "Details" : "Détails"}</button>
+                            {can("sponsors") && <button onClick={() => { setForm({ ...s }); setEditing(s.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">{lang === "en" ? "Edit" : "Éditer"}</button>}
+                            {can("sponsors") && <button onClick={() => del("/api/admin/sponsors", s.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">{lang === "en" ? "Del." : "Suppr."}</button>}
                           </div>
                         </div>
                       ))}
@@ -6418,7 +6423,7 @@ export default function AdminDashboard() {
                   </div>
                 );
               })}
-              {!data.sponsors?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucun sponsor</p>}
+              {!data.sponsors?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No sponsors" : "Aucun sponsor"}</p>}
             </div>
           )}
 
@@ -6430,7 +6435,7 @@ export default function AdminDashboard() {
                 <VolunteerKanban />
               </div>
               <div className="border-t border-gray-800 pt-6">
-                <h2 className="text-sm font-bold text-gray-400 font-mono mb-4 uppercase tracking-wider">Toutes les candidatures</h2>
+                <h2 className="text-sm font-bold text-gray-400 font-mono mb-4 uppercase tracking-wider">{lang === "en" ? "All applications" : "Toutes les candidatures"}</h2>
               {(() => {
                 const volunteerList = (data.volunteers || []) as Record<string, unknown>[];
                 const existingRoles = Array.from(new Set(volunteerList.map(v => v.role as string).filter(Boolean))).sort();
@@ -6441,12 +6446,12 @@ export default function AdminDashboard() {
                     <div className="flex items-start justify-between gap-4 mb-3">
                       <div>
                         <p className="text-white font-bold">{v.name as string} <span className="text-gray-500 font-normal text-sm">— {v.email as string}</span></p>
-                        {!!v.role && <p className="text-neon-green/70 text-sm">Rôle souhaité : {v.role as string}</p>}
+                        {!!v.role && <p className="text-neon-green/70 text-sm">{lang === "en" ? "Desired role" : "Rôle souhaité"} : {v.role as string}</p>}
                         {!!v.city && <p className="text-gray-500 text-xs">{v.city as string}</p>}
                         <p className="text-gray-400 text-xs mt-2 line-clamp-2">{v.motivation as string}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => setDetail({ type: "volunteer", item: v })} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">Détails</button>
+                        <button onClick={() => setDetail({ type: "volunteer", item: v })} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">{lang === "en" ? "Details" : "Détails"}</button>
                         <Badge status={v.status as string} />
                         <select className="cyber-input text-xs px-2 py-1 rounded bg-transparent" value={v.status as string}
                           onChange={e => updateStatus("volunteer", v.id as number, e.target.value)}>
@@ -6458,7 +6463,7 @@ export default function AdminDashboard() {
                     </div>
                     {v.status === "accepted" && (
                       <div className="border-t border-gray-800 pt-3 mt-2">
-                        <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Affectation</p>
+                        <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">{lang === "en" ? "Assignment" : "Affectation"}</p>
                         <div className="flex gap-2 flex-wrap">
                           <select
                             className="cyber-input text-xs rounded px-2 py-1 flex-1 min-w-[140px]"
@@ -6471,7 +6476,7 @@ export default function AdminDashboard() {
                               });
                             }}
                           >
-                            <option value="">— Rôle assigné —</option>
+                            <option value="">{lang === "en" ? "— Assigned role —" : "— Rôle assigné —"}</option>
                             {existingRoles.map(r => (
                               <option key={r} value={r}>{r}</option>
                             ))}
@@ -6506,7 +6511,7 @@ export default function AdminDashboard() {
                     <p className="text-gray-600 text-xs mt-2">{new Date(v.createdAt as string).toLocaleDateString("fr-FR")}</p>
                   </div>
                 ))}
-                {!volunteerList.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune candidature</p>}
+                {!volunteerList.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No applications" : "Aucune candidature"}</p>}
               </div>
                 );
               })()}
@@ -6527,7 +6532,7 @@ export default function AdminDashboard() {
                     <tr className="border-b border-neon-green/10 text-gray-500 text-left">
                       <th className="py-2 px-3 font-normal">#</th>
                       <th className="py-2 px-3 font-normal">Email</th>
-                      <th className="py-2 px-3 font-normal">Date d&apos;inscription</th>
+                      <th className="py-2 px-3 font-normal">{lang === "en" ? "Registration date" : "Date d'inscription"}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -6540,7 +6545,7 @@ export default function AdminDashboard() {
                     ))}
                   </tbody>
                 </table>
-                {!data.newsletter?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucun abonné</p>}
+                {!data.newsletter?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No subscribers" : "Aucun abonné"}</p>}
               </div>
             </div>
           )}
@@ -6549,29 +6554,29 @@ export default function AdminDashboard() {
           {activeTab === "team" && (
             <div>
               <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-black text-white">Équipe d&apos;organisation</h1>
+                <h1 className="text-2xl font-black text-white">{lang === "en" ? "Organization team" : "Équipe d'organisation"}</h1>
                 {can("team") && <button
                   onClick={() => { setForm({ isVisible: true, sortOrder: 0 }); setEditing(null); setShowForm(true); }}
                   className="btn-neon px-4 py-2 rounded text-xs"
                 >
-                  + Ajouter
+                  {lang === "en" ? "+ Add" : "+ Ajouter"}
                 </button>}
               </div>
 
               {can("team") && showForm && (
                 <div className="cyber-card rounded-xl p-6 mb-6">
-                  <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier le Membre" : "Nouveau Membre"}</h3>
+                  <h3 className="text-neon-green text-sm mb-4">{editing ? (lang === "en" ? "Edit Member" : "Modifier le Membre") : (lang === "en" ? "New Member" : "Nouveau Membre")}</h3>
                   <div className="grid sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Nom *</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Name *" : "Nom *"}</label>
                       <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.name as string) || ""} onChange={e => setForm({ ...form, name: e.target.value })} />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Rôle *</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Role *" : "Rôle *"}</label>
                       <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.role as string) || ""} onChange={e => setForm({ ...form, role: e.target.value })} />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Email (pour le pilotage / rappels)</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Email (for management / reminders)" : "Email (pour le pilotage / rappels)"}</label>
                       <input type="email" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.email as string) || ""} onChange={e => setForm({ ...form, email: e.target.value })} />
                     </div>
                     <div>
@@ -6589,11 +6594,11 @@ export default function AdminDashboard() {
                     <div className="flex items-end pb-1">
                       <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
                         <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
-                        Visible sur le site
+                        {lang === "en" ? "Visible on site" : "Visible sur le site"}
                       </label>
                     </div>
                     <div className="sm:col-span-2">
-                      <label className="block text-xs text-gray-500 mb-1">Photo</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Photo" : "Photo"}</label>
                       <PhotoUploadField
                         value={(form.photoUrl as string) || ""}
                         folder="team"
@@ -6601,18 +6606,18 @@ export default function AdminDashboard() {
                       />
                     </div>
                     <div className="sm:col-span-2">
-                      <label className="block text-xs text-gray-500 mb-1">Biographie</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Biography" : "Biographie"}</label>
                       <textarea rows={3} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.bio as string) || ""} onChange={e => setForm({ ...form, bio: e.target.value })} />
                     </div>
                   </div>
                   <div className="flex gap-3 mt-4">
-                    <button onClick={() => save("/api/admin/team")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
-                    <button onClick={cancelForm} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+                    <button onClick={() => save("/api/admin/team")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">{lang === "en" ? "Save" : "Sauvegarder"}</button>
+                    <button onClick={cancelForm} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "Cancel" : "Annuler"}</button>
                   </div>
                 </div>
               )}
 
-              {loading ? <p className="text-gray-600 text-xs">Chargement...</p> : (
+              {loading ? <p className="text-gray-600 text-xs">{lang === "en" ? "Loading..." : "Chargement..."}</p> : (
                 <div className="space-y-2">
                   {((data.team || []) as Record<string, unknown>[]).map(m => (
                     <div key={m.id as number} className="cyber-card rounded-lg p-4 flex items-center gap-4">
@@ -6620,18 +6625,18 @@ export default function AdminDashboard() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-white font-bold text-sm">{m.name as string}</span>
-                          {!m.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">Masqué</span>}
+                          {!m.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">{lang === "en" ? "Hidden" : "Masqué"}</span>}
                         </div>
                         <p className="text-neon-green/70 text-xs">{m.role as string}</p>
                         {!!(m.bio as string) && <p className="text-gray-500 text-xs mt-0.5 truncate">{m.bio as string}</p>}
                       </div>
                       {can("team") && <div className="flex gap-2 shrink-0">
-                        <button onClick={() => { setForm({ ...m }); setEditing(m.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green transition-colors px-2 py-1 border border-gray-700 rounded">Éditer</button>
-                        <button onClick={() => del("/api/admin/team", m.id as number)} className="text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-1 border border-red-900 rounded">Suppr.</button>
+                        <button onClick={() => { setForm({ ...m }); setEditing(m.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green transition-colors px-2 py-1 border border-gray-700 rounded">{lang === "en" ? "Edit" : "Éditer"}</button>
+                        <button onClick={() => del("/api/admin/team", m.id as number)} className="text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-1 border border-red-900 rounded">{lang === "en" ? "Del." : "Suppr."}</button>
                       </div>}
                     </div>
                   ))}
-                  {!data.team?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucun membre — cliquez sur + Ajouter</p>}
+                  {!data.team?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No members — click + Add" : "Aucun membre — cliquez sur + Ajouter"}</p>}
                 </div>
               )}
             </div>
@@ -6641,37 +6646,37 @@ export default function AdminDashboard() {
           {activeTab === "past-speakers" && (
             <div>
               <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-black text-white">Anciens Intervenants</h1>
+                <h1 className="text-2xl font-black text-white">{lang === "en" ? "Past Speakers" : "Anciens Intervenants"}</h1>
                 {can("speakers") && <button
                   onClick={() => { setForm({ isVisible: true, sortOrder: 0, edition: "2024" }); setEditing(null); setShowForm(true); }}
                   className="btn-neon px-4 py-2 rounded text-xs"
                 >
-                  + Ajouter
+                  {lang === "en" ? "+ Add" : "+ Ajouter"}
                 </button>}
               </div>
 
               {can("speakers") && showForm && (
                 <div className="cyber-card rounded-xl p-6 mb-6">
-                  <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier l'Intervenant" : "Nouvel Ancien Intervenant"}</h3>
+                  <h3 className="text-neon-green text-sm mb-4">{editing ? (lang === "en" ? "Edit Speaker" : "Modifier l'Intervenant") : (lang === "en" ? "New Past Speaker" : "Nouvel Ancien Intervenant")}</h3>
                   <div className="grid sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Nom *</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Name *" : "Nom *"}</label>
                       <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.name as string) || ""} onChange={e => setForm({ ...form, name: e.target.value })} />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Rôle / Titre</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Role / Title" : "Rôle / Titre"}</label>
                       <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.role as string) || ""} onChange={e => setForm({ ...form, role: e.target.value })} />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Entreprise</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Company" : "Entreprise"}</label>
                       <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.company as string) || ""} onChange={e => setForm({ ...form, company: e.target.value })} />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Pays</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Country" : "Pays"}</label>
                       <CountrySelect value={(form.country as string) || ""} onChange={v => setForm({ ...form, country: v })} className="w-full text-xs" />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Édition (ex: 2024)</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Edition (e.g.: 2024)" : "Édition (ex: 2024)"}</label>
                       <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.edition as string) || ""} onChange={e => setForm({ ...form, edition: e.target.value })} />
                     </div>
                     <div>
@@ -6689,18 +6694,18 @@ export default function AdminDashboard() {
                     <div className="flex items-center">
                       <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
                         <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
-                        Visible sur le site
+                        {lang === "en" ? "Visible on site" : "Visible sur le site"}
                       </label>
                     </div>
                   </div>
                   <div className="flex gap-3 mt-4">
-                    <button onClick={() => save("/api/admin/past-speakers")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
-                    <button onClick={cancelForm} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+                    <button onClick={() => save("/api/admin/past-speakers")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">{lang === "en" ? "Save" : "Sauvegarder"}</button>
+                    <button onClick={cancelForm} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "Cancel" : "Annuler"}</button>
                   </div>
                 </div>
               )}
 
-              {loading ? <p className="text-gray-600 text-xs">Chargement...</p> : (
+              {loading ? <p className="text-gray-600 text-xs">{lang === "en" ? "Loading..." : "Chargement..."}</p> : (
                 <div className="space-y-2">
                   {((data["past-speakers"] || []) as Record<string, unknown>[]).map(ps => (
                     <div key={ps.id as number} className="cyber-card rounded-lg p-4 flex items-center gap-4">
@@ -6711,7 +6716,7 @@ export default function AdminDashboard() {
                           {!!(ps.edition as string) && (
                             <span className="text-xs px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green/70">{ps.edition as string}</span>
                           )}
-                          {!ps.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">Masqué</span>}
+                          {!ps.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">{lang === "en" ? "Hidden" : "Masqué"}</span>}
                         </div>
                         <p className="text-gray-400 text-xs">
                           {(ps.role as string) || ""}
@@ -6720,12 +6725,12 @@ export default function AdminDashboard() {
                         </p>
                       </div>
                       {can("speakers") && <div className="flex gap-2 shrink-0">
-                        <button onClick={() => { setForm({ ...ps }); setEditing(ps.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green transition-colors px-2 py-1 border border-gray-700 rounded">Éditer</button>
-                        <button onClick={() => del("/api/admin/past-speakers", ps.id as number)} className="text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-1 border border-red-900 rounded">Suppr.</button>
+                        <button onClick={() => { setForm({ ...ps }); setEditing(ps.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green transition-colors px-2 py-1 border border-gray-700 rounded">{lang === "en" ? "Edit" : "Éditer"}</button>
+                        <button onClick={() => del("/api/admin/past-speakers", ps.id as number)} className="text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-1 border border-red-900 rounded">{lang === "en" ? "Del." : "Suppr."}</button>
                       </div>}
                     </div>
                   ))}
-                  {!data["past-speakers"]?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucun ancien intervenant — cliquez sur + Ajouter</p>}
+                  {!data["past-speakers"]?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No past speakers — click + Add" : "Aucun ancien intervenant — cliquez sur + Ajouter"}</p>}
                 </div>
               )}
             </div>
@@ -6865,9 +6870,10 @@ export default function AdminDashboard() {
 
 // ── Detail drawer ─────────────────────────────────────────────────────────────
 function DetailDrawer({ item, type, onClose }: { item: Record<string, unknown>; type: string; onClose: () => void }) {
+  const { lang } = useAdminT();
   const fmt = (v: unknown) => {
     if (v === null || v === undefined || v === "") return <span className="text-gray-600">—</span>;
-    if (typeof v === "boolean") return <span className={v ? "text-neon-green" : "text-gray-500"}>{v ? "Oui" : "Non"}</span>;
+    if (typeof v === "boolean") return <span className={v ? "text-neon-green" : "text-gray-500"}>{v ? (lang === "en" ? "Yes" : "Oui") : (lang === "en" ? "No" : "Non")}</span>;
     if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v)) return new Date(v).toLocaleString("fr-FR");
     if (typeof v === "string" && (v.startsWith("http://") || v.startsWith("https://")))
       return <a href={v} target="_blank" rel="noreferrer" className="text-cyan-400 underline break-all">{v}</a>;
@@ -6875,7 +6881,44 @@ function DetailDrawer({ item, type, onClose }: { item: Record<string, unknown>; 
     return <span className="text-white break-words">{String(v)}</span>;
   };
 
-  const sections: Record<string, { label: string; fields: { key: string; label: string }[] }[]> = {
+  const sections: Record<string, { label: string; fields: { key: string; label: string }[] }[]> = lang === "en" ? {
+    volunteer: [
+      { label: "Identity", fields: [{ key: "name", label: "Name" }, { key: "email", label: "Email" }, { key: "phone", label: "Phone" }, { key: "city", label: "City" }] },
+      { label: "Networks", fields: [{ key: "linkedin", label: "LinkedIn" }, { key: "twitter", label: "X / Twitter" }, { key: "whatsapp", label: "WhatsApp" }] },
+      { label: "Application", fields: [{ key: "role", label: "Desired role" }, { key: "hoursPerWeek", label: "Hours / week" }, { key: "langExpression", label: "Language" }, { key: "status", label: "Status" }] },
+      { label: "Motivation", fields: [{ key: "motivation", label: "Motivation" }, { key: "experience", label: "Experience" }] },
+      { label: "Assignment", fields: [{ key: "assignedRole", label: "Assigned role" }, { key: "shiftStart", label: "Shift start" }, { key: "shiftEnd", label: "Shift end" }] },
+      { label: "Meta", fields: [{ key: "createdAt", label: "Submitted on" }] },
+    ],
+    registration: [
+      { label: "Participant", fields: [{ key: "fname", label: "First name" }, { key: "lname", label: "Last name" }, { key: "email", label: "Email" }, { key: "org", label: "Organization" }, { key: "country", label: "Country" }] },
+      { label: "Networks", fields: [{ key: "linkedin", label: "LinkedIn" }, { key: "whatsapp", label: "WhatsApp" }] },
+      { label: "Ticket", fields: [{ key: "ticketType", label: "Ticket type" }, { key: "ticketRef", label: "Reference" }, { key: "status", label: "Status" }, { key: "langExpression", label: "Language" }] },
+      { label: "Check-in", fields: [{ key: "checkedInAt", label: "Check-in time" }, { key: "checkedInBy", label: "By" }] },
+      { label: "CTF", fields: [{ key: "ctfCompetitorName", label: "CTF username" }, { key: "ctfTeamName", label: "CTF team" }, { key: "ctfAccountCreated", label: "CTFd account created" }] },
+      { label: "Meta", fields: [{ key: "createdAt", label: "Registered on" }] },
+    ],
+    sponsor: [
+      { label: "Sponsor", fields: [{ key: "name", label: "Name" }, { key: "tier", label: "Tier" }, { key: "website", label: "Website" }, { key: "logoUrl", label: "Logo URL" }] },
+      { label: "Visibility", fields: [{ key: "isVisible", label: "Visible" }, { key: "sortOrder", label: "Order" }] },
+      { label: "Meta", fields: [{ key: "createdAt", label: "Created on" }] },
+    ],
+    cfp: [
+      { label: "Speaker", fields: [{ key: "name", label: "Name" }, { key: "email", label: "Email" }, { key: "org", label: "Organization" }, { key: "country", label: "Country" }] },
+      { label: "Networks", fields: [{ key: "linkedin", label: "LinkedIn" }, { key: "twitter", label: "X / Twitter" }, { key: "whatsapp", label: "WhatsApp" }] },
+      { label: "Proposal", fields: [{ key: "talkTitle", label: "Title" }, { key: "format", label: "Format" }, { key: "langPresentation", label: "Language" }, { key: "pipelineStage", label: "Stage" }, { key: "status", label: "Status" }] },
+      { label: "Abstract", fields: [{ key: "abstract", label: "Abstract" }] },
+      { label: "Bio", fields: [{ key: "bio", label: "Bio" }] },
+      { label: "AI Analysis", fields: [{ key: "aiScore", label: "AI Score" }, { key: "aiAnalysis", label: "AI Analysis" }] },
+      { label: "Meta", fields: [{ key: "createdAt", label: "Submitted on" }, { key: "decisionSentAt", label: "Decision sent" }, { key: "notes", label: "Admin notes" }] },
+    ],
+    session: [
+      { label: "Session", fields: [{ key: "title", label: "Title" }, { key: "type", label: "Type" }, { key: "speakerName", label: "Speaker" }, { key: "room", label: "Room" }] },
+      { label: "Schedule", fields: [{ key: "date", label: "Date" }, { key: "time", label: "Start" }, { key: "endTime", label: "End" }] },
+      { label: "Content", fields: [{ key: "description", label: "Description" }] },
+      { label: "Visibility", fields: [{ key: "isVisible", label: "Visible" }, { key: "sortOrder", label: "Order" }] },
+    ],
+  } : {
     volunteer: [
       { label: "Identité", fields: [{ key: "name", label: "Nom" }, { key: "email", label: "Email" }, { key: "phone", label: "Téléphone" }, { key: "city", label: "Ville" }] },
       { label: "Réseaux", fields: [{ key: "linkedin", label: "LinkedIn" }, { key: "twitter", label: "X / Twitter" }, { key: "whatsapp", label: "WhatsApp" }] },
@@ -6915,7 +6958,7 @@ function DetailDrawer({ item, type, onClose }: { item: Record<string, unknown>; 
   };
 
   const secs = sections[type] || Object.keys(item).map(key => ({ label: "", fields: [{ key, label: key }] }));
-  const typeLabels: Record<string, string> = { volunteer: "Bénévole", registration: "Inscription", sponsor: "Sponsor", cfp: "Soumission CFP", session: "Session" };
+  const typeLabels: Record<string, string> = lang === "en" ? { volunteer: "Volunteer", registration: "Registration", sponsor: "Sponsor", cfp: "CFP Submission", session: "Session" } : { volunteer: "Bénévole", registration: "Inscription", sponsor: "Sponsor", cfp: "Soumission CFP", session: "Session" };
 
   return (
     <>

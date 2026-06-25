@@ -276,7 +276,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
             className={`text-xs px-4 py-2 border-b-2 transition-all flex items-center gap-1.5 ${subTab === st.key ? "border-neon-green text-neon-green" : "border-transparent text-gray-500 hover:text-gray-300"}`}
           >
             {st.label}
-            {"count" in st && st.count > 0 && (
+            {"count" in st && (st.count ?? 0) > 0 && (
               <span className={`text-xs font-mono px-1 rounded ${subTab === st.key ? "bg-neon-green/20" : "bg-gray-800"}`}>{st.count}</span>
             )}
           </button>

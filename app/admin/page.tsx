@@ -270,12 +270,12 @@ function MfaSetupModal({ setup, onClose, onSuccess }: { setup: MfaSetupState; on
           </>
         ) : (
           <>
-            <p className="text-gray-400 text-xs mb-3">Scannez ce QR code avec Google Authenticator ou une app TOTP compatible.</p>
+            <p className="text-gray-400 text-xs mb-3">{lang === "en" ? "Scan this QR code with Google Authenticator or a compatible TOTP app." : "Scannez ce QR code avec Google Authenticator ou une app TOTP compatible."}</p>
             <div className="flex justify-center mb-3">
               <img src={setup.qrDataUrl} alt="QR Code MFA" className="w-48 h-48" />
             </div>
             <p className="text-gray-600 text-xs text-center mb-4 font-mono break-all" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{setup.secret}</p>
-            <label className="text-xs text-gray-500 block mb-1">Code de vérification (6 chiffres)</label>
+            <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Verification code (6 digits)" : "Code de vérification (6 chiffres)"}</label>
             <input
               className="cyber-input w-full px-3 py-2 rounded text-sm mb-3 font-mono"
               style={{ fontFamily: "'Share Tech Mono', monospace" }}
@@ -287,9 +287,9 @@ function MfaSetupModal({ setup, onClose, onSuccess }: { setup: MfaSetupState; on
             {err && <p className="text-red-400 text-xs mb-2">{err}</p>}
             <div className="flex gap-2">
               <button onClick={verify} disabled={verifying || code.length !== 6} className="btn-neon flex-1 py-2 rounded text-sm">
-                {verifying ? "Vérification..." : "Vérifier et activer"}
+                {verifying ? (lang === "en" ? "Verifying..." : "Vérification...") : (lang === "en" ? "Verify and enable" : "Vérifier et activer")}
               </button>
-              <button onClick={onClose} className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white transition-colors">Annuler</button>
+              <button onClick={onClose} className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white transition-colors">{t.cancel}</button>
             </div>
           </>
         )}
@@ -299,6 +299,7 @@ function MfaSetupModal({ setup, onClose, onSuccess }: { setup: MfaSetupState; on
 }
 
 function MfaToggle() {
+  const { lang } = useAdminT();
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
   useEffect(() => {
@@ -314,7 +315,7 @@ function MfaToggle() {
   if (enabled === null) return <div className="text-gray-600 text-xs">…</div>;
   return (
     <button onClick={toggle} disabled={saving} className={`shrink-0 px-4 py-2 rounded text-sm font-bold transition-all ${enabled ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"}`}>
-      {saving ? "…" : enabled ? "✓ Activé" : "Désactivé"}
+      {saving ? "…" : enabled ? (lang === "en" ? "✓ Enabled" : "✓ Activé") : (lang === "en" ? "Disabled" : "Désactivé")}
     </button>
   );
 }
@@ -330,7 +331,7 @@ interface ProfileLite {
 }
 
 function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: boolean; canDelete?: boolean }) {
-  const { t } = useAdminT();
+  const { t, lang } = useAdminT();
   const confirm = useConfirm();
   const [users, setUsers] = useState<Record<string, unknown>[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
@@ -421,7 +422,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
 
   const startMfaSetup = async (u: Record<string, unknown>) => {
     const res = await fetch(`/api/admin/mfa/setup?userId=${u.id}`);
-    if (!res.ok) { alert("Erreur lors de la génération du QR code"); return; }
+    if (!res.ok) { alert(lang === "en" ? "Error generating QR code" : "Erreur lors de la génération du QR code"); return; }
     const json = await res.json() as { qrDataUrl: string; secret: string };
     setMfaSetup({
       userId: u.id as number,
@@ -436,7 +437,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
   };
 
   const disableMfa = async (id: number) => {
-    if (!(await confirm({ message: "Désactiver le MFA pour cet utilisateur ?", danger: true }))) return;
+    if (!(await confirm({ message: lang === "en" ? "Disable MFA for this user?" : "Désactiver le MFA pour cet utilisateur ?", danger: true }))) return;
     const res = await fetch("/api/admin/mfa/setup", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -448,7 +449,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
   };
 
   const deleteUser = async (u: Record<string, unknown>) => {
-    if (!(await confirm({ message: `Supprimer définitivement le compte "${u.name as string}" (${u.email as string}) ? Cette action est irréversible.`, danger: true }))) return;
+    if (!(await confirm({ message: lang === "en" ? `Permanently delete the account "${u.name as string}" (${u.email as string})? This action is irreversible.` : `Supprimer définitivement le compte "${u.name as string}" (${u.email as string}) ? Cette action est irréversible.`, danger: true }))) return;
     const res = await fetch(`/api/admin/users/${u.id as number}`, { method: "DELETE" });
     if (res.ok) {
       setUsers(prev => prev.filter(x => x.id !== u.id));
@@ -478,16 +479,16 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
       {created && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <div className="cyber-card rounded-xl p-6 max-w-md w-full">
-            <h3 className="text-white font-bold mb-4">✅ Utilisateur créé</h3>
-            <p className="text-gray-400 text-sm mb-4">Un email a été envoyé à <strong className="text-white">{created.email}</strong> avec les identifiants.</p>
+            <h3 className="text-white font-bold mb-4">{lang === "en" ? "✅ User created" : "✅ Utilisateur créé"}</h3>
+            <p className="text-gray-400 text-sm mb-4">{lang === "en" ? <>An email has been sent to <strong className="text-white">{created.email}</strong> with the credentials.</> : <>Un email a été envoyé à <strong className="text-white">{created.email}</strong> avec les identifiants.</>}</p>
             <div className="bg-black/50 border border-neon-green/30 rounded-lg p-4 mb-4">
-              <p className="text-xs text-gray-500 mb-1">Mot de passe temporaire</p>
+              <p className="text-xs text-gray-500 mb-1">{lang === "en" ? "Temporary password" : "Mot de passe temporaire"}</p>
               <div className="flex items-center justify-between">
                 <span className="text-xl font-black font-mono" style={{ color: "#00ff9d", fontFamily: "'Share Tech Mono', monospace" }}>{created.tempPassword}</span>
-                <button onClick={() => navigator.clipboard.writeText(created.tempPassword)} className="text-xs text-gray-500 hover:text-white transition-colors px-2">Copier</button>
+                <button onClick={() => navigator.clipboard.writeText(created.tempPassword)} className="text-xs text-gray-500 hover:text-white transition-colors px-2">{lang === "en" ? "Copy" : "Copier"}</button>
               </div>
             </div>
-            <button onClick={() => setCreated(null)} className="btn-neon w-full py-2 rounded text-sm">Fermer</button>
+            <button onClick={() => setCreated(null)} className="btn-neon w-full py-2 rounded text-sm">{t.close}</button>
           </div>
         </div>
       )}
@@ -496,38 +497,38 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setEditUser(null)}>
           <div className="cyber-card rounded-xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white font-bold text-sm">Éditer — {editUser.name}</h3>
+              <h3 className="text-white font-bold text-sm">{lang === "en" ? "Edit" : "Éditer"} — {editUser.name}</h3>
               <button onClick={() => setEditUser(null)} className="text-gray-500 hover:text-white text-xl leading-none">×</button>
             </div>
             <div className="mb-4">
-              <label className="text-xs text-gray-500 block mb-1">Nouveau mot de passe <span className="text-gray-600">(laisser vide pour ne pas changer)</span></label>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "New password" : "Nouveau mot de passe"} <span className="text-gray-600">{lang === "en" ? "(leave blank to keep unchanged)" : "(laisser vide pour ne pas changer)"}</span></label>
               <input
                 type="text"
                 className="cyber-input w-full text-sm rounded px-3 py-2"
-                placeholder="ex. mot de passe commun hôtesses"
+                placeholder={lang === "en" ? "e.g. shared password for hosts" : "ex. mot de passe commun hôtesses"}
                 value={editUser.password}
                 onChange={e => setEditUser(u => u && ({ ...u, password: e.target.value }))}
               />
-              <p className="text-[11px] text-gray-600 mt-1">Pour un compte partagé (ex. hôtesses check-in), définissez ici un mot de passe commun et communiquez-le à l&apos;équipe.</p>
+              <p className="text-[11px] text-gray-600 mt-1">{lang === "en" ? "For a shared account (e.g. check-in hosts), set a common password here and share it with the team." : "Pour un compte partagé (ex. hôtesses check-in), définissez ici un mot de passe commun et communiquez-le à l'équipe."}</p>
             </div>
             <div className="mb-4">
-              <label className="text-xs text-gray-500 block mb-2">Profil de rôle</label>
+              <label className="text-xs text-gray-500 block mb-2">{lang === "en" ? "Role profile" : "Profil de rôle"}</label>
               <select
                 className="cyber-input w-full text-sm rounded px-3 py-2 bg-transparent"
                 value={editUser.profileId ?? ""}
                 onChange={e => setEditUser(u => u && ({ ...u, profileId: e.target.value ? Number(e.target.value) : null }))}
               >
-                <option value="" className="bg-dark-800">— Aucun —</option>
+                <option value="" className="bg-dark-800">{lang === "en" ? "— None —" : "— Aucun —"}</option>
                 {profiles.map(p => (
-                  <option key={p.id} value={p.id} className="bg-dark-800">{p.name}{!p.isSystem ? " (personnalisé)" : ""}</option>
+                  <option key={p.id} value={p.id} className="bg-dark-800">{p.name}{!p.isSystem ? (lang === "en" ? " (custom)" : " (personnalisé)") : ""}</option>
                 ))}
               </select>
             </div>
             <div className="flex gap-2">
               <button onClick={saveEdit} disabled={editSaving} className="btn-neon px-4 py-2 rounded text-sm">
-                {editSaving ? "Enregistrement..." : "Enregistrer"}
+                {editSaving ? (lang === "en" ? "Saving..." : "Enregistrement...") : t.save}
               </button>
-              <button onClick={() => setEditUser(null)} className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white transition-colors">Annuler</button>
+              <button onClick={() => setEditUser(null)} className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white transition-colors">{t.cancel}</button>
             </div>
           </div>
         </div>
@@ -535,10 +536,10 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
 
       {canWrite && showForm && (
         <div className="cyber-card rounded-xl p-6 mb-6">
-          <h3 className="text-white font-bold mb-4 text-sm">Nouveau compte administrateur</h3>
+          <h3 className="text-white font-bold mb-4 text-sm">{lang === "en" ? "New administrator account" : "Nouveau compte administrateur"}</h3>
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Nom complet</label>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Full name" : "Nom complet"}</label>
               <input className="cyber-input w-full text-sm rounded px-3 py-2" placeholder="Jean Mbarga" value={(form.name as string) || ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
             </div>
             <div>
@@ -547,7 +548,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
             </div>
           </div>
           <div className="mb-4">
-            <label className="text-xs text-gray-500 block mb-2">Profil de rôle</label>
+            <label className="text-xs text-gray-500 block mb-2">{lang === "en" ? "Role profile" : "Profil de rôle"}</label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {profiles.map(profile => (
                 <button
@@ -557,7 +558,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
                   style={form.profileId === profile.id ? { borderColor: profile.color, background: profile.color + "15" } : {}}
                 >
                   <p className="text-xs font-bold" style={{ color: form.profileId === profile.id ? profile.color : "#888" }}>
-                    {profile.name}{!profile.isSystem && <span className="text-gray-600 font-normal"> · personnalisé</span>}
+                    {profile.name}{!profile.isSystem && <span className="text-gray-600 font-normal"> · {lang === "en" ? "custom" : "personnalisé"}</span>}
                   </p>
                   <p className="text-gray-600 text-xs mt-0.5">{profile.description}</p>
                 </button>
@@ -602,7 +603,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
       </div>
 
       <div>
-        <h3 className="text-xs text-gray-500 uppercase tracking-widest mb-3">Comptes existants ({users.length})</h3>
+        <h3 className="text-xs text-gray-500 uppercase tracking-widest mb-3">{lang === "en" ? `Existing accounts (${users.length})` : `Comptes existants (${users.length})`}</h3>
         <div className="space-y-2">
           {users.map(u => {
             const profile = profiles.find(p => p.id === (u.profileId as number));
@@ -627,43 +628,43 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
                     🔐 MFA {u.mfaEnabled ? "ON" : "OFF"}
                   </span>
                   <span className={`text-xs px-2 py-0.5 rounded ${u.isActive ? "bg-neon-green/10 text-neon-green" : "bg-gray-800 text-gray-600"}`}>
-                    {u.isActive ? "Actif" : "Inactif"}
+                    {u.isActive ? (lang === "en" ? "Active" : "Actif") : (lang === "en" ? "Inactive" : "Inactif")}
                   </span>
                   {canWrite && <button onClick={() => setEditUser({ id: u.id as number, name: u.name as string, profileId: (u.profileId as number) ?? null, password: "" })} className="text-xs text-neon-green/80 hover:text-neon-green transition-colors">
-                    Éditer
+                    {lang === "en" ? "Edit" : "Éditer"}
                   </button>}
                   {canWrite && <button onClick={() => toggleActive(u.id as number, !(u.isActive as boolean))} className="text-xs text-gray-600 hover:text-white transition-colors">
-                    {u.isActive ? "Désactiver" : "Activer"}
+                    {u.isActive ? (lang === "en" ? "Deactivate" : "Désactiver") : (lang === "en" ? "Activate" : "Activer")}
                   </button>}
                   {canWrite && (u.mfaEnabled ? (
                     <button onClick={() => disableMfa(u.id as number)} className="text-xs text-red-500 hover:text-red-400 transition-colors">
-                      Désactiver MFA
+                      {lang === "en" ? "Disable MFA" : "Désactiver MFA"}
                     </button>
                   ) : (
                     <button onClick={() => startMfaSetup(u)} className="text-xs text-purple-400 hover:text-purple-300 transition-colors">
-                      Activer MFA
+                      {lang === "en" ? "Enable MFA" : "Activer MFA"}
                     </button>
                   ))}
                   {canDelete && (
                     <button onClick={() => deleteUser(u)} className="text-xs text-red-600 hover:text-red-400 transition-colors border border-red-900/40 hover:border-red-500/50 px-2 py-0.5 rounded">
-                      Supprimer
+                      {t.delete}
                     </button>
                   )}
                 </div>
               </div>
             );
           })}
-          {!users.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun utilisateur créé</p>}
+          {!users.length && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No users created" : "Aucun utilisateur créé"}</p>}
         </div>
       </div>
 
       {/* Sécurité MFA */}
       {canWrite && <div className="cyber-card rounded-xl p-5 mt-6">
-        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">🔐 Sécurité</h3>
+        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">{t.securitySection}</h3>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-white text-sm font-bold mb-1">Forcer le MFA pour tous les utilisateurs admin</p>
-            <p className="text-gray-500 text-xs">Les utilisateurs sans MFA seront bloqués à la connexion jusqu&apos;à l&apos;enrollment.</p>
+            <p className="text-white text-sm font-bold mb-1">{t.forceMfa}</p>
+            <p className="text-gray-500 text-xs">{t.forceMfaDesc}</p>
           </div>
           <MfaToggle />
         </div>
@@ -690,7 +691,7 @@ function AiScoreBadge({ score, analysis }: { score: number | null; analysis: str
 }
 
 function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record<string, unknown>[]; onRefresh: () => void; canWrite?: boolean }) {
-  const { t } = useAdminT();
+  const { t, lang } = useAdminT();
   const [searchTab, setSearchTab] = useState<"apollo" | "places">("apollo");
   const [apolloKeywords, setApolloKeywords] = useState("cybersecurity,technology,telecom,finance");
   const [placesQuery, setPlacesQuery] = useState("");
@@ -927,20 +928,20 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
             <div className="flex items-center justify-between p-6 pb-4 border-b border-gray-800 shrink-0">
               <div>
                 <h3 className="text-white font-bold">🎯 Pitch · {pitchTarget.org as string}</h3>
-                <p className="text-gray-500 text-xs">{pitchTarget.sector as string} · Package : <span style={{ color: "#ff0066" }}>{(pitchTarget.recommendedPackage as string) || "—"}</span></p>
+                <p className="text-gray-500 text-xs">{pitchTarget.sector as string} · {t.package} : <span style={{ color: "#ff0066" }}>{(pitchTarget.recommendedPackage as string) || "—"}</span></p>
               </div>
               <button onClick={() => { setPitchTarget(null); setPitchResult(null); }} className="text-gray-500 hover:text-white text-xl">✕</button>
             </div>
             <div className="p-6 overflow-y-auto">
-            {generatingPitch && <p className="text-gray-500 text-xs text-center py-8">Génération du brief stratégique…</p>}
+            {generatingPitch && <p className="text-gray-500 text-xs text-center py-8">{lang === "en" ? "Generating strategic brief…" : "Génération du brief stratégique…"}</p>}
             {pitchResult && (
               <div className="space-y-4">
                 <div className="border rounded-lg p-4" style={{ borderColor: "#ff006640", background: "#ff006610" }}>
-                  <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#ff0066" }}>Accroche</p>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#ff0066" }}>{lang === "en" ? "Hook" : "Accroche"}</p>
                   <p className="text-white text-sm leading-relaxed">{pitchResult.accroche}</p>
                 </div>
                 <div className="border border-gray-800 rounded-lg p-4">
-                  <p className="text-xs font-bold uppercase tracking-widest mb-2 text-gray-400">Valeur concrète</p>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-2 text-gray-400">{lang === "en" ? "Concrete value" : "Valeur concrète"}</p>
                   <ul className="space-y-1">
                     {pitchResult.valeur.map((v, i) => (
                       <li key={i} className="text-gray-300 text-sm flex gap-2"><span style={{ color: "#00ff9d" }}>▸</span>{v}</li>
@@ -948,18 +949,18 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                   </ul>
                 </div>
                 <div className="border border-gray-800 rounded-lg p-4">
-                  <p className="text-xs font-bold uppercase tracking-widest mb-2 text-gray-400">Objection probable</p>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-2 text-gray-400">{lang === "en" ? "Likely objection" : "Objection probable"}</p>
                   <p className="text-sm font-semibold text-white mb-1">❝ {pitchResult.objection.question} ❞</p>
                   <p className="text-gray-400 text-sm">→ {pitchResult.objection.reponse}</p>
                 </div>
                 <div className="border border-gray-800 rounded-lg p-4">
-                  <p className="text-xs font-bold uppercase tracking-widest mb-2 text-gray-400">Ouverture de réunion</p>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-2 text-gray-400">{lang === "en" ? "Meeting opener" : "Ouverture de réunion"}</p>
                   <p className="text-white text-sm italic">❝ {pitchResult.ouverture} ❞</p>
                 </div>
                 <div className="border border-gray-800 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Brief complet</p>
-                    <button onClick={() => navigator.clipboard.writeText(pitchResult!.brief_complet)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>📋 Copier</button>
+                    <p className="text-xs font-bold uppercase tracking-widest text-gray-400">{lang === "en" ? "Full brief" : "Brief complet"}</p>
+                    <button onClick={() => navigator.clipboard.writeText(pitchResult!.brief_complet)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>📋 {lang === "en" ? "Copy" : "Copier"}</button>
                   </div>
                   <p className="text-gray-300 text-xs whitespace-pre-wrap leading-relaxed">{pitchResult.brief_complet}</p>
                 </div>
@@ -1078,7 +1079,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                     </a>
                   )}
                   {lead.aiScore !== null && lead.aiScore !== undefined && !hasContact(lead) && (
-                    <p className="text-gray-600 text-xs mt-1 italic line-through">Score {(lead.aiScore as number).toFixed(1)}/10 — Score inutile sans contact</p>
+                    <p className="text-gray-600 text-xs mt-1 italic line-through">Score {(lead.aiScore as number).toFixed(1)}/10 — {lang === "en" ? "Score useless without contact" : "Score inutile sans contact"}</p>
                   )}
                   {!!lead.aiScoreReason && (
                     <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>
@@ -1092,7 +1093,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                       className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
                       style={{ background: "#cc00ff15", color: "#cc00ff", border: "1px solid #cc00ff40" }}
                     >
-                      {enrichingId === (lead.id as number) ? "…" : "🔍 Enrichir"}
+                      {enrichingId === (lead.id as number) ? "…" : (lang === "en" ? "🔍 Enrich" : "🔍 Enrichir")}
                     </button>
                     <button
                       onClick={() => generateEmail(lead)}
@@ -1111,7 +1112,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                     <button
                       onClick={() => hasContact(lead) ? addToPipeline(lead) : undefined}
                       disabled={!hasContact(lead)}
-                      title={!hasContact(lead) ? "Enrichissez les données de contact avant de qualifier ce prospect." : undefined}
+                      title={!hasContact(lead) ? (lang === "en" ? "Enrich contact data before qualifying this prospect." : "Enrichissez les données de contact avant de qualifier ce prospect.") : undefined}
                       className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
                       style={hasContact(lead)
                         ? { background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }
@@ -1120,7 +1121,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                       {t.addToPipeline}
                     </button>
                     {!hasContact(lead) && (
-                      <p className="text-xs text-gray-600 max-w-[140px] text-center leading-tight">Enrichissez les données de contact</p>
+                      <p className="text-xs text-gray-600 max-w-[140px] text-center leading-tight">{lang === "en" ? "Enrich contact data" : "Enrichissez les données de contact"}</p>
                     )}
                   </div>
                 )}
@@ -1162,6 +1163,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
 
 // ---- Library Panel ----
 function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
+  const { t, lang } = useAdminT();
   const [files, setFiles] = useState<{ name: string; url: string; size: number; updated: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -1188,7 +1190,7 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const deleteFile = async (name: string) => {
-    if (!confirm(`Supprimer "${name.split("/").pop()}" ?`)) return;
+    if (!confirm(lang === "en" ? `Delete "${name.split("/").pop()}"?` : `Supprimer "${name.split("/").pop()}" ?`)) return;
     setDeleting(name);
     await fetch("/api/admin/library", {
       method: "DELETE",
@@ -1206,13 +1208,13 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-white">📁 Library</h1>
-          <p className="text-gray-500 text-xs mt-1">Images hébergées sur Google Cloud Storage · réutilisables dans tous les posts</p>
+          <h1 className="text-2xl font-black text-white">{t.libraryTitle}</h1>
+          <p className="text-gray-500 text-xs mt-1">{t.librarySubtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <input
             type="text"
-            placeholder="Rechercher…"
+            placeholder={t.searchPlaceholder}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="cyber-input text-xs px-3 py-1.5 rounded w-44"
@@ -1222,7 +1224,7 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
             disabled={uploading}
             className="text-xs px-4 py-1.5 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono transition-colors disabled:opacity-50"
           >
-            {uploading ? "⏳ Import…" : "⬆ Importer"}
+            {uploading ? t.importingBtn : t.importBtn}
           </button>}
           {canWrite && <input
             ref={fileRef}
@@ -1235,13 +1237,13 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-64 text-gray-600 font-mono text-xs">Chargement…</div>
+        <div className="flex items-center justify-center h-64 text-gray-600 font-mono text-xs">{t.loading}</div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 text-gray-600 font-mono text-xs gap-3">
-          <span>{search ? "Aucun résultat pour cette recherche" : "Aucune image importée"}</span>
+          <span>{search ? t.noSearchResult : t.noImages}</span>
           {canWrite && !search && (
             <button onClick={() => fileRef.current?.click()} className="text-neon-green text-xs underline">
-              Importer votre première image
+              {t.importFirstImage}
             </button>
           )}
         </div>

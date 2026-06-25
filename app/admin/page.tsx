@@ -5787,6 +5787,12 @@ export default function AdminDashboard() {
       return next;
     });
   };
+  // Propagate theme to <body> so that CSS can hide .scanlines in light mode
+  useEffect(() => {
+    if (theme === "light") document.body.setAttribute("data-admin-theme", "light");
+    else document.body.removeAttribute("data-admin-theme");
+    return () => document.body.removeAttribute("data-admin-theme");
+  }, [theme]);
 
   const router = useRouter();
 

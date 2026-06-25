@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
-import { sendRegistrationTicket } from "@/lib/email";
+import { sendRegistrationTicket, sendOnlineAccessLink } from "@/lib/email";
 import { formatTicketRef } from "@/lib/ticketRef";
+import crypto from "crypto";
 
 /**
  * Mark a registration as paid and send the ticket/badge confirmation email.
@@ -12,9 +13,10 @@ export async function finalizeRegistrationPaid(registrationId: number): Promise<
   const reg = await prisma.registration.findUnique({ where: { id: registrationId } });
   if (!reg || reg.status === "paid") return;
 
+  const onlineToken = reg.onlineToken || crypto.randomBytes(32).toString("hex");
   await prisma.registration.update({
     where: { id: registrationId },
-    data: { status: "paid", paidAt: new Date() },
+    data: { status: "paid", paidAt: new Date(), onlineToken, onlineAccessSentAt: new Date() },
   });
 
   // Flag the pending transaction(s) as confirmed (leave failed attempts intact).
@@ -24,6 +26,12 @@ export async function finalizeRegistrationPaid(registrationId: number): Promise<
   }).catch(() => {});
 
   await sendRegistrationTicketTracked(registrationId);
+
+  // Send online access link (fire-and-forget, non-blocking)
+  const lang = reg.langExpression === "en" ? "en" : "fr";
+  sendOnlineAccessLink(reg.email, reg.fname, reg.lname, onlineToken, lang).catch(e =>
+    console.error("[Online access email after payment]", e),
+  );
 }
 
 /**

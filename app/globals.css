@@ -363,3 +363,181 @@ select option {
   90% { opacity: 1; }
   100% { transform: translateY(-100vh) translateX(20px); opacity: 0; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   ADMIN LIGHT THEME
+   Applied when [data-theme="light"] is on the root admin wrapper.
+   Accent green in light mode = #007d48 (readable on white, sufficient contrast).
+   All overrides use !important to beat Tailwind generated specificity.
+══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+[data-theme="light"] { color-scheme: light; background-color: #f0f2f6 !important; }
+
+/* ── Main / deep backgrounds ──────────────────────────────────────────────── */
+/* Compound selector handles the root div that carries both data-theme and bg-dark-900 */
+[data-theme="light"].bg-dark-900,
+[data-theme="light"] .bg-dark-900               { background-color: #f0f2f6 !important; }
+[data-theme="light"] .bg-black                  { background-color: #ffffff !important; }
+[data-theme="light"] .bg-gray-950               { background-color: #f8fafc !important; }
+[data-theme="light"] .bg-gray-900               { background-color: #ffffff !important; }
+[data-theme="light"] .bg-gray-800               { background-color: #eef0f5 !important; }
+[data-theme="light"] .bg-gray-700               { background-color: #e2e6ed !important; }
+
+/* Arbitrary dark hex backgrounds */
+[data-theme="light"] .bg-\[\#050505\]           { background-color: #f0f2f6 !important; }
+[data-theme="light"] .bg-\[\#0a0a0f\]           { background-color: #f0f2f6 !important; }
+[data-theme="light"] .bg-\[\#0d0d0d\]           { background-color: #f0f2f6 !important; }
+[data-theme="light"] .bg-\[\#111\]              { background-color: #f0f2f6 !important; }
+[data-theme="light"] .bg-\[\#111827\]           { background-color: #f0f2f6 !important; }
+
+/* Semi-transparent black backgrounds (sidebar, header) — become light */
+[data-theme="light"] .bg-black\/40              { background-color: #eef0f6 !important; }
+[data-theme="light"] .bg-black\/80              { background-color: #ffffff !important; }
+/* bg-black/90 intentionally NOT overridden — modal backdrops stay dark */
+
+/* White-alpha bg → invert for light mode */
+[data-theme="light"] .bg-white\/5               { background-color: rgba(0,0,0,0.03) !important; }
+[data-theme="light"] .bg-white\/10              { background-color: rgba(0,0,0,0.06) !important; }
+[data-theme="light"] .bg-white\/20              { background-color: rgba(0,0,0,0.10) !important; }
+
+/* ── Text colors ──────────────────────────────────────────────────────────── */
+[data-theme="light"] .text-white                { color: #0f1729 !important; }
+[data-theme="light"] .text-gray-100             { color: #1a2540 !important; }
+[data-theme="light"] .text-gray-200             { color: #253050 !important; }
+[data-theme="light"] .text-gray-300             { color: #364464 !important; }
+[data-theme="light"] .text-gray-400             { color: #4f627e !important; }
+[data-theme="light"] .text-gray-500             { color: #627492 !important; }
+[data-theme="light"] .text-gray-600             { color: #8494aa !important; }
+[data-theme="light"] .text-gray-700             { color: #a0afc2 !important; }
+
+/* ── Border colors ────────────────────────────────────────────────────────── */
+[data-theme="light"] .border-gray-900           { border-color: #e6eaf2 !important; }
+[data-theme="light"] .border-gray-800           { border-color: #d5dbe8 !important; }
+[data-theme="light"] .border-gray-700           { border-color: #b8c2d8 !important; }
+[data-theme="light"] .border-gray-600           { border-color: #97a6be !important; }
+
+/* ── Hover states ─────────────────────────────────────────────────────────── */
+[data-theme="light"] .hover\:bg-white\/5:hover  { background-color: rgba(0,0,0,0.04) !important; }
+[data-theme="light"] .hover\:bg-white\/10:hover { background-color: rgba(0,0,0,0.07) !important; }
+[data-theme="light"] .hover\:bg-gray-800:hover  { background-color: #eef0f5 !important; }
+[data-theme="light"] .hover\:text-gray-300:hover{ color: #253050 !important; }
+[data-theme="light"] .hover\:text-white:hover   { color: #0f1729 !important; }
+
+/* ── Neon-green palette — darker for legibility on light bg ───────────────── */
+/* Keep bright green as a fill/glow accent; darken for text/borders */
+[data-theme="light"] .text-neon-green                   { color: #007d48 !important; }
+[data-theme="light"] .hover\:text-neon-green:hover      { color: #007d48 !important; }
+[data-theme="light"] .focus\:text-neon-green:focus      { color: #007d48 !important; }
+
+[data-theme="light"] .border-neon-green                 { border-color: #009960 !important; }
+[data-theme="light"] .border-neon-green\/10             { border-color: rgba(0,100,56,0.18) !important; }
+[data-theme="light"] .border-neon-green\/20             { border-color: rgba(0,100,56,0.28) !important; }
+[data-theme="light"] .border-neon-green\/30             { border-color: rgba(0,100,56,0.38) !important; }
+[data-theme="light"] .border-neon-green\/50             { border-color: rgba(0,100,56,0.55) !important; }
+[data-theme="light"] .hover\:border-neon-green\/40:hover{ border-color: rgba(0,100,56,0.5) !important; }
+
+[data-theme="light"] .bg-neon-green                     { background-color: #009960 !important; }
+[data-theme="light"] .bg-neon-green\/5                  { background-color: rgba(0,100,56,0.06) !important; }
+[data-theme="light"] .bg-neon-green\/8                  { background-color: rgba(0,100,56,0.08) !important; }
+[data-theme="light"] .bg-neon-green\/10                 { background-color: rgba(0,100,56,0.1)  !important; }
+[data-theme="light"] .bg-neon-green\/20                 { background-color: rgba(0,100,56,0.15) !important; }
+
+/* When bg-neon-green is used as a tag background, text should be white */
+[data-theme="light"] .bg-neon-green { color: #ffffff !important; }
+
+/* Active/selected tab indicator */
+[data-theme="light"] .border-b-2.border-neon-green      { border-bottom-color: #009960 !important; }
+
+/* ── .cyber-card ──────────────────────────────────────────────────────────── */
+[data-theme="light"] .cyber-card {
+  background: #ffffff !important;
+  border-color: #d5dbe8 !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07) !important;
+}
+[data-theme="light"] .cyber-card:hover {
+  border-color: #009960 !important;
+  background: #f0fdf8 !important;
+  box-shadow: 0 4px 20px rgba(0,100,56,0.12) !important;
+  transform: translateY(-2px) !important;
+}
+[data-theme="light"] .cyber-card::before {
+  background: linear-gradient(90deg, transparent, #009960, transparent) !important;
+}
+
+/* ── .cyber-input ─────────────────────────────────────────────────────────── */
+[data-theme="light"] .cyber-input {
+  background: #ffffff !important;
+  border-color: #c9d0e0 !important;
+  color: #0f1729 !important;
+  color-scheme: light !important;
+}
+[data-theme="light"] .cyber-input:focus {
+  border-color: #009960 !important;
+  background: #f0fdf8 !important;
+  box-shadow: 0 0 0 3px rgba(0,120,72,0.12) !important;
+}
+[data-theme="light"] .cyber-input::placeholder { color: #9aa5bc !important; }
+[data-theme="light"] select.cyber-input option,
+[data-theme="light"] select option { background: #ffffff !important; color: #0f1729 !important; }
+
+/* ── .btn-neon ────────────────────────────────────────────────────────────── */
+[data-theme="light"] .btn-neon {
+  border-color: #009960 !important;
+  color: #009960 !important;
+}
+[data-theme="light"] .btn-neon:hover {
+  background: #009960 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px rgba(0,153,96,0.35) !important;
+}
+[data-theme="light"] .btn-neon:disabled {
+  border-color: #a0c4b8 !important;
+  color: #a0c4b8 !important;
+}
+
+/* ── .btn-neon-solid ──────────────────────────────────────────────────────── */
+[data-theme="light"] .btn-neon-solid {
+  background: #009960 !important;
+  border-color: #009960 !important;
+  color: #ffffff !important;
+}
+[data-theme="light"] .btn-neon-solid:hover {
+  background: transparent !important;
+  color: #009960 !important;
+}
+
+/* ── Sidebar structural elements ──────────────────────────────────────────── */
+[data-theme="light"] aside.shrink-0 {
+  background-color: #eef0f6 !important;
+  border-right-color: #d5dbe8 !important;
+}
+
+/* ── Top bar ──────────────────────────────────────────────────────────────── */
+[data-theme="light"] .sticky.top-0.z-40 {
+  background-color: #ffffff !important;
+  border-bottom-color: rgba(0,100,56,0.25) !important;
+}
+
+/* ── Scrollbar in light mode ─────────────────────────────────────────────── */
+[data-theme="light"] ::-webkit-scrollbar-track { background: #eef0f5 !important; }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: #009960 !important; }
+
+/* ── Inline input pattern (bg-black/40 border-gray-800) ─────────────────── */
+/* Many inline inputs use this pattern — override the combined look */
+[data-theme="light"] input[class*="bg-black"],
+[data-theme="light"] select[class*="bg-black"],
+[data-theme="light"] textarea[class*="bg-black"] {
+  background-color: #ffffff !important;
+  color: #0f1729 !important;
+}
+
+/* ── Theme toggle button self-adaptation ─────────────────────────────────── */
+[data-theme="light"] .admin-theme-toggle {
+  border-color: #b8c2d8;
+  color: #4f627e;
+}
+[data-theme="light"] .admin-theme-toggle:hover {
+  color: #007d48;
+  border-color: rgba(0,100,56,0.5);
+}

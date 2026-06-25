@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   if (!(await hasPermission("tickets", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const id = parseInt(params.id);
-  const { nameFr, nameEn, priceFr, priceEn, perksFr, perksEn, earlyBirdPriceFr, earlyBirdPriceEn, earlyBirdUntil, color, isFeatured, isVisible, ctfAccess, includesCTF, maxCapacity, sortOrder, netticketTicketId, stripeProductId } = await req.json();
+  const { nameFr, nameEn, priceFr, priceEn, perksFr, perksEn, earlyBirdPriceFr, earlyBirdPriceEn, earlyBirdUntil, color, isFeatured, isVisible, includesSessions, includesWorkshops, includesCTF, maxCapacity, sortOrder, netticketTicketId, stripeProductId } = await req.json();
 
   const updated = await prisma.ticketType.update({
     where: { id },
@@ -24,7 +24,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       ...(color !== undefined && { color }),
       ...(isFeatured !== undefined && { isFeatured }),
       ...(isVisible !== undefined && { isVisible }),
-      ...(ctfAccess !== undefined && { ctfAccess }),
+      ...(includesSessions !== undefined && { includesSessions }),
+      ...(includesWorkshops !== undefined && { includesWorkshops }),
       ...(includesCTF !== undefined && { includesCTF }),
       ...(maxCapacity !== undefined && { maxCapacity }),
       ...(sortOrder !== undefined && { sortOrder }),

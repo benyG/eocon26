@@ -150,11 +150,14 @@ Réponds en JSON uniquement, sans markdown :
     { platform: "instagram", lang: "en", content: posts.instagram_en },
   ];
 
-  await prisma.socialPost.createMany({
-    data: platforms.map(p => ({ brief, ...p })),
-  });
+  // Create records individually so we can return the IDs (createMany doesn't return them)
+  const created = await Promise.all(
+    platforms.map(p => prisma.socialPost.create({ data: { brief, ...p } }))
+  );
+  const idMap: Record<string, number> = {};
+  for (const r of created) { idMap[`${r.platform}_${r.lang}`] = r.id; }
 
-  return NextResponse.json(posts);
+  return NextResponse.json({ ...posts, _ids: idMap });
 }
 
 export async function GET() {

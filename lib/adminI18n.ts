@@ -91,6 +91,8 @@ export const adminI18n = {
     ticketType: "Type de billet",
     ticketRef: "Référence",
     checkedIn: "Checké",
+    onlineAccess: "Accès online",
+    resendOnline: "↺ Renvoyer lien",
     validateAndSend: "✓ Valider + envoyer billet",
 
     // Volunteers
@@ -616,6 +618,8 @@ export const adminI18n = {
     ticketType: "Ticket type",
     ticketRef: "Reference",
     checkedIn: "Checked in",
+    onlineAccess: "Online access",
+    resendOnline: "↺ Resend link",
     validateAndSend: "✓ Validate + send ticket",
 
     // Volunteers

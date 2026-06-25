@@ -8,7 +8,7 @@ export async function GET() {
   if (!(await hasPermission("ctf", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   // Get ticket types with CTF access
-  const ctfTickets = await prisma.ticketType.findMany({ where: { ctfAccess: true } });
+  const ctfTickets = await prisma.ticketType.findMany({ where: { includesCTF: true } });
   const ctfSlugs = ctfTickets.map(t => t.slug);
 
   const participants = await prisma.registration.findMany({

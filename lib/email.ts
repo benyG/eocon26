@@ -143,7 +143,7 @@ async function generateBadgePdf(
     doc.lineWidth(0.8).strokeColor("#000000").roundedRect(12, 93, ticketType.length * 6 + 12, 14, 3).stroke();
     doc.fillColor("#000000").fontSize(7).font("Helvetica").text(ticketType.toUpperCase(), 18, 97, { characterSpacing: 2 });
     doc.fillColor("#000000").fontSize(6).text(ticketRef, 12, 113);
-    doc.image(qrBuffer, 163, 18, { width: 68, height: 68 });
+    doc.image(qrBuffer, 155, 12, { width: 80, height: 80 });
     doc.end();
   });
 }
@@ -516,6 +516,7 @@ export async function sendRegistrationTicket(
   lang: "fr" | "en" = "fr",
 ) {
   const isFr = lang === "fr";
+  const isCTFOnly = /ctf.?only|ctf.?seul|eyesopenctf.?only/i.test(ticketType) || ticketType.toLowerCase() === "ctf";
   const domain = process.env.DOMAIN || process.env.NEXT_PUBLIC_URL || "eyesopensecurity.com";
   const baseUrl = domain.startsWith("http") ? domain : `https://${domain}`;
   const connectUrl = `${baseUrl}/connect/${ticketRef}?sig=${signConnectRef(ticketRef)}`;
@@ -540,8 +541,20 @@ export async function sendRegistrationTicket(
     console.error("[Badge PDF generation failed]", e);
   }
 
-  // QR code — image only, no caption text
-  const qrImg = `<img src="cid:qr_access" alt="QR Check-in" width="200" height="200" style="border:3px solid #00ff9d;border-radius:10px;display:block;" />`;
+  // QR code wrapped in a ticket card for check-in staff
+  const qrImg = `
+<div style="text-align:center;margin:24px 0;">
+  <div style="display:inline-block;background:#0a0f0a;border:1px solid #00ff9d33;border-radius:14px;padding:20px 28px;">
+    <div style="font-family:'Courier New',Courier,monospace;font-size:9px;letter-spacing:3px;color:#00ff9d80;text-transform:uppercase;margin-bottom:14px;">
+      ${isFr ? "QR DE POINTAGE — STAFF UNIQUEMENT" : "CHECK-IN QR — STAFF ONLY"}
+    </div>
+    <img src="cid:qr_access" alt="${isFr ? "QR Check-in" : "Check-in QR"}" width="200" height="200" style="border:3px solid #00ff9d;border-radius:10px;display:block;" />
+    <div style="font-family:'Courier New',Courier,monospace;font-size:8px;color:#00ff9d50;margin-top:12px;letter-spacing:2px;">${ticketRef}</div>
+    <div style="font-family:sans-serif;font-size:10px;color:#555;margin-top:6px;">
+      ${isFr ? "Présentez ce QR au staff à l'entrée de l'événement." : "Show this QR to staff at the event entrance."}
+    </div>
+  </div>
+</div>`;
 
   // Badge coupon (printable card)
   const badgeCoupon = `
@@ -586,36 +599,42 @@ export async function sendRegistrationTicket(
   </a>
 </div>`;
 
+  const ctfOnlyNote = isFr
+    ? `<div style="margin:16px 0;padding:14px 16px;background:#1a0a00;border:1px solid #ff990033;border-radius:8px;font-family:sans-serif;font-size:12px;color:#ffaa00;line-height:1.6;">
+        ℹ️ <strong>Accès EyesOpenCTF uniquement.</strong> Ce billet vous donne accès exclusivement à la compétition CTF. Il ne comprend pas l'accès aux conférences, workshops ou à l'espace exposition d'EOCON 2026.
+       </div>`
+    : `<div style="margin:16px 0;padding:14px 16px;background:#1a0a00;border:1px solid #ff990033;border-radius:8px;font-family:sans-serif;font-size:12px;color:#ffaa00;line-height:1.6;">
+        ℹ️ <strong>EyesOpenCTF access only.</strong> This ticket grants access exclusively to the CTF competition. It does not include access to EOCON 2026 talks, workshops, or the exhibition area.
+       </div>`;
+
   const body = isFr
     ? `<p>${greenLabel("Bonjour " + esc(fname) + " " + esc(lname))},</p>
-       <p>🎟️ Votre billet EOCON 2026 est confirmé. On vous attend du 23 au 28 novembre en ligne et à Douala !</p>
+       <p>${isCTFOnly ? "🏁 Votre accès <strong>EyesOpenCTF</strong> est confirmé. Préparez-vous — le challenge commence bientôt !" : "🎟️ Votre billet EOCON 2026 est confirmé. On vous attend du 23 au 28 novembre en ligne et à Douala !"}</p>
+       ${isCTFOnly ? ctfOnlyNote : ""}
        ${neonBox(`<table cellpadding="0" cellspacing="0" width="100%"><tbody>
          ${neonRow("Participant", `<strong>${esc(fname)} ${esc(lname)}</strong>`)}
          ${neonRow("Billet", esc(ticketType))}
          ${neonRow("Référence", `<strong style="color:#00ff9d;font-size:15px;">${ticketRef}</strong>`)}
          ${neonRow("Statut", '<span style="color:#00ff9d;font-weight:bold;">✓ CONFIRMÉ</span>')}
        </tbody></table>`)}
-       <div style="text-align:center;margin:24px 0;">
-         ${qrImg}
-       </div>
-       ${calLinks}
+       ${qrImg}
+       ${isCTFOnly ? "" : calLinks}
        <div style="margin-top:24px;padding:16px;background:#0d1117;border:1px solid #00ccff30;border-radius:8px;">
-         <p style="color:#00ccff;font-size:11px;letter-spacing:2px;margin:0 0 10px;">🪪 ${isFr ? "BADGE D'ENTRÉE À IMPRIMER" : "ENTRY BADGE TO PRINT"}</p>
+         <p style="color:#00ccff;font-size:11px;letter-spacing:2px;margin:0 0 10px;">🪪 BADGE D'ENTRÉE À IMPRIMER</p>
          ${badgeCoupon}
        </div>
        <p style="font-size:12px;color:#888;margin-top:20px;">📍 Hotel Onomo · Douala · Cameroun</p>`
     : `<p>${greenLabel("Hello " + esc(fname) + " " + esc(lname))},</p>
-       <p>🎟️ Your EOCON 2026 ticket is confirmed. See you from November 23 to 28 — online and in Douala!</p>
+       <p>${isCTFOnly ? "🏁 Your <strong>EyesOpenCTF</strong> access is confirmed. Get ready — the challenge starts soon!" : "🎟️ Your EOCON 2026 ticket is confirmed. See you from November 23 to 28 — online and in Douala!"}</p>
+       ${isCTFOnly ? ctfOnlyNote : ""}
        ${neonBox(`<table cellpadding="0" cellspacing="0" width="100%"><tbody>
          ${neonRow("Attendee", `<strong>${esc(fname)} ${esc(lname)}</strong>`)}
          ${neonRow("Ticket", esc(ticketType))}
          ${neonRow("Reference", `<strong style="color:#00ff9d;font-size:15px;">${ticketRef}</strong>`)}
          ${neonRow("Status", '<span style="color:#00ff9d;font-weight:bold;">✓ CONFIRMED</span>')}
        </tbody></table>`)}
-       <div style="text-align:center;margin:24px 0;">
-         ${qrImg}
-       </div>
-       ${calLinks}
+       ${qrImg}
+       ${isCTFOnly ? "" : calLinks}
        <div style="margin-top:24px;padding:16px;background:#0d1117;border:1px solid #00ccff30;border-radius:8px;">
          <p style="color:#00ccff;font-size:11px;letter-spacing:2px;margin:0 0 10px;">🪪 ENTRY BADGE TO PRINT</p>
          ${badgeCoupon}
@@ -637,5 +656,64 @@ export async function sendRegistrationTicket(
     ],
     "registration@eyesopensecurity.com",
   );
+}
+
+// ── Online access magic link ──────────────────────────────────────────────────
+
+export async function sendOnlineAccessLink(
+  to: string,
+  fname: string,
+  lname: string,
+  token: string,
+  lang: "fr" | "en",
+): Promise<void> {
+  const isFr = lang === "fr";
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://eyesopensecurity.com";
+  const link = `${baseUrl}/live?access=${token}`;
+
+  const subject = isFr
+    ? "🔐 Votre accès à EOCON 2026 en ligne"
+    : "🔐 Your EOCON 2026 online access";
+
+  const body = `
+    <p style="font-size:16px;margin:0 0 8px;">
+      ${isFr ? "Bonjour" : "Hello"} <strong style="color:#00ff9d;">${esc(fname)} ${esc(lname)}</strong>,
+    </p>
+    <p style="color:#ccc;margin:0 0 24px;">
+      ${isFr
+        ? "Votre lien d'accès personnel à la conférence EOCON 2026 en ligne est prêt."
+        : "Your personal access link to EOCON 2026 online is ready."}
+    </p>
+    ${neonBox(`
+      <p style="margin:0 0 8px;font-size:12px;color:#00ff9d;letter-spacing:2px;">
+        ${isFr ? "▸ ACCÈS DIRECT À LA CONFÉRENCE" : "▸ DIRECT CONFERENCE ACCESS"}
+      </p>
+      <p style="margin:0;font-size:12px;color:#888;">
+        ${isFr
+          ? "Cliquez sur le bouton ci-dessous pour rejoindre la conférence. Ce lien est personnel et sécurisé."
+          : "Click the button below to join the conference. This link is personal and secure."}
+      </p>
+    `)}
+    ${ctaButton(link, isFr ? "🚀 REJOINDRE LA CONFÉRENCE" : "🚀 JOIN THE CONFERENCE")}
+    <p style="font-size:11px;color:#666;margin:16px 0 0;text-align:center;">
+      ${isFr
+        ? "Ce lien est à usage unique et vous est réservé. Ne le partagez pas."
+        : "This link is unique to you. Please do not share it."}
+    </p>
+    <p style="font-size:11px;color:#555;margin:8px 0 0;text-align:center;">
+      ${isFr ? "Lien perdu ?" : "Lost your link?"}
+      <a href="${baseUrl}/live/resend" style="color:#00ff9d;">
+        ${isFr ? "Renvoyer le lien d'accès" : "Resend access link"}
+      </a>
+    </p>
+    ${dateLine(isFr)}`;
+
+  const resend = getResend();
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject,
+    html: emailWrap(body, isFr),
+  });
 }
 

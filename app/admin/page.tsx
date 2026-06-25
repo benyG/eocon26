@@ -21,6 +21,12 @@ const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; 
 });
 const useAdminT = () => useContext(AdminLangContext);
 
+const AdminThemeContext = createContext<{ theme: "dark" | "light"; toggleTheme: () => void }>({
+  theme: "dark",
+  toggleTheme: () => {},
+});
+const useAdminTheme = () => useContext(AdminThemeContext);
+
 type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "sessions" | "video" | "transactions" | "testimony" | "campaigns" | "strategic-plan";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
@@ -692,6 +698,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
   const [apolloKeywords, setApolloKeywords] = useState("cybersecurity,technology,telecom,finance");
   const [placesQuery, setPlacesQuery] = useState("");
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [emailTarget, setEmailTarget] = useState<Record<string, unknown> | null>(null);
   const [emailResult, setEmailResult] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
   const [generatingEmail, setGeneratingEmail] = useState(false);
@@ -722,13 +729,23 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
 
   const runApolloSearch = async () => {
     setSearching(true);
-    await fetch("/api/admin/ai/apollo-search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ keywords: apolloKeywords.split(",").map(k => k.trim()).filter(Boolean) }),
-    });
-    await onRefresh();
-    setSearching(false);
+    setSearchError(null);
+    try {
+      const res = await fetch("/api/admin/ai/apollo-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keywords: apolloKeywords.split(",").map(k => k.trim()).filter(Boolean) }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` })) as { error?: string };
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      await onRefresh();
+    } catch (e) {
+      setSearchError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSearching(false);
+    }
   };
 
   const runPlacesSearch = async () => {
@@ -968,14 +985,17 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
           ))}
         </div>
         {searchTab === "apollo" ? (
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="text-xs text-gray-500 block mb-1">{t.apolloKeywordsLabel}</label>
-              <input value={apolloKeywords} onChange={e => setApolloKeywords(e.target.value)} className="cyber-input w-full text-xs rounded px-3 py-2" placeholder="cybersecurity,technology,telecom,finance,banking" />
+          <div className="space-y-2">
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="text-xs text-gray-500 block mb-1">{t.apolloKeywordsLabel}</label>
+                <input value={apolloKeywords} onChange={e => { setApolloKeywords(e.target.value); setSearchError(null); }} className="cyber-input w-full text-xs rounded px-3 py-2" placeholder="cybersecurity,technology,telecom,finance,banking" />
+              </div>
+              {canWrite && <button onClick={runApolloSearch} disabled={searching} className="btn-neon px-5 py-2 rounded text-xs self-end shrink-0">
+                {searching ? t.searchingLabel : t.searchBtn}
+              </button>}
             </div>
-            {canWrite && <button onClick={runApolloSearch} disabled={searching} className="btn-neon px-5 py-2 rounded text-xs self-end shrink-0">
-              {searching ? t.searchingLabel : t.searchBtn}
-            </button>}
+            {searchError && <p className="text-xs text-red-400 font-mono bg-red-400/5 border border-red-400/20 rounded px-3 py-2">⚠ {searchError}</p>}
           </div>
         ) : (
           <div className="flex gap-3">
@@ -1339,6 +1359,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [lang, setLang] = useState<"fr" | "en" | "both">("both");
   const [generating, setGenerating] = useState(false);
   const [generatedPosts, setGeneratedPosts] = useState<Record<string, string> | null>(null);
+  const [generatedPostIds, setGeneratedPostIds] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
   const [linkedinPosts, setLinkedinPosts] = useState<Record<string, unknown>[]>([]);
   const [publishing, setPublishing] = useState<number | null>(null);
@@ -1424,6 +1445,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
     const date = new Date(currentYear, currentMonth, day);
     setSelectedDay(date);
     setGeneratedPosts(null);
+    setGeneratedPostIds({});
     setPanelOpen(true);
     setPostImage(null);
     setScheduleDate(date.toISOString().slice(0, 10) + "T10:00");
@@ -1439,13 +1461,20 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ brief, contextType, contextItem: selectedItem }),
     });
-    if (res.ok) setGeneratedPosts(await res.json());
+    if (res.ok) {
+      const data = await res.json() as Record<string, unknown>;
+      const { _ids, ...postsData } = data;
+      setGeneratedPosts(postsData as Record<string, string>);
+      setGeneratedPostIds((_ids as Record<string, number>) || {});
+    }
     setGenerating(false);
   };
 
   const savePosts = async () => {
     if (!generatedPosts || !selectedDay) return;
     setSaving(true);
+    // PATCH each generated post's content (edited by user) and scheduling data in-place.
+    // Never re-generate — that would create duplicate DB records.
     const entries: { platform: string; lang: string; content: string }[] = [];
     if (platforms.linkedin) {
       if (lang !== "en") entries.push({ platform: "linkedin", lang: "fr", content: generatedPosts.linkedin_fr || "" });
@@ -1460,41 +1489,18 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
       if (lang !== "fr") entries.push({ platform: "instagram", lang: "en", content: generatedPosts.instagram_en || "" });
     }
     for (const entry of entries) {
-      // Save post via generate-posts then PATCH with imageUrl + scheduledAt
-      const saveRes = await fetch("/api/admin/ai/generate-posts", {
-        method: "POST",
+      const postId = generatedPostIds[`${entry.platform}_${entry.lang}`];
+      if (!postId) continue;
+      await fetch("/api/admin/ai/social-posts", {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          brief: entry.content,
-          contextType,
-          contextItem: selectedItem,
-          platform: entry.platform,
-          lang: entry.lang,
-          saveOnly: true,
-          content: entry.content,
-          imageUrl: postImage || undefined,
-          scheduledAt: scheduleDate || undefined,
-        }),
+        body: JSON.stringify({ id: postId, content: entry.content, imageUrl: postImage || undefined, scheduledAt: scheduleDate || undefined }),
       });
-      if (!saveRes.ok) {
-        // Fallback: create via social-posts PATCH on existing draft
-        const freshRes = await fetch("/api/admin/ai/social-posts");
-        if (freshRes.ok) {
-          const fresh = await freshRes.json() as Record<string, unknown>[];
-          const match = fresh.find(p => p.platform === entry.platform && p.lang === entry.lang && p.status === "draft");
-          if (match) {
-            await fetch("/api/admin/ai/social-posts", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ id: match.id, content: entry.content, imageUrl: postImage || undefined, scheduledAt: scheduleDate || undefined }),
-            });
-          }
-        }
-      }
     }
     await loadLinkedinPosts();
     setPanelOpen(false);
     setGeneratedPosts(null);
+    setGeneratedPostIds({});
     setSaving(false);
   };
 
@@ -1615,6 +1621,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                       const newBrief = generateBriefFromContext(ctx.key, null, contextData);
                       setBrief(newBrief);
                       setGeneratedPosts(null);
+                      setGeneratedPostIds({});
                     }}
                     className={`p-2 rounded-lg border text-left transition-all ${contextType === ctx.key ? "border-neon-green/50 bg-neon-green/10" : "border-gray-800 hover:border-gray-600"}`}
                   >
@@ -1649,6 +1656,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                     const newBrief = generateBriefFromContext(contextType, item, contextData);
                     setBrief(newBrief);
                     setGeneratedPosts(null);
+                    setGeneratedPostIds({});
                     // Auto-fill speaker photo
                     if (contextType === "speaker" && item?.photoUrl) setPostImage(item.photoUrl as string);
                   }}
@@ -1826,19 +1834,54 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={async () => {
-                      await savePosts();
-                      // publish all saved drafts immediately
-                      const fresh = await fetch("/api/admin/ai/social-posts").then(r => r.json()) as Record<string, unknown>[];
-                      for (const p of fresh.filter(p => p.status === "draft")) {
-                        await fetch("/api/admin/ai/publish-post", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: p.id }) });
+                      if (saving) return;
+                      setSaving(true);
+                      // Save edited content in-place (PATCH), then publish only the current-session posts.
+                      // Snapshot IDs before savePosts() clears them.
+                      const toPublish = Object.entries(generatedPostIds)
+                        .filter(([key]) => {
+                          const [plat] = key.split("_");
+                          return platforms[plat as keyof typeof platforms];
+                        })
+                        .map(([, id]) => id);
+                      // Update content in DB (no new records created)
+                      const entries: { platform: string; lang: string; content: string }[] = [];
+                      if (platforms.linkedin) {
+                        if (lang !== "en") entries.push({ platform: "linkedin", lang: "fr", content: generatedPosts.linkedin_fr || "" });
+                        if (lang !== "fr") entries.push({ platform: "linkedin", lang: "en", content: generatedPosts.linkedin_en || "" });
                       }
+                      if (platforms.twitter) {
+                        if (lang !== "en") entries.push({ platform: "twitter", lang: "fr", content: generatedPosts.twitter_fr || "" });
+                        if (lang !== "fr") entries.push({ platform: "twitter", lang: "en", content: generatedPosts.twitter_en || "" });
+                      }
+                      if (platforms.instagram) {
+                        if (lang !== "en") entries.push({ platform: "instagram", lang: "fr", content: generatedPosts.instagram_fr || "" });
+                        if (lang !== "fr") entries.push({ platform: "instagram", lang: "en", content: generatedPosts.instagram_en || "" });
+                      }
+                      for (const entry of entries) {
+                        const postId = generatedPostIds[`${entry.platform}_${entry.lang}`];
+                        if (!postId) continue;
+                        await fetch("/api/admin/ai/social-posts", {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ id: postId, content: entry.content, imageUrl: postImage || undefined }),
+                        });
+                      }
+                      // Publish only this generation's posts (not all drafts)
+                      for (const postId of toPublish) {
+                        await fetch("/api/admin/ai/publish-post", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: postId }) });
+                      }
+                      setGeneratedPosts(null);
+                      setGeneratedPostIds({});
+                      setSaving(false);
+                      setPanelOpen(false);
                       await loadLinkedinPosts();
                     }}
                     disabled={saving}
                     className="py-2 rounded text-xs font-bold transition-all"
                     style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}
                   >
-                    {t.postNowBtn}
+                    {saving ? "..." : t.postNowBtn}
                   </button>
                   <button
                     onClick={savePosts}
@@ -3192,11 +3235,11 @@ interface TicketTypeRow {
   priceFr: number; priceEn: number; perksFr: string; perksEn: string;
   earlyBirdPriceFr: number | null; earlyBirdPriceEn: number | null;
   earlyBirdUntil: string | null; color: string; isFeatured: boolean;
-  isVisible: boolean; ctfAccess: boolean; includesCTF: boolean; maxCapacity: number; sortOrder: number; sold: number;
+  isVisible: boolean; includesSessions: boolean; includesWorkshops: boolean; includesCTF: boolean; maxCapacity: number; sortOrder: number; sold: number;
   netticketTicketId: string | null; stripeProductId: string | null;
 }
 
-const TICKET_DEFAULT_FORM = { slug: "", nameFr: "", nameEn: "", priceFr: 0, priceEn: 0, color: "#00ff9d", isFeatured: false, isVisible: true, ctfAccess: false, maxCapacity: 200, sortOrder: 0, perksFrArr: [] as string[], perksEnArr: [] as string[], netticketTicketId: "", stripeProductId: "" };
+const TICKET_DEFAULT_FORM = { slug: "", nameFr: "", nameEn: "", priceFr: 0, priceEn: 0, color: "#00ff9d", isFeatured: false, isVisible: true, includesSessions: true, includesWorkshops: false, includesCTF: false, maxCapacity: 200, sortOrder: 0, perksFrArr: [] as string[], perksEnArr: [] as string[], netticketTicketId: "", stripeProductId: "" };
 
 function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [tickets, setTickets] = useState<TicketTypeRow[]>([]);
@@ -3339,9 +3382,17 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
               <input type="checkbox" checked={createForm.isFeatured} onChange={e => setCreateForm(f => ({ ...f, isFeatured: e.target.checked }))} />
               Recommandé
             </label>
+            <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#00ff9d" }}>
+              <input type="checkbox" checked={createForm.includesSessions} onChange={e => setCreateForm(f => ({ ...f, includesSessions: e.target.checked }))} />
+              📡 Sessions / Conférences
+            </label>
+            <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#a78bfa" }}>
+              <input type="checkbox" checked={createForm.includesWorkshops} onChange={e => setCreateForm(f => ({ ...f, includesWorkshops: e.target.checked }))} />
+              🛠 Workshops
+            </label>
             <label className="flex items-center gap-2 text-xs font-bold cursor-pointer" style={{ color: "#00ccff" }}>
-              <input type="checkbox" checked={createForm.ctfAccess} onChange={e => setCreateForm(f => ({ ...f, ctfAccess: e.target.checked }))} />
-              ⚡ Accès CTF inclus
+              <input type="checkbox" checked={createForm.includesCTF} onChange={e => setCreateForm(f => ({ ...f, includesCTF: e.target.checked }))} />
+              ⚡ CTF
             </label>
           </div>
           <div className="flex gap-3">
@@ -3438,13 +3489,17 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                       <input type="checkbox" checked={!!editForm.isVisible} onChange={e => setEditForm(f => ({ ...f, isVisible: e.target.checked }))} />
                       Visible sur le portail
                     </label>
-                    <label className="flex items-center gap-2 text-xs cursor-pointer font-bold" style={{ color: "#00ccff" }}>
-                      <input type="checkbox" checked={!!editForm.ctfAccess} onChange={e => setEditForm(f => ({ ...f, ctfAccess: e.target.checked }))} />
-                      ⚡ Accès CTF
+                    <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#00ff9d" }}>
+                      <input type="checkbox" checked={editForm.includesSessions !== false} onChange={e => setEditForm(f => ({ ...f, includesSessions: e.target.checked }))} />
+                      📡 Sessions / Conférences
                     </label>
-                    <label className="flex items-center gap-2 text-xs cursor-pointer font-bold" style={{ color: "#00ff9d" }}>
+                    <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#a78bfa" }}>
+                      <input type="checkbox" checked={!!editForm.includesWorkshops} onChange={e => setEditForm(f => ({ ...f, includesWorkshops: e.target.checked }))} />
+                      🛠 Workshops
+                    </label>
+                    <label className="flex items-center gap-2 text-xs cursor-pointer font-bold" style={{ color: "#00ccff" }}>
                       <input type="checkbox" checked={!!editForm.includesCTF} onChange={e => setEditForm(f => ({ ...f, includesCTF: e.target.checked }))} />
-                      Accès CTF inclus ⚡
+                      ⚡ CTF
                     </label>
                     <div className="flex items-center gap-2">
                       <label className="text-xs text-gray-500">Ordre</label>
@@ -3476,8 +3531,9 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                           <span className="text-white font-bold">{t.nameFr} / {t.nameEn}</span>
                           {t.isFeatured && <span className="text-xs px-2 py-0.5 rounded" style={{ background: t.color + "20", color: t.color }}>★ Recommandé</span>}
                           {!t.isVisible && <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-500">Masqué</span>}
-                          {t.ctfAccess && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}>⚡ CTF</span>}
-                          {t.includesCTF && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>⚡ CTF inclus</span>}
+                          {t.includesSessions && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>📡 Sessions</span>}
+                          {t.includesWorkshops && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#a78bfa15", color: "#a78bfa", border: "1px solid #a78bfa30" }}>🛠 Workshops</span>}
+                          {t.includesCTF && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}>⚡ CTF</span>}
                         </div>
                         <div className="text-xs text-gray-400 mt-0.5 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
                           <span style={{ color: t.color }}>{t.priceFr.toLocaleString("fr-FR")} XAF</span>
@@ -3576,9 +3632,21 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
           <h1 className="text-2xl font-black text-white">{t.registrationsTitle} ({filtered.length})</h1>
           <p className="text-gray-500 text-xs mt-1">Validez le paiement pour envoyer le billet avec QR code</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <a href="/checkin/scan" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">📷 Scanner QR →</a>
           <a href="/admin/checkin" target="_blank" rel="noreferrer" className="px-4 py-2 rounded text-sm border border-gray-700 text-gray-300 hover:text-white transition-colors">📋 Liste check-in →</a>
+          <button
+            onClick={async () => {
+              if (!confirm("Générer et envoyer les liens d'accès online à tous les inscrits validés sans lien ?")) return;
+              const res = await fetch("/api/admin/registrations/generate-online-tokens", { method: "POST" });
+              const data = await res.json();
+              setMsg(`🌐 ${data.generated} lien(s) généré(s) et envoyé(s).`);
+              setTimeout(() => setMsg(null), 6000);
+            }}
+            className="px-4 py-2 rounded text-sm border border-cyan-700/40 text-cyan-400 hover:bg-cyan-500/10 transition-colors"
+          >
+            🌐 Envoyer accès online
+          </button>
         </div>
       </div>
 
@@ -3610,7 +3678,7 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-neon-green/10 text-gray-500 text-left">
-              {[t.name, t.ticketType, t.status, t.checkedIn, t.date, t.actions].map(h => (
+              {[t.name, t.ticketType, t.status, t.checkedIn, t.onlineAccess, t.date, t.actions].map(h => (
                 <th key={h} className="py-2 px-3 font-normal">{h}</th>
               ))}
             </tr>
@@ -3634,6 +3702,13 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
                       ? <span className="text-neon-green text-xs">✓ {new Date(r.checkedInAt as string).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
                       : <span className="text-gray-600 text-xs">—</span>}
                   </td>
+                  <td className="py-2 px-3">
+                    {r.onlineCheckedInAt
+                      ? <span className="text-cyan-400 text-xs">🌐 {new Date(r.onlineCheckedInAt as string).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                      : r.onlineToken
+                        ? <span className="text-gray-600 text-xs">🔗 en attente</span>
+                        : <span className="text-gray-700 text-xs">—</span>}
+                  </td>
                   <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleDateString("fr-FR")}</td>
                   <td className="py-2 px-3">
                     <div className="flex gap-2 flex-wrap items-center">
@@ -3652,6 +3727,20 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
                         </>
                       )}
                       {done && <span className="text-xs text-neon-green/60 font-mono">Billet envoyé ✓</span>}
+                      {done && (
+                        <button
+                          disabled={busyId === r.id}
+                          onClick={async () => {
+                            setBusyId(r.id as number);
+                            await fetch(`/api/admin/registrations/${r.id}/resend-online`, { method: "POST" });
+                            setBusyId(null);
+                          }}
+                          className="text-xs px-2 py-1 rounded border border-cyan-700/40 text-cyan-400 hover:bg-cyan-500/10 transition-colors disabled:opacity-50"
+                          title="Renvoyer le lien d'accès online"
+                        >
+                          {t.resendOnline}
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -4435,7 +4524,7 @@ function levenshtein(a: string, b: string): number {
 }
 
 function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
-  const [subTab, setSubTab] = useState<"config" | "challenges" | "participants" | "emails">("config");
+  const [subTab, setSubTab] = useState<"config" | "challenges" | "participants">("config");
   const [config, setConfig] = useState({ ctfdUrl: "", ctfdApiKey: "", ctfDefaultPassword: "", ctfEnabled: "false" });
   const [configSaving, setConfigSaving] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -4583,7 +4672,6 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
     { key: "config", label: "⚙ Config" },
     { key: "challenges", label: "🏁 Challenges" },
     { key: "participants", label: "👤 Participants" },
-    { key: "emails", label: "✉ Emails" },
   ] as const;
 
   return (
@@ -4897,59 +4985,6 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
         </div>
       )}
 
-      {subTab === "emails" && (
-        <div className="max-w-2xl">
-          <p className="text-xs text-gray-500 mb-4">Les emails sont envoyés automatiquement dans la langue choisie par le participant (FR ou EN).</p>
-          {[
-            { key: "ctf_account_created", label: "Accès CTFd — identifiants de connexion", desc: "Envoyé après création du compte CTFd" },
-            { key: "ctf_no_teammate", label: "Participation sans équipe", desc: "Participant sans binôme — joue en solo" },
-            { key: "ctf_reminder", label: "Rappel CTF — J-1", desc: "Rappel envoyé la veille" },
-          ].map(tpl => (
-            <CTFEmailTemplate key={tpl.key} templateKey={tpl.key} label={tpl.label} desc={tpl.desc} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CTFEmailTemplate({ templateKey, label, desc }: { templateKey: string; label: string; desc: string }) {
-  const [tpl, setTpl] = useState({ subjectFr: "", bodyFr: "", subjectEn: "", bodyEn: "" });
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/admin/settings").then(r => r.json()).then((s: Record<string, string>) => {
-      try { const v = JSON.parse(s[`emailTemplate_${templateKey}`] || "{}"); setTpl(v); } catch { /* ignore */ }
-    });
-  }, [templateKey]);
-
-  const save = async () => {
-    setSaving(true);
-    await fetch("/api/admin/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [`emailTemplate_${templateKey}`]: JSON.stringify(tpl) }) });
-    setSaving(false);
-  };
-
-  return (
-    <div className="cyber-card rounded-xl p-5 mb-4">
-      <div className="mb-3">
-        <div className="text-sm font-bold text-white">{label}</div>
-        <div className="text-xs text-gray-500">{desc}</div>
-      </div>
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <label className="text-xs text-gray-500 block mb-1">Objet FR</label>
-          <input value={tpl.subjectFr} onChange={e => setTpl(t => ({ ...t, subjectFr: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-xs mb-2" />
-          <label className="text-xs text-gray-500 block mb-1">Corps FR</label>
-          <textarea rows={5} value={tpl.bodyFr} onChange={e => setTpl(t => ({ ...t, bodyFr: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-xs" />
-        </div>
-        <div>
-          <label className="text-xs text-gray-500 block mb-1">Subject EN</label>
-          <input value={tpl.subjectEn} onChange={e => setTpl(t => ({ ...t, subjectEn: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-xs mb-2" />
-          <label className="text-xs text-gray-500 block mb-1">Body EN</label>
-          <textarea rows={5} value={tpl.bodyEn} onChange={e => setTpl(t => ({ ...t, bodyEn: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-xs" />
-        </div>
-      </div>
-      <button onClick={save} disabled={saving} className="btn-neon px-3 py-1.5 rounded text-xs mt-3">{saving ? "Sauvegarde…" : "Sauvegarder"}</button>
     </div>
   );
 }
@@ -5740,6 +5775,19 @@ export default function AdminDashboard() {
   });
   const t = adminI18n[lang];
   const changeLang = (l: AdminLang) => { setLang(l); localStorage.setItem("admin_lang", l); };
+
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    if (typeof window !== "undefined") return (localStorage.getItem("admin_theme") as "dark" | "light") || "dark";
+    return "dark";
+  });
+  const toggleTheme = () => {
+    setTheme(t => {
+      const next = t === "dark" ? "light" : "dark";
+      localStorage.setItem("admin_theme", next);
+      return next;
+    });
+  };
+
   const router = useRouter();
 
   // Current user identity + permissions
@@ -5804,6 +5852,8 @@ export default function AdminDashboard() {
     if (userInfo.isLegacy) return true; // legacy token = full access
     const permKey = TAB_PERMISSION[tabId];
     if (permKey === undefined) return true; // always visible
+    // Pilotage tab is also accessible via pilotage-meetings permission
+    if (tabId === "pilotage" && !!userInfo.permissions["pilotage-meetings"]) return true;
     return !!userInfo.permissions[permKey as string];
   };
 
@@ -5812,6 +5862,8 @@ export default function AdminDashboard() {
     if (userInfo.isLegacy) return true;
     const permKey = TAB_PERMISSION[tabId];
     if (permKey === undefined) return true;
+    // Pilotage tab is also accessible via pilotage-meetings permission
+    if (tabId === "pilotage" && !!userInfo.permissions["pilotage-meetings"]) return true;
     return !!userInfo.permissions[permKey as string];
   };
 
@@ -6113,8 +6165,9 @@ export default function AdminDashboard() {
   })();
 
   return (
+    <AdminThemeContext.Provider value={{ theme, toggleTheme }}>
     <AdminLangContext.Provider value={{ lang, t, setLang: changeLang }}>
-    <div className="min-h-screen bg-dark-900" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+    <div data-theme={theme} className="min-h-screen bg-dark-900" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
       {/* Detail drawer */}
       {detail && <DetailDrawer item={detail.item} type={detail.type} onClose={() => setDetail(null)} />}
       {showAccount && userInfo && !userInfo.isLegacy && (
@@ -6135,6 +6188,18 @@ export default function AdminDashboard() {
             className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-neon-green hover:border-neon-green/40 transition-all font-mono"
           >
             {lang === "fr" ? "EN" : "FR"}
+          </button>
+          {/* Light / dark theme toggle */}
+          <button
+            onClick={toggleTheme}
+            title={theme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
+            className="admin-theme-toggle flex items-center gap-1.5 text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-neon-green hover:border-neon-green/40 transition-all font-mono select-none"
+          >
+            {theme === "dark" ? (
+              <><span>☀</span><span className="hidden sm:inline">Clair</span></>
+            ) : (
+              <><span>🌙</span><span className="hidden sm:inline">Sombre</span></>
+            )}
           </button>
           <button onClick={logout} className="text-xs text-red-400 hover:text-red-300 transition-colors">{t.logout}</button>
         </div>
@@ -6640,7 +6705,12 @@ export default function AdminDashboard() {
           {activeTab === "users" && <AdminUsersPanel canWrite={can("users")} canDelete={!!(userInfo?.isLegacy || userInfo?.isRoot)} />}
           {activeTab === "profiles" && <AdminProfilesPanel />}
 
-          {activeTab === "pilotage" && <PilotagePanel canWrite={can("pilotage")} canReadKanban={can("pilotage", "read")} canWriteKanban={can("pilotage", "write")} canReadMeetings={can("pilotage-meetings", "read")} canWriteMeetings={can("pilotage-meetings", "write")} currentUserEmail={userInfo?.email} />}
+          {activeTab === "pilotage" && (() => {
+            // Only pass meetings-specific perms when the user has an explicit "pilotage-meetings" key;
+            // otherwise fall back to the general "pilotage" write/read permission inside PilotagePanel.
+            const hasMeetingPerm = !!(userInfo && !userInfo.isLegacy && userInfo.permissions["pilotage-meetings"]);
+            return <PilotagePanel canWrite={can("pilotage")} canReadKanban={can("pilotage", "read")} canWriteKanban={can("pilotage", "write")} canReadMeetings={hasMeetingPerm ? can("pilotage-meetings", "read") : undefined} canWriteMeetings={hasMeetingPerm ? can("pilotage-meetings", "write") : undefined} currentUserEmail={userInfo?.email} />;
+          })()}
           {activeTab === "settings" && <EventSettingsPanel canWrite={can("settings")} />}
 
           {/* COMMUNICATION */}
@@ -6757,6 +6827,7 @@ export default function AdminDashboard() {
       </div>
     </div>
     </AdminLangContext.Provider>
+    </AdminThemeContext.Provider>
   );
 }
 

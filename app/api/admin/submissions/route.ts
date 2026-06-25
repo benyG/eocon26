@@ -67,7 +67,8 @@ export async function PATCH(req: NextRequest) {
     logAction(req, "UPDATE", "cfp", id, { status });
     return NextResponse.json(updated);
   }
-  // Validate registration: set status validated + generate QR + send ticket email
+  // QA-only: manual validate (requires isRoot + currencySelectorEnabled on the frontend).
+  // Does NOT send online access link — that fires only on real payment via finalizeRegistrationPaid().
   if (type === "registration" && action === "validate") {
     const reg = await prisma.registration.findUnique({ where: { id } });
     if (!reg) return NextResponse.json({ error: "Not found" }, { status: 404 });

@@ -87,9 +87,28 @@ model Registration {
   paymentProvider    String?   // netticket_mtn | netticket_orange | stripe | free
   paymentRef         String?   // transaction id returned by the payment provider
   paidAt             DateTime?
+  // Online access (magic link)
+  onlineToken        String?   @unique
+  onlineCheckedInAt  DateTime?
+  onlineAccessSentAt DateTime?
+  onlineSessions     OnlineSession[]
   createdAt          DateTime  @default(now())
 
   @@map("registrations")
+}
+
+model OnlineSession {
+  id             Int          @id @default(autoincrement())
+  registrationId Int
+  registration   Registration @relation(fields: [registrationId], references: [id])
+  sessionToken   String       @unique
+  expiresAt      DateTime
+  lastSeenAt     DateTime?
+  ipAddress      String?
+  userAgent      String?      @db.Text
+  createdAt      DateTime     @default(now())
+
+  @@map("online_sessions")
 }
 
 model Speaker {
@@ -251,9 +270,17 @@ model PastSpeaker {
 }
 
 model NewsletterSubscriber {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  createdAt DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  email      String   @unique
+  firstName  String?
+  lastName   String?
+  phone      String?
+  profession String?
+  company    String?
+  twitter    String?
+  linkedin   String?
+  source     String?  @default("form")
+  createdAt  DateTime @default(now())
 
   @@map("newsletter_subscribers")
 }
@@ -347,8 +374,9 @@ model TicketType {
   color           String   @default("#00ff9d")
   isFeatured      Boolean  @default(false)
   isVisible       Boolean  @default(true)
-  ctfAccess       Boolean  @default(false)
-  includesCTF     Boolean  @default(false)
+  includesSessions  Boolean  @default(true)   // access to live keynotes/talks/panels
+  includesWorkshops Boolean  @default(false)  // access to workshop rooms (JaaS)
+  includesCTF       Boolean  @default(false)  // access to CTF platform
   maxCapacity     Int      @default(200)
   sortOrder       Int      @default(0)
   // External payment provider mappings

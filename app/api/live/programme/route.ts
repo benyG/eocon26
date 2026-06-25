@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 async function getSetting(key: string): Promise<unknown> {
   const row = await prisma.eventSetting.findUnique({ where: { key } });
   if (!row) return null;
@@ -8,18 +10,34 @@ async function getSetting(key: string): Promise<unknown> {
 }
 
 export async function GET() {
-  const [streams, programme] = await Promise.all([
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD in UTC
+
+  const [streams, sessions, workshops] = await Promise.all([
     getSetting("live_streams"),
-    getSetting("live_programme"),
+    prisma.conferenceSession.findMany({
+      where: { date: today, isVisible: true },
+      orderBy: [{ sortOrder: "asc" }, { time: "asc" }],
+      select: {
+        id: true,
+        time: true,
+        endTime: true,
+        title: true,
+        type: true,
+        speakerName: true,
+        room: true,
+        mode: true,
+        liveUrl: true,
+      },
+    }),
+    getSetting("workshops"),
   ]);
 
   return NextResponse.json(
     {
       streams:   Array.isArray(streams)   ? streams   : [],
-      programme: Array.isArray(programme) ? programme : [],
+      programme: sessions,
+      workshops: Array.isArray(workshops) ? workshops : [],
     },
-    {
-      headers: { "Cache-Control": "no-store" },
-    }
+    { headers: { "Cache-Control": "no-store" } }
   );
 }

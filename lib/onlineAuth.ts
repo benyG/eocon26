@@ -10,6 +10,8 @@ export interface OnlineSessionData {
   lname: string;
   email: string;
   ticketType: string;
+  includesWorkshops: boolean;
+  includesSessions: boolean;
 }
 
 export async function getOnlineSession(): Promise<OnlineSessionData | null> {
@@ -34,12 +36,20 @@ export async function getOnlineSession(): Promise<OnlineSessionData | null> {
     .update({ where: { id: session.id }, data: { lastSeenAt: new Date() } })
     .catch(() => {});
 
+  // Resolve ticket type access flags
+  const ticketTypeDef = await prisma.ticketType.findUnique({
+    where: { slug: session.registration.ticketType },
+    select: { includesWorkshops: true, includesSessions: true },
+  }).catch(() => null);
+
   return {
     registrationId: session.registration.id,
     fname: session.registration.fname,
     lname: session.registration.lname,
     email: session.registration.email,
     ticketType: session.registration.ticketType,
+    includesWorkshops: ticketTypeDef?.includesWorkshops ?? false,
+    includesSessions: ticketTypeDef?.includesSessions ?? true,
   };
 }
 
@@ -53,3 +63,4 @@ export function sessionCookieOptions(expiresAt: Date) {
     expires: expiresAt,
   };
 }
+

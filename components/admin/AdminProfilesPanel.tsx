@@ -30,6 +30,9 @@ const NAV_GROUPS: { label: string; modules: { key: string; label: string }[] }[]
   { label: "CTF", modules: [
     { key: "ctf", label: "EyesOpen CTF" },
   ] },
+  { label: "Live Streaming", modules: [
+    { key: "live", label: "🔴 Live — Flux, Q&A, Workshops, Dashboard" },
+  ] },
   { label: "Communication", modules: [
     { key: "communication", label: "Communication" },
     { key: "strategic-plan", label: "Plan Stratégique" },

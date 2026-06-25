@@ -19,6 +19,21 @@ const tx = {
     lightMode: "☀ Clair",
     darkMode: "🌙 Sombre",
     accessGranted: "▸ ACCÈS ACCORDÉ",
+    qaTitle: "💬 Questions en direct",
+    qaPlaceholder: "Posez votre question aux speakers…",
+    qaName: "Votre prénom (optionnel)",
+    qaSubmit: "Envoyer",
+    qaSubmitting: "Envoi…",
+    qaSent: "Question envoyée — en attente de modération.",
+    qaCooldown: "Veuillez patienter 30 secondes entre chaque question.",
+    qaError: "Erreur — réessayez.",
+    qaNoQuestions: "Aucune question approuvée pour le moment.",
+    qaAnswered: "✅ Répondue",
+    workshopsTitle: "🎓 Ateliers en direct",
+    workshopJoin: "Rejoindre",
+    workshopNoAccess: "Vos billets n'incluent pas les ateliers.",
+    workshopInactive: "Cet atelier n'est pas encore disponible.",
+    announcementClose: "✕",
   },
   en: {
     checking: "Verifying your access...",
@@ -33,10 +48,43 @@ const tx = {
     lightMode: "☀ Light",
     darkMode: "🌙 Dark",
     accessGranted: "▸ ACCESS GRANTED",
+    qaTitle: "💬 Live Q&A",
+    qaPlaceholder: "Ask a question to the speakers…",
+    qaName: "Your first name (optional)",
+    qaSubmit: "Send",
+    qaSubmitting: "Sending…",
+    qaSent: "Question sent — awaiting moderation.",
+    qaCooldown: "Please wait 30 seconds between questions.",
+    qaError: "Error — please try again.",
+    qaNoQuestions: "No approved questions yet.",
+    qaAnswered: "✅ Answered",
+    workshopsTitle: "🎓 Live Workshops",
+    workshopJoin: "Join",
+    workshopNoAccess: "Your ticket does not include workshops.",
+    workshopInactive: "This workshop is not yet available.",
+    announcementClose: "✕",
   },
 };
 
-interface SessionInfo { fname: string; lname: string; ticketType: string; }
+interface SessionInfo { fname: string; lname: string; ticketType: string; includesWorkshops: boolean; includesSessions: boolean; }
+
+interface LiveSponsor {
+  id: number;
+  name: string;
+  logoUrl: string | null;
+  website: string | null;
+  tier: string;
+}
+
+interface Workshop {
+  id: string;
+  title: string;
+  titleEn: string;
+  room: string;
+  active: boolean;
+  description?: string;
+  descriptionEn?: string;
+}
 
 interface Stream {
   id: string;
@@ -46,15 +94,33 @@ interface Stream {
 }
 
 interface ProgrammeItem {
+  id: number;
   time: string;
+  endTime?: string | null;
   title: string;
-  speaker?: string;
-  room?: string;
+  type: string;
+  speakerName?: string | null;
+  room?: string | null;
+  mode?: string | null;
+  liveUrl?: string | null;
 }
 
 interface LiveData {
   streams: Stream[];
   programme: ProgrammeItem[];
+  workshops: Workshop[];
+}
+
+// Sponsors are fetched separately (public, no auth needed)
+type LiveSponsors = LiveSponsor[];
+
+interface Question {
+  id: number;
+  body: string;
+  displayName: string | null;
+  answered: boolean;
+  upvotes: number;
+  askedAt: string;
 }
 
 // ── theme token maps ────────────────────────────────────────────────────────
@@ -114,7 +180,20 @@ export default function LivePage() {
   const [theme, setTheme]     = useState<Theme>("dark");
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<SessionInfo | null>(null);
-  const [liveData, setLiveData] = useState<LiveData>({ streams: [], programme: [] });
+  const [liveData, setLiveData] = useState<LiveData>({ streams: [], programme: [], workshops: [] });
+
+  // Q&A state
+  const [questions, setQuestions]   = useState<Question[]>([]);
+  const [qaBody, setQaBody]         = useState("");
+  const [qaName, setQaName]         = useState("");
+  const [qaStatus, setQaStatus]     = useState<"idle" | "sending" | "sent" | "cooldown" | "error">("idle");
+
+  // Announcement
+  const [announcement, setAnnouncement] = useState<string | null>(null);
+  const [annDismissed, setAnnDismissed] = useState(false);
+
+  // Sponsors
+  const [sponsors, setSponsors] = useState<LiveSponsors>([]);
 
   // Restore preferences
   useEffect(() => {
@@ -138,12 +217,86 @@ export default function LivePage() {
   useEffect(() => {
     Promise.all([
       fetch("/api/live/session").then(r => r.json()).catch(() => ({})),
-      fetch("/api/live/programme").then(r => r.json()).catch(() => ({ streams: [], programme: [] })),
-    ]).then(([sessionData, prog]) => {
+      fetch("/api/live/programme").then(r => r.json()).catch(() => ({ streams: [], programme: [], workshops: [] })),
+      fetch("/api/live/sponsors").then(r => r.json()).catch(() => []),
+    ]).then(([sessionData, prog, spons]) => {
       if (sessionData.ok) setSession(sessionData.session);
-      setLiveData({ streams: prog.streams ?? [], programme: prog.programme ?? [] });
+      setLiveData({ streams: prog.streams ?? [], programme: prog.programme ?? [], workshops: prog.workshops ?? [] });
+      setSponsors(Array.isArray(spons) ? spons : []);
     }).finally(() => setLoading(false));
   }, []);
+
+  // Heartbeat — keep lastSeenAt fresh every 60s
+  useEffect(() => {
+    if (!session) return;
+    const ping = () => fetch("/api/live/heartbeat", { method: "POST" }).catch(() => {});
+    ping();
+    const t = setInterval(ping, 60000);
+    return () => clearInterval(t);
+  }, [session]);
+
+  // Announcement polling every 30s
+  useEffect(() => {
+    if (!session) return;
+    const fetchAnn = () =>
+      fetch("/api/live/announcement")
+        .then(r => r.json())
+        .then((d: { active: boolean; message: string }) => {
+          if (d.active && d.message) { setAnnouncement(d.message); setAnnDismissed(false); }
+          else setAnnouncement(null);
+        })
+        .catch(() => {});
+    fetchAnn();
+    const t = setInterval(fetchAnn, 30000);
+    return () => clearInterval(t);
+  }, [session]);
+
+  // SSE for Q&A — only connect once session is confirmed
+  useEffect(() => {
+    if (!session) return;
+    let es: EventSource | null = null;
+
+    const connect = () => {
+      es = new EventSource("/api/live/questions/stream");
+      es.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data) as { type: string; questions: Question[] };
+          if (msg.type === "snapshot") {
+            setQuestions(msg.questions);
+          } else if (msg.type === "new") {
+            setQuestions((prev: Question[]) => [...prev, ...msg.questions]);
+          }
+        } catch { /* ignore parse errors */ }
+      };
+      es.onerror = () => {
+        es?.close();
+        // Reconnect after 5s
+        setTimeout(connect, 5000);
+      };
+    };
+    connect();
+    return () => { es?.close(); };
+  }, [session]);
+
+  const submitQuestion = async () => {
+    if (!qaBody.trim()) return;
+    setQaStatus("sending");
+    try {
+      const res = await fetch("/api/live/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: qaBody.trim(), displayName: qaName.trim() }),
+      });
+      if (res.status === 429) { setQaStatus("cooldown"); setTimeout(() => setQaStatus("idle"), 5000); return; }
+      if (!res.ok) { setQaStatus("error"); setTimeout(() => setQaStatus("idle"), 3000); return; }
+      setQaStatus("sent");
+      setQaBody("");
+      setTimeout(() => setQaStatus("idle"), 4000);
+    } catch {
+      setQaStatus("error");
+      setTimeout(() => setQaStatus("idle"), 3000);
+    }
+  };
 
   const toggleLang = () => {
     const next: Lang = lang === "fr" ? "en" : "fr";
@@ -163,11 +316,89 @@ export default function LivePage() {
   return (
     <div style={{ minHeight: "100vh", background: th.bg, color: th.text, fontFamily: "'Courier New', monospace", transition: "background 0.2s, color 0.2s" }}>
 
+      {/* Glitch style injection */}
+      <style>{`
+        @keyframes live-glitch-shadow {
+          0%,100% { text-shadow: 3px 0 #ff0066, -3px 0 #00ccff; transform: skewX(0deg); }
+          5%  { text-shadow: -3px 0 #ff0066, 3px 0 #00ccff; transform: skewX(-1deg); }
+          10% { text-shadow: 3px 1px #ff0066, -3px -1px #00ccff; transform: skewX(0deg); }
+          90% { text-shadow: -4px 0 #ff0066, 4px 0 #00ccff; transform: skewX(1deg); }
+          92% { text-shadow: 4px 0 #ff0066, -4px 0 #00ccff; transform: skewX(-0.5deg); }
+        }
+        @keyframes live-glitch-flicker {
+          0%,97%,100% { opacity: 1; }
+          98% { opacity: 0.8; }
+          99% { opacity: 1; }
+        }
+        @keyframes live-sponsor-scroll {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .live-glitch-title {
+          animation: live-glitch-shadow 4s infinite, live-glitch-flicker 6s infinite;
+        }
+        .live-sponsor-track {
+          display: flex;
+          gap: 40px;
+          align-items: center;
+          animation: live-sponsor-scroll 28s linear infinite;
+          width: max-content;
+        }
+        .live-sponsor-track:hover { animation-play-state: paused; }
+      `}</style>
+
+      {/* EOCON Glitch Hero */}
+      <div style={{ background: theme === "dark" ? "#020306" : "#eef0f4", borderBottom: th.navBorder, padding: "32px 32px 24px", textAlign: "center" }}>
+        <div style={{ fontSize: 9, color: th.accent, letterSpacing: 6, marginBottom: 8, opacity: 0.7 }}>&gt;_ LIVE STREAMING</div>
+        <div
+          className="live-glitch-title"
+          style={{ fontSize: "clamp(52px, 10vw, 96px)", fontWeight: 900, color: "#00ff9d", letterSpacing: 8, lineHeight: 1, fontFamily: "'Courier New', monospace" }}
+        >
+          EOCON
+        </div>
+        <div style={{ fontSize: 13, color: th.textMuted, letterSpacing: 4, marginTop: 8 }}>
+          2026 &mdash; {lang === "fr" ? "28 Novembre · Douala" : "November 28 · Douala"}
+        </div>
+      </div>
+
+      {/* Sponsor banner */}
+      {sponsors.length > 0 && (
+        <div style={{ background: theme === "dark" ? "#06080d" : "#e8eaee", borderBottom: `1px solid ${theme === "dark" ? "#ffffff0a" : "#00000010"}`, padding: "12px 0", overflow: "hidden" }}>
+          <div style={{ overflow: "hidden" }}>
+            {/* Duplicate the list for seamless infinite scroll */}
+            <div className="live-sponsor-track">
+              {[...sponsors, ...sponsors].map((sp, i) => (
+                <a
+                  key={`${sp.id}-${i}`}
+                  href={sp.website ?? undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={sp.name}
+                  style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", flexShrink: 0, opacity: 0.85, transition: "opacity 0.2s" }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = "0.85")}
+                >
+                  {sp.logoUrl ? (
+                    <img
+                      src={sp.logoUrl}
+                      alt={sp.name}
+                      style={{ height: 32, maxWidth: 100, objectFit: "contain", filter: theme === "dark" ? "brightness(0.9)" : "none" }}
+                    />
+                  ) : (
+                    <span style={{ fontSize: 12, color: th.textMuted, fontWeight: 700, letterSpacing: 1 }}>{sp.name}</span>
+                  )}
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Nav */}
-      <div style={{ borderBottom: th.navBorder, padding: "16px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", background: th.cardBg, boxShadow: theme === "light" ? "0 1px 4px #00000010" : "none" }}>
+      <div style={{ borderBottom: th.navBorder, padding: "12px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", background: th.cardBg, boxShadow: theme === "light" ? "0 1px 4px #00000010" : "none" }}>
         <div>
           <div style={{ fontSize: 9, color: th.logoSub, letterSpacing: 4, marginBottom: 2 }}>&gt;_ EOCON_LIVE</div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: th.logoMain, letterSpacing: 3 }}>EOCON 2026</div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: th.logoMain, letterSpacing: 3 }}>EOCON 2026</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           {/* Theme toggle */}
@@ -186,6 +417,20 @@ export default function LivePage() {
           </button>
         </div>
       </div>
+
+      {/* Announcement banner */}
+      {announcement && !annDismissed && (
+        <div style={{ background: "#ffaa0015", borderBottom: "1px solid #ffaa0040", padding: "12px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+          <span style={{ fontSize: 13, color: "#ffaa00", flex: 1 }}>📢 {announcement}</span>
+          <button
+            onClick={() => setAnnDismissed(true)}
+            style={{ background: "transparent", border: "none", color: "#ffaa00", cursor: "pointer", fontSize: 16, flexShrink: 0, opacity: 0.7 }}
+            aria-label="Fermer"
+          >
+            {tx[lang].announcementClose}
+          </button>
+        </div>
+      )}
 
       <div style={{ maxWidth: 800, margin: "0 auto", padding: "48px 24px" }}>
         {loading ? (
@@ -242,22 +487,162 @@ export default function LivePage() {
             {liveData.programme.length > 0 && (
               <div style={{ background: th.cardBg, border: th.cardBorderSm, borderRadius: 12, padding: 24, marginTop: 24, boxShadow: theme === "light" ? "0 2px 12px #00000010" : "none" }}>
                 <div style={{ fontSize: 10, color: th.accent, letterSpacing: 3, marginBottom: 16 }}>
-                  {lang === "fr" ? "📋 PROGRAMME DU JOUR" : "📋 DAY PROGRAMME"}
+                  {lang === "fr" ? "📋 PROGRAMME DU JOUR" : "📋 TODAY'S PROGRAMME"}
                 </div>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <tbody>
-                    {liveData.programme.map((item, i) => (
-                      <tr key={i} style={{ borderBottom: `1px solid ${th.accentFaint}` }}>
-                        <td style={{ padding: "10px 8px", fontSize: 12, color: th.accent, fontFamily: "'Courier New', monospace", whiteSpace: "nowrap", width: 60 }}>{item.time}</td>
-                        <td style={{ padding: "10px 8px", fontSize: 13, color: th.text, fontWeight: 600 }}>{item.title}</td>
-                        <td style={{ padding: "10px 8px", fontSize: 11, color: th.textMuted }}>{item.speaker || ""}</td>
-                        <td style={{ padding: "10px 8px", fontSize: 11, color: th.textMuted, textAlign: "right" }}>{item.room || ""}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {liveData.programme.map((item: ProgrammeItem) => {
+                    const typeColor: Record<string, string> = {
+                      keynote: "#ff6600", talk: "#4488ff", workshop: "#aa44ff",
+                      panel: "#00aaff", break: th.textFaint, logistics: th.textFaint,
+                    };
+                    const color = typeColor[item.type] ?? th.accent;
+                    return (
+                      <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 8px", borderBottom: `1px solid ${th.accentFaint}`, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 12, color: th.accent, fontFamily: "'Courier New', monospace", whiteSpace: "nowrap", minWidth: 44 }}>
+                          {item.time}{item.endTime ? `–${item.endTime}` : ""}
+                        </span>
+                        <span style={{ fontSize: 9, color: color, border: `1px solid ${color}40`, borderRadius: 4, padding: "1px 6px", textTransform: "uppercase", letterSpacing: 1, whiteSpace: "nowrap" }}>
+                          {item.type}
+                        </span>
+                        <span style={{ fontSize: 13, color: th.text, fontWeight: 600, flex: 1, minWidth: 120 }}>{item.title}</span>
+                        {item.speakerName && <span style={{ fontSize: 11, color: th.textMuted, whiteSpace: "nowrap" }}>{item.speakerName}</span>}
+                        {item.room && <span style={{ fontSize: 10, color: th.textFaint, whiteSpace: "nowrap" }}>🚪 {item.room}</span>}
+                        {item.liveUrl && (
+                          <a
+                            href={item.liveUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ fontSize: 11, background: th.ctaBg, color: th.ctaText, padding: "4px 12px", borderRadius: 5, textDecoration: "none", fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}
+                          >
+                            {lang === "fr" ? "Rejoindre" : "Join"}
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
+
+            {/* Workshops */}
+            {liveData.workshops.length > 0 && (
+              <div style={{ background: th.cardBg, border: th.cardBorderSm, borderRadius: 12, padding: 24, marginTop: 24, boxShadow: theme === "light" ? "0 2px 12px #00000010" : "none" }}>
+                <div style={{ fontSize: 10, color: th.accent, letterSpacing: 3, marginBottom: 16 }}>{t.workshopsTitle}</div>
+                {!session?.includesWorkshops ? (
+                  <p style={{ color: th.textMuted, fontSize: 13 }}>{t.workshopNoAccess}</p>
+                ) : (
+                  <div style={{ display: "grid", gap: 12 }}>
+                    {liveData.workshops.map((w: Workshop) => (
+                      <div
+                        key={w.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "14px 18px",
+                          background: theme === "dark" ? "#050508" : th.bg,
+                          border: th.cardBorderSm,
+                          borderRadius: 8,
+                          gap: 12,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: th.text, marginBottom: 2 }}>
+                            {lang === "fr" ? w.title : (w.titleEn || w.title)}
+                          </div>
+                          {(w.description || w.descriptionEn) && (
+                            <div style={{ fontSize: 12, color: th.textMuted, marginBottom: 4 }}>
+                              {lang === "fr" ? w.description : (w.descriptionEn || w.description)}
+                            </div>
+                          )}
+                          <div style={{ fontSize: 11, color: th.textFaint }}>🚪 {w.room}</div>
+                        </div>
+                        {w.active ? (
+                          <a
+                            href={`/api/live/workshop/join?id=${encodeURIComponent(w.id)}`}
+                            style={{
+                              background: th.ctaBg,
+                              color: th.ctaText,
+                              padding: "8px 20px",
+                              borderRadius: 6,
+                              textDecoration: "none",
+                              fontSize: 12,
+                              fontWeight: 900,
+                              letterSpacing: 1,
+                              whiteSpace: "nowrap",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {t.workshopJoin}
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: 11, color: th.textFaint, flexShrink: 0 }}>
+                            {t.workshopInactive}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Q&A */}
+            <div style={{ background: th.cardBg, border: th.cardBorderSm, borderRadius: 12, padding: 24, marginTop: 24, boxShadow: theme === "light" ? "0 2px 12px #00000010" : "none" }}>
+              <div style={{ fontSize: 10, color: th.accent, letterSpacing: 3, marginBottom: 16 }}>{t.qaTitle}</div>
+
+              {/* Submit form */}
+              <div style={{ marginBottom: 20 }}>
+                <input
+                  value={qaName}
+                  onChange={e => setQaName((e.target as HTMLInputElement).value)}
+                  placeholder={t.qaName}
+                  maxLength={80}
+                  style={{ width: "100%", padding: "8px 12px", background: theme === "dark" ? "#050508" : th.bg, border: `1px solid ${th.cardBorderSm.replace("1px solid ","")}`, borderRadius: 6, color: th.text, fontSize: 12, fontFamily: "'Courier New', monospace", boxSizing: "border-box", outline: "none", marginBottom: 8 }}
+                />
+                <textarea
+                  value={qaBody}
+                  onChange={e => setQaBody((e.target as HTMLTextAreaElement).value)}
+                  placeholder={t.qaPlaceholder}
+                  maxLength={500}
+                  rows={3}
+                  disabled={qaStatus === "sending"}
+                  style={{ width: "100%", padding: "10px 12px", background: theme === "dark" ? "#050508" : th.bg, border: `1px solid ${th.cardBorderSm.replace("1px solid ","")}`, borderRadius: 6, color: th.text, fontSize: 13, fontFamily: "'Courier New', monospace", boxSizing: "border-box", resize: "none", outline: "none", marginBottom: 8 }}
+                />
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <button
+                    onClick={submitQuestion}
+                    disabled={!qaBody.trim() || qaStatus === "sending"}
+                    style={{ background: th.ctaBg, color: th.ctaText, border: "none", borderRadius: 6, padding: "8px 20px", fontSize: 12, fontWeight: 900, cursor: (!qaBody.trim() || qaStatus === "sending") ? "not-allowed" : "pointer", letterSpacing: 1, opacity: (!qaBody.trim() || qaStatus === "sending") ? 0.6 : 1 }}
+                  >
+                    {qaStatus === "sending" ? t.qaSubmitting : t.qaSubmit}
+                  </button>
+                  {qaStatus === "sent"     && <span style={{ fontSize: 12, color: th.accent }}>{t.qaSent}</span>}
+                  {qaStatus === "cooldown" && <span style={{ fontSize: 12, color: "#ffaa00" }}>{t.qaCooldown}</span>}
+                  {qaStatus === "error"    && <span style={{ fontSize: 12, color: "#ff6b6b" }}>{t.qaError}</span>}
+                  <span style={{ marginLeft: "auto", fontSize: 11, color: th.textMuted }}>{qaBody.length}/500</span>
+                </div>
+              </div>
+
+              {/* Approved questions feed */}
+              <div style={{ borderTop: `1px solid ${th.accentFaint}`, paddingTop: 16 }}>
+                {questions.length === 0 ? (
+                  <p style={{ color: th.textMuted, fontSize: 12 }}>{t.qaNoQuestions}</p>
+                ) : (
+                  [...questions].reverse().map(q => (
+                    <div key={q.id} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${th.accentFaint}` }}>
+                      <p style={{ color: th.text, fontSize: 13, margin: "0 0 4px", lineHeight: 1.5 }}>{q.body}</p>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        {q.displayName && <span style={{ fontSize: 10, color: th.textMuted }}>👤 {q.displayName}</span>}
+                        <span style={{ fontSize: 10, color: th.textFaint }}>{new Date(q.askedAt).toLocaleTimeString(lang === "fr" ? "fr-FR" : "en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+                        {q.answered && <span style={{ fontSize: 10, color: th.accent }}>{t.qaAnswered}</span>}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </>
 
         ) : (

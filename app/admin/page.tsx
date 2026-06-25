@@ -6367,6 +6367,10 @@ export default function AdminDashboard() {
                       <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
                       Visible sur le site
                     </label>
+                    <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                      <input type="checkbox" checked={!!form.showOnLive} onChange={e => setForm({ ...form, showOnLive: e.target.checked })} />
+                      🔴 Afficher logo sur la page <span className="text-neon-green">/live</span>
+                    </label>
                   </div>
                   <div className="flex gap-3 mt-4">
                     <button onClick={() => save("/api/admin/sponsors")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
@@ -6391,7 +6395,10 @@ export default function AdminDashboard() {
                           <div className="flex-1 min-w-0">
                             <p className="text-white font-bold text-sm">{s.name as string}</p>
                             {!!s.website && <p className="text-gray-500 text-xs truncate">{s.website as string}</p>}
-                            {!s.isVisible && <span className="text-xs text-gray-600">Masqué</span>}
+                            <div className="flex gap-2 flex-wrap">
+                              {!s.isVisible && <span className="text-xs text-gray-600">Masqué</span>}
+                              {!!s.showOnLive && <span className="text-xs text-red-400">🔴 /live</span>}
+                            </div>
                           </div>
                           <div className="flex gap-2 shrink-0">
                             <button onClick={() => setDetail({ type: "sponsor", item: s })} className="text-xs text-gray-400 hover:text-white px-2 py-1 border border-gray-700 rounded">Détails</button>

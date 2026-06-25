@@ -5,8 +5,7 @@ import { logAction } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
-const STREAMS_KEY   = "live_streams";
-const PROGRAMME_KEY = "live_programme";
+const STREAMS_KEY = "live_streams";
 
 async function getSetting(key: string): Promise<unknown> {
   const row = await prisma.eventSetting.findUnique({ where: { key } });
@@ -16,22 +15,14 @@ async function getSetting(key: string): Promise<unknown> {
 
 export async function GET() {
   if (!(await hasPermission("live", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-  const [streams, programme] = await Promise.all([
-    getSetting(STREAMS_KEY),
-    getSetting(PROGRAMME_KEY),
-  ]);
-
-  return NextResponse.json({
-    streams:   Array.isArray(streams)   ? streams   : [],
-    programme: Array.isArray(programme) ? programme : [],
-  });
+  const streams = await getSetting(STREAMS_KEY);
+  return NextResponse.json({ streams: Array.isArray(streams) ? streams : [] });
 }
 
 export async function PUT(req: NextRequest) {
   if (!(await hasPermission("live", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const body = await req.json() as { streams?: unknown; programme?: unknown };
+  const body = await req.json() as { streams?: unknown };
 
   if (body.streams !== undefined) {
     await prisma.eventSetting.upsert({
@@ -41,15 +32,6 @@ export async function PUT(req: NextRequest) {
     });
   }
 
-  if (body.programme !== undefined) {
-    await prisma.eventSetting.upsert({
-      where:  { key: PROGRAMME_KEY },
-      create: { key: PROGRAMME_KEY, value: JSON.stringify(body.programme) },
-      update: { value: JSON.stringify(body.programme) },
-    });
-  }
-
-  logAction(req, "update", "live_settings", undefined, { info: "Updated live streams/programme" });
-
+  logAction(req, "update", "live_settings", undefined, { info: "Updated live streams" });
   return NextResponse.json({ ok: true });
 }

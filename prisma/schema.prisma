@@ -145,9 +145,10 @@ model Sponsor {
   website   String?
   email     String?
   phone     String?
-  tier      String   // PLATINUM | GOLD | SILVER | BRONZE
-  isVisible Boolean  @default(true)
-  sortOrder Int      @default(0)
+  tier       String   // PLATINUM | GOLD | SILVER | BRONZE
+  isVisible  Boolean  @default(true)
+  showOnLive Boolean  @default(false)
+  sortOrder  Int      @default(0)
   createdAt DateTime @default(now())
 
   @@map("sponsors")
@@ -168,6 +169,7 @@ model ConferenceSession {
   description  String?   @db.Text
   mode         String?   // online | onsite | hybrid — set when the session is programmed
   zoomLink     String?   // link shared with the speaker for online sessions
+  liveUrl      String?   // public join link shown to participants on /live
   slidesDeadline String? // deadline to send slides (free text, e.g. "21 octobre 2026")
   sortOrder    Int       @default(0)
   isVisible    Boolean   @default(true)
@@ -681,4 +683,19 @@ model Testimony {
   createdAt DateTime @default(now())
 
   @@map("testimonies")
+}
+
+model SessionQuestion {
+  id           Int      @id @default(autoincrement())
+  body         String   @db.Text
+  displayName  String?
+  sessionToken String?
+  approved     Boolean  @default(false)
+  answered     Boolean  @default(false)
+  hidden       Boolean  @default(false)
+  upvotes      Int      @default(0)
+  adminNote    String?  @db.Text
+  askedAt      DateTime @default(now())
+
+  @@map("session_questions")
 }

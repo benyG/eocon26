@@ -137,7 +137,11 @@ function StepHeader({ n, label, color = "#00ff9d" }: { n: number; label: string;
 }
 
 interface TeamMember { id: number; name: string; role: string; email: string | null; }
-interface AcceptedSpeaker { id: number; name: string; title: string | null; cfpSubmission: { email: string } | null; }
+interface AcceptedSpeaker { id: number; name: string; title: string | null; talkTitle: string | null; cfpSubmission: { email: string } | null; }
+
+interface RestreamCaption { id: number; text: string; secondaryText?: string; active: boolean; }
+interface RestreamTicker  { id: number; text: string; active: boolean; }
+interface Overlays { captions: RestreamCaption[]; tickers: RestreamTicker[]; }
 interface StreamingTeamConfig {
   sessionTitle: string; sessionTime: string; sessionId?: number; studioLink: string;
   moderator: { name: string; email: string; lang: "fr" | "en" } | null;
@@ -190,6 +194,13 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
   const [teamSaved, setTeamSaved]           = useState(false);
   const [inviteSending, setInviteSending]   = useState<Record<string, boolean>>({});
   const [inviteSent, setInviteSent]         = useState<Record<string, boolean>>({});
+
+  // ── Overlays (captions & tickers) ────────────────────────────────────────
+  const [overlays, setOverlays]           = useState<Overlays>({ captions: [], tickers: [] });
+  const [overlaysLoading, setOverlaysLoading] = useState(false);
+  const [overlaysBulking, setOverlaysBulking] = useState(false);
+  const [overlaysBulkResult, setOverlaysBulkResult] = useState<string | null>(null);
+  const [overlayPerSpeaker, setOverlayPerSpeaker] = useState<Record<number, boolean>>({});
 
   // ── Workshops & JaaS ──────────────────────────────────────────────────────
   const [workshops, setWorkshops] = useState<Workshop[]>([]);
@@ -252,6 +263,24 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
       }
     } catch { /* non-blocking */ }
   }, []);
+
+  const loadOverlays = useCallback(async () => {
+    setOverlaysLoading(true);
+    try {
+      const res = await fetch("/api/admin/live/restream/overlays");
+      const data = await res.json().catch(() => null);
+      if (data && !data.error) setOverlays(data);
+    } finally { setOverlaysLoading(false); }
+  }, []);
+
+  const overlayAction = async (action: string, params: Record<string, unknown> = {}) => {
+    const res = await fetch("/api/admin/live/restream/overlays", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, ...params }),
+    });
+    return res.json().catch(() => null);
+  };
 
   const saveStreamingTeam = async () => {
     setTeamSaving(true); setTeamSaved(false);
@@ -345,7 +374,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
 
   useEffect(() => { loadSettings(); loadRestreamConfig(); }, [loadSettings, loadRestreamConfig]);
   useEffect(() => { loadDashboard(); loadQuestions(); loadRestreamStatus(); }, [loadDashboard, loadQuestions, loadRestreamStatus]);
-  useEffect(() => { if (mode === "config") { loadWorkshops(); loadStreamingTeam(); } }, [mode, loadWorkshops, loadStreamingTeam]);
+  useEffect(() => { if (mode === "config") { loadWorkshops(); loadStreamingTeam(); loadOverlays(); } }, [mode, loadWorkshops, loadStreamingTeam, loadOverlays]);
 
   useEffect(() => {
     if (mode !== "live") return;
@@ -1065,8 +1094,171 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
             )}
           </div>
 
-          {/* ── ÉTAPE 2 · ATELIERS JAAS ────────────────────────────────────── */}
-          <StepHeader n={2} label="Ateliers — Rooms JaaS" color="#9b59ff" />
+          {/* ── ÉTAPE 2 · OVERLAYS RESTREAM ────────────────────────────────── */}
+          <StepHeader n={2} label="Overlays Restream — Captions & Tickers" color="#ff6b35" />
+
+          <ArchBox color="#ff6b35" icon="🎨" title="COMMENT ÇA MARCHE">
+            <p style={{ margin: "0 0 8px" }}>
+              Les <strong style={{ color: "#fff" }}>Captions</strong> affichent le nom + titre du speaker en bas de l&apos;écran dans Restream Studio.
+              Les <strong style={{ color: "#fff" }}>Tickers</strong> font défiler le titre de la session en bandeau.
+            </p>
+            <p style={{ margin: 0, color: "#666" }}>
+              Créez-les ici en un clic par speaker ou en masse — sans doublons. Activez/désactivez depuis cette page ou directement dans Restream Studio.
+            </p>
+          </ArchBox>
+
+          {/* Header : Rafraîchir + Tout créer */}
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16 }}>
+            <button onClick={loadOverlays} disabled={overlaysLoading}
+              style={{ fontSize: 11, color: "#888", background: "transparent", border: "1px solid #333", padding: "6px 14px", borderRadius: 6, cursor: "pointer" }}>
+              {overlaysLoading ? "…" : "↺ Rafraîchir"}
+            </button>
+            {canWrite && (
+              <button
+                disabled={overlaysBulking || !restreamStatus?.configured}
+                onClick={async () => {
+                  setOverlaysBulking(true); setOverlaysBulkResult(null);
+                  try {
+                    const r = await overlayAction("bulk_all");
+                    if (r?.error) setOverlaysBulkResult(`❌ ${r.error}`);
+                    else setOverlaysBulkResult(`✓ ${r.captionsCreated} caption(s) + ${r.tickersCreated} ticker(s) créés — ${r.skipped} doublon(s) ignoré(s)`);
+                    await loadOverlays();
+                  } finally { setOverlaysBulking(false); }
+                }}
+                style={{ fontSize: 11, color: overlaysBulking ? "#555" : "#ff6b35", background: "#ff6b3510", border: "1px solid #ff6b3540", padding: "6px 16px", borderRadius: 6, cursor: overlaysBulking ? "not-allowed" : "pointer", fontWeight: 700 }}>
+                {overlaysBulking ? "Création en cours…" : "⚡ Tout créer automatiquement (sans doublons)"}
+              </button>
+            )}
+            {overlaysBulkResult && (
+              <span style={{ fontSize: 11, color: overlaysBulkResult.startsWith("✓") ? "#00ff9d" : "#ff4444" }}>{overlaysBulkResult}</span>
+            )}
+          </div>
+
+          {/* Captions existantes */}
+          <div style={{ background: "#0a0a12", border: "1px solid #ff6b3520", borderRadius: 10, padding: 16, marginBottom: 16 }}>
+            <div style={{ fontSize: 10, color: "#ff6b35", letterSpacing: 3, marginBottom: 12 }}>
+              🖼 CAPTIONS ({overlays.captions.length})
+              <span style={{ color: "#555", marginLeft: 12, fontWeight: 400, letterSpacing: 1 }}>texte principal + texte secondaire affiché sous le speaker</span>
+            </div>
+            {overlays.captions.length === 0 && (
+              <div style={{ fontSize: 12, color: "#444", fontStyle: "italic" }}>Aucune caption — utilisez les boutons ci-dessous pour en créer.</div>
+            )}
+            {overlays.captions.map(cap => (
+              <div key={cap.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, background: "#050508", border: `1px solid ${cap.active ? "#ff6b3540" : "#ffffff08"}`, borderRadius: 6, padding: "8px 12px" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, color: cap.active ? "#ff6b35" : "#ccc", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{cap.text}</div>
+                  {cap.secondaryText && <div style={{ fontSize: 11, color: "#666", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{cap.secondaryText}</div>}
+                </div>
+                <span style={{ fontSize: 10, color: cap.active ? "#ff6b35" : "#444", background: cap.active ? "#ff6b3515" : "transparent", border: `1px solid ${cap.active ? "#ff6b3530" : "#333"}`, borderRadius: 4, padding: "2px 8px", whiteSpace: "nowrap" }}>
+                  {cap.active ? "● ACTIF" : "○ inactif"}
+                </span>
+                {canWrite && (
+                  <>
+                    <button onClick={async () => { await overlayAction("update_caption", { id: cap.id, active: !cap.active }); loadOverlays(); }}
+                      style={{ fontSize: 10, color: cap.active ? "#888" : "#ff6b35", background: "transparent", border: "1px solid #333", padding: "4px 10px", borderRadius: 5, cursor: "pointer", whiteSpace: "nowrap" }}>
+                      {cap.active ? "Désactiver" : "Activer"}
+                    </button>
+                    <button onClick={async () => { await overlayAction("delete_caption", { id: cap.id }); loadOverlays(); }}
+                      style={{ fontSize: 10, color: "#ff4444", background: "transparent", border: "1px solid #ff444420", padding: "4px 10px", borderRadius: 5, cursor: "pointer" }}>
+                      🗑
+                    </button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Tickers existants */}
+          <div style={{ background: "#0a0a12", border: "1px solid #ff6b3520", borderRadius: 10, padding: 16, marginBottom: 20 }}>
+            <div style={{ fontSize: 10, color: "#ff6b35", letterSpacing: 3, marginBottom: 12 }}>
+              📰 TICKERS ({overlays.tickers.length})
+              <span style={{ color: "#555", marginLeft: 12, fontWeight: 400, letterSpacing: 1 }}>bandeau défilant affiché en bas du stream</span>
+            </div>
+            {overlays.tickers.length === 0 && (
+              <div style={{ fontSize: 12, color: "#444", fontStyle: "italic" }}>Aucun ticker — utilisez les boutons ci-dessous pour en créer.</div>
+            )}
+            {overlays.tickers.map(tick => (
+              <div key={tick.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, background: "#050508", border: `1px solid ${tick.active ? "#ff6b3540" : "#ffffff08"}`, borderRadius: 6, padding: "8px 12px" }}>
+                <div style={{ flex: 1, fontSize: 12, color: tick.active ? "#ff6b35" : "#ccc", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tick.text}</div>
+                <span style={{ fontSize: 10, color: tick.active ? "#ff6b35" : "#444", background: tick.active ? "#ff6b3515" : "transparent", border: `1px solid ${tick.active ? "#ff6b3530" : "#333"}`, borderRadius: 4, padding: "2px 8px", whiteSpace: "nowrap" }}>
+                  {tick.active ? "● ACTIF" : "○ inactif"}
+                </span>
+                {canWrite && (
+                  <>
+                    <button onClick={async () => { await overlayAction("update_ticker", { id: tick.id, active: !tick.active }); loadOverlays(); }}
+                      style={{ fontSize: 10, color: tick.active ? "#888" : "#ff6b35", background: "transparent", border: "1px solid #333", padding: "4px 10px", borderRadius: 5, cursor: "pointer", whiteSpace: "nowrap" }}>
+                      {tick.active ? "Désactiver" : "Activer"}
+                    </button>
+                    <button onClick={async () => { await overlayAction("delete_ticker", { id: tick.id }); loadOverlays(); }}
+                      style={{ fontSize: 10, color: "#ff4444", background: "transparent", border: "1px solid #ff444420", padding: "4px 10px", borderRadius: 5, cursor: "pointer" }}>
+                      🗑
+                    </button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Créer par speaker */}
+          {acceptedSpeakers.length > 0 && (
+            <div style={{ background: "#0a0a12", border: "1px solid #ff6b3520", borderRadius: 10, padding: 16, marginBottom: 32 }}>
+              <div style={{ fontSize: 10, color: "#ff6b35", letterSpacing: 3, marginBottom: 14 }}>👤 CRÉER PAR SPEAKER</div>
+              {acceptedSpeakers.map(sp => {
+                const captionText = [sp.name, sp.title].filter(Boolean).join(", ");
+                const tickerText  = sp.talkTitle || sp.name;
+                const loading     = overlayPerSpeaker[sp.id] ?? false;
+                return (
+                  <div key={sp.id} style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 10, background: "#050508", border: "1px solid #ffffff08", borderRadius: 6, padding: "10px 12px" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, color: "#fff", fontWeight: 700 }}>{sp.name}</div>
+                      {sp.title && <div style={{ fontSize: 11, color: "#666" }}>{sp.title}</div>}
+                      <div style={{ fontSize: 11, color: "#555", marginTop: 4 }}>
+                        Caption : <span style={{ color: "#aaa" }}>&quot;{captionText}&quot;</span>
+                        {sp.talkTitle && <> · Ticker : <span style={{ color: "#aaa" }}>&quot;{tickerText}&quot;</span></>}
+                      </div>
+                    </div>
+                    {canWrite && (
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        <button disabled={loading}
+                          onClick={async () => {
+                            setOverlayPerSpeaker(s => ({ ...s, [sp.id]: true }));
+                            await overlayAction("create_caption", { text: captionText, secondaryText: sp.talkTitle || undefined });
+                            await loadOverlays();
+                            setOverlayPerSpeaker(s => ({ ...s, [sp.id]: false }));
+                          }}
+                          style={{ fontSize: 10, color: "#ff6b35", background: "#ff6b3510", border: "1px solid #ff6b3530", padding: "4px 10px", borderRadius: 5, cursor: loading ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
+                          + Caption
+                        </button>
+                        <button disabled={loading}
+                          onClick={async () => {
+                            setOverlayPerSpeaker(s => ({ ...s, [sp.id]: true }));
+                            await overlayAction("create_ticker", { text: tickerText });
+                            await loadOverlays();
+                            setOverlayPerSpeaker(s => ({ ...s, [sp.id]: false }));
+                          }}
+                          style={{ fontSize: 10, color: "#ff6b35", background: "#ff6b3510", border: "1px solid #ff6b3530", padding: "4px 10px", borderRadius: 5, cursor: loading ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
+                          + Ticker
+                        </button>
+                        <button disabled={loading}
+                          onClick={async () => {
+                            setOverlayPerSpeaker(s => ({ ...s, [sp.id]: true }));
+                            await overlayAction("bulk_speaker", { speakerId: sp.id });
+                            await loadOverlays();
+                            setOverlayPerSpeaker(s => ({ ...s, [sp.id]: false }));
+                          }}
+                          style={{ fontSize: 10, color: loading ? "#555" : "#00ff9d", background: loading ? "transparent" : "#00ff9d10", border: `1px solid ${loading ? "#333" : "#00ff9d30"}`, padding: "4px 10px", borderRadius: 5, cursor: loading ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
+                          {loading ? "…" : "⚡ Les deux"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── ÉTAPE 3 · ATELIERS JAAS ────────────────────────────────────── */}
+          <StepHeader n={3} label="Ateliers — Rooms JaaS" color="#9b59ff" />
 
           <ArchBox color="#9b59ff" icon="🎓" title="COMMENT ÇA MARCHE">
             <p style={{ margin: "0 0 8px" }}>

@@ -16,6 +16,9 @@ const STAGES: { key: VolStage; label: string; color: string; desc: string }[] = 
 const ROLES = [
   "Accueil & Inscription",
   "Support Sessions",
+  "Modérateur de session",
+  "Support streaming",
+  "Ambassadeur réseaux sociaux",
   "Support CTF",
   "Médias & Réseaux Sociaux",
   "Logistique",

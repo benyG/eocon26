@@ -13,14 +13,8 @@ import CampaignsPanel from "@/components/admin/CampaignsPanel";
 import StrategicPlanPanel from "@/components/admin/StrategicPlanPanel";
 import LivePanel from "@/components/admin/LivePanel";
 import RegistrationsChart from "@/components/admin/RegistrationsChart";
-import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
-
-const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; setLang: (l: AdminLang) => void }>({
-  lang: "fr",
-  t: adminI18n.fr,
-  setLang: () => {},
-});
-const useAdminT = () => useContext(AdminLangContext);
+import { adminI18n } from "@/lib/adminI18n";
+import { AdminLangContext, useAdminT } from "@/lib/adminLangContext";
 
 const AdminThemeContext = createContext<{ theme: "dark" | "light"; toggleTheme: () => void }>({
   theme: "dark",
@@ -6059,7 +6053,7 @@ export default function AdminDashboard() {
       icon: "🏠",
       tabs: [
         { id: "dashboard", label: t.dashboard, icon: "📊" },
-        { id: "pilotage", label: "Pilotage global", icon: "🎯" },
+        { id: "pilotage", label: t.pilotageGlobal, icon: "🎯" },
       ],
     },
     {
@@ -6094,7 +6088,7 @@ export default function AdminDashboard() {
         { id: "tickets", label: t.tickets, icon: "🎟️" },
         { id: "sponsor-packages", label: t.sponsorPackages, icon: "📦" },
         { id: "budget", label: t.budgetTracking, icon: "💰" },
-        { id: "transactions", label: "Transactions", icon: "💳" },
+        { id: "transactions", label: t.transactions, icon: "💳" },
       ],
     },
     {
@@ -6108,18 +6102,18 @@ export default function AdminDashboard() {
       label: t.live,
       icon: "🔴",
       tabs: [
-        { id: "live", label: t.live, icon: "🔴" },
+        { id: "live", label: t.studio, icon: "🎚️" },
       ],
     },
     {
       label: t.communication,
       icon: "📣",
       tabs: [
-        { id: "strategic-plan", label: "Plan stratégique", icon: "📋" },
+        { id: "strategic-plan", label: t.strategicPlan, icon: "📋" },
         { id: "communication", label: t.communicationPosts, icon: "📝" },
-        { id: "campaigns", label: "Campagnes", icon: "📩" },
-        { id: "library", label: "Library", icon: "📁" },
-        { id: "cyber-watch", label: "Veille cyber", icon: "📡" },
+        { id: "campaigns", label: t.campaigns, icon: "📩" },
+        { id: "library", label: t.library, icon: "📁" },
+        { id: "cyber-watch", label: t.cyberWatch, icon: "📡" },
       ],
     },
     {
@@ -6135,13 +6129,13 @@ export default function AdminDashboard() {
       ],
     },
     {
-      label: "Web Site",
+      label: t.webSiteGroup,
       icon: "🌐",
       tabs: [
         { id: "past-speakers", label: t.pastSpeakers, icon: "🎙️" },
         { id: "team", label: t.team, icon: "👥", count: stats.team },
-        { id: "video", label: "Vidéothèque", icon: "📹" },
-        { id: "testimony", label: "Témoignages", icon: "💬" },
+        { id: "video", label: t.videoteque, icon: "📹" },
+        { id: "testimony", label: t.testimony, icon: "💬" },
         { id: "settings", label: t.eventSettings, icon: "⚙️" },
       ],
     },

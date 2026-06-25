@@ -1,46 +1,47 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useLang } from "@/lib/adminLangContext";
 
 // Permission modules grouped exactly like the admin navbar sections.
 // Each entry's `key` is the permission key checked by canSeeTab in the dashboard.
-const NAV_GROUPS: { label: string; modules: { key: string; label: string }[] }[] = [
-  { label: "Vue d'ensemble", modules: [
+const NAV_GROUPS: { label: { fr: string; en: string }; modules: { key: string; label: string }[] }[] = [
+  { label: { fr: "Vue d'ensemble", en: "Overview" }, modules: [
     { key: "pilotage", label: "🎯 Pilotage global (kanban)" },
     { key: "pilotage-meetings", label: "📅 Pilotage — Réunions" },
   ] },
-  { label: "Speakers & Programme", modules: [
+  { label: { fr: "Speakers & Programme", en: "Speakers & Programme" }, modules: [
     { key: "cfp", label: "Pipeline (CFP / Programme)" },
   ] },
-  { label: "Participants", modules: [
+  { label: { fr: "Participants", en: "Participants" }, modules: [
     { key: "registrations", label: "Inscriptions" },
     { key: "volunteers", label: "Bénévoles" },
     { key: "newsletter", label: "Newsletter" },
   ] },
-  { label: "Sponsors", modules: [
+  { label: { fr: "Sponsors", en: "Sponsors" }, modules: [
     { key: "sponsors", label: "Sponsors" },
     { key: "sponsor-pipeline", label: "Pipeline Sponsors" },
     { key: "prospection", label: "Prospection" },
   ] },
-  { label: "Budget", modules: [
+  { label: { fr: "Budget", en: "Budget" }, modules: [
     { key: "tickets", label: "Billets" },
     { key: "sponsor-packages", label: "Packages Sponsors" },
     { key: "budget", label: "Budget" },
     { key: "transactions", label: "Transactions" },
   ] },
-  { label: "CTF", modules: [
+  { label: { fr: "CTF", en: "CTF" }, modules: [
     { key: "ctf", label: "EyesOpen CTF" },
   ] },
-  { label: "Live Streaming", modules: [
+  { label: { fr: "Live Streaming", en: "Live Streaming" }, modules: [
     { key: "live", label: "🔴 Live — Flux, Q&A, Workshops, Dashboard" },
   ] },
-  { label: "Communication", modules: [
+  { label: { fr: "Communication", en: "Communication" }, modules: [
     { key: "communication", label: "Communication" },
     { key: "strategic-plan", label: "Plan Stratégique" },
     { key: "campaigns", label: "Campagnes inscrits" },
     { key: "library", label: "Library" },
     { key: "cyber-watch", label: "Veille cyber" },
   ] },
-  { label: "Opérations", modules: [
+  { label: { fr: "Opérations", en: "Operations" }, modules: [
     { key: "logistics", label: "Logistique" },
     { key: "certificates", label: "Certificats" },
     { key: "export", label: "Export" },
@@ -48,7 +49,7 @@ const NAV_GROUPS: { label: string; modules: { key: string; label: string }[] }[]
     { key: "profiles", label: "Profils & Accès" },
     { key: "audit", label: "Journal d'audit" },
   ] },
-  { label: "Web Site", modules: [
+  { label: { fr: "Web Site", en: "Web Site" }, modules: [
     { key: "speakers", label: "Anciens Speakers" },
     { key: "team", label: "Équipe" },
     { key: "video", label: "Vidéothèque" },
@@ -79,6 +80,7 @@ function parsePerms(raw: string): Permissions {
 }
 
 export default function AdminProfilesPanel() {
+  const __ = useLang();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selected, setSelected] = useState<Profile | null>(null);
   const [editPerms, setEditPerms] = useState<Permissions>({});
@@ -152,7 +154,7 @@ export default function AdminProfilesPanel() {
 
   async function deleteProfile() {
     if (!selected || selected.isSystem) return;
-    if (!confirm(`Supprimer le profil "${selected.name}" ?`)) return;
+    if (!confirm(`${__("Supprimer le profil", "Delete profile")} "${selected.name}" ?`)) return;
     const res = await fetch(`/api/admin/profiles/${selected.id}`, { method: "DELETE" });
     if (res.ok) {
       setProfiles(ps => ps.filter(p => p.id !== selected.id));
@@ -192,8 +194,8 @@ export default function AdminProfilesPanel() {
       {/* Pilotage — Coordo Global escalation contact */}
       <div style={{ background: "var(--panel)", border: "1px solid var(--bdr)", borderRadius: "8px", padding: "16px", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: "220px" }}>
-          <div style={{ color: "var(--ac)", fontFamily: "monospace", fontSize: "12px", marginBottom: "4px" }}>🎯 PILOTAGE — Email Coordo Global (escalades)</div>
-          <div style={{ color: "var(--txt-dim)", fontSize: "11px" }}>Destinataire des alertes de tâches en retard du module Pilotage global.</div>
+          <div style={{ color: "var(--ac)", fontFamily: "monospace", fontSize: "12px", marginBottom: "4px" }}>🎯 {__("PILOTAGE — Email Coordo Global (escalades)", "PILOTAGE — Coordo Global Email (escalations)")}</div>
+          <div style={{ color: "var(--txt-dim)", fontSize: "11px" }}>{__("Destinataire des alertes de tâches en retard du module Pilotage global.", "Recipient of overdue task alerts from the global Pilotage module.")}</div>
         </div>
         <input
           value={coordoEmail}
@@ -205,7 +207,7 @@ export default function AdminProfilesPanel() {
           onClick={saveCoordo}
           style={{ background: "var(--ac)", color: "#000", border: "none", borderRadius: "6px", padding: "8px 16px", fontSize: "13px", fontWeight: "bold", cursor: "pointer" }}
         >
-          {coordoSaved ? "✓ Enregistré" : "Enregistrer"}
+          {coordoSaved ? __("✓ Enregistré", "✓ Saved") : __("Enregistrer", "Save")}
         </button>
       </div>
 
@@ -213,44 +215,44 @@ export default function AdminProfilesPanel() {
       {/* Profile list */}
       <div style={{ width: "260px", flexShrink: 0 }}>
         <div className="flex items-center justify-between mb-3">
-          <span style={{ color: "var(--ac)", fontFamily: "monospace", fontSize: "13px" }}>PROFILS ADMIN</span>
+          <span style={{ color: "var(--ac)", fontFamily: "monospace", fontSize: "13px" }}>{__("PROFILS ADMIN", "ADMIN PROFILES")}</span>
           <button
             onClick={() => setCreating(true)}
             style={{ background: "var(--ac)", color: "#000", border: "none", borderRadius: "4px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontWeight: "bold" }}
           >
-            + Nouveau
+            {__("+ Nouveau", "+ New")}
           </button>
         </div>
 
         {creating && (
           <div style={{ background: "var(--panel)", border: "1px solid var(--ac-bdr)", borderRadius: "6px", padding: "12px", marginBottom: "12px" }}>
-            <div style={{ fontSize: "12px", color: "var(--ac)", marginBottom: "8px" }}>Nouveau profil</div>
+            <div style={{ fontSize: "12px", color: "var(--ac)", marginBottom: "8px" }}>{__("Nouveau profil", "New profile")}</div>
             <input
-              placeholder="Slug (ex: moderateur)"
+              placeholder={__("Slug (ex: moderateur)", "Slug (e.g. moderator)")}
               value={newSlug}
               onChange={e => setNewSlug(e.target.value)}
               style={{ ...inputStyle, width: "100%", padding: "6px 8px", fontSize: "12px", marginBottom: "6px", boxSizing: "border-box" }}
             />
             <input
-              placeholder="Nom"
+              placeholder={__("Nom", "Name")}
               value={newName}
               onChange={e => setNewName(e.target.value)}
               style={{ ...inputStyle, width: "100%", padding: "6px 8px", fontSize: "12px", marginBottom: "6px", boxSizing: "border-box" }}
             />
             <input
-              placeholder="Description"
+              placeholder={__("Description", "Description")}
               value={newDesc}
               onChange={e => setNewDesc(e.target.value)}
               style={{ ...inputStyle, width: "100%", padding: "6px 8px", fontSize: "12px", marginBottom: "6px", boxSizing: "border-box" }}
             />
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-              <label style={{ fontSize: "11px", color: "var(--txt-dim)" }}>Couleur</label>
+              <label style={{ fontSize: "11px", color: "var(--txt-dim)" }}>{__("Couleur", "Color")}</label>
               <input type="color" value={newColor} onChange={e => setNewColor(e.target.value)} style={{ width: "36px", height: "24px", border: "none", borderRadius: "4px", cursor: "pointer", background: "transparent" }} />
               <span style={{ fontSize: "11px", color: "var(--txt-dim)" }}>{newColor}</span>
             </div>
             <div style={{ display: "flex", gap: "6px" }}>
-              <button onClick={createProfile} style={{ flex: 1, background: "var(--ac)", color: "#000", border: "none", borderRadius: "4px", padding: "6px", fontSize: "12px", cursor: "pointer", fontWeight: "bold" }}>Créer</button>
-              <button onClick={() => setCreating(false)} style={{ flex: 1, background: "var(--card2)", color: "var(--txt-dim)", border: "none", borderRadius: "4px", padding: "6px", fontSize: "12px", cursor: "pointer" }}>Annuler</button>
+              <button onClick={createProfile} style={{ flex: 1, background: "var(--ac)", color: "#000", border: "none", borderRadius: "4px", padding: "6px", fontSize: "12px", cursor: "pointer", fontWeight: "bold" }}>{__("Créer", "Create")}</button>
+              <button onClick={() => setCreating(false)} style={{ flex: 1, background: "var(--card2)", color: "var(--txt-dim)", border: "none", borderRadius: "4px", padding: "6px", fontSize: "12px", cursor: "pointer" }}>{__("Annuler", "Cancel")}</button>
             </div>
           </div>
         )}
@@ -270,7 +272,7 @@ export default function AdminProfilesPanel() {
               <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: p.color, flexShrink: 0 }} />
               <div>
                 <div style={{ color: "var(--txt)", fontSize: "13px", fontWeight: "500" }}>{p.name}</div>
-                {p.isSystem && <div style={{ color: "var(--txt-mute)", fontSize: "10px" }}>système</div>}
+                {p.isSystem && <div style={{ color: "var(--txt-mute)", fontSize: "10px" }}>{__("système", "system")}</div>}
               </div>
             </button>
           ))}
@@ -288,7 +290,7 @@ export default function AdminProfilesPanel() {
               style={{ ...inputStyle, flex: 1, padding: "8px 12px", fontSize: "16px", fontWeight: "bold", minWidth: "180px" }}
             />
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <label style={{ fontSize: "11px", color: "var(--txt-dim)" }}>Couleur</label>
+              <label style={{ fontSize: "11px", color: "var(--txt-dim)" }}>{__("Couleur", "Color")}</label>
               <input type="color" value={editColor} onChange={e => setEditColor(e.target.value)} style={{ width: "36px", height: "30px", border: "none", borderRadius: "4px", cursor: "pointer", background: "transparent" }} />
             </div>
             <button
@@ -296,14 +298,14 @@ export default function AdminProfilesPanel() {
               disabled={saving}
               style={{ background: "var(--ac)", color: "#000", border: "none", borderRadius: "6px", padding: "8px 16px", fontSize: "13px", fontWeight: "bold", cursor: "pointer" }}
             >
-              {saving ? "Saving…" : "Enregistrer"}
+              {saving ? __("Saving…", "Saving…") : __("Enregistrer", "Save")}
             </button>
             {!selected.isSystem && (
               <button
                 onClick={deleteProfile}
                 style={{ background: "transparent", color: "#ff4444", border: "1px solid rgba(255,68,68,0.3)", borderRadius: "6px", padding: "8px 16px", fontSize: "13px", cursor: "pointer" }}
               >
-                Supprimer
+                {__("Supprimer", "Delete")}
               </button>
             )}
           </div>
@@ -311,24 +313,24 @@ export default function AdminProfilesPanel() {
           <input
             value={editDesc}
             onChange={e => setEditDesc(e.target.value)}
-            placeholder="Description"
+            placeholder={__("Description", "Description")}
             style={{ ...inputStyle, width: "100%", padding: "8px 12px", marginBottom: "20px", boxSizing: "border-box" }}
           />
 
           <div style={{ fontFamily: "monospace", fontSize: "12px", color: "var(--txt-mute)", marginBottom: "12px" }}>
             Slug: <span style={{ color: "var(--txt-dim)" }}>{selected.slug}</span>
-            {selected.isSystem && <span style={{ color: "var(--txt-mute)", marginLeft: "12px" }}>· profil système (protégé)</span>}
+            {selected.isSystem && <span style={{ color: "var(--txt-mute)", marginLeft: "12px" }}>· {__("profil système (protégé)", "system profile (protected)")}</span>}
           </div>
 
           <div style={{ fontSize: "13px", color: "var(--txt-dim)", marginBottom: "12px" }}>
-            Cliquez pour cycler : <span style={{ color: "var(--txt-mute)" }}>— aucun</span> → <span style={{ color: "#ffaa00" }}>read</span> → <span style={{ color: "var(--ac)" }}>write</span>
+            {__("Cliquez pour cycler :", "Click to cycle:")} <span style={{ color: "var(--txt-mute)" }}>— {__("aucun", "none")}</span> → <span style={{ color: "#ffaa00" }}>read</span> → <span style={{ color: "var(--ac)" }}>write</span>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
             {NAV_GROUPS.map(group => (
-              <div key={group.label}>
+              <div key={group.label.fr}>
                 <div style={{ fontFamily: "monospace", fontSize: "11px", color: "var(--ac)", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: "8px", borderBottom: "1px solid var(--bdr)", paddingBottom: "4px" }}>
-                  {group.label}
+                  {__(group.label.fr, group.label.en)}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "8px" }}>
                   {group.modules.map(({ key, label }) => {
@@ -361,7 +363,7 @@ export default function AdminProfilesPanel() {
         </div>
       ) : (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--txt-dim)", fontSize: "14px" }}>
-          Sélectionnez un profil pour le modifier
+          {__("Sélectionnez un profil pour le modifier", "Select a profile to edit it")}
         </div>
       )}
       </div>

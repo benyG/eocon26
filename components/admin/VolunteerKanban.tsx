@@ -1,16 +1,17 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useLang } from "@/lib/adminLangContext";
 
 type VolStage = "submitted" | "reviewing" | "shortlisted" | "accepted" | "onboarding" | "confirmed" | "rejected";
 
-const STAGES: { key: VolStage; label: string; color: string; desc: string }[] = [
-  { key: "submitted",   label: "Candidatures",   color: "#888",    desc: "Reçues, non examinées" },
-  { key: "reviewing",   label: "En révision",    color: "#0066ff", desc: "En cours d'examen" },
-  { key: "shortlisted", label: "Présélectionnés", color: "#ffaa00", desc: "Email de confirmation envoyé" },
-  { key: "accepted",    label: "Acceptés",        color: "#00ff9d", desc: "Rôle assigné, email envoyé" },
-  { key: "onboarding",  label: "Onboarding",      color: "#cc00ff", desc: "Briefing envoyé" },
-  { key: "confirmed",   label: "Confirmés",       color: "#00ccff", desc: "Présence confirmée" },
-  { key: "rejected",    label: "Refusés",         color: "#ff3333", desc: "Email de refus envoyé" },
+const STAGES: { key: VolStage; label: { fr: string; en: string }; color: string; desc: { fr: string; en: string } }[] = [
+  { key: "submitted",   label: { fr: "Candidatures",    en: "Applications" },   color: "#888",    desc: { fr: "Reçues, non examinées",           en: "Received, not reviewed" } },
+  { key: "reviewing",   label: { fr: "En révision",     en: "Reviewing" },       color: "#0066ff", desc: { fr: "En cours d'examen",               en: "Under review" } },
+  { key: "shortlisted", label: { fr: "Présélectionnés", en: "Shortlisted" },     color: "#ffaa00", desc: { fr: "Email de confirmation envoyé",    en: "Confirmation email sent" } },
+  { key: "accepted",    label: { fr: "Acceptés",        en: "Accepted" },        color: "#00ff9d", desc: { fr: "Rôle assigné, email envoyé",       en: "Role assigned, email sent" } },
+  { key: "onboarding",  label: { fr: "Onboarding",      en: "Onboarding" },      color: "#cc00ff", desc: { fr: "Briefing envoyé",                 en: "Briefing sent" } },
+  { key: "confirmed",   label: { fr: "Confirmés",       en: "Confirmed" },       color: "#00ccff", desc: { fr: "Présence confirmée",              en: "Attendance confirmed" } },
+  { key: "rejected",    label: { fr: "Refusés",         en: "Rejected" },        color: "#ff3333", desc: { fr: "Email de refus envoyé",           en: "Rejection email sent" } },
 ];
 
 const ROLES = [
@@ -44,6 +45,7 @@ interface VolCard {
 }
 
 export default function VolunteerKanban() {
+  const __ = useLang();
   const [cards, setCards] = useState<VolCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<VolCard | null>(null);
@@ -96,10 +98,10 @@ export default function VolunteerKanban() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-black text-white font-mono">Bénévoles — Pipeline</h2>
-          <p className="text-xs text-gray-500 font-mono">{cards.length} candidatures · notifications automatiques à chaque étape</p>
+          <h2 className="text-lg font-black text-white font-mono">{__("Bénévoles — Pipeline", "Volunteers — Pipeline")}</h2>
+          <p className="text-xs text-gray-500 font-mono">{cards.length} {__("candidatures · notifications automatiques à chaque étape", "applications · automatic notifications at each stage")}</p>
         </div>
-        <button onClick={load} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white font-mono">{loading ? "…" : "↻ Actualiser"}</button>
+        <button onClick={load} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white font-mono">{loading ? "…" : __("↻ Actualiser", "↻ Refresh")}</button>
       </div>
 
       {/* Kanban columns */}
@@ -116,10 +118,10 @@ export default function VolunteerKanban() {
             >
               <div className="p-2 border-b border-gray-800">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold font-mono" style={{ color: stage.color }}>{stage.label}</span>
+                  <span className="text-xs font-bold font-mono" style={{ color: stage.color }}>{__(stage.label.fr, stage.label.en)}</span>
                   <span className="text-xs text-gray-600 font-mono bg-gray-800 rounded-full px-1.5">{stageCount(stage.key)}</span>
                 </div>
-                <p className="text-xs text-gray-600 mt-0.5 leading-tight">{stage.desc}</p>
+                <p className="text-xs text-gray-600 mt-0.5 leading-tight">{__(stage.desc.fr, stage.desc.en)}</p>
               </div>
               <div className="p-2 space-y-2 min-h-[120px]">
                 {cards.filter(c => c.volunteerStage === stage.key).map(card => (
@@ -164,12 +166,12 @@ export default function VolunteerKanban() {
             {/* Info grid */}
             <div className="grid grid-cols-2 gap-2 text-xs font-mono">
               {[
-                ["Ville", selected.city],
-                ["Téléphone", selected.phone],
-                ["Rôle souhaité", selected.role],
-                ["Rôle assigné", selected.assignedRole],
-                ["Heures/sem.", selected.hoursPerWeek],
-                ["Langue", selected.langExpression === "en" ? "English" : "Français"],
+                [__("Ville", "City"), selected.city],
+                [__("Téléphone", "Phone"), selected.phone],
+                [__("Rôle souhaité", "Desired role"), selected.role],
+                [__("Rôle assigné", "Assigned role"), selected.assignedRole],
+                [__("Heures/sem.", "Hours/week"), selected.hoursPerWeek],
+                [__("Langue", "Language"), selected.langExpression === "en" ? "English" : "Français"],
                 ["LinkedIn", selected.linkedin],
                 ["WhatsApp", selected.whatsapp],
               ].filter(([, v]) => v).map(([k, v]) => (
@@ -182,33 +184,33 @@ export default function VolunteerKanban() {
 
             {selected.experience && (
               <div>
-                <p className="text-xs text-gray-500 font-mono mb-1">Expérience</p>
+                <p className="text-xs text-gray-500 font-mono mb-1">{__("Expérience", "Experience")}</p>
                 <p className="text-xs text-gray-300 leading-relaxed bg-gray-900 rounded p-2">{selected.experience}</p>
               </div>
             )}
             {selected.motivation && (
               <div>
-                <p className="text-xs text-gray-500 font-mono mb-1">Motivation</p>
+                <p className="text-xs text-gray-500 font-mono mb-1">{__("Motivation", "Motivation")}</p>
                 <p className="text-xs text-gray-300 leading-relaxed bg-gray-900 rounded p-2">{selected.motivation}</p>
               </div>
             )}
 
             {/* Role assignment */}
             <div>
-              <label className="text-xs text-gray-500 font-mono block mb-1">Rôle à assigner</label>
+              <label className="text-xs text-gray-500 font-mono block mb-1">{__("Rôle à assigner", "Role to assign")}</label>
               <select
                 value={assignRole}
                 onChange={e => setAssignRole(e.target.value)}
                 className="cyber-input w-full text-xs rounded px-3 py-2 text-white bg-transparent"
               >
-                <option value="" className="bg-dark-800">— Choisir —</option>
+                <option value="" className="bg-dark-800">{__("— Choisir —", "— Choose —")}</option>
                 {ROLES.map(r => <option key={r} value={r} className="bg-dark-800">{r}</option>)}
               </select>
             </div>
 
             {/* Stage actions */}
             <div className="space-y-2">
-              <p className="text-xs text-gray-500 font-mono">Actions — étape actuelle : <span className="text-white">{STAGES.find(s => s.key === selected.volunteerStage)?.label}</span></p>
+              <p className="text-xs text-gray-500 font-mono">{__("Actions — étape actuelle :", "Actions — current stage:")} <span className="text-white">{(() => { const s = STAGES.find(s => s.key === selected.volunteerStage); return s ? __(s.label.fr, s.label.en) : ""; })()}</span></p>
               <div className="grid grid-cols-2 gap-2">
                 {STAGES.filter(s => s.key !== selected.volunteerStage && s.key !== "submitted").map(s => (
                   <button
@@ -217,7 +219,7 @@ export default function VolunteerKanban() {
                     className="text-xs px-2 py-1.5 rounded border font-mono transition-colors hover:opacity-80"
                     style={{ borderColor: `${s.color}60`, color: s.color, backgroundColor: `${s.color}10` }}
                   >
-                    → {s.label}
+                    → {__(s.label.fr, s.label.en)}
                   </button>
                 ))}
               </div>

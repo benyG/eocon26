@@ -147,7 +147,7 @@ model Sponsor {
   phone     String?
   tier       String   // PLATINUM | GOLD | SILVER | BRONZE
   isVisible  Boolean  @default(true)
-  showOnLive Boolean  @default(false)
+  showOnLive Boolean  @default(false) @map("show_on_live")
   sortOrder  Int      @default(0)
   createdAt DateTime @default(now())
 

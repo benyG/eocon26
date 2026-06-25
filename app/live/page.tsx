@@ -29,6 +29,10 @@ const tx = {
     qaError: "Erreur — réessayez.",
     qaNoQuestions: "Aucune question approuvée pour le moment.",
     qaAnswered: "✅ Répondue",
+    workshopsTitle: "🎓 Ateliers en direct",
+    workshopJoin: "Rejoindre",
+    workshopNoAccess: "Vos billets n'incluent pas les ateliers.",
+    workshopInactive: "Cet atelier n'est pas encore disponible.",
   },
   en: {
     checking: "Verifying your access...",
@@ -53,10 +57,24 @@ const tx = {
     qaError: "Error — please try again.",
     qaNoQuestions: "No approved questions yet.",
     qaAnswered: "✅ Answered",
+    workshopsTitle: "🎓 Live Workshops",
+    workshopJoin: "Join",
+    workshopNoAccess: "Your ticket does not include workshops.",
+    workshopInactive: "This workshop is not yet available.",
   },
 };
 
-interface SessionInfo { fname: string; lname: string; ticketType: string; }
+interface SessionInfo { fname: string; lname: string; ticketType: string; includesWorkshops: boolean; includesSessions: boolean; }
+
+interface Workshop {
+  id: string;
+  title: string;
+  titleEn: string;
+  room: string;
+  active: boolean;
+  description?: string;
+  descriptionEn?: string;
+}
 
 interface Stream {
   id: string;
@@ -75,6 +93,7 @@ interface ProgrammeItem {
 interface LiveData {
   streams: Stream[];
   programme: ProgrammeItem[];
+  workshops: Workshop[];
 }
 
 interface Question {
@@ -143,7 +162,7 @@ export default function LivePage() {
   const [theme, setTheme]     = useState<Theme>("dark");
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<SessionInfo | null>(null);
-  const [liveData, setLiveData] = useState<LiveData>({ streams: [], programme: [] });
+  const [liveData, setLiveData] = useState<LiveData>({ streams: [], programme: [], workshops: [] });
 
   // Q&A state
   const [questions, setQuestions]   = useState<Question[]>([]);
@@ -176,7 +195,7 @@ export default function LivePage() {
       fetch("/api/live/programme").then(r => r.json()).catch(() => ({ streams: [], programme: [] })),
     ]).then(([sessionData, prog]) => {
       if (sessionData.ok) setSession(sessionData.session);
-      setLiveData({ streams: prog.streams ?? [], programme: prog.programme ?? [] });
+      setLiveData({ streams: prog.streams ?? [], programme: prog.programme ?? [], workshops: prog.workshops ?? [] });
     }).finally(() => setLoading(false));
   }, []);
 
@@ -193,7 +212,7 @@ export default function LivePage() {
           if (msg.type === "snapshot") {
             setQuestions(msg.questions);
           } else if (msg.type === "new") {
-            setQuestions(prev => [...prev, ...msg.questions]);
+            setQuestions((prev: Question[]) => [...prev, ...msg.questions]);
           }
         } catch { /* ignore parse errors */ }
       };
@@ -338,6 +357,70 @@ export default function LivePage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* Workshops */}
+            {liveData.workshops.length > 0 && (
+              <div style={{ background: th.cardBg, border: th.cardBorderSm, borderRadius: 12, padding: 24, marginTop: 24, boxShadow: theme === "light" ? "0 2px 12px #00000010" : "none" }}>
+                <div style={{ fontSize: 10, color: th.accent, letterSpacing: 3, marginBottom: 16 }}>{t.workshopsTitle}</div>
+                {!session?.includesWorkshops ? (
+                  <p style={{ color: th.textMuted, fontSize: 13 }}>{t.workshopNoAccess}</p>
+                ) : (
+                  <div style={{ display: "grid", gap: 12 }}>
+                    {liveData.workshops.map((w: Workshop) => (
+                      <div
+                        key={w.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "14px 18px",
+                          background: theme === "dark" ? "#050508" : th.bg,
+                          border: th.cardBorderSm,
+                          borderRadius: 8,
+                          gap: 12,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: th.text, marginBottom: 2 }}>
+                            {lang === "fr" ? w.title : (w.titleEn || w.title)}
+                          </div>
+                          {(w.description || w.descriptionEn) && (
+                            <div style={{ fontSize: 12, color: th.textMuted, marginBottom: 4 }}>
+                              {lang === "fr" ? w.description : (w.descriptionEn || w.description)}
+                            </div>
+                          )}
+                          <div style={{ fontSize: 11, color: th.textFaint }}>🚪 {w.room}</div>
+                        </div>
+                        {w.active ? (
+                          <a
+                            href={`/api/live/workshop/join?id=${encodeURIComponent(w.id)}`}
+                            style={{
+                              background: th.ctaBg,
+                              color: th.ctaText,
+                              padding: "8px 20px",
+                              borderRadius: 6,
+                              textDecoration: "none",
+                              fontSize: 12,
+                              fontWeight: 900,
+                              letterSpacing: 1,
+                              whiteSpace: "nowrap",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {t.workshopJoin}
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: 11, color: th.textFaint, flexShrink: 0 }}>
+                            {t.workshopInactive}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

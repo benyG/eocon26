@@ -8,15 +8,17 @@ async function getSetting(key: string): Promise<unknown> {
 }
 
 export async function GET() {
-  const [streams, programme] = await Promise.all([
+  const [streams, programme, workshops] = await Promise.all([
     getSetting("live_streams"),
     getSetting("live_programme"),
+    getSetting("workshops"),
   ]);
 
   return NextResponse.json(
     {
       streams:   Array.isArray(streams)   ? streams   : [],
       programme: Array.isArray(programme) ? programme : [],
+      workshops: Array.isArray(workshops) ? workshops : [],
     },
     {
       headers: { "Cache-Control": "no-store" },

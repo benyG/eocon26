@@ -9,9 +9,11 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     session: {
-      fname: session.fname,
-      lname: session.lname,
-      ticketType: session.ticketType,
+      fname:             session.fname,
+      lname:             session.lname,
+      ticketType:        session.ticketType,
+      includesWorkshops: session.includesWorkshops,
+      includesSessions:  session.includesSessions,
     },
   });
 }

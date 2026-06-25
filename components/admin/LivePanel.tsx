@@ -32,10 +32,27 @@ interface Question {
   askedAt: string;
 }
 
+interface Workshop {
+  id: string;
+  title: string;
+  titleEn: string;
+  room: string;
+  active: boolean;
+  description?: string;
+  descriptionEn?: string;
+}
+
+interface JaasConfig {
+  appId: string;
+  apiKey: string;
+  privateKey: string;
+}
+
 const EMPTY: LiveSettings = { streams: [], programme: [] };
+const EMPTY_WORKSHOP: Workshop = { id: "", title: "", titleEn: "", room: "", active: true, description: "", descriptionEn: "" };
 
 export default function LivePanel({ canWrite }: { canWrite: boolean }) {
-  const [subTab, setSubTab] = useState<"streams" | "programme" | "qa">("streams");
+  const [subTab, setSubTab] = useState<"streams" | "programme" | "qa" | "workshops">("streams");
 
   // ── Streams + Programme ──────────────────────────────────────────────────
   const [settings, setSettings]     = useState<LiveSettings>(EMPTY);
@@ -49,6 +66,16 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
   const [questions, setQuestions]   = useState<Question[]>([]);
   const [qaLoading, setQaLoading]   = useState(false);
   const [qaFilter, setQaFilter]     = useState<"pending" | "approved" | "answered">("pending");
+
+  // ── Workshops & JaaS ─────────────────────────────────────────────────────
+  const [workshops, setWorkshops]   = useState<Workshop[]>([]);
+  const [wsLoading, setWsLoading]   = useState(false);
+  const [wsSaving, setWsSaving]     = useState(false);
+  const [wsSaved, setWsSaved]       = useState(false);
+  const [editWs, setEditWs]         = useState<Workshop | null>(null);
+  const [jaas, setJaas]             = useState<JaasConfig>({ appId: "", apiKey: "", privateKey: "" });
+  const [jaasSaving, setJaasSaving] = useState(false);
+  const [jaasSaved, setJaasSaved]   = useState(false);
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -74,8 +101,21 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
     }
   }, []);
 
+  const loadWorkshops = useCallback(async () => {
+    setWsLoading(true);
+    try {
+      const [wsRes, jaasRes] = await Promise.all([
+        fetch("/api/admin/live/workshops"),
+        fetch("/api/admin/live/jaas"),
+      ]);
+      if (wsRes.ok)   setWorkshops(await wsRes.json());
+      if (jaasRes.ok) setJaas(await jaasRes.json());
+    } finally { setWsLoading(false); }
+  }, []);
+
   useEffect(() => { loadSettings(); }, [loadSettings]);
   useEffect(() => { if (subTab === "qa") loadQuestions(); }, [subTab, loadQuestions]);
+  useEffect(() => { if (subTab === "workshops") loadWorkshops(); }, [subTab, loadWorkshops]);
 
   const persist = async (patch: Partial<LiveSettings>) => {
     setSaving(true); setSaved(false);
@@ -103,6 +143,41 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
   };
   const addStream    = () => setSettings((s: LiveSettings) => ({ ...s, streams: [...s.streams, { id: Date.now().toString(), title: "", url: "", active: false }] }));
   const removeStream = (id: string) => setSettings((s: LiveSettings) => ({ ...s, streams: s.streams.filter((st: Stream) => st.id !== id) }));
+
+  const saveWorkshops = async (list: Workshop[]) => {
+    setWsSaving(true); setWsSaved(false);
+    try {
+      const res = await fetch("/api/admin/live/workshops", {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(list),
+      });
+      if (res.ok) { setWorkshops(list); setWsSaved(true); setTimeout(() => setWsSaved(false), 2000); }
+    } finally { setWsSaving(false); }
+  };
+
+  const saveJaas = async () => {
+    setJaasSaving(true); setJaasSaved(false);
+    try {
+      const res = await fetch("/api/admin/live/jaas", {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(jaas),
+      });
+      if (res.ok) { setJaasSaved(true); setTimeout(() => setJaasSaved(false), 2000); }
+    } finally { setJaasSaving(false); }
+  };
+
+  const addWorkshop = () => {
+    const ws: Workshop = { ...EMPTY_WORKSHOP, id: Date.now().toString() };
+    setEditWs(ws);
+  };
+
+  const saveEditedWorkshop = (ws: Workshop) => {
+    const next = workshops.some(w => w.id === ws.id)
+      ? workshops.map(w => w.id === ws.id ? ws : w)
+      : [...workshops, ws];
+    saveWorkshops(next);
+    setEditWs(null);
+  };
+
+  const removeWorkshop = (id: string) => saveWorkshops(workshops.filter(w => w.id !== id));
 
   const patchQuestion = async (id: number, patch: Partial<Question>) => {
     const res = await fetch(`/api/admin/live/questions/${id}`, {
@@ -163,17 +238,18 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
       </div>
 
       {/* Sub-tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
         <button style={TAB_STYLE(subTab === "streams")}   onClick={() => setSubTab("streams")}>📡 Flux vidéo</button>
         <button style={TAB_STYLE(subTab === "programme")} onClick={() => setSubTab("programme")}>📋 Programme du jour</button>
         <button style={TAB_STYLE(subTab === "qa")}        onClick={() => setSubTab("qa")}>
-          💬 Q&A
+          💬 Q&amp;A
           {questions.filter(q => !q.approved && !q.answered).length > 0 && (
             <span style={{ marginLeft: 6, background: "#ff4444", color: "#fff", borderRadius: 10, padding: "1px 6px", fontSize: 10 }}>
               {questions.filter(q => !q.approved && !q.answered).length}
             </span>
           )}
         </button>
+        <button style={TAB_STYLE(subTab === "workshops")} onClick={() => setSubTab("workshops")}>🎓 Workshops JaaS</button>
       </div>
 
       {/* ── STREAMS ─────────────────────────────────────────────────────── */}
@@ -254,7 +330,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
         </div>
 
       /* ── Q&A ────────────────────────────────────────────────────────── */
-      ) : (
+      ) : subTab === "qa" ? (
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <div style={{ display: "flex", gap: 8 }}>
@@ -320,6 +396,121 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                 </div>
               </div>
             ))
+          )}
+        </div>
+
+      /* ── WORKSHOPS ──────────────────────────────────────────────────── */
+      ) : (
+        <div>
+          {/* JaaS connection */}
+          <div style={{ background: "#0a0a12", border: "1px solid #00ff9d20", borderRadius: 10, padding: 20, marginBottom: 24 }}>
+            <div style={{ fontSize: 10, color: "#00ff9d", letterSpacing: 3, marginBottom: 14 }}>🔑 CONNEXION JAAS (8x8.vc)</div>
+
+            {(["appId", "apiKey"] as const).map(field => (
+              <div key={field} style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 10, color: "#00ff9d", letterSpacing: 2, display: "block", marginBottom: 4 }}>
+                  {field === "appId" ? "APP ID (vpaas-magic-cookie-xxxx)" : "API KEY ID (kid)"}
+                </label>
+                <input
+                  value={jaas[field]}
+                  onChange={e => setJaas(j => ({ ...j, [field]: (e.target as HTMLInputElement).value }))}
+                  disabled={!canWrite}
+                  placeholder={field === "appId" ? "vpaas-magic-cookie-xxxx" : "xxxx"}
+                  style={INPUT}
+                />
+              </div>
+            ))}
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 10, color: "#00ff9d", letterSpacing: 2, display: "block", marginBottom: 4 }}>CLÉ PRIVÉE RSA (PEM)</label>
+              <textarea
+                value={jaas.privateKey}
+                onChange={e => setJaas(j => ({ ...j, privateKey: (e.target as HTMLTextAreaElement).value }))}
+                disabled={!canWrite} rows={6}
+                placeholder={"-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"}
+                style={{ width: "100%", background: "#050508", border: "1px solid #00ff9d20", borderRadius: 6, color: "#fff", padding: "10px 12px", fontSize: 11, fontFamily: "'Courier New', monospace", boxSizing: "border-box" as const, resize: "vertical" as const, outline: "none" }}
+              />
+            </div>
+
+            {canWrite && (
+              <button onClick={saveJaas} disabled={jaasSaving} style={SAVE_BTN}>
+                {jaasSaved ? "✓ Sauvegardé" : jaasSaving ? "Sauvegarde…" : "Sauvegarder config JaaS"}
+              </button>
+            )}
+          </div>
+
+          {/* Workshop list */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div style={{ fontSize: 10, color: "#00ff9d", letterSpacing: 3 }}>WORKSHOPS ({workshops.length})</div>
+            {canWrite && (
+              <button onClick={addWorkshop} style={{ background: "transparent", border: "1px solid #00ff9d40", color: "#00ff9d", padding: "6px 14px", borderRadius: 6, fontSize: 11, cursor: "pointer", letterSpacing: 1 }}>
+                + Ajouter workshop
+              </button>
+            )}
+          </div>
+
+          {wsLoading ? (
+            <p style={{ color: "#555", fontSize: 12 }}>Chargement…</p>
+          ) : workshops.length === 0 ? (
+            <p style={{ color: "#555", fontSize: 12 }}>Aucun workshop configuré.</p>
+          ) : (
+            workshops.map(ws => (
+              <div key={ws.id} style={{ background: "#0a0a12", border: `1px solid ${ws.active ? "#00ff9d20" : "#ffffff10"}`, borderRadius: 10, padding: 16, marginBottom: 12, display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, color: "#fff", fontWeight: 700, marginBottom: 2 }}>{ws.title || "(sans titre)"}</div>
+                  {ws.titleEn && <div style={{ fontSize: 11, color: "#888" }}>EN: {ws.titleEn}</div>}
+                  <div style={{ fontSize: 10, color: "#555", marginTop: 4, fontFamily: "'Courier New', monospace" }}>room: {ws.room || "—"}</div>
+                  {!ws.active && <span style={{ fontSize: 10, color: "#888", marginTop: 4, display: "inline-block" }}>● Inactif</span>}
+                  {ws.active  && <span style={{ fontSize: 10, color: "#00ff9d", marginTop: 4, display: "inline-block" }}>🔴 Actif</span>}
+                </div>
+                {canWrite && (
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    <button onClick={() => setEditWs(ws)} style={{ background: "transparent", border: "1px solid #ffffff20", color: "#888", padding: "4px 10px", borderRadius: 5, fontSize: 11, cursor: "pointer" }}>Éditer</button>
+                    <button onClick={() => removeWorkshop(ws.id)} style={{ background: "transparent", border: "1px solid #ff000030", color: "#ff6b6b", padding: "4px 10px", borderRadius: 5, fontSize: 11, cursor: "pointer" }}>✕</button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+
+          {/* Edit/Create workshop modal */}
+          {editWs && (
+            <div style={{ position: "fixed", inset: 0, background: "#000000cc", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+              <div style={{ background: "#0a0a12", border: "1px solid #00ff9d30", borderRadius: 12, padding: 28, width: 480, maxWidth: "90vw" }}>
+                <div style={{ fontSize: 10, color: "#00ff9d", letterSpacing: 3, marginBottom: 14 }}>
+                  {workshops.some(w => w.id === editWs.id) ? "MODIFIER WORKSHOP" : "NOUVEAU WORKSHOP"}
+                </div>
+
+                {[
+                  { field: "title",         label: "Titre FR *" },
+                  { field: "titleEn",       label: "Title EN *" },
+                  { field: "room",          label: "Room ID (JaaS room name)" },
+                  { field: "description",   label: "Description FR" },
+                  { field: "descriptionEn", label: "Description EN" },
+                ].map(({ field, label }) => (
+                  <div key={field} style={{ marginBottom: 12 }}>
+                    <label style={{ fontSize: 10, color: "#00ff9d", letterSpacing: 1, display: "block", marginBottom: 4 }}>{label}</label>
+                    <input
+                      value={(editWs as Record<string, string>)[field] ?? ""}
+                      onChange={e => setEditWs(w => w ? { ...w, [field]: (e.target as HTMLInputElement).value } : w)}
+                      style={INPUT}
+                    />
+                  </div>
+                ))}
+
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#888", marginBottom: 20, cursor: "pointer" }}>
+                  <input type="checkbox" checked={editWs.active} onChange={e => setEditWs(w => w ? { ...w, active: (e.target as HTMLInputElement).checked } : w)} style={{ accentColor: "#00ff9d" }} />
+                  Workshop actif (visible aux participants)
+                </label>
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => saveEditedWorkshop(editWs)} disabled={wsSaving || !editWs.title || !editWs.room} style={{ ...SAVE_BTN, opacity: (!editWs.title || !editWs.room) ? 0.5 : 1 }}>
+                    {wsSaved ? "✓" : wsSaving ? "…" : "Enregistrer"}
+                  </button>
+                  <button onClick={() => setEditWs(null)} style={{ background: "transparent", border: "1px solid #ffffff20", color: "#888", padding: "8px 16px", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>Annuler</button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       )}

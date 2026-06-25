@@ -620,7 +620,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                   <div key={field} style={{ marginBottom: 12 }}>
                     <label style={{ fontSize: 10, color: "#00ff9d", letterSpacing: 1, display: "block", marginBottom: 4 }}>{label}</label>
                     <input
-                      value={(editWs as Record<string, string>)[field] ?? ""}
+                      value={(editWs as unknown as Record<string, string>)[field] ?? ""}
                       onChange={e => setEditWs(w => w ? { ...w, [field]: (e.target as HTMLInputElement).value } : w)}
                       style={INPUT}
                     />

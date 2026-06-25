@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 - URL de la plateforme : ${context.url || "Non renseignée"}
 - Priorité : ${context.priority === 1 ? "Haute" : context.priority === 2 ? "Moyenne" : "Basse"}
 
-Adapte le ton et le format à la plateforme. Inclus les éléments essentiels (hashtags si pertinent, lien d'inscription, CTA clair).
+Adapte le ton et le format à la plateforme. Si un CTA ou lien est nécessaire, utilise UNIQUEMENT les URLs officielles fournies dans le contexte ci-dessus. N'invente aucun lien.
 
 JSON attendu :
 {

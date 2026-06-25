@@ -105,7 +105,7 @@ async function syncReminderPost(speakerId: number, date: string, sessionTime: st
   const settings = await getEventSettings().catch(() => ({} as Record<string, string>));
   const venue = settings.event_venue || "Hotel Onomo";
   const city = settings.event_city || "Douala";
-  const urlInscription = settings.url_inscription || "https://eyesopensecurity.com/#inscription";
+  const urlInscription = settings.url_inscription || "";
 
   const content = `⏰ Demain à EOCON 2026 !\n\n🎤 ${speaker.name}${speaker.title ? `, ${speaker.title}` : ""}${speaker.company ? ` @ ${speaker.company}` : ""} présentera :\n"${speaker.talkTitle || "Talk à confirmer"}"\n\n📅 ${date} · ${sessionTime ?? ""} · ${venue}, ${city}\n\n🎫 Dernières places → ${urlInscription}\n\n#EOCON2026 #Cybersécurité #Afrique`;
 

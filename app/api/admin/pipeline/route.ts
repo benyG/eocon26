@@ -120,8 +120,8 @@ export async function PATCH(req: NextRequest) {
       const dateFr = settings.event_date_display_fr || "28 novembre 2026";
       const venue = settings.event_venue || "Hotel Onomo";
       const city = settings.event_city || "Douala";
-      const urlInscription = settings.url_inscription || "https://eyesopensecurity.com/#inscription";
-      const urlProgramme = settings.url_programme || "https://eyesopensecurity.com/#programme";
+      const urlInscription = settings.url_inscription || "";
+      const urlProgramme = settings.url_programme || "";
 
       // Find the next free 90-min posting slot on a rolling basis.
       // Slots: 09:00, 10:30, 12:00, 13:30, 15:00, 16:30 each day (Mon–Sat).

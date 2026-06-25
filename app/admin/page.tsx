@@ -5322,17 +5322,17 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
             </div>
             <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer mt-5">
               <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
-              Visible sur le site
+              {lang === "en" ? "Visible on site" : "Visible sur le site"}
             </label>
           </div>
           <div className="flex gap-3 mt-4">
-            <button onClick={save} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
-            <button onClick={() => { setShowForm(false); setEditing(null); }} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+            <button onClick={save} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">{lang === "en" ? "Save" : "Sauvegarder"}</button>
+            <button onClick={() => { setShowForm(false); setEditing(null); }} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "Cancel" : "Annuler"}</button>
           </div>
         </div>
       )}
 
-      {loading ? <p className="text-gray-600 text-xs">Chargement…</p> : (
+      {loading ? <p className="text-gray-600 text-xs">{lang === "en" ? "Loading…" : "Chargement…"}</p> : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {videos.map(v => {
             const thumb = getYoutubeThumbnail(v.youtubeUrl as string);
@@ -5347,7 +5347,7 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
                       <div className="flex gap-1.5 mt-1 flex-wrap">
                         <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "#00ff9d15", color: "#00ff9d" }}>EOCON {v.edition as string}</span>
                         {!!(v.category) && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-800 text-gray-400">{v.category as string}</span>}
-                        {!v.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-500">Masqué</span>}
+                        {!v.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-500">{lang === "en" ? "Hidden" : "Masqué"}</span>}
                       </div>
                     </div>
                     {canWrite && <div className="flex gap-1 shrink-0">
@@ -5359,7 +5359,7 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
               </div>
             );
           })}
-          {!videos.length && !loading && <p className="text-gray-600 text-xs py-8 text-center col-span-3">Aucune vidéo — cliquez sur + Ajouter</p>}
+          {!videos.length && !loading && <p className="text-gray-600 text-xs py-8 text-center col-span-3">{lang === "en" ? "No videos — click + Add" : "Aucune vidéo — cliquez sur + Ajouter"}</p>}
         </div>
       )}
     </div>
@@ -5509,6 +5509,7 @@ function DomainCard({
   title: string; color: string; health: "green" | "orange" | "red" | "grey";
   onNavigate: () => void; children: React.ReactNode; borderTop?: boolean;
 }) {
+  const { lang } = useAdminT();
   return (
     <div
       className="cyber-card rounded-xl p-5"
@@ -5524,7 +5525,7 @@ function DomainCard({
           className="text-xs px-2 py-0.5 rounded border transition-all hover:brightness-125"
           style={{ color, borderColor: color + "50", background: color + "12" }}
         >
-          → Voir
+          {lang === "en" ? "→ View" : "→ Voir"}
         </button>
       </div>
       {children}
@@ -5549,6 +5550,7 @@ function DashboardHealthPanel({
   analyticsData: Record<string, unknown> | null;
   onNavigate: (tab: Tab) => void;
 }) {
+  const { lang } = useAdminT();
   // ── CFP ──
   const cfpTotal = stats.cfp || 0;
   const cfpAccepted = extra.cfpDetailed.filter(s => s.status === "accepted" || s.status === "onboarding" || s.status === "confirmed" || s.status === "scheduled").length;
@@ -5634,12 +5636,17 @@ function DashboardHealthPanel({
       <DomainCard title="CFP" color="#cc00ff" health={cfpHealth} onNavigate={() => onNavigate("cfp" as Tab)}>
         {/* Funnel */}
         <div className="flex items-center gap-1 mb-3">
-          {[
+          {(lang === "en" ? [
+            { label: "Submitted", val: cfpTotal },
+            { label: "Accepted", val: cfpAccepted },
+            { label: "Confirmed", val: cfpConfirmed },
+            { label: "Scheduled", val: cfpScheduled },
+          ] : [
             { label: "Soumis", val: cfpTotal },
             { label: "Acceptés", val: cfpAccepted },
             { label: "Confirmés", val: cfpConfirmed },
             { label: "Programmés", val: cfpScheduled },
-          ].map((step, i) => (
+          ]).map((step, i) => (
             <div key={step.label} className="flex items-center gap-1 flex-1">
               <div className="flex-1 rounded-lg p-1.5 text-center" style={{ background: "#cc00ff15", border: "1px solid #cc00ff30" }}>
                 <div className="text-base font-black font-mono" style={{ color: "#cc00ff", fontFamily: "'Share Tech Mono', monospace" }}>{step.val}</div>
@@ -5654,7 +5661,7 @@ function DashboardHealthPanel({
       {/* Programme */}
       <DomainCard title="Programme" color="#00ccff" health={sessHealth} onNavigate={() => onNavigate("pipeline")}>
         <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Programmées" value={sessScheduled} color="#00ccff" />
+          <MetricRow label={lang === "en" ? "Scheduled" : "Programmées"} value={sessScheduled} color="#00ccff" />
           <MetricRow label="Total sessions" value={sessTotal} color="#aaa" />
           <MetricRow label="Backlog" value={sessBacklog} color={sessBacklog > 0 ? "#ffaa00" : "#555"} />
         </div>
@@ -5665,17 +5672,17 @@ function DashboardHealthPanel({
       <DomainCard title="Speakers" color="#00ff9d" health={speakerHealth} onNavigate={() => onNavigate("pipeline")}>
         <div className="grid grid-cols-3 gap-3">
           <MetricRow label="Total" value={speakerTotal} color="#00ff9d" />
-          <MetricRow label="Visibles" value={speakerVisible} color="#aaa" />
-          <MetricRow label="Onboarding en attente" value={onboardingPending} color={onboardingPending > 0 ? "#ffaa00" : "#555"} />
+          <MetricRow label={lang === "en" ? "Visible" : "Visibles"} value={speakerVisible} color="#aaa" />
+          <MetricRow label={lang === "en" ? "Onboarding pending" : "Onboarding en attente"} value={onboardingPending} color={onboardingPending > 0 ? "#ffaa00" : "#555"} />
         </div>
       </DomainCard>
 
       {/* Inscriptions */}
-      <DomainCard title="Inscriptions" color="#ff6600" health={inscHealth} onNavigate={() => onNavigate("registrations")}>
+      <DomainCard title={lang === "en" ? "Registrations" : "Inscriptions"} color="#ff6600" health={inscHealth} onNavigate={() => onNavigate("registrations")}>
         <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Validées" value={validated} color="#ff6600" />
-          <MetricRow label="En attente" value={pendingPay} color="#ffaa00" />
-          <MetricRow label="Capacité" value={`${fillPct}%`} color={fillPct >= 80 ? "#00ff9d" : fillPct >= 50 ? "#ffaa00" : "#ff0066"} />
+          <MetricRow label={lang === "en" ? "Validated" : "Validées"} value={validated} color="#ff6600" />
+          <MetricRow label={lang === "en" ? "Pending" : "En attente"} value={pendingPay} color="#ffaa00" />
+          <MetricRow label={lang === "en" ? "Capacity" : "Capacité"} value={`${fillPct}%`} color={fillPct >= 80 ? "#00ff9d" : fillPct >= 50 ? "#ffaa00" : "#ff0066"} />
         </div>
         <MiniBar value={validated} total={capacity} color="#ff6600" />
       </DomainCard>
@@ -5683,9 +5690,9 @@ function DashboardHealthPanel({
       {/* Budget */}
       <DomainCard title="Budget" color="#ffaa00" health={budgetHealth} onNavigate={() => onNavigate("budget")}>
         <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Capital" value={capital > 0 ? `${fmt(Math.round(capital / 1000))}k` : "—"} color="#aaa" />
-          <MetricRow label="Dépenses réelles" value={depenses > 0 ? `${fmt(Math.round(depenses / 1000))}k` : "—"} color={depenses > capital ? "#ff0066" : "#ffaa00"} />
-          <MetricRow label="Solde net" value={capital > 0 ? `${solde >= 0 ? "+" : ""}${fmt(Math.round(solde / 1000))}k` : "—"} color={solde >= 0 ? "#00ff9d" : "#ff0066"} />
+          <MetricRow label={lang === "en" ? "Capital" : "Capital"} value={capital > 0 ? `${fmt(Math.round(capital / 1000))}k` : "—"} color="#aaa" />
+          <MetricRow label={lang === "en" ? "Actual expenses" : "Dépenses réelles"} value={depenses > 0 ? `${fmt(Math.round(depenses / 1000))}k` : "—"} color={depenses > capital ? "#ff0066" : "#ffaa00"} />
+          <MetricRow label={lang === "en" ? "Net balance" : "Solde net"} value={capital > 0 ? `${solde >= 0 ? "+" : ""}${fmt(Math.round(solde / 1000))}k` : "—"} color={solde >= 0 ? "#00ff9d" : "#ff0066"} />
         </div>
         <MiniBar value={depenses} total={Math.max(capital, 1)} color="#ffaa00" danger />
       </DomainCard>
@@ -5693,8 +5700,8 @@ function DashboardHealthPanel({
       {/* Sponsors */}
       <DomainCard title="Sponsors" color="#ffaa00" health={sponsorHealth} onNavigate={() => onNavigate("sponsors")}>
         <div className="grid grid-cols-2 gap-3 mb-3">
-          <MetricRow label="Confirmés" value={sponsorConfirmed} color="#ffaa00" />
-          <MetricRow label="Pipeline total" value={extra.sponsorProspects.length} color="#aaa" />
+          <MetricRow label={lang === "en" ? "Confirmed" : "Confirmés"} value={sponsorConfirmed} color="#ffaa00" />
+          <MetricRow label={lang === "en" ? "Pipeline total" : "Pipeline total"} value={extra.sponsorProspects.length} color="#aaa" />
         </div>
         <div className="flex flex-wrap gap-1">
           {["contacted", "meeting", "positive", "concluded"].map(stage => (
@@ -5708,20 +5715,20 @@ function DashboardHealthPanel({
       </DomainCard>
 
       {/* Bénévoles */}
-      <DomainCard title="Bénévoles" color="#0066ff" health={volHealth} onNavigate={() => onNavigate("volunteers")}>
+      <DomainCard title={lang === "en" ? "Volunteers" : "Bénévoles"} color="#0066ff" health={volHealth} onNavigate={() => onNavigate("volunteers")}>
         <div className="grid grid-cols-3 gap-3">
-          <MetricRow label="Candidatures" value={volTotal} color="#aaa" />
-          <MetricRow label="Acceptés" value={volAccepted} color="#0066ff" />
-          <MetricRow label="Rôles assignés" value={volWithRole} color="#00ff9d" />
+          <MetricRow label={lang === "en" ? "Applications" : "Candidatures"} value={volTotal} color="#aaa" />
+          <MetricRow label={lang === "en" ? "Accepted" : "Acceptés"} value={volAccepted} color="#0066ff" />
+          <MetricRow label={lang === "en" ? "Assigned roles" : "Rôles assignés"} value={volWithRole} color="#00ff9d" />
         </div>
       </DomainCard>
 
       {/* Logistique */}
-      <DomainCard title="Logistique" color="#ff6600" health={logHealth} onNavigate={() => onNavigate("logistics")}>
+      <DomainCard title={lang === "en" ? "Logistics" : "Logistique"} color="#ff6600" health={logHealth} onNavigate={() => onNavigate("logistics")}>
         <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Faites" value={taskDone} color="#00ff9d" />
+          <MetricRow label={lang === "en" ? "Done" : "Faites"} value={taskDone} color="#00ff9d" />
           <MetricRow label="Total" value={taskTotal} color="#aaa" />
-          <MetricRow label="En retard" value={taskOverdue} color={taskOverdue > 0 ? "#ff0066" : "#555"} />
+          <MetricRow label={lang === "en" ? "Late" : "En retard"} value={taskOverdue} color={taskOverdue > 0 ? "#ff0066" : "#555"} />
         </div>
         <MiniBar value={taskDone} total={Math.max(taskTotal, 1)} color="#ff6600" />
       </DomainCard>
@@ -5729,18 +5736,18 @@ function DashboardHealthPanel({
       {/* Communication */}
       <DomainCard title="Communication" color="#cc00ff" health={commHealth} onNavigate={() => onNavigate("communication")}>
         <div className="grid grid-cols-3 gap-3">
-          <MetricRow label="Planifiés" value={postsScheduled} color="#ffaa00" />
-          <MetricRow label="Publiés" value={postsPublished} color="#00ff9d" />
-          <MetricRow label="Échoués" value={postsFailed} color={postsFailed > 0 ? "#ff0066" : "#555"} />
+          <MetricRow label={lang === "en" ? "Scheduled" : "Planifiés"} value={postsScheduled} color="#ffaa00" />
+          <MetricRow label={lang === "en" ? "Published" : "Publiés"} value={postsPublished} color="#00ff9d" />
+          <MetricRow label={lang === "en" ? "Failed" : "Échoués"} value={postsFailed} color={postsFailed > 0 ? "#ff0066" : "#555"} />
         </div>
       </DomainCard>
 
       {/* Check-in */}
       <DomainCard title="Check-in" color="#00ccff" health="grey" onNavigate={() => onNavigate("registrations")}>
         <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Enregistrés" value={checkedIn} color="#00ccff" />
-          <MetricRow label="Validés total" value={validated} color="#aaa" />
-          <MetricRow label="Taux" value={`${checkinRate}%`} color={checkinRate >= 50 ? "#00ff9d" : "#888"} />
+          <MetricRow label={lang === "en" ? "Checked in" : "Enregistrés"} value={checkedIn} color="#00ccff" />
+          <MetricRow label={lang === "en" ? "Total validated" : "Validés total"} value={validated} color="#aaa" />
+          <MetricRow label={lang === "en" ? "Rate" : "Taux"} value={`${checkinRate}%`} color={checkinRate >= 50 ? "#00ff9d" : "#888"} />
         </div>
         <MiniBar value={checkedIn} total={Math.max(validated, 1)} color="#00ccff" />
       </DomainCard>

@@ -68,6 +68,14 @@ const tx = {
 
 interface SessionInfo { fname: string; lname: string; ticketType: string; includesWorkshops: boolean; includesSessions: boolean; }
 
+interface LiveSponsor {
+  id: number;
+  name: string;
+  logoUrl: string | null;
+  website: string | null;
+  tier: string;
+}
+
 interface Workshop {
   id: string;
   title: string;
@@ -102,6 +110,9 @@ interface LiveData {
   programme: ProgrammeItem[];
   workshops: Workshop[];
 }
+
+// Sponsors are fetched separately (public, no auth needed)
+type LiveSponsors = LiveSponsor[];
 
 interface Question {
   id: number;
@@ -181,6 +192,9 @@ export default function LivePage() {
   const [announcement, setAnnouncement] = useState<string | null>(null);
   const [annDismissed, setAnnDismissed] = useState(false);
 
+  // Sponsors
+  const [sponsors, setSponsors] = useState<LiveSponsors>([]);
+
   // Restore preferences
   useEffect(() => {
     const savedLang  = localStorage.getItem("eocon_lang") as Lang | null;
@@ -203,10 +217,12 @@ export default function LivePage() {
   useEffect(() => {
     Promise.all([
       fetch("/api/live/session").then(r => r.json()).catch(() => ({})),
-      fetch("/api/live/programme").then(r => r.json()).catch(() => ({ streams: [], programme: [] })),
-    ]).then(([sessionData, prog]) => {
+      fetch("/api/live/programme").then(r => r.json()).catch(() => ({ streams: [], programme: [], workshops: [] })),
+      fetch("/api/live/sponsors").then(r => r.json()).catch(() => []),
+    ]).then(([sessionData, prog, spons]) => {
       if (sessionData.ok) setSession(sessionData.session);
       setLiveData({ streams: prog.streams ?? [], programme: prog.programme ?? [], workshops: prog.workshops ?? [] });
+      setSponsors(Array.isArray(spons) ? spons : []);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -300,11 +316,89 @@ export default function LivePage() {
   return (
     <div style={{ minHeight: "100vh", background: th.bg, color: th.text, fontFamily: "'Courier New', monospace", transition: "background 0.2s, color 0.2s" }}>
 
+      {/* Glitch style injection */}
+      <style>{`
+        @keyframes live-glitch-shadow {
+          0%,100% { text-shadow: 3px 0 #ff0066, -3px 0 #00ccff; transform: skewX(0deg); }
+          5%  { text-shadow: -3px 0 #ff0066, 3px 0 #00ccff; transform: skewX(-1deg); }
+          10% { text-shadow: 3px 1px #ff0066, -3px -1px #00ccff; transform: skewX(0deg); }
+          90% { text-shadow: -4px 0 #ff0066, 4px 0 #00ccff; transform: skewX(1deg); }
+          92% { text-shadow: 4px 0 #ff0066, -4px 0 #00ccff; transform: skewX(-0.5deg); }
+        }
+        @keyframes live-glitch-flicker {
+          0%,97%,100% { opacity: 1; }
+          98% { opacity: 0.8; }
+          99% { opacity: 1; }
+        }
+        @keyframes live-sponsor-scroll {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .live-glitch-title {
+          animation: live-glitch-shadow 4s infinite, live-glitch-flicker 6s infinite;
+        }
+        .live-sponsor-track {
+          display: flex;
+          gap: 40px;
+          align-items: center;
+          animation: live-sponsor-scroll 28s linear infinite;
+          width: max-content;
+        }
+        .live-sponsor-track:hover { animation-play-state: paused; }
+      `}</style>
+
+      {/* EOCON Glitch Hero */}
+      <div style={{ background: theme === "dark" ? "#020306" : "#eef0f4", borderBottom: th.navBorder, padding: "32px 32px 24px", textAlign: "center" }}>
+        <div style={{ fontSize: 9, color: th.accent, letterSpacing: 6, marginBottom: 8, opacity: 0.7 }}>&gt;_ LIVE STREAMING</div>
+        <div
+          className="live-glitch-title"
+          style={{ fontSize: "clamp(52px, 10vw, 96px)", fontWeight: 900, color: "#00ff9d", letterSpacing: 8, lineHeight: 1, fontFamily: "'Courier New', monospace" }}
+        >
+          EOCON
+        </div>
+        <div style={{ fontSize: 13, color: th.textMuted, letterSpacing: 4, marginTop: 8 }}>
+          2026 &mdash; {lang === "fr" ? "28 Novembre · Douala" : "November 28 · Douala"}
+        </div>
+      </div>
+
+      {/* Sponsor banner */}
+      {sponsors.length > 0 && (
+        <div style={{ background: theme === "dark" ? "#06080d" : "#e8eaee", borderBottom: `1px solid ${theme === "dark" ? "#ffffff0a" : "#00000010"}`, padding: "12px 0", overflow: "hidden" }}>
+          <div style={{ overflow: "hidden" }}>
+            {/* Duplicate the list for seamless infinite scroll */}
+            <div className="live-sponsor-track">
+              {[...sponsors, ...sponsors].map((sp, i) => (
+                <a
+                  key={`${sp.id}-${i}`}
+                  href={sp.website ?? undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={sp.name}
+                  style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", flexShrink: 0, opacity: 0.85, transition: "opacity 0.2s" }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = "0.85")}
+                >
+                  {sp.logoUrl ? (
+                    <img
+                      src={sp.logoUrl}
+                      alt={sp.name}
+                      style={{ height: 32, maxWidth: 100, objectFit: "contain", filter: theme === "dark" ? "brightness(0.9)" : "none" }}
+                    />
+                  ) : (
+                    <span style={{ fontSize: 12, color: th.textMuted, fontWeight: 700, letterSpacing: 1 }}>{sp.name}</span>
+                  )}
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Nav */}
-      <div style={{ borderBottom: th.navBorder, padding: "16px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", background: th.cardBg, boxShadow: theme === "light" ? "0 1px 4px #00000010" : "none" }}>
+      <div style={{ borderBottom: th.navBorder, padding: "12px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", background: th.cardBg, boxShadow: theme === "light" ? "0 1px 4px #00000010" : "none" }}>
         <div>
           <div style={{ fontSize: 9, color: th.logoSub, letterSpacing: 4, marginBottom: 2 }}>&gt;_ EOCON_LIVE</div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: th.logoMain, letterSpacing: 3 }}>EOCON 2026</div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: th.logoMain, letterSpacing: 3 }}>EOCON 2026</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           {/* Theme toggle */}

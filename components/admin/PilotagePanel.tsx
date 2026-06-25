@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useLang } from "@/lib/adminLangContext";
 
 type Status = "backlog" | "todo" | "in_progress" | "blocked" | "review" | "done";
 
@@ -134,6 +135,7 @@ function emptyMeetingForm(): MeetingForm {
 }
 
 export default function PilotagePanel({ canWrite = true, canReadKanban, canWriteKanban, canReadMeetings, canWriteMeetings, currentUserEmail }: { canWrite?: boolean; canReadKanban?: boolean; canWriteKanban?: boolean; canReadMeetings?: boolean; canWriteMeetings?: boolean; currentUserEmail?: string }) {
+  const __ = useLang();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -249,7 +251,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
   };
 
   const deleteTask = async (id: number) => {
-    if (!confirm("Supprimer cette tâche ?")) return;
+    if (!confirm(__("Supprimer cette tâche ?", "Delete this task?"))) return;
     const res = await fetch(`/api/admin/pilotage/tasks/${id}`, { method: "DELETE" });
     if (res.ok) { setTasks((prev) => prev.filter((t) => t.id !== id)); setSelected(null); }
   };
@@ -264,7 +266,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
   };
 
   const seed = async (force = false) => {
-    if (force && !confirm("Réinitialiser : toutes les tâches/réunions seront remplacées par la feuille de route. Continuer ?")) return;
+    if (force && !confirm(__("Réinitialiser : toutes les tâches/réunions seront remplacées par la feuille de route. Continuer ?", "Reset: all tasks/meetings will be replaced by the roadmap. Continue?"))) return;
     setSeeding(true);
     try {
       const res = await fetch("/api/admin/pilotage/seed", {
@@ -273,13 +275,13 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
         body: JSON.stringify({ force }),
       });
       if (res.status === 409) {
-        if (confirm("Des tâches existent déjà. Réinitialiser à partir de la feuille de route ?")) { await seed(true); }
+        if (confirm(__("Des tâches existent déjà. Réinitialiser à partir de la feuille de route ?", "Tasks already exist. Reset from the roadmap?"))) { await seed(true); }
       } else if (res.ok) {
         const r = await res.json();
-        alert(`Importé : ${r.tasks} tâches, ${r.meetings} réunions.`);
+        alert(`${__("Importé", "Imported")} : ${r.tasks} ${__("tâches", "tasks")}, ${r.meetings} ${__("réunions", "meetings")}.`);
         await load();
       } else {
-        alert("Échec de l'import.");
+        alert(__("Échec de l'import.", "Import failed."));
       }
     } finally {
       setSeeding(false);
@@ -292,24 +294,24 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-2xl font-black text-white">🎯 Pilotage global</h1>
-          <p className="text-xs text-gray-500 font-mono">{tasks.length} tâches · {meetings.length} réunions</p>
+          <h1 className="text-2xl font-black text-white">🎯 {__("Pilotage global", "Global Dashboard")}</h1>
+          <p className="text-xs text-gray-500 font-mono">{tasks.length} {__("tâches", "tasks")} · {meetings.length} {__("réunions", "meetings")}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {(canReadKanban !== false || canWrite) && (
             <button onClick={() => setView("kanban")} className={`px-5 py-2.5 text-sm font-semibold rounded border font-mono transition-colors ${view === "kanban" ? "border-neon-green text-neon-green bg-neon-green/10" : "border-gray-700 text-gray-300 hover:text-white"}`}>
-              📋 Plan kanban
+              📋 {__("Plan kanban", "Kanban board")}
             </button>
           )}
           {(canReadMeetings !== false || canWrite) && (
             <button onClick={() => setView("meetings")} className={`px-5 py-2.5 text-sm font-semibold rounded border font-mono transition-colors ${view === "meetings" ? "border-neon-green text-neon-green bg-neon-green/10" : "border-gray-700 text-gray-300 hover:text-white"}`}>
-              📅 Réunions
+              📅 {__("Réunions", "Meetings")}
             </button>
           )}
-          {(canWriteKanban !== false ? canWriteKanban : canWrite) && view === "kanban" && <button onClick={createTask} className="text-sm px-5 py-2.5 rounded border border-neon-green/50 text-neon-green font-semibold font-mono">+ Tâche</button>}
+          {(canWriteKanban !== false ? canWriteKanban : canWrite) && view === "kanban" && <button onClick={createTask} className="text-sm px-5 py-2.5 rounded border border-neon-green/50 text-neon-green font-semibold font-mono">+ {__("Tâche", "Task")}</button>}
           {canWrite && (
             <button onClick={() => seed(false)} disabled={seeding} className="text-xs px-3 py-1.5 rounded bg-neon-green text-black font-bold font-mono">
-              {seeding ? "…" : "↻ Feuille de route"}
+              {seeding ? "…" : `↻ ${__("Feuille de route", "Roadmap")}`}
             </button>
           )}
           <button onClick={load} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white font-mono">{loading ? "…" : "↻"}</button>
@@ -319,22 +321,22 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
       {/* KPI banner */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="cyber-card rounded-lg p-3">
-          <p className="text-xs text-gray-500 font-mono">Avancement</p>
+          <p className="text-xs text-gray-500 font-mono">{__("Avancement", "Progress")}</p>
           <p className="text-2xl font-black text-neon-green">{kpi.pct}%</p>
-          <p className="text-xs text-gray-600">{kpi.done}/{kpi.total} faites</p>
+          <p className="text-xs text-gray-600">{kpi.done}/{kpi.total} {__("faites", "done")}</p>
         </div>
         <div className="cyber-card rounded-lg p-3">
-          <p className="text-xs text-gray-500 font-mono">Jalons à risque</p>
+          <p className="text-xs text-gray-500 font-mono">{__("Jalons à risque", "Milestones at risk")}</p>
           <p className="text-2xl font-black" style={{ color: kpi.milestonesAtRisk ? "#ff3333" : "#00ff9d" }}>{kpi.milestonesAtRisk}</p>
-          <p className="text-xs text-gray-600">en retard ou &lt; 7 j</p>
+          <p className="text-xs text-gray-600">{__("en retard ou < 7 j", "overdue or < 7 d")}</p>
         </div>
         <div className="cyber-card rounded-lg p-3">
-          <p className="text-xs text-gray-500 font-mono">Prochaine réunion</p>
+          <p className="text-xs text-gray-500 font-mono">{__("Prochaine réunion", "Next meeting")}</p>
           <p className="text-sm font-bold text-white truncate">{kpi.nextMeeting?.title || "—"}</p>
           <p className="text-xs text-gray-600">{kpi.nextMeeting ? fmtDate(kpi.nextMeeting.scheduledAt) : ""}</p>
         </div>
         <div className="cyber-card rounded-lg p-3">
-          <p className="text-xs text-gray-500 font-mono mb-1">Par phase</p>
+          <p className="text-xs text-gray-500 font-mono mb-1">{__("Par phase", "By phase")}</p>
           <div className="flex gap-1 flex-wrap">
             {PHASES.map((p) => (
               <span key={p.n} className="text-xs font-mono px-1.5 rounded" style={{ background: `${p.color}22`, color: p.color }}>
@@ -350,15 +352,15 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
           {/* Filters */}
           <div className="flex flex-wrap gap-2 items-center text-xs">
             <select value={fPhase} onChange={(e) => setFPhase(e.target.value)} className="cyber-input rounded px-2 py-1 bg-transparent text-white">
-              <option value="" className="bg-dark-800">Toutes phases</option>
+              <option value="" className="bg-dark-800">{__("Toutes phases", "All phases")}</option>
               {PHASES.map((p) => <option key={p.n} value={p.n} className="bg-dark-800">{p.label}</option>)}
             </select>
             <select value={fPole} onChange={(e) => setFPole(e.target.value)} className="cyber-input rounded px-2 py-1 bg-transparent text-white max-w-[180px]">
-              <option value="" className="bg-dark-800">Tous pôles</option>
+              <option value="" className="bg-dark-800">{__("Tous pôles", "All poles")}</option>
               {POLES.map((p) => <option key={p} value={p} className="bg-dark-800">{p}</option>)}
             </select>
             <select value={fSubTeam} onChange={(e) => setFSubTeam(e.target.value)} className="cyber-input rounded px-2 py-1 bg-transparent text-white">
-              <option value="" className="bg-dark-800">Toutes sous-équipes</option>
+              <option value="" className="bg-dark-800">{__("Toutes sous-équipes", "All sub-teams")}</option>
               {SUBTEAMS.map((s) => <option key={s} value={s} className="bg-dark-800">{s}</option>)}
             </select>
             <select
@@ -366,27 +368,27 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
               onChange={(e) => setFAssignee(e.target.value)}
               className={`cyber-input rounded px-2 py-1 bg-transparent text-white ${fAssignee === currentUserEmail && currentUserEmail ? "border-neon-green/40 text-neon-green" : ""}`}
             >
-              <option value="" className="bg-dark-800">Tous responsables</option>
-              {assigneeOptions.map((m) => <option key={m.id} value={m.email!} className="bg-dark-800">{m.name}{m.email === currentUserEmail ? " (moi)" : ""}</option>)}
+              <option value="" className="bg-dark-800">{__("Tous responsables", "All assignees")}</option>
+              {assigneeOptions.map((m) => <option key={m.id} value={m.email!} className="bg-dark-800">{m.name}{m.email === currentUserEmail ? ` (${__("moi", "me")})` : ""}</option>)}
             </select>
             {currentUserEmail && fAssignee !== currentUserEmail && (
               <button
                 onClick={() => setFAssignee(currentUserEmail)}
                 className="text-xs px-2 py-1 rounded border border-neon-green/30 text-neon-green/70 hover:text-neon-green hover:border-neon-green/60 font-mono transition-colors"
-                title="Filtrer mes tâches"
+                title={__("Filtrer mes tâches", "Filter my tasks")}
               >
-                👤 Mes tâches
+                👤 {__("Mes tâches", "My tasks")}
               </button>
             )}
-            <label className="flex items-center gap-1 text-gray-400 cursor-pointer"><input type="checkbox" checked={fLate} onChange={(e) => setFLate(e.target.checked)} /> En retard</label>
-            <label className="flex items-center gap-1 text-gray-400 cursor-pointer"><input type="checkbox" checked={fSoon} onChange={(e) => setFSoon(e.target.checked)} /> 30 prochains jours</label>
+            <label className="flex items-center gap-1 text-gray-400 cursor-pointer"><input type="checkbox" checked={fLate} onChange={(e) => setFLate(e.target.checked)} /> {__("En retard", "Overdue")}</label>
+            <label className="flex items-center gap-1 text-gray-400 cursor-pointer"><input type="checkbox" checked={fSoon} onChange={(e) => setFSoon(e.target.checked)} /> {__("30 prochains jours", "Next 30 days")}</label>
             <label className="flex items-center gap-1 cursor-pointer" style={{ color: fThisWeekAndBefore ? "#00ff9d" : "#9ca3af" }}>
               <input
                 type="checkbox"
                 checked={fThisWeekAndBefore}
                 onChange={(e) => setFThisWeekAndBefore(e.target.checked)}
               />
-              📅 Semaine en cours &amp; antérieures
+              📅 {__("Semaine en cours & antérieures", "Current week & earlier")}
             </label>
           </div>
 
@@ -420,11 +422,11 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
                           style={{ borderLeftColor: phaseColor(card.phase), backgroundColor: "#0d0d0d" }}
                         >
                           <p className="text-xs font-bold text-white leading-snug">
-                            {card.isMilestone && <span title="Jalon">⚠️ </span>}{card.title}
+                            {card.isMilestone && <span title={__("Jalon", "Milestone")}>⚠️ </span>}{card.title}
                           </p>
                           <p className="text-xs text-gray-500 mt-1 truncate">{card.pole}</p>
                           <div className="flex items-center justify-between mt-1">
-                            <span className="text-xs truncate" style={{ color: card.assigneeName ? "#00ccff" : "#555" }}>{card.assigneeName || "non assigné"}</span>
+                            <span className="text-xs truncate" style={{ color: card.assigneeName ? "#00ccff" : "#555" }}>{card.assigneeName || __("non assigné", "unassigned")}</span>
                             <span className="text-xs font-mono" style={{ color: isOverdue(card) ? "#ff3333" : "#888" }}>{fmtDate(card.dueDate)}</span>
                           </div>
                         </div>
@@ -445,54 +447,54 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
         <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setSelected(null)}>
           <div className="w-full max-w-md h-full bg-[#0a0a0a] border-l border-gray-800 overflow-y-auto p-6 space-y-3" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black text-neon-green font-mono">{canWrite ? "Éditer la tâche" : "Détail de la tâche"}</h3>
+              <h3 className="text-sm font-black text-neon-green font-mono">{canWrite ? __("Éditer la tâche", "Edit task") : __("Détail de la tâche", "Task detail")}</h3>
               <button onClick={() => setSelected(null)} className="text-gray-600 hover:text-white text-lg">✕</button>
             </div>
-            {!canWrite && <p className="text-xs text-yellow-500 font-mono bg-yellow-500/10 rounded px-2 py-1">Accès lecture seule</p>}
+            {!canWrite && <p className="text-xs text-yellow-500 font-mono bg-yellow-500/10 rounded px-2 py-1">{__("Accès lecture seule", "Read-only access")}</p>}
 
-            <label className="block text-xs text-gray-500">Titre</label>
+            <label className="block text-xs text-gray-500">{__("Titre", "Title")}</label>
             <textarea rows={2} value={edit.title || ""} onChange={(e) => setEdit({ ...edit, title: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none disabled:opacity-60 disabled:cursor-not-allowed" />
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs text-gray-500">Phase</label>
+                <label className="block text-xs text-gray-500">{__("Phase", "Phase")}</label>
                 <select value={edit.phase ?? 1} onChange={(e) => setEdit({ ...edit, phase: Number(e.target.value) })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
                   {PHASES.map((p) => <option key={p.n} value={p.n} className="bg-dark-800">{p.label}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-gray-500">Statut</label>
+                <label className="block text-xs text-gray-500">{__("Statut", "Status")}</label>
                 <select value={edit.status || "todo"} onChange={(e) => setEdit({ ...edit, status: e.target.value as Status })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
                   {STATUSES.map((s) => <option key={s.key} value={s.key} className="bg-dark-800">{s.label}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-gray-500">Pôle</label>
+                <label className="block text-xs text-gray-500">{__("Pôle", "Pole")}</label>
                 <select value={edit.pole || ""} onChange={(e) => setEdit({ ...edit, pole: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
                   {POLES.map((p) => <option key={p} value={p} className="bg-dark-800">{p}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-gray-500">Sous-équipe</label>
+                <label className="block text-xs text-gray-500">{__("Sous-équipe", "Sub-team")}</label>
                 <select value={edit.subTeam || ""} onChange={(e) => setEdit({ ...edit, subTeam: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
                   <option value="" className="bg-dark-800">—</option>
                   {SUBTEAMS.map((s) => <option key={s} value={s} className="bg-dark-800">{s}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-gray-500">Priorité</label>
+                <label className="block text-xs text-gray-500">{__("Priorité", "Priority")}</label>
                 <select value={edit.priority || "medium"} onChange={(e) => setEdit({ ...edit, priority: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
                   {PRIORITIES.map((p) => <option key={p} value={p} className="bg-dark-800">{p}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-gray-500">Échéance</label>
+                <label className="block text-xs text-gray-500">{__("Échéance", "Due date")}</label>
                 <input type="date" value={(edit.dueDate as string) || ""} onChange={(e) => setEdit({ ...edit, dueDate: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed" />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs text-gray-500">Responsable</label>
+              <label className="block text-xs text-gray-500">{__("Responsable", "Assignee")}</label>
               <select
                 value={edit.assigneeEmail || ""}
                 onChange={(e) => {
@@ -502,25 +504,25 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
                 disabled={!canWrite}
                 className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <option value="" className="bg-dark-800">— non assigné —</option>
+                <option value="" className="bg-dark-800">— {__("non assigné", "unassigned")} —</option>
                 {assigneeOptions.map((m) => <option key={m.id} value={m.email!} className="bg-dark-800">{m.name} ({m.role})</option>)}
               </select>
             </div>
 
             <label className={`flex items-center gap-2 text-xs cursor-pointer ${canWrite ? "text-gray-400" : "text-gray-600 cursor-not-allowed"}`}>
-              <input type="checkbox" checked={!!edit.isMilestone} onChange={(e) => setEdit({ ...edit, isMilestone: e.target.checked })} disabled={!canWrite} /> Jalon ⚠️
+              <input type="checkbox" checked={!!edit.isMilestone} onChange={(e) => setEdit({ ...edit, isMilestone: e.target.checked })} disabled={!canWrite} /> {__("Jalon", "Milestone")} ⚠️
             </label>
 
-            <label className="block text-xs text-gray-500">Notes</label>
+            <label className="block text-xs text-gray-500">{__("Notes", "Notes")}</label>
             <textarea rows={3} value={edit.notes || ""} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none disabled:opacity-60 disabled:cursor-not-allowed" />
 
             {canWrite && (
               <div className="flex gap-2 pt-2">
-                <button onClick={saveDetail} className="flex-1 btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Enregistrer</button>
+                <button onClick={saveDetail} className="flex-1 btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">{__("Enregistrer", "Save")}</button>
                 {selected.status !== "done" && (
-                  <button onClick={() => patchTask(selected.id, { status: "done" }).then(() => setSelected(null))} className="px-3 py-2 rounded text-xs border border-neon-green/50 text-neon-green font-mono">✓ Fait</button>
+                  <button onClick={() => patchTask(selected.id, { status: "done" }).then(() => setSelected(null))} className="px-3 py-2 rounded text-xs border border-neon-green/50 text-neon-green font-mono">✓ {__("Fait", "Done")}</button>
                 )}
-                <button onClick={() => deleteTask(selected.id)} className="px-3 py-2 rounded text-xs border border-red-900 text-red-400 font-mono">Suppr.</button>
+                <button onClick={() => deleteTask(selected.id)} className="px-3 py-2 rounded text-xs border border-red-900 text-red-400 font-mono">{__("Suppr.", "Del.")}</button>
               </div>
             )}
           </div>
@@ -545,6 +547,7 @@ function MeetingsView({
   members: Member[];
   currentUserEmail?: string;
 }) {
+  const __ = useLang();
   const [editTarget, setEditTarget] = useState<Meeting | "new" | null>(null);
   const [form, setForm] = useState<MeetingForm>(emptyMeetingForm());
   const [saving, setSaving] = useState(false);
@@ -634,7 +637,7 @@ function MeetingsView({
   }
 
   async function del(id: number) {
-    if (!confirm("Supprimer cette réunion ?")) return;
+    if (!confirm(__("Supprimer cette réunion ?", "Delete this meeting?"))) return;
     const res = await fetch(`/api/admin/pilotage/meetings/${id}`, { method: "DELETE" });
     if (res.ok) reload();
   }
@@ -646,12 +649,12 @@ function MeetingsView({
       const res = await fetch("/api/admin/pilotage/meetings/reminders", { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        setReminderResult(`✓ ${data.sent} email(s) envoyé(s), ${data.skipped} ignoré(s).`);
+        setReminderResult(`✓ ${data.sent} ${__("email(s) envoyé(s)", "email(s) sent")}, ${data.skipped} ${__("ignoré(s)", "skipped")}.`);
       } else {
-        setReminderResult("✗ Erreur lors de l'envoi des rappels.");
+        setReminderResult(`✗ ${__("Erreur lors de l'envoi des rappels.", "Error sending reminders.")}`);
       }
     } catch {
-      setReminderResult("✗ Impossible d'envoyer les rappels.");
+      setReminderResult(`✗ ${__("Impossible d'envoyer les rappels.", "Unable to send reminders.")}`);
     } finally {
       setSendingReminders(false);
     }
@@ -677,14 +680,14 @@ function MeetingsView({
               onClick={sendReminders}
               disabled={sendingReminders}
               className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white font-mono disabled:opacity-50"
-              title="Envoie les rappels J-1 et J0 pour les réunions d'aujourd'hui et demain"
+              title={__("Envoie les rappels J-1 et J0 pour les réunions d'aujourd'hui et demain", "Sends D-1 and D0 reminders for today's and tomorrow's meetings")}
             >
-              {sendingReminders ? "…" : "🔔 Envoyer rappels"}
+              {sendingReminders ? "…" : `🔔 ${__("Envoyer rappels", "Send reminders")}`}
             </button>
           )}
           {canWrite && (
             <button onClick={openCreate} className="text-xs px-3 py-1.5 rounded border border-neon-green/50 text-neon-green font-mono">
-              + Réunion
+              + {__("Réunion", "Meeting")}
             </button>
           )}
         </div>
@@ -704,7 +707,7 @@ function MeetingsView({
               {/* Date badge */}
               <div className="shrink-0 text-center w-16 pt-0.5">
                 <p className="text-xs font-mono mb-0.5" style={{ color: m.type === "collective" ? "#00ff9d" : "#00ccff" }}>
-                  {m.type === "collective" ? "Collectif" : "Sous-éq."}
+                  {m.type === "collective" ? __("Collectif", "Collective") : __("Sous-éq.", "Sub-team")}
                 </p>
                 <p className="text-xs text-gray-400 font-mono">{fmtDayOfWeek(m.scheduledAt)}</p>
                 <p className="text-xs text-gray-500">{fmtDate(m.scheduledAt)}</p>
@@ -735,7 +738,7 @@ function MeetingsView({
                     </span>
                   ))}
                   {!m.convenerName && !attendees.length && (
-                    <span className="text-xs text-gray-700 font-mono italic">Aucun participant renseigné</span>
+                    <span className="text-xs text-gray-700 font-mono italic">{__("Aucun participant renseigné", "No participants listed")}</span>
                   )}
                 </div>
               </div>
@@ -746,14 +749,14 @@ function MeetingsView({
                   <button
                     onClick={() => openEdit(m)}
                     className="text-xs text-gray-400 hover:text-white px-2 py-1 border border-gray-700 rounded hover:border-gray-500 transition-colors"
-                    title="Modifier"
+                    title={__("Modifier", "Edit")}
                   >
                     ✏️
                   </button>
                   <button
                     onClick={() => del(m.id)}
                     className="text-xs text-red-400 hover:text-red-300 px-2 py-1 border border-red-900/50 rounded hover:border-red-700 transition-colors"
-                    title="Supprimer"
+                    title={__("Supprimer", "Delete")}
                   >
                     ✕
                   </button>
@@ -766,7 +769,7 @@ function MeetingsView({
 
       {!meetings.length && (
         <p className="text-gray-600 text-xs py-10 text-center font-mono">
-          Aucune réunion planifiée — créez-en une ou importez la feuille de route.
+          {__("Aucune réunion planifiée — créez-en une ou importez la feuille de route.", "No meetings scheduled — create one or import the roadmap.")}
         </p>
       )}
 
@@ -779,37 +782,37 @@ function MeetingsView({
           >
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-black text-neon-green font-mono">
-                {editTarget === "new" ? "Nouvelle réunion" : "Modifier la réunion"}
+                {editTarget === "new" ? __("Nouvelle réunion", "New meeting") : __("Modifier la réunion", "Edit meeting")}
               </h3>
               <button onClick={() => setEditTarget(null)} className="text-gray-600 hover:text-white text-lg">✕</button>
             </div>
 
             {/* Title */}
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Titre *</label>
+              <label className="block text-xs text-gray-500 mb-1">{__("Titre", "Title")} *</label>
               <input
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                 className="cyber-input w-full px-3 py-2 rounded text-xs"
-                placeholder="Réunion de coordination…"
+                placeholder={__("Réunion de coordination…", "Coordination meeting…")}
               />
             </div>
 
             {/* Type + subTeam */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Type</label>
+                <label className="block text-xs text-gray-500 mb-1">{__("Type", "Type")}</label>
                 <select
                   value={form.type}
                   onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
                   className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white"
                 >
-                  <option value="collective" className="bg-dark-800">Collectif</option>
-                  <option value="subteam" className="bg-dark-800">Sous-équipe</option>
+                  <option value="collective" className="bg-dark-800">{__("Collectif", "Collective")}</option>
+                  <option value="subteam" className="bg-dark-800">{__("Sous-équipe", "Sub-team")}</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Sous-équipe</label>
+                <label className="block text-xs text-gray-500 mb-1">{__("Sous-équipe", "Sub-team")}</label>
                 <select
                   value={form.subTeam}
                   onChange={(e) => setForm((f) => ({ ...f, subTeam: e.target.value }))}
@@ -824,7 +827,7 @@ function MeetingsView({
 
             {/* Date/time */}
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Date et heure *</label>
+              <label className="block text-xs text-gray-500 mb-1">{__("Date et heure", "Date and time")} *</label>
               <input
                 type="datetime-local"
                 value={form.scheduledAt}
@@ -835,20 +838,20 @@ function MeetingsView({
 
             {/* Location */}
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Lieu / lien de la rencontre</label>
+              <label className="block text-xs text-gray-500 mb-1">{__("Lieu / lien de la rencontre", "Location / meeting link")}</label>
               <div className="flex gap-1.5 items-center">
                 <input
                   value={form.location}
                   onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
                   className="cyber-input flex-1 px-3 py-2 rounded text-xs"
-                  placeholder="Salle A, lien Zoom, Google Meet…"
+                  placeholder={__("Salle A, lien Zoom, Google Meet…", "Room A, Zoom link, Google Meet…")}
                 />
                 {/* Quick video link dropdown */}
                 <div className="relative shrink-0" ref={meetDropdownRef}>
                   <button
                     type="button"
                     onClick={() => setMeetDropdownOpen((o) => !o)}
-                    title="Générer un lien visio"
+                    title={__("Générer un lien visio", "Generate a video link")}
                     className="cyber-input px-2.5 py-2 rounded text-base hover:text-neon-green hover:border-neon-green/50 transition-colors"
                   >
                     📹
@@ -862,8 +865,8 @@ function MeetingsView({
                       >
                         <span className="text-base">🔵</span>
                         <div>
-                          <p className="text-white font-semibold">Jitsi (instantané)</p>
-                          <p className="text-gray-500" style={{ fontSize: "10px" }}>Génère et colle le lien</p>
+                          <p className="text-white font-semibold">Jitsi ({__("instantané", "instant")})</p>
+                          <p className="text-gray-500" style={{ fontSize: "10px" }}>{__("Génère et colle le lien", "Generates and pastes the link")}</p>
                         </div>
                       </button>
                       <div className="border-t border-gray-800" />
@@ -875,7 +878,7 @@ function MeetingsView({
                         <span className="text-base">🟢</span>
                         <div>
                           <p className="text-white font-semibold">Google Meet</p>
-                          <p className="text-gray-500" style={{ fontSize: "10px" }}>Ouvre le navigateur</p>
+                          <p className="text-gray-500" style={{ fontSize: "10px" }}>{__("Ouvre le navigateur", "Opens the browser")}</p>
                         </div>
                       </button>
                     </div>
@@ -891,28 +894,28 @@ function MeetingsView({
 
             {/* Agenda */}
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Ordre du jour</label>
+              <label className="block text-xs text-gray-500 mb-1">{__("Ordre du jour", "Agenda")}</label>
               <textarea
                 rows={3}
                 value={form.agenda}
                 onChange={(e) => setForm((f) => ({ ...f, agenda: e.target.value }))}
                 className="cyber-input w-full px-3 py-2 rounded text-xs resize-none"
-                placeholder="Points à aborder…"
+                placeholder={__("Points à aborder…", "Topics to cover…")}
               />
             </div>
 
             {/* Convener */}
             <div>
               <label className="block text-xs text-gray-500 mb-1">
-                👤 Convocateur
-                <span className="text-gray-700 ml-1">(responsable d&apos;organiser la rencontre)</span>
+                👤 {__("Convocateur", "Convener")}
+                <span className="text-gray-700 ml-1">({__("responsable d'organiser la rencontre", "responsible for organizing the meeting")})</span>
               </label>
               <select
                 value={form.convenerEmail}
                 onChange={(e) => setForm((f) => ({ ...f, convenerEmail: e.target.value }))}
                 className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white"
               >
-                <option value="" className="bg-dark-800">— sélectionner —</option>
+                <option value="" className="bg-dark-800">— {__("sélectionner", "select")} —</option>
                 {membersWithEmail.map((m) => (
                   <option key={m.id} value={m.email!} className="bg-dark-800">
                     {m.name} ({m.role})
@@ -924,13 +927,13 @@ function MeetingsView({
             {/* Attendees */}
             <div>
               <label className="block text-xs text-gray-500 mb-2">
-                Convoqués
-                <span className="text-gray-700 ml-1">(reçoivent rappel J-1 et J0)</span>
+                {__("Convoqués", "Invitees")}
+                <span className="text-gray-700 ml-1">({__("reçoivent rappel J-1 et J0", "receive D-1 and D0 reminders")})</span>
               </label>
               <div className="space-y-1 max-h-48 overflow-y-auto border border-gray-800 rounded p-2">
                 {membersWithEmail.length === 0 && (
                   <p className="text-xs text-gray-600 py-2 text-center">
-                    Aucun membre avec email configuré dans l&apos;équipe.
+                    {__("Aucun membre avec email configuré dans l'équipe.", "No team member with a configured email.")}
                   </p>
                 )}
                 {membersWithEmail.map((m) => (
@@ -957,7 +960,7 @@ function MeetingsView({
               </div>
               {form.attendeeEmails.length > 0 && (
                 <p className="text-xs text-gray-600 mt-1 font-mono">
-                  {form.attendeeEmails.length} personne(s) convoquée(s)
+                  {form.attendeeEmails.length} {__("personne(s) convoquée(s)", "person/people invited")}
                 </p>
               )}
             </div>
@@ -969,13 +972,13 @@ function MeetingsView({
                 disabled={saving || !form.title || !form.scheduledAt}
                 className="flex-1 btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green disabled:opacity-50"
               >
-                {saving ? "…" : editTarget === "new" ? "Créer la réunion" : "Enregistrer"}
+                {saving ? "…" : editTarget === "new" ? __("Créer la réunion", "Create meeting") : __("Enregistrer", "Save")}
               </button>
               <button
                 onClick={() => setEditTarget(null)}
                 className="px-4 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white"
               >
-                Annuler
+                {__("Annuler", "Cancel")}
               </button>
             </div>
           </div>

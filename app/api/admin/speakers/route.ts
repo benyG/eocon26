@@ -7,7 +7,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   if (!(await hasPermission("cfp", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const speakers = await prisma.speaker.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }] });
+  const speakers = await prisma.speaker.findMany({
+    include: { cfpSubmission: { select: { email: true } } },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+  });
   return NextResponse.json(speakers);
 }
 

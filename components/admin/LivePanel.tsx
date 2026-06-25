@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import StreamingGuide from "./StreamingGuide";
 
 interface Stream {
   id: string;
@@ -135,9 +136,20 @@ function StepHeader({ n, label, color = "#00ff9d" }: { n: number; label: string;
   );
 }
 
+interface TeamMember { id: number; name: string; role: string; email: string | null; }
+interface AcceptedSpeaker { id: number; name: string; title: string | null; cfpSubmission: { email: string } | null; }
+interface StreamingTeamConfig {
+  sessionTitle: string; sessionTime: string; sessionId?: number; studioLink: string;
+  moderator: { name: string; email: string; lang: "fr" | "en" } | null;
+  speakers: { name: string; email: string; lang: "fr" | "en" }[];
+  techContact: string;
+}
+const EMPTY_TEAM: StreamingTeamConfig = { sessionTitle: "", sessionTime: "", studioLink: "", moderator: null, speakers: [], techContact: "" };
+
 export default function LivePanel({ canWrite }: { canWrite: boolean }) {
   const [mode, setMode] = useState<"live" | "config">("live");
   const [qaFilter, setQaFilter] = useState<"pending" | "approved" | "answered">("pending");
+  const [showGuide, setShowGuide] = useState(false);
 
   // ── Streams ───────────────────────────────────────────────────────────────
   const [settings, setSettings]   = useState<LiveSettings>(EMPTY);
@@ -168,6 +180,15 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
   const [restreamTokenSaving, setRestreamTokenSaving] = useState(false);
   const [showRtmpKey, setShowRtmpKey]         = useState(false);
   const [rtmpCopied, setRtmpCopied]           = useState(false);
+
+  // ── Streaming team ────────────────────────────────────────────────────────
+  const [teamMembers, setTeamMembers]       = useState<TeamMember[]>([]);
+  const [acceptedSpeakers, setAcceptedSpeakers] = useState<AcceptedSpeaker[]>([]);
+  const [streamingTeam, setStreamingTeam]   = useState<StreamingTeamConfig>(EMPTY_TEAM);
+  const [teamSaving, setTeamSaving]         = useState(false);
+  const [teamSaved, setTeamSaved]           = useState(false);
+  const [inviteSending, setInviteSending]   = useState<Record<string, boolean>>({});
+  const [inviteSent, setInviteSent]         = useState<Record<string, boolean>>({});
 
   // ── Workshops & JaaS ──────────────────────────────────────────────────────
   const [workshops, setWorkshops] = useState<Workshop[]>([]);
@@ -210,6 +231,52 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
       if (data.tokenPreview) setRestreamToken(data.tokenPreview);
     }
   }, []);
+
+  const loadStreamingTeam = useCallback(async () => {
+    try {
+      const [teamRes, speakersRes, stRes] = await Promise.all([
+        fetch("/api/admin/team"),
+        fetch("/api/admin/speakers"),
+        fetch("/api/admin/live/streaming-team"),
+      ]);
+      if (teamRes.ok) setTeamMembers(await teamRes.json());
+      if (speakersRes.ok) {
+        const all = await speakersRes.json() as AcceptedSpeaker[];
+        setAcceptedSpeakers(all);
+      }
+      if (stRes.ok) {
+        const data = await stRes.json();
+        if (data) setStreamingTeam(data);
+      }
+    } catch { /* non-blocking */ }
+  }, []);
+
+  const saveStreamingTeam = async () => {
+    setTeamSaving(true); setTeamSaved(false);
+    try {
+      const res = await fetch("/api/admin/live/streaming-team", {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(streamingTeam),
+      });
+      if (res.ok) { setTeamSaved(true); setTimeout(() => setTeamSaved(false), 2000); }
+    } finally { setTeamSaving(false); }
+  };
+
+  const sendInvite = async (key: string, type: "speaker" | "moderator", to: string, name: string, lang: "fr" | "en") => {
+    if (!to) return;
+    setInviteSending(s => ({ ...s, [key]: true }));
+    try {
+      const res = await fetch("/api/admin/live/invite", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type, to, name, lang,
+          sessionTitle: streamingTeam.sessionTitle || "Session EOCON 2026",
+          sessionTime: streamingTeam.sessionTime || "",
+          studioLink: streamingTeam.studioLink || "https://studio.restream.io",
+        }),
+      });
+      if (res.ok) { setInviteSent(s => ({ ...s, [key]: true })); setTimeout(() => setInviteSent(s => ({ ...s, [key]: false })), 5000); }
+    } finally { setInviteSending(s => ({ ...s, [key]: false })); }
+  };
 
   const saveRestreamToken = async (newToken: string) => {
     setRestreamTokenSaving(true); setRestreamTokenSaved(false);
@@ -268,7 +335,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
 
   useEffect(() => { loadSettings(); loadRestreamConfig(); }, [loadSettings, loadRestreamConfig]);
   useEffect(() => { loadDashboard(); loadQuestions(); loadRestreamStatus(); }, [loadDashboard, loadQuestions, loadRestreamStatus]);
-  useEffect(() => { if (mode === "config") loadWorkshops(); }, [mode, loadWorkshops]);
+  useEffect(() => { if (mode === "config") { loadWorkshops(); loadStreamingTeam(); } }, [mode, loadWorkshops, loadStreamingTeam]);
 
   useEffect(() => {
     if (mode !== "live") return;
@@ -372,7 +439,14 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
       <div className="mb-6 flex gap-3 items-center flex-wrap">
         <a href="/live" target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "#00ff9d", border: "1px solid #00ff9d40", padding: "6px 14px", borderRadius: 6, textDecoration: "none", letterSpacing: 1 }}>→ Page /live</a>
         <a href="/live/resend" target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "#888", border: "1px solid #333", padding: "6px 14px", borderRadius: 6, textDecoration: "none", letterSpacing: 1 }}>→ /live/resend</a>
+        <button onClick={() => setShowGuide(true)} style={{ fontSize: 11, color: "#ffaa00", border: "1px solid #ffaa0040", padding: "6px 14px", borderRadius: 6, cursor: "pointer", background: "transparent", letterSpacing: 1 }}>
+          📖 Guide opérateur
+        </button>
+        <a href="https://studio.restream.io" target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: "#ff6b6b", border: "1px solid #ff444030", padding: "6px 14px", borderRadius: 6, textDecoration: "none", letterSpacing: 1 }}>→ Restream Studio</a>
       </div>
+
+      {/* Guide modal */}
+      {showGuide && <StreamingGuide onClose={() => setShowGuide(false)} />}
 
       {/* Mode toggle */}
       <div style={{ display: "flex", gap: 10, marginBottom: 32, alignItems: "center" }}>
@@ -602,6 +676,153 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
       {/* ══ MODE CONFIGURATION ══════════════════════════════════════════════ */}
       {mode === "config" && (
         <div>
+
+          {/* ── ÉTAPE 0 · ÉQUIPE & INVITATIONS ────────────────────────────── */}
+          <StepHeader n={0} label="Équipe streaming & invitations" color="#ffaa00" />
+
+          <div style={{ background: "#0a0a12", border: "1px solid #ffaa0020", borderRadius: 10, padding: 20, marginBottom: 32 }}>
+            <div style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 3, marginBottom: 16 }}>👥 CONSTITUER L'ÉQUIPE POUR LA SESSION</div>
+
+            {/* Session info */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 140px", gap: 10, marginBottom: 16 }}>
+              <div>
+                <label style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 2, display: "block", marginBottom: 4 }}>TITRE DE LA SESSION</label>
+                <select
+                  value={streamingTeam.sessionId ?? ""}
+                  onChange={e => {
+                    const sid = parseInt((e.target as HTMLSelectElement).value);
+                    const sess = sessions.find(s => s.id === sid);
+                    if (sess) setStreamingTeam(t => ({ ...t, sessionId: sid, sessionTitle: sess.title, sessionTime: sess.time || "" }));
+                  }}
+                  style={{ ...INPUT_STYLE, cursor: "pointer" }}
+                  disabled={!canWrite}
+                >
+                  <option value="">— Sélectionner une session —</option>
+                  {sessions.map(s => <option key={s.id} value={s.id}>{s.time ? `${s.time} · ` : ""}{s.title}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 2, display: "block", marginBottom: 4 }}>HEURE</label>
+                <input value={streamingTeam.sessionTime} onChange={e => setStreamingTeam(t => ({ ...t, sessionTime: (e.target as HTMLInputElement).value }))} placeholder="09:00" disabled={!canWrite} style={INPUT_STYLE} />
+              </div>
+            </div>
+
+            {/* Studio link */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 2, display: "block", marginBottom: 4 }}>LIEN RESTREAM STUDIO (guest invite link)</label>
+              <input value={streamingTeam.studioLink} onChange={e => setStreamingTeam(t => ({ ...t, studioLink: (e.target as HTMLInputElement).value }))} placeholder="https://studio.restream.io/guest/…" disabled={!canWrite} style={INPUT_STYLE} />
+              <div style={{ fontSize: 10, color: "#555", marginTop: 4 }}>Généré dans Restream Studio → + Inviter → Guest link</div>
+            </div>
+
+            {/* Tech contact */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 2, display: "block", marginBottom: 4 }}>CONTACT TECHNICIEN (nom ou téléphone)</label>
+              <input value={streamingTeam.techContact} onChange={e => setStreamingTeam(t => ({ ...t, techContact: (e.target as HTMLInputElement).value }))} placeholder="ex: Jean Dupont — +237 6XX XXX XXX" disabled={!canWrite} style={INPUT_STYLE} />
+            </div>
+
+            {/* Moderator */}
+            <div style={{ background: "#070710", border: "1px solid #4488ff20", borderRadius: 8, padding: 14, marginBottom: 12 }}>
+              <div style={{ fontSize: 10, color: "#4488ff", letterSpacing: 2, marginBottom: 10 }}>🎙 MODÉRATEUR</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 80px auto", gap: 8, alignItems: "flex-end" }}>
+                <div>
+                  <label style={{ fontSize: 10, color: "#666", display: "block", marginBottom: 4 }}>Nom</label>
+                  <select
+                    value={streamingTeam.moderator?.name ?? ""}
+                    onChange={e => {
+                      const val = (e.target as HTMLSelectElement).value;
+                      const member = teamMembers.find(m => m.name === val);
+                      if (member) setStreamingTeam(t => ({ ...t, moderator: { name: member.name, email: member.email || "", lang: t.moderator?.lang || "fr" } }));
+                      else setStreamingTeam(t => ({ ...t, moderator: t.moderator ? { ...t.moderator, name: val } : { name: val, email: "", lang: "fr" } }));
+                    }}
+                    style={{ ...INPUT_STYLE, cursor: "pointer" }}
+                    disabled={!canWrite}
+                  >
+                    <option value="">— Équipe EOCON —</option>
+                    {teamMembers.map(m => <option key={m.id} value={m.name}>{m.name} ({m.role})</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, color: "#666", display: "block", marginBottom: 4 }}>Email</label>
+                  <input value={streamingTeam.moderator?.email ?? ""} onChange={e => setStreamingTeam(t => ({ ...t, moderator: t.moderator ? { ...t.moderator, email: (e.target as HTMLInputElement).value } : { name: "", email: (e.target as HTMLInputElement).value, lang: "fr" } }))} placeholder="email@exemple.com" disabled={!canWrite} style={INPUT_STYLE} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, color: "#666", display: "block", marginBottom: 4 }}>Langue</label>
+                  <select value={streamingTeam.moderator?.lang ?? "fr"} onChange={e => setStreamingTeam(t => ({ ...t, moderator: t.moderator ? { ...t.moderator, lang: (e.target as HTMLSelectElement).value as "fr" | "en" } : { name: "", email: "", lang: (e.target as HTMLSelectElement).value as "fr" | "en" } }))} style={{ ...INPUT_STYLE, cursor: "pointer" }} disabled={!canWrite}>
+                    <option value="fr">FR</option>
+                    <option value="en">EN</option>
+                  </select>
+                </div>
+                {canWrite && streamingTeam.moderator?.email && (
+                  <button
+                    onClick={() => sendInvite("moderator", "moderator", streamingTeam.moderator!.email, streamingTeam.moderator!.name, streamingTeam.moderator!.lang)}
+                    disabled={inviteSending["moderator"]}
+                    style={{ background: inviteSent["moderator"] ? "#00ff9d20" : "#4488ff20", border: `1px solid ${inviteSent["moderator"] ? "#00ff9d40" : "#4488ff40"}`, color: inviteSent["moderator"] ? "#00ff9d" : "#4488ff", padding: "8px 12px", borderRadius: 6, fontSize: 10, cursor: "pointer", letterSpacing: 1, whiteSpace: "nowrap" as const }}>
+                    {inviteSent["moderator"] ? "✓ Envoyé" : inviteSending["moderator"] ? "…" : "📨 Briefing"}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Speakers */}
+            <div style={{ background: "#070710", border: "1px solid #ffaa0020", borderRadius: 8, padding: 14, marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <div style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 2 }}>👤 SPEAKER(S)</div>
+                {canWrite && (
+                  <button onClick={() => setStreamingTeam(t => ({ ...t, speakers: [...t.speakers, { name: "", email: "", lang: "fr" }] }))} style={{ fontSize: 10, color: "#ffaa00", background: "transparent", border: "1px solid #ffaa0030", padding: "3px 10px", borderRadius: 4, cursor: "pointer" }}>+ Speaker</button>
+                )}
+              </div>
+              {streamingTeam.speakers.length === 0 && <p style={{ fontSize: 11, color: "#555" }}>Aucun speaker sélectionné.</p>}
+              {streamingTeam.speakers.map((sp, idx) => (
+                <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 80px auto auto", gap: 8, alignItems: "flex-end", marginBottom: 8 }}>
+                  <div>
+                    {idx === 0 && <label style={{ fontSize: 10, color: "#666", display: "block", marginBottom: 4 }}>Nom</label>}
+                    <select
+                      value={sp.name}
+                      onChange={e => {
+                        const val = (e.target as HTMLSelectElement).value;
+                        const found = acceptedSpeakers.find(s => s.name === val);
+                        const email = found?.cfpSubmission?.email || "";
+                        setStreamingTeam(t => { const sps = [...t.speakers]; sps[idx] = { ...sps[idx], name: val, email: email || sps[idx].email }; return { ...t, speakers: sps }; });
+                      }}
+                      style={{ ...INPUT_STYLE, cursor: "pointer" }}
+                      disabled={!canWrite}
+                    >
+                      <option value="">— Speakers acceptés —</option>
+                      {acceptedSpeakers.map(s => <option key={s.id} value={s.name}>{s.name}{s.title ? ` (${s.title})` : ""}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    {idx === 0 && <label style={{ fontSize: 10, color: "#666", display: "block", marginBottom: 4 }}>Email</label>}
+                    <input value={sp.email} onChange={e => setStreamingTeam(t => { const sps = [...t.speakers]; sps[idx] = { ...sps[idx], email: (e.target as HTMLInputElement).value }; return { ...t, speakers: sps }; })} placeholder="email@exemple.com" disabled={!canWrite} style={INPUT_STYLE} />
+                  </div>
+                  <div>
+                    {idx === 0 && <label style={{ fontSize: 10, color: "#666", display: "block", marginBottom: 4 }}>Langue</label>}
+                    <select value={sp.lang} onChange={e => setStreamingTeam(t => { const sps = [...t.speakers]; sps[idx] = { ...sps[idx], lang: (e.target as HTMLSelectElement).value as "fr" | "en" }; return { ...t, speakers: sps }; })} style={{ ...INPUT_STYLE, cursor: "pointer" }} disabled={!canWrite}>
+                      <option value="fr">FR</option>
+                      <option value="en">EN</option>
+                    </select>
+                  </div>
+                  {canWrite && sp.email && (
+                    <button
+                      onClick={() => sendInvite(`speaker-${idx}`, "speaker", sp.email, sp.name || `Speaker ${idx + 1}`, sp.lang)}
+                      disabled={inviteSending[`speaker-${idx}`]}
+                      style={{ background: inviteSent[`speaker-${idx}`] ? "#00ff9d20" : "#ffaa0015", border: `1px solid ${inviteSent[`speaker-${idx}`] ? "#00ff9d40" : "#ffaa0040"}`, color: inviteSent[`speaker-${idx}`] ? "#00ff9d" : "#ffaa00", padding: "8px 10px", borderRadius: 6, fontSize: 10, cursor: "pointer", whiteSpace: "nowrap" as const }}>
+                      {inviteSent[`speaker-${idx}`] ? "✓" : inviteSending[`speaker-${idx}`] ? "…" : "📨"}
+                    </button>
+                  )}
+                  {canWrite && (
+                    <button onClick={() => setStreamingTeam(t => ({ ...t, speakers: t.speakers.filter((_, i) => i !== idx) }))} style={{ background: "transparent", border: "1px solid #ff000030", color: "#ff6b6b", padding: "8px 10px", borderRadius: 6, fontSize: 10, cursor: "pointer" }}>✕</button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {canWrite && (
+              <button onClick={saveStreamingTeam} disabled={teamSaving} style={SAVE_BTN_STYLE(teamSaving)}>
+                {teamSaved ? "✓ Sauvegardé" : teamSaving ? "Sauvegarde…" : "Sauvegarder l'équipe"}
+              </button>
+            )}
+          </div>
 
           {/* ── ÉTAPE 1 · SESSIONS ─────────────────────────────────────────── */}
           <StepHeader n={1} label="Sessions — Diffusion YouTube" color="#4488ff" />

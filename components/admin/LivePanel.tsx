@@ -40,11 +40,32 @@ interface JaasConfig {
   privateKey: string;
 }
 
+interface Participant {
+  id: number;
+  name: string;
+  ticketType: string;
+  lastSeenAt: string | null;
+  ipAddress: string | null;
+}
+
+interface LiveStats {
+  onlineCount: number;
+  totalConnected: number;
+  participants: Participant[];
+  questions: { pending: number; approved: number; answered: number; total: number };
+}
+
+interface Announcement {
+  message: string;
+  enabled: boolean;
+  expiresAt: string | null;
+}
+
 const EMPTY: LiveSettings = { streams: [] };
 const EMPTY_WORKSHOP: Workshop = { id: "", title: "", titleEn: "", room: "", active: true, description: "", descriptionEn: "" };
 
 export default function LivePanel({ canWrite }: { canWrite: boolean }) {
-  const [subTab, setSubTab] = useState<"streams" | "qa" | "workshops">("streams");
+  const [subTab, setSubTab] = useState<"dashboard" | "streams" | "qa" | "workshops">("dashboard");
 
   // ── Streams ──────────────────────────────────────────────────────────────
   const [settings, setSettings]     = useState<LiveSettings>(EMPTY);
@@ -56,6 +77,13 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
   const [questions, setQuestions]   = useState<Question[]>([]);
   const [qaLoading, setQaLoading]   = useState(false);
   const [qaFilter, setQaFilter]     = useState<"pending" | "approved" | "answered">("pending");
+
+  // ── Dashboard ────────────────────────────────────────────────────────────
+  const [stats, setStats]             = useState<LiveStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [announcement, setAnnouncement] = useState<Announcement>({ message: "", enabled: false, expiresAt: null });
+  const [annSaving, setAnnSaving]     = useState(false);
+  const [annSaved, setAnnSaved]       = useState(false);
 
   // ── Workshops & JaaS ─────────────────────────────────────────────────────
   const [workshops, setWorkshops]   = useState<Workshop[]>([]);
@@ -102,9 +130,39 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
     } finally { setWsLoading(false); }
   }, []);
 
+  const loadDashboard = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const [statsRes, annRes] = await Promise.all([
+        fetch("/api/admin/live/stats"),
+        fetch("/api/admin/live/announcement"),
+      ]);
+      if (statsRes.ok) setStats(await statsRes.json());
+      if (annRes.ok)   setAnnouncement(await annRes.json());
+    } finally { setStatsLoading(false); }
+  }, []);
+
+  const saveAnnouncement = async () => {
+    setAnnSaving(true); setAnnSaved(false);
+    try {
+      const res = await fetch("/api/admin/live/announcement", {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(announcement),
+      });
+      if (res.ok) { setAnnSaved(true); setTimeout(() => setAnnSaved(false), 2000); }
+    } finally { setAnnSaving(false); }
+  };
+
   useEffect(() => { loadSettings(); }, [loadSettings]);
+  useEffect(() => { if (subTab === "dashboard") loadDashboard(); }, [subTab, loadDashboard]);
   useEffect(() => { if (subTab === "qa") loadQuestions(); }, [subTab, loadQuestions]);
   useEffect(() => { if (subTab === "workshops") loadWorkshops(); }, [subTab, loadWorkshops]);
+
+  // Auto-refresh dashboard every 30s while on that tab
+  useEffect(() => {
+    if (subTab !== "dashboard") return;
+    const t = setInterval(loadDashboard, 30000);
+    return () => clearInterval(t);
+  }, [subTab, loadDashboard]);
 
   const persist = async (patch: Partial<LiveSettings>) => {
     setSaving(true); setSaved(false);
@@ -219,6 +277,14 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
 
       {/* Sub-tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+        <button style={TAB_STYLE(subTab === "dashboard")} onClick={() => setSubTab("dashboard")}>
+          📊 Dashboard
+          {stats && stats.onlineCount > 0 && (
+            <span style={{ marginLeft: 6, background: "#00ff9d", color: "#000", borderRadius: 10, padding: "1px 6px", fontSize: 10 }}>
+              {stats.onlineCount}
+            </span>
+          )}
+        </button>
         <button style={TAB_STYLE(subTab === "streams")}   onClick={() => setSubTab("streams")}>📡 Flux vidéo</button>
         <button style={TAB_STYLE(subTab === "qa")}        onClick={() => setSubTab("qa")}>
           💬 Q&amp;A
@@ -231,8 +297,128 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
         <button style={TAB_STYLE(subTab === "workshops")} onClick={() => setSubTab("workshops")}>🎓 Workshops JaaS</button>
       </div>
 
-      {/* ── STREAMS ─────────────────────────────────────────────────────── */}
-      {loading ? (
+      {/* ── DASHBOARD ───────────────────────────────────────────────────── */}
+      {subTab === "dashboard" ? (
+        <div>
+          {statsLoading && !stats ? (
+            <p style={{ color: "#555", fontSize: 12 }}>Chargement…</p>
+          ) : (
+            <>
+              {/* Counters */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 24 }}>
+                {[
+                  { label: "En ligne maintenant", value: stats?.onlineCount ?? 0, color: "#00ff9d", hint: "actifs < 3 min" },
+                  { label: "Sessions valides", value: stats?.totalConnected ?? 0, color: "#4488ff", hint: "non expirées" },
+                  { label: "Questions en attente", value: stats?.questions.pending ?? 0, color: "#ff4444", hint: "à modérer" },
+                  { label: "Questions approuvées", value: stats?.questions.approved ?? 0, color: "#ffaa00", hint: "visibles" },
+                  { label: "Questions répondues", value: stats?.questions.answered ?? 0, color: "#00aaff", hint: "archivées" },
+                ].map(card => (
+                  <div key={card.label} style={{ background: "#0a0a12", border: `1px solid ${card.color}30`, borderRadius: 10, padding: "16px 20px" }}>
+                    <div style={{ fontSize: 28, fontWeight: 900, color: card.color, fontFamily: "'Courier New', monospace" }}>{card.value}</div>
+                    <div style={{ fontSize: 11, color: "#aaa", marginTop: 4 }}>{card.label}</div>
+                    <div style={{ fontSize: 10, color: "#555" }}>{card.hint}</div>
+                  </div>
+                ))}
+              </div>
+
+              <button onClick={loadDashboard} disabled={statsLoading} style={{ fontSize: 11, color: "#555", background: "transparent", border: "1px solid #333", padding: "5px 12px", borderRadius: 6, cursor: "pointer", marginBottom: 24, fontFamily: "'Courier New', monospace" }}>
+                {statsLoading ? "…" : "↺ Rafraîchir"}
+              </button>
+
+              {/* Announcement broadcast */}
+              <div style={{ background: "#0a0a12", border: "1px solid #ffaa0030", borderRadius: 10, padding: 20, marginBottom: 24 }}>
+                <div style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 3, marginBottom: 14 }}>📢 ANNONCE BROADCAST</div>
+                <textarea
+                  value={announcement.message}
+                  onChange={e => setAnnouncement(a => ({ ...a, message: (e.target as HTMLTextAreaElement).value }))}
+                  disabled={!canWrite}
+                  rows={3}
+                  placeholder="Message affiché en banner sur la page /live…"
+                  style={{ width: "100%", background: "#050508", border: "1px solid #ffaa0020", borderRadius: 6, color: "#fff", padding: "10px 12px", fontSize: 13, fontFamily: "'Courier New', monospace", boxSizing: "border-box" as const, resize: "none" as const, outline: "none", marginBottom: 10 }}
+                />
+                <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#aaa", cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={announcement.enabled}
+                      onChange={e => setAnnouncement(a => ({ ...a, enabled: (e.target as HTMLInputElement).checked }))}
+                      disabled={!canWrite}
+                      style={{ accentColor: "#ffaa00" }}
+                    />
+                    Activer l&apos;annonce
+                  </label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#666" }}>
+                    <span>Expire le :</span>
+                    <input
+                      type="datetime-local"
+                      value={announcement.expiresAt ? announcement.expiresAt.slice(0, 16) : ""}
+                      onChange={e => setAnnouncement(a => ({ ...a, expiresAt: (e.target as HTMLInputElement).value ? new Date((e.target as HTMLInputElement).value).toISOString() : null }))}
+                      disabled={!canWrite}
+                      style={{ background: "#050508", border: "1px solid #333", borderRadius: 4, color: "#aaa", padding: "3px 8px", fontSize: 11, fontFamily: "'Courier New', monospace" }}
+                    />
+                    {announcement.expiresAt && (
+                      <button onClick={() => setAnnouncement(a => ({ ...a, expiresAt: null }))} style={{ background: "transparent", border: "none", color: "#555", cursor: "pointer", fontSize: 12 }}>✕</button>
+                    )}
+                  </div>
+                  {canWrite && (
+                    <button onClick={saveAnnouncement} disabled={annSaving} style={{ background: "#ffaa00", color: "#000", padding: "6px 16px", borderRadius: 6, fontSize: 11, fontWeight: 900, cursor: "pointer", border: "none", letterSpacing: 1, marginLeft: "auto" }}>
+                      {annSaved ? "✓ Sauvegardé" : annSaving ? "…" : "Sauvegarder"}
+                    </button>
+                  )}
+                </div>
+                {announcement.enabled && announcement.message && (
+                  <div style={{ marginTop: 12, padding: "10px 14px", background: "#ffaa0015", border: "1px solid #ffaa0040", borderRadius: 6, fontSize: 12, color: "#ffaa00" }}>
+                    Aperçu : {announcement.message}
+                  </div>
+                )}
+              </div>
+
+              {/* Participants list */}
+              {(stats?.participants ?? []).length > 0 && (
+                <div style={{ background: "#0a0a12", border: "1px solid #00ff9d20", borderRadius: 10, padding: 20 }}>
+                  <div style={{ fontSize: 10, color: "#00ff9d", letterSpacing: 3, marginBottom: 14 }}>
+                    PARTICIPANTS RÉCENTS ({stats?.participants.length})
+                  </div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                      <thead>
+                        <tr>
+                          {["Nom", "Billet", "Vu il y a", "IP"].map(h => (
+                            <th key={h} style={{ textAlign: "left", padding: "4px 10px", color: "#444", fontSize: 10, letterSpacing: 1, borderBottom: "1px solid #ffffff10" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(stats?.participants ?? []).map(p => {
+                          const seenMs = p.lastSeenAt ? Date.now() - new Date(p.lastSeenAt).getTime() : null;
+                          const seenStr = seenMs == null ? "—"
+                            : seenMs < 60000 ? "< 1 min"
+                            : seenMs < 3600000 ? `${Math.floor(seenMs / 60000)} min`
+                            : `${Math.floor(seenMs / 3600000)} h`;
+                          const isOnline = seenMs != null && seenMs < 3 * 60 * 1000;
+                          return (
+                            <tr key={p.id} style={{ borderBottom: "1px solid #ffffff08" }}>
+                              <td style={{ padding: "8px 10px", color: isOnline ? "#00ff9d" : "#fff" }}>
+                                {isOnline && <span style={{ marginRight: 6, fontSize: 8 }}>●</span>}
+                                {p.name}
+                              </td>
+                              <td style={{ padding: "8px 10px", color: "#888", fontSize: 11 }}>{p.ticketType}</td>
+                              <td style={{ padding: "8px 10px", color: isOnline ? "#00ff9d" : "#555", fontFamily: "'Courier New', monospace", fontSize: 11 }}>{seenStr}</td>
+                              <td style={{ padding: "8px 10px", color: "#444", fontSize: 10, fontFamily: "'Courier New', monospace" }}>{p.ipAddress ?? "—"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+      /* ── STREAMS ─────────────────────────────────────────────────────── */
+      ) : loading ? (
         <p style={{ color: "#555", fontSize: 12 }}>Chargement…</p>
       ) : subTab === "streams" ? (
         <div>

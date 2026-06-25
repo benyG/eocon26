@@ -33,6 +33,7 @@ const tx = {
     workshopJoin: "Rejoindre",
     workshopNoAccess: "Vos billets n'incluent pas les ateliers.",
     workshopInactive: "Cet atelier n'est pas encore disponible.",
+    announcementClose: "✕",
   },
   en: {
     checking: "Verifying your access...",
@@ -61,6 +62,7 @@ const tx = {
     workshopJoin: "Join",
     workshopNoAccess: "Your ticket does not include workshops.",
     workshopInactive: "This workshop is not yet available.",
+    announcementClose: "✕",
   },
 };
 
@@ -175,6 +177,10 @@ export default function LivePage() {
   const [qaName, setQaName]         = useState("");
   const [qaStatus, setQaStatus]     = useState<"idle" | "sending" | "sent" | "cooldown" | "error">("idle");
 
+  // Announcement
+  const [announcement, setAnnouncement] = useState<string | null>(null);
+  const [annDismissed, setAnnDismissed] = useState(false);
+
   // Restore preferences
   useEffect(() => {
     const savedLang  = localStorage.getItem("eocon_lang") as Lang | null;
@@ -203,6 +209,31 @@ export default function LivePage() {
       setLiveData({ streams: prog.streams ?? [], programme: prog.programme ?? [], workshops: prog.workshops ?? [] });
     }).finally(() => setLoading(false));
   }, []);
+
+  // Heartbeat — keep lastSeenAt fresh every 60s
+  useEffect(() => {
+    if (!session) return;
+    const ping = () => fetch("/api/live/heartbeat", { method: "POST" }).catch(() => {});
+    ping();
+    const t = setInterval(ping, 60000);
+    return () => clearInterval(t);
+  }, [session]);
+
+  // Announcement polling every 30s
+  useEffect(() => {
+    if (!session) return;
+    const fetchAnn = () =>
+      fetch("/api/live/announcement")
+        .then(r => r.json())
+        .then((d: { active: boolean; message: string }) => {
+          if (d.active && d.message) { setAnnouncement(d.message); setAnnDismissed(false); }
+          else setAnnouncement(null);
+        })
+        .catch(() => {});
+    fetchAnn();
+    const t = setInterval(fetchAnn, 30000);
+    return () => clearInterval(t);
+  }, [session]);
 
   // SSE for Q&A — only connect once session is confirmed
   useEffect(() => {
@@ -292,6 +323,20 @@ export default function LivePage() {
           </button>
         </div>
       </div>
+
+      {/* Announcement banner */}
+      {announcement && !annDismissed && (
+        <div style={{ background: "#ffaa0015", borderBottom: "1px solid #ffaa0040", padding: "12px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+          <span style={{ fontSize: 13, color: "#ffaa00", flex: 1 }}>📢 {announcement}</span>
+          <button
+            onClick={() => setAnnDismissed(true)}
+            style={{ background: "transparent", border: "none", color: "#ffaa00", cursor: "pointer", fontSize: 16, flexShrink: 0, opacity: 0.7 }}
+            aria-label="Fermer"
+          >
+            {tx[lang].announcementClose}
+          </button>
+        </div>
+      )}
 
       <div style={{ maxWidth: 800, margin: "0 auto", padding: "48px 24px" }}>
         {loading ? (

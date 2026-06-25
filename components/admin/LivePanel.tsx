@@ -61,6 +61,26 @@ interface Announcement {
   expiresAt: string | null;
 }
 
+interface RestreamChannel {
+  id: number;
+  displayName: string;
+  type: string;
+  isActive: boolean;
+  isLive: boolean;
+  viewerCount: number;
+  embedUrl: string | null;
+}
+
+interface RestreamStatus {
+  configured: boolean;
+  error?: string;
+  channels?: RestreamChannel[];
+  streamKey?: string;
+  rtmpUrl?: string;
+  anyLive?: boolean;
+  youtubeEmbedUrl?: string | null;
+}
+
 interface Session {
   id: number;
   title: string;
@@ -73,6 +93,11 @@ interface Session {
 
 const EMPTY: LiveSettings = { streams: [] };
 const EMPTY_WORKSHOP: Workshop = { id: "", title: "", titleEn: "", room: "", active: true, description: "", descriptionEn: "" };
+
+const PLATFORM_ICON: Record<string, string> = {
+  youtube: "▶️", facebook: "📘", twitch: "💜", linkedin: "🔵",
+  twitter: "🐦", kick: "🟢", tiktok: "🎵", instagram: "📸",
+};
 
 const INPUT_STYLE = {
   width: "100%", background: "#050508", border: "1px solid #00ff9d20",
@@ -135,6 +160,15 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
   const [annSaving, setAnnSaving]   = useState(false);
   const [annSaved, setAnnSaved]     = useState(false);
 
+  // ── Restream ──────────────────────────────────────────────────────────────
+  const [restreamStatus, setRestreamStatus]   = useState<RestreamStatus | null>(null);
+  const [restreamLoading, setRestreamLoading] = useState(false);
+  const [restreamToken, setRestreamToken]     = useState("");
+  const [restreamTokenSaved, setRestreamTokenSaved] = useState(false);
+  const [restreamTokenSaving, setRestreamTokenSaving] = useState(false);
+  const [showRtmpKey, setShowRtmpKey]         = useState(false);
+  const [rtmpCopied, setRtmpCopied]           = useState(false);
+
   // ── Workshops & JaaS ──────────────────────────────────────────────────────
   const [workshops, setWorkshops] = useState<Workshop[]>([]);
   const [wsLoading, setWsLoading] = useState(false);
@@ -160,6 +194,45 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
       }
     } finally { setLoading(false); }
   }, [today]);
+
+  const loadRestreamStatus = useCallback(async () => {
+    setRestreamLoading(true);
+    try {
+      const res = await fetch("/api/admin/live/restream/status");
+      if (res.ok) setRestreamStatus(await res.json());
+    } finally { setRestreamLoading(false); }
+  }, []);
+
+  const loadRestreamConfig = useCallback(async () => {
+    const res = await fetch("/api/admin/live/restream");
+    if (res.ok) {
+      const data = await res.json() as { configured: boolean; tokenPreview: string };
+      if (data.tokenPreview) setRestreamToken(data.tokenPreview);
+    }
+  }, []);
+
+  const saveRestreamToken = async (newToken: string) => {
+    setRestreamTokenSaving(true); setRestreamTokenSaved(false);
+    try {
+      const res = await fetch("/api/admin/live/restream", {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: newToken }),
+      });
+      if (res.ok) {
+        setRestreamTokenSaved(true);
+        setTimeout(() => setRestreamTokenSaved(false), 2500);
+        loadRestreamStatus();
+      }
+    } finally { setRestreamTokenSaving(false); }
+  };
+
+  const copyRtmp = async () => {
+    const full = restreamStatus?.rtmpUrl ?? "";
+    if (!full) return;
+    await navigator.clipboard.writeText(full).catch(() => {});
+    setRtmpCopied(true);
+    setTimeout(() => setRtmpCopied(false), 2000);
+  };
 
   const loadQuestions = useCallback(async () => {
     setQaLoading(true);
@@ -193,15 +266,15 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
     } finally { setStatsLoading(false); }
   }, []);
 
-  useEffect(() => { loadSettings(); }, [loadSettings]);
-  useEffect(() => { loadDashboard(); loadQuestions(); }, [loadDashboard, loadQuestions]);
+  useEffect(() => { loadSettings(); loadRestreamConfig(); }, [loadSettings, loadRestreamConfig]);
+  useEffect(() => { loadDashboard(); loadQuestions(); loadRestreamStatus(); }, [loadDashboard, loadQuestions, loadRestreamStatus]);
   useEffect(() => { if (mode === "config") loadWorkshops(); }, [mode, loadWorkshops]);
 
   useEffect(() => {
     if (mode !== "live") return;
-    const t = setInterval(loadDashboard, 30000);
+    const t = setInterval(() => { loadDashboard(); loadRestreamStatus(); }, 30000);
     return () => clearInterval(t);
-  }, [mode, loadDashboard]);
+  }, [mode, loadDashboard, loadRestreamStatus]);
 
   // ── Persist helpers ───────────────────────────────────────────────────────
   const saveStreams = async () => {
@@ -336,9 +409,66 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
               </div>
             ))}
           </div>
-          <button onClick={loadDashboard} disabled={statsLoading} style={{ fontSize: 11, color: "#555", background: "transparent", border: "1px solid #333", padding: "5px 12px", borderRadius: 6, cursor: "pointer", marginBottom: 28, fontFamily: "'Courier New', monospace" }}>
+          <button onClick={() => { loadDashboard(); loadRestreamStatus(); }} disabled={statsLoading} style={{ fontSize: 11, color: "#555", background: "transparent", border: "1px solid #333", padding: "5px 12px", borderRadius: 6, cursor: "pointer", marginBottom: 20, fontFamily: "'Courier New', monospace" }}>
             {statsLoading ? "…" : "↺ Rafraîchir"}
           </button>
+
+          {/* Restream live status */}
+          {restreamStatus && (
+            <div style={{ background: "#0a0a12", border: `1px solid ${restreamStatus.anyLive ? "#ff444040" : "#ffffff10"}`, borderRadius: 10, padding: 20, marginBottom: 28 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: restreamStatus.anyLive ? "#ff4444" : "#555", boxShadow: restreamStatus.anyLive ? "0 0 8px #ff4444" : "none" }} />
+                  <span style={{ fontSize: 11, color: restreamStatus.anyLive ? "#ff6b6b" : "#666", fontFamily: "'Courier New', monospace", letterSpacing: 2 }}>
+                    RESTREAM {restreamStatus.anyLive ? "— EN DIRECT" : "— HORS LIGNE"}
+                  </span>
+                  {restreamStatus.error && <span style={{ fontSize: 10, color: "#ff6b6b" }}>⚠ {restreamStatus.error}</span>}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {restreamStatus.anyLive && restreamStatus.youtubeEmbedUrl && (
+                    <button
+                      onClick={() => navigator.clipboard.writeText(restreamStatus.youtubeEmbedUrl!).catch(() => {})}
+                      style={{ fontSize: 10, color: "#00ff9d", background: "#00ff9d15", border: "1px solid #00ff9d40", padding: "4px 10px", borderRadius: 5, cursor: "pointer", letterSpacing: 1 }}>
+                      📋 Copier embed YouTube
+                    </button>
+                  )}
+                  <button onClick={loadRestreamStatus} disabled={restreamLoading} style={{ fontSize: 10, color: "#555", background: "transparent", border: "1px solid #333", padding: "4px 10px", borderRadius: 5, cursor: "pointer" }}>
+                    {restreamLoading ? "…" : "↺"}
+                  </button>
+                  <a href="https://studio.restream.io" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: "#888", background: "transparent", border: "1px solid #333", padding: "4px 10px", borderRadius: 5, textDecoration: "none", letterSpacing: 1 }}>
+                    → Studio
+                  </a>
+                </div>
+              </div>
+
+              {!restreamStatus.configured ? (
+                <p style={{ fontSize: 12, color: "#555" }}>Token non configuré — allez dans ⚙️ Configuration pour connecter Restream.</p>
+              ) : (restreamStatus.channels ?? []).length === 0 ? (
+                <p style={{ fontSize: 12, color: "#555" }}>Aucun canal connecté dans Restream.</p>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
+                  {(restreamStatus.channels ?? []).map(ch => (
+                    <div key={ch.id} style={{ background: "#070710", border: `1px solid ${ch.isLive ? "#ff444030" : "#ffffff08"}`, borderRadius: 8, padding: "10px 14px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontSize: 16 }}>{PLATFORM_ICON[ch.type] ?? "📺"}</span>
+                        <span style={{ fontSize: 12, color: "#fff", fontWeight: 600 }}>{ch.displayName}</span>
+                        {ch.isLive && <span style={{ fontSize: 9, background: "#ff4444", color: "#fff", borderRadius: 4, padding: "1px 5px", letterSpacing: 1, marginLeft: "auto" }}>LIVE</span>}
+                      </div>
+                      {ch.isLive && ch.viewerCount > 0 && (
+                        <div style={{ fontSize: 11, color: "#ffaa00" }}>👁 {ch.viewerCount.toLocaleString()} spectateurs</div>
+                      )}
+                      {!ch.isActive && <div style={{ fontSize: 10, color: "#555" }}>Inactif</div>}
+                      {ch.isLive && ch.embedUrl && (
+                        <a href={ch.embedUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: "#4488ff", textDecoration: "none", display: "block", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          ↗ Embed
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Announcement */}
           <div style={{ background: "#0a0a12", border: "1px solid #ffaa0030", borderRadius: 10, padding: 20, marginBottom: 28 }}>
@@ -487,6 +617,127 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
               👉 Dans le <strong style={{ color: "#aaa" }}>Pipeline speakers</strong>, chaque session a un champ <code style={{ color: "#4488ff" }}>Lien live</code> : collez-y l&apos;URL d&apos;embed YouTube de cette session.
             </p>
           </ArchBox>
+
+          {/* Restream config */}
+          <div style={{ background: "#0a0a12", border: `1px solid ${restreamStatus?.configured ? "#ff444030" : "#ffffff10"}`, borderRadius: 10, padding: 20, marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 16 }}>🎬</span>
+                <div>
+                  <div style={{ fontSize: 11, color: "#ff6b6b", letterSpacing: 2, fontFamily: "'Courier New', monospace" }}>RESTREAM — OPTION PRIORITAIRE</div>
+                  <div style={{ fontSize: 10, color: "#555", marginTop: 1 }}>Invitez les speakers directement dans Restream Studio — ils présentent en visio et Restream diffuse vers YouTube + Facebook + Twitch simultanément.</div>
+                </div>
+              </div>
+              <a href="https://restream.io" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: "#ff6b6b", border: "1px solid #ff444030", padding: "4px 10px", borderRadius: 5, textDecoration: "none", letterSpacing: 1 }}>
+                → restream.io
+              </a>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "flex-end", marginBottom: 14 }}>
+              <div>
+                <label style={{ fontSize: 10, color: "#ff6b6b", letterSpacing: 2, display: "block", marginBottom: 4 }}>ACCESS TOKEN (OAuth Bearer)</label>
+                <input
+                  type="password"
+                  value={restreamToken}
+                  onChange={e => setRestreamToken((e.target as HTMLInputElement).value)}
+                  placeholder="Collez ici votre access token Restream…"
+                  disabled={!canWrite}
+                  style={{ ...INPUT_STYLE, border: "1px solid #ff444025" }}
+                />
+                <div style={{ fontSize: 10, color: "#555", marginTop: 4 }}>
+                  Obtenez votre token sur{" "}
+                  <a href="https://restream.io/settings/api" target="_blank" rel="noopener noreferrer" style={{ color: "#ff6b6b" }}>restream.io/settings/api</a>
+                  {" "}→ <em>Personal Access Token</em>
+                </div>
+              </div>
+              {canWrite && (
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    onClick={() => saveRestreamToken(restreamToken)}
+                    disabled={restreamTokenSaving || !restreamToken}
+                    style={{ ...SAVE_BTN_STYLE(restreamTokenSaving || !restreamToken), background: "#ff4444" }}>
+                    {restreamTokenSaved ? "✓ Sauvegardé" : restreamTokenSaving ? "…" : "Connecter"}
+                  </button>
+                  {restreamStatus?.configured && (
+                    <button
+                      onClick={() => saveRestreamToken("")}
+                      style={{ background: "transparent", border: "1px solid #ff000030", color: "#ff6b6b", padding: "8px 12px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>
+                      Déconnecter
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {restreamStatus?.configured && !restreamStatus?.error && (
+              <>
+                {/* RTMP URL + stream key */}
+                {restreamStatus.rtmpUrl && (
+                  <div style={{ background: "#07070e", border: "1px solid #ffffff08", borderRadius: 8, padding: 14, marginBottom: 12 }}>
+                    <div style={{ fontSize: 10, color: "#aaa", letterSpacing: 2, marginBottom: 8 }}>🔗 RTMP — À CONFIGURER DANS OBS / ZOOM / RESTREAM STUDIO</div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                      <code style={{ flex: 1, fontSize: 11, color: "#4488ff", fontFamily: "'Courier New', monospace", wordBreak: "break-all", background: "#050508", border: "1px solid #4488ff15", borderRadius: 5, padding: "6px 10px" }}>
+                        rtmp://live.restream.io/live/
+                      </code>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <code style={{ flex: 1, fontSize: 11, color: "#4488ff", fontFamily: "'Courier New', monospace", wordBreak: "break-all", background: "#050508", border: "1px solid #4488ff15", borderRadius: 5, padding: "6px 10px" }}>
+                        {showRtmpKey ? restreamStatus.streamKey : "•".repeat(Math.min((restreamStatus.streamKey?.length ?? 0), 28))}
+                      </code>
+                      <button onClick={() => setShowRtmpKey(v => !v)} style={{ fontSize: 10, color: "#888", background: "transparent", border: "1px solid #333", padding: "5px 10px", borderRadius: 5, cursor: "pointer" }}>
+                        {showRtmpKey ? "Masquer" : "Afficher"}
+                      </button>
+                      <button onClick={copyRtmp} style={{ fontSize: 10, color: rtmpCopied ? "#00ff9d" : "#888", background: rtmpCopied ? "#00ff9d15" : "transparent", border: `1px solid ${rtmpCopied ? "#00ff9d40" : "#333"}`, padding: "5px 10px", borderRadius: 5, cursor: "pointer" }}>
+                        {rtmpCopied ? "✓ Copié" : "📋 Copier URL complète"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Connected channels */}
+                {(restreamStatus.channels ?? []).length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 10, color: "#aaa", letterSpacing: 2, marginBottom: 8 }}>CANAUX CONNECTÉS ({restreamStatus.channels!.length})</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 8 }}>
+                      {restreamStatus.channels!.map(ch => (
+                        <div key={ch.id} style={{ background: "#07070e", border: `1px solid ${ch.isLive ? "#ff444030" : "#ffffff08"}`, borderRadius: 7, padding: "10px 12px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                            <span style={{ fontSize: 14 }}>{PLATFORM_ICON[ch.type] ?? "📺"}</span>
+                            <span style={{ fontSize: 12, color: "#fff", fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ch.displayName}</span>
+                            {ch.isLive && <span style={{ fontSize: 9, background: "#ff4444", color: "#fff", borderRadius: 4, padding: "1px 5px", letterSpacing: 1 }}>LIVE</span>}
+                          </div>
+                          <div style={{ fontSize: 10, color: ch.isActive ? "#00ff9d" : "#555" }}>{ch.isActive ? "● Actif" : "○ Inactif"}</div>
+                          {ch.embedUrl && (
+                            <button
+                              onClick={() => navigator.clipboard.writeText(ch.embedUrl!).catch(() => {})}
+                              style={{ fontSize: 10, color: "#4488ff", background: "transparent", border: "none", padding: 0, cursor: "pointer", marginTop: 4 }}>
+                              📋 Copier embed URL
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {restreamStatus?.error && (
+              <div style={{ fontSize: 11, color: "#ff6b6b", background: "#ff000015", border: "1px solid #ff000030", borderRadius: 6, padding: "8px 12px" }}>
+                ⚠ {restreamStatus.error}
+              </div>
+            )}
+
+            {!restreamStatus?.configured && (
+              <div style={{ background: "#07070e", border: "1px solid #ff444015", borderRadius: 8, padding: 14, fontSize: 11, color: "#666", lineHeight: 1.7 }}>
+                <strong style={{ color: "#ff6b6b" }}>Pourquoi Restream en priorité ?</strong><br />
+                • Le speaker rejoint <strong style={{ color: "#aaa" }}>Restream Studio</strong> (web, sans install) — vous l&apos;invitez par lien<br />
+                • Restream diffuse automatiquement vers <strong style={{ color: "#aaa" }}>YouTube Live, Facebook, Twitch</strong>…<br />
+                • Vous récupérez l&apos;URL embed YouTube générée et la collez dans le champ <em>Lien live</em> de la session<br />
+                • Les participants voient le live YouTube sur <code style={{ color: "#ff6b6b" }}>/live</code> — sans aucune friction
+              </div>
+            )}
+          </div>
 
           {/* Today's sessions status */}
           {loading ? (

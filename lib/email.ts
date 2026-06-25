@@ -658,3 +658,62 @@ export async function sendRegistrationTicket(
   );
 }
 
+// ── Online access magic link ──────────────────────────────────────────────────
+
+export async function sendOnlineAccessLink(
+  to: string,
+  fname: string,
+  lname: string,
+  token: string,
+  lang: "fr" | "en",
+): Promise<void> {
+  const isFr = lang === "fr";
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://eyesopensecurity.com";
+  const link = `${baseUrl}/live?access=${token}`;
+
+  const subject = isFr
+    ? "🔐 Votre accès à EOCON 2026 en ligne"
+    : "🔐 Your EOCON 2026 online access";
+
+  const body = `
+    <p style="font-size:16px;margin:0 0 8px;">
+      ${isFr ? "Bonjour" : "Hello"} <strong style="color:#00ff9d;">${esc(fname)} ${esc(lname)}</strong>,
+    </p>
+    <p style="color:#ccc;margin:0 0 24px;">
+      ${isFr
+        ? "Votre lien d'accès personnel à la conférence EOCON 2026 en ligne est prêt."
+        : "Your personal access link to EOCON 2026 online is ready."}
+    </p>
+    ${neonBox(`
+      <p style="margin:0 0 8px;font-size:12px;color:#00ff9d;letter-spacing:2px;">
+        ${isFr ? "▸ ACCÈS DIRECT À LA CONFÉRENCE" : "▸ DIRECT CONFERENCE ACCESS"}
+      </p>
+      <p style="margin:0;font-size:12px;color:#888;">
+        ${isFr
+          ? "Cliquez sur le bouton ci-dessous pour rejoindre la conférence. Ce lien est personnel et sécurisé."
+          : "Click the button below to join the conference. This link is personal and secure."}
+      </p>
+    `)}
+    ${ctaButton(link, isFr ? "🚀 REJOINDRE LA CONFÉRENCE" : "🚀 JOIN THE CONFERENCE")}
+    <p style="font-size:11px;color:#666;margin:16px 0 0;text-align:center;">
+      ${isFr
+        ? "Ce lien est à usage unique et vous est réservé. Ne le partagez pas."
+        : "This link is unique to you. Please do not share it."}
+    </p>
+    <p style="font-size:11px;color:#555;margin:8px 0 0;text-align:center;">
+      ${isFr ? "Lien perdu ?" : "Lost your link?"}
+      <a href="${baseUrl}/live/resend" style="color:#00ff9d;">
+        ${isFr ? "Renvoyer le lien d'accès" : "Resend access link"}
+      </a>
+    </p>
+    ${dateLine(isFr)}`;
+
+  const resend = getResend();
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject,
+    html: emailWrap(body, isFr),
+  });
+}
+

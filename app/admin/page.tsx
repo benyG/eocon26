@@ -3619,9 +3619,21 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
           <h1 className="text-2xl font-black text-white">{t.registrationsTitle} ({filtered.length})</h1>
           <p className="text-gray-500 text-xs mt-1">Validez le paiement pour envoyer le billet avec QR code</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <a href="/checkin/scan" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">📷 Scanner QR →</a>
           <a href="/admin/checkin" target="_blank" rel="noreferrer" className="px-4 py-2 rounded text-sm border border-gray-700 text-gray-300 hover:text-white transition-colors">📋 Liste check-in →</a>
+          <button
+            onClick={async () => {
+              if (!confirm("Générer et envoyer les liens d'accès online à tous les inscrits validés sans lien ?")) return;
+              const res = await fetch("/api/admin/registrations/generate-online-tokens", { method: "POST" });
+              const data = await res.json();
+              setMsg(`🌐 ${data.generated} lien(s) généré(s) et envoyé(s).`);
+              setTimeout(() => setMsg(null), 6000);
+            }}
+            className="px-4 py-2 rounded text-sm border border-cyan-700/40 text-cyan-400 hover:bg-cyan-500/10 transition-colors"
+          >
+            🌐 Envoyer accès online
+          </button>
         </div>
       </div>
 
@@ -3653,7 +3665,7 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-neon-green/10 text-gray-500 text-left">
-              {[t.name, t.ticketType, t.status, t.checkedIn, t.date, t.actions].map(h => (
+              {[t.name, t.ticketType, t.status, t.checkedIn, t.onlineAccess, t.date, t.actions].map(h => (
                 <th key={h} className="py-2 px-3 font-normal">{h}</th>
               ))}
             </tr>
@@ -3677,6 +3689,13 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
                       ? <span className="text-neon-green text-xs">✓ {new Date(r.checkedInAt as string).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
                       : <span className="text-gray-600 text-xs">—</span>}
                   </td>
+                  <td className="py-2 px-3">
+                    {r.onlineCheckedInAt
+                      ? <span className="text-cyan-400 text-xs">🌐 {new Date(r.onlineCheckedInAt as string).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                      : r.onlineToken
+                        ? <span className="text-gray-600 text-xs">🔗 en attente</span>
+                        : <span className="text-gray-700 text-xs">—</span>}
+                  </td>
                   <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleDateString("fr-FR")}</td>
                   <td className="py-2 px-3">
                     <div className="flex gap-2 flex-wrap items-center">
@@ -3695,6 +3714,20 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
                         </>
                       )}
                       {done && <span className="text-xs text-neon-green/60 font-mono">Billet envoyé ✓</span>}
+                      {done && (
+                        <button
+                          disabled={busyId === r.id}
+                          onClick={async () => {
+                            setBusyId(r.id as number);
+                            await fetch(`/api/admin/registrations/${r.id}/resend-online`, { method: "POST" });
+                            setBusyId(null);
+                          }}
+                          className="text-xs px-2 py-1 rounded border border-cyan-700/40 text-cyan-400 hover:bg-cyan-500/10 transition-colors disabled:opacity-50"
+                          title="Renvoyer le lien d'accès online"
+                        >
+                          {t.resendOnline}
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

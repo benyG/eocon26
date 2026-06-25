@@ -682,3 +682,18 @@ model Testimony {
 
   @@map("testimonies")
 }
+
+model SessionQuestion {
+  id           Int      @id @default(autoincrement())
+  body         String   @db.Text
+  displayName  String?
+  sessionToken String?
+  approved     Boolean  @default(false)
+  answered     Boolean  @default(false)
+  hidden       Boolean  @default(false)
+  upvotes      Int      @default(0)
+  adminNote    String?  @db.Text
+  askedAt      DateTime @default(now())
+
+  @@map("session_questions")
+}

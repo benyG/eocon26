@@ -19,6 +19,16 @@ const tx = {
     lightMode: "☀ Clair",
     darkMode: "🌙 Sombre",
     accessGranted: "▸ ACCÈS ACCORDÉ",
+    qaTitle: "💬 Questions en direct",
+    qaPlaceholder: "Posez votre question aux speakers…",
+    qaName: "Votre prénom (optionnel)",
+    qaSubmit: "Envoyer",
+    qaSubmitting: "Envoi…",
+    qaSent: "Question envoyée — en attente de modération.",
+    qaCooldown: "Veuillez patienter 30 secondes entre chaque question.",
+    qaError: "Erreur — réessayez.",
+    qaNoQuestions: "Aucune question approuvée pour le moment.",
+    qaAnswered: "✅ Répondue",
   },
   en: {
     checking: "Verifying your access...",
@@ -33,6 +43,16 @@ const tx = {
     lightMode: "☀ Light",
     darkMode: "🌙 Dark",
     accessGranted: "▸ ACCESS GRANTED",
+    qaTitle: "💬 Live Q&A",
+    qaPlaceholder: "Ask a question to the speakers…",
+    qaName: "Your first name (optional)",
+    qaSubmit: "Send",
+    qaSubmitting: "Sending…",
+    qaSent: "Question sent — awaiting moderation.",
+    qaCooldown: "Please wait 30 seconds between questions.",
+    qaError: "Error — please try again.",
+    qaNoQuestions: "No approved questions yet.",
+    qaAnswered: "✅ Answered",
   },
 };
 
@@ -55,6 +75,15 @@ interface ProgrammeItem {
 interface LiveData {
   streams: Stream[];
   programme: ProgrammeItem[];
+}
+
+interface Question {
+  id: number;
+  body: string;
+  displayName: string | null;
+  answered: boolean;
+  upvotes: number;
+  askedAt: string;
 }
 
 // ── theme token maps ────────────────────────────────────────────────────────
@@ -116,6 +145,12 @@ export default function LivePage() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [liveData, setLiveData] = useState<LiveData>({ streams: [], programme: [] });
 
+  // Q&A state
+  const [questions, setQuestions]   = useState<Question[]>([]);
+  const [qaBody, setQaBody]         = useState("");
+  const [qaName, setQaName]         = useState("");
+  const [qaStatus, setQaStatus]     = useState<"idle" | "sending" | "sent" | "cooldown" | "error">("idle");
+
   // Restore preferences
   useEffect(() => {
     const savedLang  = localStorage.getItem("eocon_lang") as Lang | null;
@@ -144,6 +179,53 @@ export default function LivePage() {
       setLiveData({ streams: prog.streams ?? [], programme: prog.programme ?? [] });
     }).finally(() => setLoading(false));
   }, []);
+
+  // SSE for Q&A — only connect once session is confirmed
+  useEffect(() => {
+    if (!session) return;
+    let es: EventSource | null = null;
+
+    const connect = () => {
+      es = new EventSource("/api/live/questions/stream");
+      es.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data) as { type: string; questions: Question[] };
+          if (msg.type === "snapshot") {
+            setQuestions(msg.questions);
+          } else if (msg.type === "new") {
+            setQuestions(prev => [...prev, ...msg.questions]);
+          }
+        } catch { /* ignore parse errors */ }
+      };
+      es.onerror = () => {
+        es?.close();
+        // Reconnect after 5s
+        setTimeout(connect, 5000);
+      };
+    };
+    connect();
+    return () => { es?.close(); };
+  }, [session]);
+
+  const submitQuestion = async () => {
+    if (!qaBody.trim()) return;
+    setQaStatus("sending");
+    try {
+      const res = await fetch("/api/live/questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: qaBody.trim(), displayName: qaName.trim() }),
+      });
+      if (res.status === 429) { setQaStatus("cooldown"); setTimeout(() => setQaStatus("idle"), 5000); return; }
+      if (!res.ok) { setQaStatus("error"); setTimeout(() => setQaStatus("idle"), 3000); return; }
+      setQaStatus("sent");
+      setQaBody("");
+      setTimeout(() => setQaStatus("idle"), 4000);
+    } catch {
+      setQaStatus("error");
+      setTimeout(() => setQaStatus("idle"), 3000);
+    }
+  };
 
   const toggleLang = () => {
     const next: Lang = lang === "fr" ? "en" : "fr";
@@ -258,6 +340,62 @@ export default function LivePage() {
                 </table>
               </div>
             )}
+
+            {/* Q&A */}
+            <div style={{ background: th.cardBg, border: th.cardBorderSm, borderRadius: 12, padding: 24, marginTop: 24, boxShadow: theme === "light" ? "0 2px 12px #00000010" : "none" }}>
+              <div style={{ fontSize: 10, color: th.accent, letterSpacing: 3, marginBottom: 16 }}>{t.qaTitle}</div>
+
+              {/* Submit form */}
+              <div style={{ marginBottom: 20 }}>
+                <input
+                  value={qaName}
+                  onChange={e => setQaName((e.target as HTMLInputElement).value)}
+                  placeholder={t.qaName}
+                  maxLength={80}
+                  style={{ width: "100%", padding: "8px 12px", background: theme === "dark" ? "#050508" : th.bg, border: `1px solid ${th.cardBorderSm.replace("1px solid ","")}`, borderRadius: 6, color: th.text, fontSize: 12, fontFamily: "'Courier New', monospace", boxSizing: "border-box", outline: "none", marginBottom: 8 }}
+                />
+                <textarea
+                  value={qaBody}
+                  onChange={e => setQaBody((e.target as HTMLTextAreaElement).value)}
+                  placeholder={t.qaPlaceholder}
+                  maxLength={500}
+                  rows={3}
+                  disabled={qaStatus === "sending"}
+                  style={{ width: "100%", padding: "10px 12px", background: theme === "dark" ? "#050508" : th.bg, border: `1px solid ${th.cardBorderSm.replace("1px solid ","")}`, borderRadius: 6, color: th.text, fontSize: 13, fontFamily: "'Courier New', monospace", boxSizing: "border-box", resize: "none", outline: "none", marginBottom: 8 }}
+                />
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <button
+                    onClick={submitQuestion}
+                    disabled={!qaBody.trim() || qaStatus === "sending"}
+                    style={{ background: th.ctaBg, color: th.ctaText, border: "none", borderRadius: 6, padding: "8px 20px", fontSize: 12, fontWeight: 900, cursor: (!qaBody.trim() || qaStatus === "sending") ? "not-allowed" : "pointer", letterSpacing: 1, opacity: (!qaBody.trim() || qaStatus === "sending") ? 0.6 : 1 }}
+                  >
+                    {qaStatus === "sending" ? t.qaSubmitting : t.qaSubmit}
+                  </button>
+                  {qaStatus === "sent"     && <span style={{ fontSize: 12, color: th.accent }}>{t.qaSent}</span>}
+                  {qaStatus === "cooldown" && <span style={{ fontSize: 12, color: "#ffaa00" }}>{t.qaCooldown}</span>}
+                  {qaStatus === "error"    && <span style={{ fontSize: 12, color: "#ff6b6b" }}>{t.qaError}</span>}
+                  <span style={{ marginLeft: "auto", fontSize: 11, color: th.textMuted }}>{qaBody.length}/500</span>
+                </div>
+              </div>
+
+              {/* Approved questions feed */}
+              <div style={{ borderTop: `1px solid ${th.accentFaint}`, paddingTop: 16 }}>
+                {questions.length === 0 ? (
+                  <p style={{ color: th.textMuted, fontSize: 12 }}>{t.qaNoQuestions}</p>
+                ) : (
+                  [...questions].reverse().map(q => (
+                    <div key={q.id} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${th.accentFaint}` }}>
+                      <p style={{ color: th.text, fontSize: 13, margin: "0 0 4px", lineHeight: 1.5 }}>{q.body}</p>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        {q.displayName && <span style={{ fontSize: 10, color: th.textMuted }}>👤 {q.displayName}</span>}
+                        <span style={{ fontSize: 10, color: th.textFaint }}>{new Date(q.askedAt).toLocaleTimeString(lang === "fr" ? "fr-FR" : "en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+                        {q.answered && <span style={{ fontSize: 10, color: th.accent }}>{t.qaAnswered}</span>}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </>
 
         ) : (

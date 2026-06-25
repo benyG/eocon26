@@ -122,6 +122,7 @@ function AccountModal({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const { t, lang } = useAdminT();
   const [curPw, setCurPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [pwMsg, setPwMsg] = useState("");
@@ -139,7 +140,7 @@ function AccountModal({
       body: JSON.stringify({ currentPassword: curPw, newPassword: newPw }),
     });
     const d = await res.json().catch(() => ({}));
-    setPwMsg(res.ok ? "✓ Mot de passe mis à jour." : (d.error || "Échec."));
+    setPwMsg(res.ok ? (lang === "en" ? "✓ Password updated." : "✓ Mot de passe mis à jour.") : (d.error || (lang === "en" ? "Failed." : "Échec.")));
     if (res.ok) { setCurPw(""); setNewPw(""); }
     setPwSaving(false);
   };
@@ -148,7 +149,7 @@ function AccountModal({
     setMfaMsg(""); setMfaBusy(true);
     const res = await fetch("/api/admin/account/mfa");
     const d = await res.json().catch(() => ({}));
-    if (res.ok) setQr(d.qrDataUrl); else setMfaMsg(d.error || "Échec.");
+    if (res.ok) setQr(d.qrDataUrl); else setMfaMsg(d.error || (lang === "en" ? "Failed." : "Échec."));
     setMfaBusy(false);
   };
   const verifyMfa = async () => {
@@ -157,16 +158,16 @@ function AccountModal({
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ totp }),
     });
     const d = await res.json().catch(() => ({}));
-    if (res.ok) { setMfaMsg("✓ MFA activé."); setQr(""); setTotp(""); onChanged(); }
-    else setMfaMsg(d.error || "Code incorrect.");
+    if (res.ok) { setMfaMsg(lang === "en" ? "✓ MFA enabled." : "✓ MFA activé."); setQr(""); setTotp(""); onChanged(); }
+    else setMfaMsg(d.error || (lang === "en" ? "Incorrect code." : "Code incorrect."));
     setMfaBusy(false);
   };
   const disableMfa = async () => {
-    if (!confirm("Désactiver le MFA pour votre compte ?")) return;
+    if (!confirm(lang === "en" ? "Disable MFA for your account?" : "Désactiver le MFA pour votre compte ?")) return;
     setMfaMsg(""); setMfaBusy(true);
     const res = await fetch("/api/admin/account/mfa", { method: "DELETE" });
     const d = await res.json().catch(() => ({}));
-    if (res.ok) { setMfaMsg("MFA désactivé."); onChanged(); } else setMfaMsg(d.error || "Échec.");
+    if (res.ok) { setMfaMsg(lang === "en" ? "MFA disabled." : "MFA désactivé."); onChanged(); } else setMfaMsg(d.error || (lang === "en" ? "Failed." : "Échec."));
     setMfaBusy(false);
   };
 
@@ -175,7 +176,7 @@ function AccountModal({
       <div className="cyber-card rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto space-y-5">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-white font-bold">👤 Mon compte</h3>
+            <h3 className="text-white font-bold">{lang === "en" ? "👤 My Account" : "👤 Mon compte"}</h3>
             <p className="text-gray-500 text-xs">{info.email || info.name}</p>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-white text-xl">✕</button>
@@ -183,11 +184,11 @@ function AccountModal({
 
         {/* Password */}
         <div className="space-y-2">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Mot de passe</p>
-          <input type="password" placeholder="Mot de passe actuel" className="cyber-input w-full text-sm rounded px-3 py-2" value={curPw} onChange={e => setCurPw(e.target.value)} />
-          <input type="password" placeholder="Nouveau mot de passe (min 8)" className="cyber-input w-full text-sm rounded px-3 py-2" value={newPw} onChange={e => setNewPw(e.target.value)} />
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{lang === "en" ? "Password" : "Mot de passe"}</p>
+          <input type="password" placeholder={lang === "en" ? "Current password" : "Mot de passe actuel"} className="cyber-input w-full text-sm rounded px-3 py-2" value={curPw} onChange={e => setCurPw(e.target.value)} />
+          <input type="password" placeholder={lang === "en" ? "New password (min 8)" : "Nouveau mot de passe (min 8)"} className="cyber-input w-full text-sm rounded px-3 py-2" value={newPw} onChange={e => setNewPw(e.target.value)} />
           <button onClick={changePassword} disabled={pwSaving || !curPw || newPw.length < 8} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
-            {pwSaving ? "…" : "Changer le mot de passe"}
+            {pwSaving ? "…" : (lang === "en" ? "Change password" : "Changer le mot de passe")}
           </button>
           {pwMsg && <p className="text-xs" style={{ color: pwMsg.startsWith("✓") ? "#00ff9d" : "#ff6666" }}>{pwMsg}</p>}
         </div>
@@ -195,28 +196,28 @@ function AccountModal({
         {/* MFA */}
         <div className="space-y-2 border-t border-gray-800 pt-4">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-            Double authentification (MFA){info.mfaRequired ? " · obligatoire" : ""}
+            {lang === "en" ? "Two-factor authentication (MFA)" : "Double authentification (MFA)"}{info.mfaRequired ? (lang === "en" ? " · required" : " · obligatoire") : ""}
           </p>
           <p className="text-xs text-gray-500">
-            Statut : {info.mfaEnabled ? <span className="text-neon-green">activé ✓</span> : <span className="text-yellow-400">non activé</span>}
+            {lang === "en" ? "Status: " : "Statut : "}{info.mfaEnabled ? <span className="text-neon-green">{lang === "en" ? "enabled ✓" : "activé ✓"}</span> : <span className="text-yellow-400">{lang === "en" ? "not enabled" : "non activé"}</span>}
           </p>
           {!info.mfaEnabled && !qr && (
             <button onClick={startMfa} disabled={mfaBusy} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
-              {mfaBusy ? "…" : "Configurer le MFA"}
+              {mfaBusy ? "…" : (lang === "en" ? "Set up MFA" : "Configurer le MFA")}
             </button>
           )}
           {qr && (
             <div className="space-y-2">
-              <p className="text-xs text-gray-400">Scannez ce QR avec votre application d&apos;authentification, puis entrez le code :</p>
+              <p className="text-xs text-gray-400">{lang === "en" ? "Scan this QR with your authenticator app, then enter the code:" : "Scannez ce QR avec votre application d'authentification, puis entrez le code :"}</p>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={qr} alt="QR MFA" width={160} height={160} className="rounded bg-white p-2 mx-auto" />
               <input inputMode="numeric" maxLength={6} placeholder="000000" className="cyber-input w-full text-sm rounded px-3 py-2 text-center tracking-[0.4em]" value={totp} onChange={e => setTotp(e.target.value.replace(/\D/g, "").slice(0, 6))} />
-              <button onClick={verifyMfa} disabled={mfaBusy || totp.length < 6} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">Activer le MFA</button>
+              <button onClick={verifyMfa} disabled={mfaBusy || totp.length < 6} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">{lang === "en" ? "Enable MFA" : "Activer le MFA"}</button>
             </div>
           )}
           {info.mfaEnabled && !info.mfaRequired && (
             <button onClick={disableMfa} disabled={mfaBusy} className="text-xs px-3 py-1.5 rounded border border-red-500/40 text-red-400 hover:bg-red-500/10 disabled:opacity-50">
-              Désactiver le MFA
+              {lang === "en" ? "Disable MFA" : "Désactiver le MFA"}
             </button>
           )}
           {mfaMsg && <p className="text-xs" style={{ color: mfaMsg.startsWith("✓") ? "#00ff9d" : "#ff6666" }}>{mfaMsg}</p>}
@@ -238,6 +239,7 @@ interface MfaSetupState {
 }
 
 function MfaSetupModal({ setup, onClose, onSuccess }: { setup: MfaSetupState; onClose: () => void; onSuccess: () => void }) {
+  const { t, lang } = useAdminT();
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
   const [verifying, setVerifying] = useState(false);
@@ -253,18 +255,18 @@ function MfaSetupModal({ setup, onClose, onSuccess }: { setup: MfaSetupState; on
     });
     const json = await res.json();
     if (res.ok) { setDone(true); onSuccess(); }
-    else setErr(json.error || "Erreur");
+    else setErr(json.error || (lang === "en" ? "Error" : "Erreur"));
     setVerifying(false);
   };
 
   return (
     <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
       <div className="cyber-card rounded-xl p-6 max-w-sm w-full">
-        <h3 className="text-white font-bold mb-2">🔐 Activer MFA — {setup.userName}</h3>
+        <h3 className="text-white font-bold mb-2">{lang === "en" ? "🔐 Enable MFA" : "🔐 Activer MFA"} — {setup.userName}</h3>
         {done ? (
           <>
-            <p className="text-neon-green text-sm mb-4">✓ MFA activé avec succès !</p>
-            <button onClick={onClose} className="btn-neon w-full py-2 rounded text-sm">Fermer</button>
+            <p className="text-neon-green text-sm mb-4">{lang === "en" ? "✓ MFA successfully enabled!" : "✓ MFA activé avec succès !"}</p>
+            <button onClick={onClose} className="btn-neon w-full py-2 rounded text-sm">{t.close}</button>
           </>
         ) : (
           <>

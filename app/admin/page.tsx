@@ -999,7 +999,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="text-xs text-gray-500 block mb-1">{t.placesQueryLabel}</label>
-              <input value={placesQuery} onChange={e => setPlacesQuery(e.target.value)} className="cyber-input w-full text-xs rounded px-3 py-2" placeholder="banque Douala, opérateur télécom Cameroun..." onKeyDown={e => e.key === "Enter" && runPlacesSearch()} />
+              <input value={placesQuery} onChange={e => setPlacesQuery(e.target.value)} className="cyber-input w-full text-xs rounded px-3 py-2" placeholder={lang === "en" ? "bank Douala, telecom operator Cameroon..." : "banque Douala, opérateur télécom Cameroun..."} onKeyDown={e => e.key === "Enter" && runPlacesSearch()} />
             </div>
             {canWrite && <button onClick={runPlacesSearch} disabled={searching || !placesQuery.trim()} className="btn-neon px-5 py-2 rounded text-xs self-end shrink-0">
               {searching ? t.searchingLabel : t.searchBtn}
@@ -1384,25 +1384,41 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
     if (!data) return "";
     switch (type) {
       case "speaker":
-        if (!item) return "Annonce d'un speaker EOCON 2026. Sélectionner un speaker ci-dessous pour personnaliser ce brief avec son nom, son expertise et son sujet de talk.";
-        return `Annonce de la conférence de ${item.name as string}, ${item.title as string}${item.company ? ` chez ${item.company}` : ""}${item.country ? ` (${item.country})` : ""}. Talk : "${item.talkTitle || "à confirmer"}". ${item.isKeynote ? "Keynote speaker de l'événement. " : ""}Créer de l'enthousiasme et mettre en avant son expertise pour EOCON 2026.`;
+        if (!item) return adminLang === "en" ? "Announcement of an EOCON 2026 speaker. Select a speaker below to customize this brief with their name, expertise and talk topic." : "Annonce d'un speaker EOCON 2026. Sélectionner un speaker ci-dessous pour personnaliser ce brief avec son nom, son expertise et son sujet de talk.";
+        return adminLang === "en"
+          ? `Announcement of ${item.name as string}'s talk, ${item.title as string}${item.company ? ` at ${item.company}` : ""}${item.country ? ` (${item.country})` : ""}. Talk: "${item.talkTitle || "TBC"}". ${item.isKeynote ? "Keynote speaker of the event. " : ""}Build excitement and highlight their expertise for EOCON 2026.`
+          : `Annonce de la conférence de ${item.name as string}, ${item.title as string}${item.company ? ` chez ${item.company}` : ""}${item.country ? ` (${item.country})` : ""}. Talk : "${item.talkTitle || "à confirmer"}". ${item.isKeynote ? "Keynote speaker de l'événement. " : ""}Créer de l'enthousiasme et mettre en avant son expertise pour EOCON 2026.`;
       case "session":
-        if (!item) return "Mise en avant d'une session du programme EOCON 2026. Sélectionner une session ci-dessous pour personnaliser ce brief avec son titre, son intervenant et sa date.";
-        return `Mise en avant de la session "${item.title as string}"${item.speakerName ? ` par ${item.speakerName}` : ""}${item.date ? ` le ${item.date}` : ""}${item.time ? ` à ${item.time}` : ""}. ${item.description ? `Contexte : ${(item.description as string).slice(0, 150)}...` : ""}`;
+        if (!item) return adminLang === "en" ? "Highlight of an EOCON 2026 programme session. Select a session below to customize this brief with its title, speaker and date." : "Mise en avant d'une session du programme EOCON 2026. Sélectionner une session ci-dessous pour personnaliser ce brief avec son titre, son intervenant et sa date.";
+        return adminLang === "en"
+          ? `Highlight of the session "${item.title as string}"${item.speakerName ? ` by ${item.speakerName}` : ""}${item.date ? ` on ${item.date}` : ""}${item.time ? ` at ${item.time}` : ""}. ${item.description ? `Context: ${(item.description as string).slice(0, 150)}...` : ""}`
+          : `Mise en avant de la session "${item.title as string}"${item.speakerName ? ` par ${item.speakerName}` : ""}${item.date ? ` le ${item.date}` : ""}${item.time ? ` à ${item.time}` : ""}. ${item.description ? `Contexte : ${(item.description as string).slice(0, 150)}...` : ""}`;
       case "workshop":
-        if (!item) return "Annonce d'un workshop EOCON 2026. Sélectionner un workshop ci-dessous pour personnaliser ce brief avec son titre, son animateur, son niveau et sa durée.";
-        return `Annonce du workshop "${item.title as string}"${item.instructor ? ` animé par ${item.instructor}` : ""}, niveau ${item.level as string}, durée ${item.duration as string}. ${(item.description as string).slice(0, 150)}... Inviter les participants à s'inscrire.`;
+        if (!item) return adminLang === "en" ? "Announcement of an EOCON 2026 workshop. Select a workshop below to customize this brief with its title, instructor, level and duration." : "Annonce d'un workshop EOCON 2026. Sélectionner un workshop ci-dessous pour personnaliser ce brief avec son titre, son animateur, son niveau et sa durée.";
+        return adminLang === "en"
+          ? `Announcement of the workshop "${item.title as string}"${item.instructor ? ` led by ${item.instructor}` : ""}, level ${item.level as string}, duration ${item.duration as string}. ${(item.description as string).slice(0, 150)}... Invite participants to register.`
+          : `Annonce du workshop "${item.title as string}"${item.instructor ? ` animé par ${item.instructor}` : ""}, niveau ${item.level as string}, durée ${item.duration as string}. ${(item.description as string).slice(0, 150)}... Inviter les participants à s'inscrire.`;
       case "sponsor":
-        if (!item) return "Mise en avant d'un partenaire EOCON 2026. Sélectionner un sponsor ci-dessous pour personnaliser ce brief avec son nom et son niveau de partenariat.";
-        return `Mise en avant et remerciement de ${item.name as string}, partenaire ${item.tier as string} d'EOCON 2026. Valoriser leur soutien et leur engagement pour la cybersécurité en Afrique.`;
+        if (!item) return adminLang === "en" ? "Highlight of an EOCON 2026 partner. Select a sponsor below to customize this brief with their name and partnership level." : "Mise en avant d'un partenaire EOCON 2026. Sélectionner un sponsor ci-dessous pour personnaliser ce brief avec son nom et son niveau de partenariat.";
+        return adminLang === "en"
+          ? `Highlight and thanks to ${item.name as string}, ${item.tier as string} partner of EOCON 2026. Showcase their support and commitment to cybersecurity in Africa.`
+          : `Mise en avant et remerciement de ${item.name as string}, partenaire ${item.tier as string} d'EOCON 2026. Valoriser leur soutien et leur engagement pour la cybersécurité en Afrique.`;
       case "countdown":
-        return `Compte à rebours EOCON 2026 : J-${data.daysUntil} ! Créer l'urgence et l'excitation. ${data.daysUntil <= 7 ? "Derniers rappels pratiques (lieu, programme)." : data.daysUntil <= 30 ? "Rappeler les points clés de l'événement." : "Présenter les highlights du programme à venir."}`;
+        return adminLang === "en"
+          ? `EOCON 2026 countdown: D-${data.daysUntil}! Create urgency and excitement. ${data.daysUntil <= 7 ? "Last practical reminders (venue, programme)." : data.daysUntil <= 30 ? "Remind about the key highlights of the event." : "Present the highlights of the upcoming programme."}`
+          : `Compte à rebours EOCON 2026 : J-${data.daysUntil} ! Créer l'urgence et l'excitation. ${data.daysUntil <= 7 ? "Derniers rappels pratiques (lieu, programme)." : data.daysUntil <= 30 ? "Rappeler les points clés de l'événement." : "Présenter les highlights du programme à venir."}`;
       case "cfp":
-        return "Annonce liée au Call for Papers (CFP) d'EOCON 2026. Préciser s'il s'agit de l'ouverture du CFP, d'un rappel de deadline, ou de l'annonce des résultats de sélection. Inciter les experts en cybersécurité à soumettre leur proposition de talk.";
+        return adminLang === "en"
+          ? "Announcement related to the Call for Papers (CFP) for EOCON 2026. Specify whether this is the CFP opening, a deadline reminder, or the announcement of selection results. Encourage cybersecurity experts to submit their talk proposals."
+          : "Annonce liée au Call for Papers (CFP) d'EOCON 2026. Préciser s'il s'agit de l'ouverture du CFP, d'un rappel de deadline, ou de l'annonce des résultats de sélection. Inciter les experts en cybersécurité à soumettre leur proposition de talk.";
       case "inscriptions":
-        return `Les inscriptions pour EOCON 2026 sont ouvertes ! ${data.registrationCount > 0 ? `Déjà ${data.registrationCount} participants inscrits. ` : ""}Inviter à s'inscrire, mettre en avant les types de billets disponibles (Standard, Student, VIP, Early Bird). Rappeler que l'événement est accessible en ligne pour la diaspora africaine.`;
+        return adminLang === "en"
+          ? `Registrations for EOCON 2026 are open! ${data.registrationCount > 0 ? `Already ${data.registrationCount} participants registered. ` : ""}Invite to register, highlight the available ticket types (Standard, Student, VIP, Early Bird). Remind that the event is accessible online for the African diaspora.`
+          : `Les inscriptions pour EOCON 2026 sont ouvertes ! ${data.registrationCount > 0 ? `Déjà ${data.registrationCount} participants inscrits. ` : ""}Inviter à s'inscrire, mettre en avant les types de billets disponibles (Standard, Student, VIP, Early Bird). Rappeler que l'événement est accessible en ligne pour la diaspora africaine.`;
       case "ctf":
-        return "Annonce de l'EyesOpenCTF — le Capture The Flag d'EOCON 2026. Présenter le challenge cybersécurité, ses catégories, les lots à remporter et le niveau attendu des participants. Inviter les équipes et individus à s'inscrire et à se challenger.";
+        return adminLang === "en"
+          ? "Announcement of the EyesOpenCTF — the Capture The Flag of EOCON 2026. Present the cybersecurity challenge, its categories, prizes to win and the expected level of participants. Invite teams and individuals to register and compete."
+          : "Annonce de l'EyesOpenCTF — le Capture The Flag d'EOCON 2026. Présenter le challenge cybersécurité, ses catégories, les lots à remporter et le niveau attendu des participants. Inviter les équipes et individus à s'inscrire et à se challenger.";
       case "custom":
         return "";
       default:
@@ -1668,7 +1684,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                     contextData.sponsors
                   ).map(item => (
                     <option key={item.id as number} value={item.id as number}>
-                      {contextType === "speaker" ? `${item.name as string} — ${(item.talkTitle as string) || "Talk à confirmer"}` :
+                      {contextType === "speaker" ? `${item.name as string} — ${(item.talkTitle as string) || (adminLang === "en" ? "Talk TBC" : "Talk à confirmer")}` :
                        contextType === "session" ? `${item.title as string}${item.speakerName ? ` (${item.speakerName as string})` : ""}` :
                        contextType === "workshop" ? `${item.title as string} — ${item.level as string}` :
                        `${item.name as string} (${item.tier as string})`}
@@ -2409,7 +2425,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                       className="cyber-card rounded-lg p-3 text-xs"
                       style={{ borderLeft: `3px solid ${st.color}40` }}
                     >
-                      <button onClick={() => setDetail(p)} className="text-white font-bold text-sm mb-1 truncate w-full text-left hover:text-neon-green transition-colors" title="Voir les détails">{p.org as string}</button>
+                      <button onClick={() => setDetail(p)} className="text-white font-bold text-sm mb-1 truncate w-full text-left hover:text-neon-green transition-colors" title={lang === "en" ? "View details" : "Voir les détails"}>{p.org as string}</button>
                       {(p.contact as string) && <p className="text-gray-500 truncate">{p.contact as string}</p>}
                       {(p.email as string) && <p className="text-neon-green/60 truncate">{p.email as string}</p>}
                       {(p.package as string) && (
@@ -2722,10 +2738,10 @@ function BudgetPanel({ items, onRefresh, canWrite = true }: { items: Record<stri
 
 // ---- Logistics Panel ----
 const STATUS_COLS = [
-  { id: "todo",        label: "TODO",      color: "#888",    bg: "#88888815" },
-  { id: "in_progress", label: "EN COURS",  color: "#0066ff", bg: "#0066ff15" },
-  { id: "blocked",     label: "BLOQUÉ",    color: "#ff0066", bg: "#ff006615" },
-  { id: "done",        label: "TERMINÉ",   color: "#00ff9d", bg: "#00ff9d15" },
+  { id: "todo",        label: "TODO",      labelEn: "TODO",        color: "#888",    bg: "#88888815" },
+  { id: "in_progress", label: "EN COURS",  labelEn: "IN PROGRESS", color: "#0066ff", bg: "#0066ff15" },
+  { id: "blocked",     label: "BLOQUÉ",    labelEn: "BLOCKED",     color: "#ff0066", bg: "#ff006615" },
+  { id: "done",        label: "TERMINÉ",   labelEn: "DONE",        color: "#00ff9d", bg: "#00ff9d15" },
 ];
 const PRIORITY_COLORS: Record<string, string> = {
   critical: "#ff0066", high: "#ff6600", medium: "#ffaa00", low: "#888"
@@ -2988,7 +3004,7 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
             <div>
               <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Status" : "Statut"}</label>
               <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.status as string) || "todo"} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
-                {STATUS_COLS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                {STATUS_COLS.map(s => <option key={s.id} value={s.id}>{lang === "en" ? s.labelEn : s.label}</option>)}
               </select>
             </div>
             <div>
@@ -3019,7 +3035,7 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
             return (
               <div key={col.id} className="min-w-[260px] flex-shrink-0 rounded-xl p-3" style={{ background: col.bg, border: `1px solid ${col.color}30` }}>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold font-mono tracking-widest" style={{ color: col.color }}>{col.label}</span>
+                  <span className="text-xs font-bold font-mono tracking-widest" style={{ color: col.color }}>{lang === "en" ? col.labelEn : col.label}</span>
                   <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: col.color + "20", color: col.color }}>{colTasks.length}</span>
                 </div>
                 <div>
@@ -3740,7 +3756,7 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
                             setBusyId(null);
                           }}
                           className="text-xs px-2 py-1 rounded border border-cyan-700/40 text-cyan-400 hover:bg-cyan-500/10 transition-colors disabled:opacity-50"
-                          title="Renvoyer le lien d'accès online"
+                          title={lang === "en" ? "Resend online access link" : "Renvoyer le lien d'accès online"}
                         >
                           {t.resendOnline}
                         </button>
@@ -4874,7 +4890,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                     <input value={(editChallenge.author as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, author: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
                   </div>
                   <div className="col-span-2">
-                    <label className="text-xs text-gray-500 block mb-1">Responsable (membre d&apos;équipe)</label>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Responsible (team member)" : "Responsable (membre d'équipe)"}</label>
                     <select
                       value={(editChallenge.assigneeEmail as string) || ""}
                       onChange={e => {
@@ -4883,12 +4899,12 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                       }}
                       className="cyber-input w-full px-3 py-1.5 rounded text-sm"
                     >
-                      <option value="">— Non assigné —</option>
+                      <option value="">{lang === "en" ? "— Unassigned —" : "— Non assigné —"}</option>
                       {teamMembers.filter(m => m.email).map(m => (
                         <option key={m.id} value={m.email!}>{m.name} ({m.role})</option>
                       ))}
                     </select>
-                    <p className="text-gray-600 text-xs mt-1">Le responsable reçoit un email de notification lors de l&apos;assignation.</p>
+                    <p className="text-gray-600 text-xs mt-1">{lang === "en" ? "The responsible person receives an email notification upon assignment." : "Le responsable reçoit un email de notification lors de l'assignation."}</p>
                   </div>
                   <div className="col-span-2">
                     <label className="text-xs text-gray-500 block mb-1">Notes</label>
@@ -5283,7 +5299,7 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
           <h1 className="text-2xl font-black text-white">{lang === "en" ? "📹 Video Library" : "📹 Vidéothèque"}</h1>
           <p className="text-gray-500 text-xs mt-1">{lang === "en" ? "Manage session videos from past editions" : "Gérez les vidéos des sessions des éditions passées"}</p>
         </div>
-        {canWrite && <button onClick={() => { setForm({ isVisible: true, sortOrder: 0, edition: "2025" }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter</button>}
+        {canWrite && <button onClick={() => { setForm({ isVisible: true, sortOrder: 0, edition: "2025" }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "+ Add" : "+ Ajouter"}</button>}
       </div>
 
       {canWrite && showForm && (
@@ -6532,7 +6548,7 @@ export default function AdminDashboard() {
           {/* NEWSLETTER */}
           {activeTab === "newsletter" && (
             <div>
-              <h1 className="text-2xl font-black text-white mb-6">Newsletter ({(data.newsletter || []).length} abonnés)</h1>
+              <h1 className="text-2xl font-black text-white mb-6">Newsletter ({(data.newsletter || []).length} {lang === "en" ? "subscribers" : "abonnés"})</h1>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>

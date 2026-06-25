@@ -1277,6 +1277,7 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
 // ---- Library Picker Modal ----
 // Browse and pick an existing image from the GCS library (no upload here).
 function LibraryPickerModal({ onPick, onClose }: { onPick: (url: string) => void; onClose: () => void }) {
+  const { lang } = useAdminT();
   const [files, setFiles] = useState<{ name: string; url: string; size: number; updated: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -1297,13 +1298,13 @@ function LibraryPickerModal({ onPick, onClose }: { onPick: (url: string) => void
       <div className="cyber-card rounded-xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between gap-3 p-5 pb-3 border-b border-gray-800 shrink-0">
           <div>
-            <h3 className="text-white font-bold text-sm">📁 Choisir une image de la Library</h3>
-            <p className="text-gray-500 text-xs mt-0.5">Images hébergées sur Google Cloud Storage</p>
+            <h3 className="text-white font-bold text-sm">{lang === "en" ? "📁 Choose an image from the Library" : "📁 Choisir une image de la Library"}</h3>
+            <p className="text-gray-500 text-xs mt-0.5">{lang === "en" ? "Images hosted on Google Cloud Storage" : "Images hébergées sur Google Cloud Storage"}</p>
           </div>
           <div className="flex items-center gap-2">
             <input
               type="text"
-              placeholder="Rechercher…"
+              placeholder={lang === "en" ? "Search…" : "Rechercher…"}
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="cyber-input text-xs px-3 py-1.5 rounded w-40"
@@ -1313,11 +1314,11 @@ function LibraryPickerModal({ onPick, onClose }: { onPick: (url: string) => void
         </div>
         <div className="p-5 overflow-y-auto">
           {loading ? (
-            <div className="flex items-center justify-center h-48 text-gray-600 font-mono text-xs">Chargement…</div>
+            <div className="flex items-center justify-center h-48 text-gray-600 font-mono text-xs">{lang === "en" ? "Loading…" : "Chargement…"}</div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-gray-600 font-mono text-xs gap-2">
-              <span>{search ? "Aucun résultat" : "Aucune image dans la Library"}</span>
-              <span className="text-gray-700">Importez des images via l&apos;onglet 📁 Library.</span>
+              <span>{search ? (lang === "en" ? "No results" : "Aucun résultat") : (lang === "en" ? "No images in the Library" : "Aucune image dans la Library")}</span>
+              <span className="text-gray-700">{lang === "en" ? "Import images via the 📁 Library tab." : "Importez des images via l'onglet 📁 Library."}</span>
             </div>
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
@@ -1347,7 +1348,7 @@ function LibraryPickerModal({ onPick, onClose }: { onPick: (url: string) => void
 // ---- Communication Panel ----
 
 function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
-  const { t } = useAdminT();
+  const { t, lang: adminLang } = useAdminT();
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
@@ -1427,7 +1428,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   // Calendar helpers
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
-  const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+  const monthNames = adminLang === "en" ? ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] : ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
   // Posts by date for calendar
   const postsByDate: Record<string, Record<string, unknown>[]> = {};
@@ -1547,7 +1548,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
           </div>
           {/* Day labels */}
           <div className="grid grid-cols-7 gap-1 mb-1">
-            {["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"].map(d => (
+            {(adminLang === "en" ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] : ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"]).map(d => (
               <div key={d} className="text-center text-gray-600 text-xs py-1">{d}</div>
             ))}
           </div>
@@ -1606,11 +1607,11 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                   { key: "session", icon: "📋", label: "Session" },
                   { key: "workshop", icon: "🛠", label: "Workshop" },
                   { key: "sponsor", icon: "🏢", label: "Sponsor" },
-                  { key: "countdown", icon: "⏱", label: "Compte à rebours" },
+                  { key: "countdown", icon: "⏱", label: adminLang === "en" ? "Countdown" : "Compte à rebours" },
                   { key: "cfp", icon: "📝", label: "CFP" },
                   { key: "inscriptions", icon: "🎟", label: "Inscriptions" },
                   { key: "ctf", icon: "🏆", label: "CTF" },
-                  { key: "custom", icon: "✏️", label: "Personnalisé" },
+                  { key: "custom", icon: "✏️", label: adminLang === "en" ? "Custom" : "Personnalisé" },
                 ] as const).map(ctx => (
                   <button
                     key={ctx.key}
@@ -1769,7 +1770,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                     <button
                       onClick={() => setShowImagePicker(true)}
                       className="px-2 h-5 rounded-full bg-black/70 text-white text-xs flex items-center justify-center hover:bg-black/90"
-                    >Changer</button>
+                    >{adminLang === "en" ? "Change" : "Changer"}</button>
                     <button
                       onClick={() => setPostImage(null)}
                       className="w-5 h-5 rounded-full bg-black/70 text-white text-xs flex items-center justify-center hover:bg-black/90"
@@ -1908,8 +1909,8 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
       <div className="cyber-card rounded-xl p-5">
         {!selectedDay ? (
           <>
-            <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#0066ff" }}>Posts planifiés & publiés</h3>
-            <p className="text-gray-600 text-xs text-center py-4">Cliquez sur un jour pour voir les posts planifiés</p>
+            <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#0066ff" }}>{adminLang === "en" ? "Scheduled & published posts" : "Posts planifiés & publiés"}</h3>
+            <p className="text-gray-600 text-xs text-center py-4">{adminLang === "en" ? "Click on a day to see scheduled posts" : "Cliquez sur un jour pour voir les posts planifiés"}</p>
           </>
         ) : (() => {
           const dateKey = `${selectedDay.getFullYear()}-${String(selectedDay.getMonth()+1).padStart(2,"0")}-${String(selectedDay.getDate()).padStart(2,"0")}`;
@@ -1918,11 +1919,11 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
             <>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: "#0066ff" }}>
-                  Posts du {selectedDay.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                  {adminLang === "en" ? `Posts for ${selectedDay.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}` : `Posts du ${selectedDay.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`}
                 </h3>
-                <button onClick={() => setSelectedDay(null)} className="text-gray-600 hover:text-gray-400 text-xs">✕ Fermer</button>
+                <button onClick={() => setSelectedDay(null)} className="text-gray-600 hover:text-gray-400 text-xs">{adminLang === "en" ? "✕ Close" : "✕ Fermer"}</button>
               </div>
-              {dayPostsList.length === 0 && <p className="text-gray-600 text-xs text-center py-4">Aucun post ce jour. Cliquez sur le calendrier pour créer.</p>}
+              {dayPostsList.length === 0 && <p className="text-gray-600 text-xs text-center py-4">{adminLang === "en" ? "No posts this day. Click on the calendar to create one." : "Aucun post ce jour. Cliquez sur le calendrier pour créer."}</p>}
               <div className="space-y-3">
                 {dayPostsList.map(post => {
                   const color = statusColors[post.status as string] || "#888";
@@ -1957,18 +1958,18 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                         {canWrite && <button
                           onClick={() => { handleDayClick(selectedDay.getDate()); }}
                           className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white transition-colors"
-                        >✏️ Modifier</button>}
+                        >{adminLang === "en" ? "✏️ Edit" : "✏️ Modifier"}</button>}
                         {canWrite && post.status === "scheduled" && (
                           <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
-                            {publishing === (post.id as number) ? "..." : "▶️ Publier maintenant"}
+                            {publishing === (post.id as number) ? "..." : (adminLang === "en" ? "▶️ Publish now" : "▶️ Publier maintenant")}
                           </button>
                         )}
                         {canWrite && post.status === "draft" && (
                           <>
                             <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
-                              {publishing === (post.id as number) ? "..." : "▶️ Publier maintenant"}
+                              {publishing === (post.id as number) ? "..." : (adminLang === "en" ? "▶️ Publish now" : "▶️ Publier maintenant")}
                             </button>
-                            <button onClick={() => { setScheduleId(post.id as number); setScheduleDate(""); }} className="text-xs px-2 py-1 rounded" style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0030" }}>🕐 Planifier</button>
+                            <button onClick={() => { setScheduleId(post.id as number); setScheduleDate(""); }} className="text-xs px-2 py-1 rounded" style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0030" }}>{adminLang === "en" ? "🕐 Schedule" : "🕐 Planifier"}</button>
                           </>
                         )}
                         {post.status === "published" && !!post.linkedinPostId && (
@@ -1981,7 +1982,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                         )}
                         {canWrite && post.status === "failed" && (
                           <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#ff006615", color: "#ff6666", border: "1px solid #ff006630" }}>
-                            {publishing === (post.id as number) ? "..." : "🔄 Réessayer"}
+                            {publishing === (post.id as number) ? "..." : (adminLang === "en" ? "🔄 Retry" : "🔄 Réessayer")}
                           </button>
                         )}
                         {canWrite && <button
@@ -1990,7 +1991,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                             await loadLinkedinPosts();
                           }}
                           className="text-xs px-2 py-1 rounded border border-red-800/50 text-red-500 hover:bg-red-900/20 transition-colors"
-                        >🗑️ Supprimer</button>}
+                        >{adminLang === "en" ? "🗑️ Delete" : "🗑️ Supprimer"}</button>}
                         {canWrite && scheduleId === (post.id as number) && (
                           <div className="flex gap-1 items-center w-full mt-1">
                             <input type="datetime-local" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="cyber-input text-xs rounded px-1 py-0.5 w-36" />
@@ -2039,6 +2040,7 @@ function SponsorFormPanel({
   onSave: () => void;
   onCancel: () => void;
 }) {
+  const { lang } = useAdminT();
   const [showLibrary, setShowLibrary] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -2063,13 +2065,13 @@ function SponsorFormPanel({
           onClose={() => setShowLibrary(false)}
         />
       )}
-      <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier le Sponsor" : "Nouveau Sponsor"}</h3>
+      <h3 className="text-neon-green text-sm mb-4">{editing ? (lang === "en" ? "Edit Sponsor" : "Modifier le Sponsor") : (lang === "en" ? "New Sponsor" : "Nouveau Sponsor")}</h3>
       <div className="grid sm:grid-cols-2 gap-3">
         {[
-          { key: "name", label: "Nom du Sponsor *" },
-          { key: "website", label: "Site Web" },
+          { key: "name", label: lang === "en" ? "Sponsor Name *" : "Nom du Sponsor *" },
+          { key: "website", label: lang === "en" ? "Website" : "Site Web" },
           { key: "email", label: "Email" },
-          { key: "phone", label: "Téléphone" },
+          { key: "phone", label: lang === "en" ? "Phone" : "Téléphone" },
         ].map(f => (
           <div key={f.key}>
             <label className="block text-xs text-gray-500 mb-1">{f.label}</label>
@@ -2080,7 +2082,7 @@ function SponsorFormPanel({
           <label className="block text-xs text-gray-500 mb-1">Logo</label>
           <div className="flex items-center gap-2 flex-wrap">
             {!!form.logoUrl && <img src={form.logoUrl as string} alt="logo" className="w-10 h-10 object-contain rounded bg-white/5 p-1 border border-gray-700" />}
-            <input className="cyber-input flex-1 px-3 py-2 rounded text-xs min-w-0" placeholder="URL du logo" value={(form.logoUrl as string) || ""} onChange={e => setForm({ ...form, logoUrl: e.target.value })} />
+            <input className="cyber-input flex-1 px-3 py-2 rounded text-xs min-w-0" placeholder={lang === "en" ? "Logo URL" : "URL du logo"} value={(form.logoUrl as string) || ""} onChange={e => setForm({ ...form, logoUrl: e.target.value })} />
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }} />
             <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="text-xs px-3 py-2 rounded border border-gray-700 hover:border-neon-green text-gray-400 hover:text-neon-green shrink-0">
               {uploading ? "Upload…" : "⬆ Upload"}
@@ -2097,17 +2099,17 @@ function SponsorFormPanel({
           </select>
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Ordre</label>
+          <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Order" : "Ordre"}</label>
           <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.sortOrder as number) || 0} onChange={e => setForm({ ...form, sortOrder: Number(e.target.value) })} />
         </div>
         <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
           <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
-          Visible sur le site
+          {lang === "en" ? "Visible on site" : "Visible sur le site"}
         </label>
       </div>
       <div className="flex gap-3 mt-4">
-        <button onClick={onSave} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
-        <button onClick={onCancel} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+        <button onClick={onSave} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">{lang === "en" ? "Save" : "Sauvegarder"}</button>
+        <button onClick={onCancel} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "Cancel" : "Annuler"}</button>
       </div>
     </div>
   );
@@ -2224,7 +2226,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
   };
 
   const del = async (id: number) => {
-    if (!(await confirm({ message: "Supprimer ce prospect ?", danger: true, confirmLabel: "Supprimer" }))) return;
+    if (!(await confirm({ message: lang === "en" ? "Delete this prospect?" : "Supprimer ce prospect ?", danger: true, confirmLabel: lang === "en" ? "Delete" : "Supprimer" }))) return;
     await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "DELETE" });
     onRefresh();
   };
@@ -2263,9 +2265,9 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                 <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-xs font-bold text-gray-400">{e.lang}</span>
-                    <button onClick={() => navigator.clipboard.writeText(`${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>Copier</button>
+                    <button onClick={() => navigator.clipboard.writeText(`${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>{lang === "en" ? "Copy" : "Copier"}</button>
                   </div>
-                  <p className="text-white text-xs font-bold mb-2">Objet: {e.subject}</p>
+                  <p className="text-white text-xs font-bold mb-2">{lang === "en" ? "Subject:" : "Objet:"} {e.subject}</p>
                   <p className="text-gray-400 text-xs whitespace-pre-wrap">{e.body}</p>
                   {canWrite && <button
                     onClick={() => sendProspectEmail(e.subject, e.body, e.lang)}
@@ -2311,7 +2313,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                 { label: t.contact, val: detail.contact as string },
                 { label: t.email, val: detail.email as string, href: detail.email ? `mailto:${detail.email}` : undefined },
                 { label: t.phone, val: detail.phone as string, href: detail.phone ? `tel:${detail.phone}` : undefined },
-                { label: "Site web", val: detail.website as string, href: detail.website ? (String(detail.website).startsWith("http") ? String(detail.website) : `https://${detail.website}`) : undefined },
+                { label: lang === "en" ? "Website" : "Site web", val: detail.website as string, href: detail.website ? (String(detail.website).startsWith("http") ? String(detail.website) : `https://${detail.website}`) : undefined },
                 { label: t.package, val: detail.package as string },
               ]).map(f => (
                 <div key={f.label} className="flex gap-3">
@@ -2328,23 +2330,23 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                 <span className="text-gray-300 whitespace-pre-wrap break-words">{(detail.notes as string) || "—"}</span>
               </div>
               <div className="flex gap-3 border-t border-gray-800 pt-3">
-                <span className="text-gray-600 shrink-0 w-28">Créé le</span>
+                <span className="text-gray-600 shrink-0 w-28">{lang === "en" ? "Created on" : "Créé le"}</span>
                 <span className="text-gray-400">{detail.createdAt ? new Date(detail.createdAt as string).toLocaleString("fr-FR") : "—"}</span>
               </div>
               <div className="flex gap-3">
-                <span className="text-gray-600 shrink-0 w-28">Mis à jour</span>
+                <span className="text-gray-600 shrink-0 w-28">{lang === "en" ? "Updated" : "Mis à jour"}</span>
                 <span className="text-gray-400">{detail.updatedAt ? new Date(detail.updatedAt as string).toLocaleString("fr-FR") : "—"}</span>
               </div>
               {!!detail.emailJson && (
                 <div className="border-t border-gray-800 pt-3">
-                  <p className="text-gray-600 mb-1">Courriel IA en cache</p>
-                  <p className="text-neon-green/60">✓ Un courriel de relance a été généré pour ce prospect.</p>
+                  <p className="text-gray-600 mb-1">{lang === "en" ? "Cached AI email" : "Courriel IA en cache"}</p>
+                  <p className="text-neon-green/60">{lang === "en" ? "✓ A follow-up email has been generated for this prospect." : "✓ Un courriel de relance a été généré pour ce prospect."}</p>
                 </div>
               )}
               {canWrite && (
                 <div className="border-t border-gray-800 pt-4 flex gap-2">
                   <button onClick={() => { generateFollowupEmail(detail); setDetail(null); }} className="flex-1 text-xs px-3 py-2 rounded font-bold" style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}>
-                    {detail.emailJson ? "✨ Voir / envoyer le courriel" : "✨ Générer un courriel (IA)"}
+                    {detail.emailJson ? (lang === "en" ? "✨ View / send email" : "✨ Voir / envoyer le courriel") : (lang === "en" ? "✨ Generate email (AI)" : "✨ Générer un courriel (IA)")}
                   </button>
                 </div>
               )}
@@ -2362,7 +2364,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
               { key: "contact", label: t.contact },
               { key: "email", label: t.email },
               { key: "phone", label: t.phone },
-              { key: "website", label: "Site web" },
+              { key: "website", label: lang === "en" ? "Website" : "Site web" },
               { key: "package", label: t.package },
             ].map(f => (
               <div key={f.key}>
@@ -2446,7 +2448,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                   ))}
                   {group.length === 0 && (
                     <div className="border border-dashed border-gray-800 rounded-lg h-16 flex items-center justify-center">
-                      <span className="text-gray-800 text-xs">vide</span>
+                      <span className="text-gray-800 text-xs">{lang === "en" ? "empty" : "vide"}</span>
                     </div>
                   )}
                 </div>
@@ -2455,7 +2457,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
           })}
         </div>
       </div>
-      {!prospects.length && <p className="text-gray-600 text-xs py-4 text-center">Aucun prospect pour l&apos;instant</p>}
+      {!prospects.length && <p className="text-gray-600 text-xs py-4 text-center">{lang === "en" ? "No prospects yet" : "Aucun prospect pour l'instant"}</p>}
     </div>
   );
 }
@@ -2471,7 +2473,7 @@ const BUDGET_COST_LABELS = [
 interface AutoRevenue { label: string; value: number; color: string; }
 
 function BudgetPanel({ items, onRefresh, canWrite = true }: { items: Record<string, unknown>[]; onRefresh: () => void; canWrite?: boolean }) {
-  const { t } = useAdminT();
+  const { t, lang } = useAdminT();
   const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ category: "costs", planned: 0, actual: 0, status: "pending" });
@@ -2515,7 +2517,7 @@ function BudgetPanel({ items, onRefresh, canWrite = true }: { items: Record<stri
   };
 
   const del = async (id: number) => {
-    if (!(await confirm({ message: "Supprimer ?", danger: true, confirmLabel: "Supprimer" }))) return;
+    if (!(await confirm({ message: lang === "en" ? "Delete?" : "Supprimer ?", danger: true, confirmLabel: lang === "en" ? "Delete" : "Supprimer" }))) return;
     await fetch(`/api/admin/budget/${id}`, { method: "DELETE" });
     onRefresh();
   };
@@ -2683,24 +2685,24 @@ function BudgetPanel({ items, onRefresh, canWrite = true }: { items: Record<stri
               </select>
             </div>
             <div className="lg:col-span-2">
-              <label className="text-xs text-gray-500 block mb-1">Libellé</label>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Label" : "Libellé"}</label>
               <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.label as string) || ""} onChange={e => setForm(p => ({ ...p, label: e.target.value }))} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Montant prévu (FCFA)</label>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Planned amount (FCFA)" : "Montant prévu (FCFA)"}</label>
               <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.planned as number) || 0} onChange={e => setForm(p => ({ ...p, planned: parseFloat(e.target.value) || 0 }))} />
             </div>
           </div>
           <div className="flex gap-2 mt-3">
-            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">Ajouter</button>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
+            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "Add" : "Ajouter"}</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">{lang === "en" ? "Cancel" : "Annuler"}</button>
           </div>
         </div>
       )}
 
       {!items.length && (
         <div className="text-center py-8">
-          <p className="text-gray-600 text-xs mb-3">Aucun élément. Initialisez avec le budget standard EOCON.</p>
+          <p className="text-gray-600 text-xs mb-3">{lang === "en" ? "No items. Initialize with the standard EOCON budget." : "Aucun élément. Initialisez avec le budget standard EOCON."}</p>
           {canWrite && <button
             onClick={async () => {
               const res = await fetch("/api/admin/seed", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "budget" }) });
@@ -2708,12 +2710,12 @@ function BudgetPanel({ items, onRefresh, canWrite = true }: { items: Record<stri
             }}
             className="btn-neon px-4 py-2 rounded text-xs"
           >
-            🌱 Initialiser budget EOCON
+            {lang === "en" ? "🌱 Initialize EOCON budget" : "🌱 Initialiser budget EOCON"}
           </button>}
         </div>
       )}
-      {renderTable(manualRevenues, "Revenus additionnels (manuels)", "#00ff9d")}
-      {renderTable(costs, "Dépenses", "#ff4444")}
+      {renderTable(manualRevenues, lang === "en" ? "Additional revenues (manual)" : "Revenus additionnels (manuels)", "#00ff9d")}
+      {renderTable(costs, lang === "en" ? "Expenses" : "Dépenses", "#ff4444")}
     </div>
   );
 }
@@ -2804,6 +2806,7 @@ function TaskCard({
   showPhase?: boolean;
   canWrite?: boolean;
 }) {
+  const { lang } = useAdminT();
   const now = new Date();
   const deadline = t.deadline ? new Date(t.deadline as string) : null;
   const isOverdue = deadline && deadline < now && t.status !== "done";
@@ -2837,7 +2840,7 @@ function TaskCard({
             {deadline && (
               <span className={isOverdue ? "text-red-400 font-bold" : "text-gray-600"}>
                 {deadline.toLocaleDateString("fr-FR")}
-                {isOverdue && " (retard)"}
+                {isOverdue && (lang === "en" ? " (late)" : " (retard)")}
               </span>
             )}
           </div>
@@ -2850,6 +2853,7 @@ function TaskCard({
 }
 
 function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<string, unknown>[]; onRefresh: () => void; canWrite?: boolean }) {
+  const { lang } = useAdminT();
   const [activeTab, setActiveTab] = useState<"kanban" | "phase" | "overdue" | "all">("kanban");
   const [activePhase, setActivePhase] = useState<Phase>("J-90");
   const [showForm, setShowForm] = useState(false);
@@ -2866,7 +2870,7 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
   };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer ?")) return;
+    if (!confirm(lang === "en" ? "Delete?" : "Supprimer ?")) return;
     await fetch(`/api/admin/logistics/${id}`, { method: "DELETE" });
     onRefresh();
   };
@@ -2904,24 +2908,24 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
   };
 
   const tabs = [
-    { id: "kanban" as const, label: "Vue Kanban" },
-    { id: "phase" as const, label: "Vue Phase" },
-    { id: "overdue" as const, label: "Vue Retards" },
-    { id: "all" as const, label: "Toutes" },
+    { id: "kanban" as const, label: lang === "en" ? "Kanban View" : "Vue Kanban" },
+    { id: "phase" as const, label: lang === "en" ? "Phase View" : "Vue Phase" },
+    { id: "overdue" as const, label: lang === "en" ? "Overdue View" : "Vue Retards" },
+    { id: "all" as const, label: lang === "en" ? "All" : "Toutes" },
   ];
 
   return (
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-black text-white">Logistique</h1>
+        <h1 className="text-2xl font-black text-white">{lang === "en" ? "Logistics" : "Logistique"}</h1>
         {canWrite && <div className="flex gap-2">
           {!tasks.length && (
             <button onClick={seedAll} className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">
-              Initialiser toutes les tâches
+              {lang === "en" ? "Initialize all tasks" : "Initialiser toutes les tâches"}
             </button>
           )}
-          <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter tâche</button>
+          <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "+ Add task" : "+ Ajouter tâche"}</button>
         </div>}
       </div>
 
@@ -2945,7 +2949,7 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
       {total > 0 && (
         <div className="cyber-card rounded-xl p-4 mb-4">
           <div className="flex justify-between text-xs text-gray-500 mb-2">
-            <span>Progression globale</span>
+            <span>{lang === "en" ? "Overall progress" : "Progression globale"}</span>
             <span className="font-bold" style={{ color: "#00ff9d" }}>{totalDone}/{total} ({pct}%)</span>
           </div>
           <div className="h-3 bg-gray-900 rounded-full overflow-hidden">
@@ -2959,11 +2963,11 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
         <div className="cyber-card rounded-xl p-5 mb-6">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Catégorie</label>
-              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.category as string) || ""} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} placeholder="ex: Technique" />
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Category" : "Catégorie"}</label>
+              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.category as string) || ""} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} placeholder={lang === "en" ? "e.g.: Technical" : "ex: Technique"} />
             </div>
             <div className="lg:col-span-2">
-              <label className="text-xs text-gray-500 block mb-1">Titre *</label>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Title *" : "Titre *"}</label>
               <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.title as string) || ""} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
             </div>
             <div>
@@ -2973,7 +2977,7 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Priorité</label>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Priority" : "Priorité"}</label>
               <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.priority as string) || "medium"} onChange={e => setForm(p => ({ ...p, priority: e.target.value }))}>
                 <option value="critical">Critical</option>
                 <option value="high">High</option>
@@ -2982,17 +2986,17 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Statut</label>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Status" : "Statut"}</label>
               <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.status as string) || "todo"} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
                 {STATUS_COLS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Responsable</label>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Assignee" : "Responsable"}</label>
               <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.assignee as string) || ""} onChange={e => setForm(p => ({ ...p, assignee: e.target.value }))} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Échéance</label>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Deadline" : "Échéance"}</label>
               <input type="date" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.deadline as string) || ""} onChange={e => setForm(p => ({ ...p, deadline: e.target.value }))} />
             </div>
             <div className="lg:col-span-3">
@@ -3001,8 +3005,8 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
             </div>
           </div>
           <div className="flex gap-2 mt-3">
-            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">Ajouter</button>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
+            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "Add" : "Ajouter"}</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">{lang === "en" ? "Cancel" : "Annuler"}</button>
           </div>
         </div>
       )}
@@ -3059,7 +3063,7 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
                     </div>
                   ))}
                   {colTasks.length === 0 && (
-                    <div className="text-xs text-gray-700 text-center py-4 italic">Aucune tâche</div>
+                    <div className="text-xs text-gray-700 text-center py-4 italic">{lang === "en" ? "No tasks" : "Aucune tâche"}</div>
                   )}
                 </div>
               </div>
@@ -3097,12 +3101,12 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
             if (phTasks.length === 0) {
               return (
                 <div className="text-center py-8">
-                  <p className="text-gray-600 text-xs mb-3">Aucune tâche pour la phase {activePhase}.</p>
+                  <p className="text-gray-600 text-xs mb-3">{lang === "en" ? `No tasks for phase ${activePhase}.` : `Aucune tâche pour la phase ${activePhase}.`}</p>
                   {canWrite && <button
                     onClick={() => seedPhase(activePhase)}
                     className="btn-neon px-4 py-2 rounded text-xs"
                   >
-                    Initialiser cette phase
+                    {lang === "en" ? "Initialize this phase" : "Initialiser cette phase"}
                   </button>}
                 </div>
               );
@@ -3151,12 +3155,12 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
         <div>
           {overdueTasks.length === 0 ? (
             <div className="text-center py-8 cyber-card rounded-xl">
-              <p className="text-green-400 font-bold">Aucun retard !</p>
-              <p className="text-gray-600 text-xs mt-1">Toutes les tâches avec deadline sont à jour.</p>
+              <p className="text-green-400 font-bold">{lang === "en" ? "No delays!" : "Aucun retard !"}</p>
+              <p className="text-gray-600 text-xs mt-1">{lang === "en" ? "All tasks with deadlines are up to date." : "Toutes les tâches avec deadline sont à jour."}</p>
             </div>
           ) : (
             <div className="space-y-2">
-              <div className="text-xs text-red-400 mb-3 font-bold">{overdueTasks.length} tâche(s) en retard</div>
+              <div className="text-xs text-red-400 mb-3 font-bold">{lang === "en" ? `${overdueTasks.length} task(s) overdue` : `${overdueTasks.length} tâche(s) en retard`}</div>
               {overdueTasks.map(t => {
                 const dl = new Date(t.deadline as string);
                 const daysLate = Math.floor((now.getTime() - dl.getTime()) / (1000 * 60 * 60 * 24));
@@ -3171,14 +3175,14 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
                           <span className="px-1.5 py-0.5 rounded font-bold" style={{ color: PRIORITY_COLORS[(t.priority as string) || "medium"], background: (PRIORITY_COLORS[(t.priority as string) || "medium"]) + "20" }}>
                             {(t.priority as string || "medium").toUpperCase()}
                           </span>
-                          <span className="text-red-400 font-bold">+{daysLate}j de retard</span>
+                          <span className="text-red-400 font-bold">{lang === "en" ? `+${daysLate}d late` : `+${daysLate}j de retard`}</span>
                         </div>
                       </div>
                       {canWrite && <button
                         onClick={() => update(t.id as number, { status: "done" })}
                         className="text-xs px-2 py-1 rounded border border-green-700 text-green-400 hover:bg-green-900/20"
                       >
-                        Marquer fait
+                        {lang === "en" ? "Mark done" : "Marquer fait"}
                       </button>}
                       {canWrite && <button onClick={() => del(t.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>}
                     </div>
@@ -3217,9 +3221,9 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
           })()}
           {!tasks.length && (
             <div className="text-center py-8">
-              <p className="text-gray-600 text-xs mb-3">Aucune tâche. Initialisez avec les tâches standard.</p>
+              <p className="text-gray-600 text-xs mb-3">{lang === "en" ? "No tasks. Initialize with standard tasks." : "Aucune tâche. Initialisez avec les tâches standard."}</p>
               {canWrite && <button onClick={seedAll} className="btn-neon px-4 py-2 rounded text-xs">
-                Initialiser tâches logistiques
+                {lang === "en" ? "Initialize logistics tasks" : "Initialiser tâches logistiques"}
               </button>}
             </div>
           )}
@@ -3241,6 +3245,7 @@ interface TicketTypeRow {
 const TICKET_DEFAULT_FORM = { slug: "", nameFr: "", nameEn: "", priceFr: 0, priceEn: 0, color: "#00ff9d", isFeatured: false, isVisible: true, includesSessions: true, includesWorkshops: false, includesCTF: false, maxCapacity: 200, sortOrder: 0, perksFrArr: [] as string[], perksEnArr: [] as string[], netticketTicketId: "", stripeProductId: "" };
 
 function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
+  const { lang: adminLang } = useAdminT();
   const [tickets, setTickets] = useState<TicketTypeRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -3279,7 +3284,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer ce type de billet ?")) return;
+    if (!confirm(adminLang === "en" ? "Delete this ticket type?" : "Supprimer ce type de billet ?")) return;
     await fetch(`/api/admin/ticket-types/${id}`, { method: "DELETE" });
     load();
   };
@@ -3321,18 +3326,18 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-white">Billets & Tarifs</h1>
-          <p className="text-gray-500 text-xs mt-1">Gérez les types de billets affichés sur le portail d&apos;inscription</p>
+          <h1 className="text-2xl font-black text-white">{adminLang === "en" ? "Tickets & Pricing" : "Billets & Tarifs"}</h1>
+          <p className="text-gray-500 text-xs mt-1">{adminLang === "en" ? "Manage ticket types displayed on the registration portal" : "Gérez les types de billets affichés sur le portail d'inscription"}</p>
         </div>
-        {canWrite && <button onClick={() => setShowCreate(v => !v)} className="btn-neon px-4 py-2 rounded text-xs">+ Créer billet</button>}
+        {canWrite && <button onClick={() => setShowCreate(v => !v)} className="btn-neon px-4 py-2 rounded text-xs">{adminLang === "en" ? "+ Create ticket" : "+ Créer billet"}</button>}
       </div>
 
       {canWrite && showCreate && (
         <div className="cyber-card rounded-xl p-5 mb-6">
-          <h3 className="text-sm font-bold text-neon-green mb-4">Nouveau type de billet</h3>
+          <h3 className="text-sm font-bold text-neon-green mb-4">{adminLang === "en" ? "New ticket type" : "Nouveau type de billet"}</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Slug (identifiant unique)</label>
+              <label className="text-xs text-gray-500 block mb-1">{adminLang === "en" ? "Slug (unique identifier)" : "Slug (identifiant unique)"}</label>
               <input value={createForm.slug} onChange={e => setCreateForm(f => ({ ...f, slug: e.target.value }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" placeholder="ex: vip-ctf" />
             </div>
             <div>
@@ -3356,11 +3361,11 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
               <input type="number" value={createForm.priceEn} onChange={e => setCreateForm(f => ({ ...f, priceEn: parseInt(e.target.value) || 0 }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Capacité max</label>
+              <label className="text-xs text-gray-500 block mb-1">{adminLang === "en" ? "Max capacity" : "Capacité max"}</label>
               <input type="number" value={createForm.maxCapacity} onChange={e => setCreateForm(f => ({ ...f, maxCapacity: parseInt(e.target.value) || 200 }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Ordre d&apos;affichage</label>
+              <label className="text-xs text-gray-500 block mb-1">{adminLang === "en" ? "Display order" : "Ordre d'affichage"}</label>
               <input type="number" value={createForm.sortOrder} onChange={e => setCreateForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
             </div>
             <div>
@@ -3375,15 +3380,15 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
           <div className="flex items-center gap-4 mb-4 flex-wrap">
             <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
               <input type="checkbox" checked={createForm.isVisible} onChange={e => setCreateForm(f => ({ ...f, isVisible: e.target.checked }))} />
-              Visible sur le portail
+              {adminLang === "en" ? "Visible on portal" : "Visible sur le portail"}
             </label>
             <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
               <input type="checkbox" checked={createForm.isFeatured} onChange={e => setCreateForm(f => ({ ...f, isFeatured: e.target.checked }))} />
-              Recommandé
+              {adminLang === "en" ? "Featured" : "Recommandé"}
             </label>
             <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#00ff9d" }}>
               <input type="checkbox" checked={createForm.includesSessions} onChange={e => setCreateForm(f => ({ ...f, includesSessions: e.target.checked }))} />
-              📡 Sessions / Conférences
+              {adminLang === "en" ? "📡 Sessions / Conferences" : "📡 Sessions / Conférences"}
             </label>
             <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#a78bfa" }}>
               <input type="checkbox" checked={createForm.includesWorkshops} onChange={e => setCreateForm(f => ({ ...f, includesWorkshops: e.target.checked }))} />
@@ -3396,9 +3401,9 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
           </div>
           <div className="flex gap-3">
             <button onClick={createTicket} disabled={creating || !createForm.slug || !createForm.nameFr} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
-              {creating ? "Création…" : "Créer le billet"}
+              {creating ? (adminLang === "en" ? "Creating…" : "Création…") : (adminLang === "en" ? "Create ticket" : "Créer le billet")}
             </button>
-            <button onClick={() => setShowCreate(false)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
+            <button onClick={() => setShowCreate(false)} className="text-gray-500 text-xs hover:text-white">{adminLang === "en" ? "Cancel" : "Annuler"}</button>
           </div>
         </div>
       )}
@@ -3441,19 +3446,19 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                       <input type="number" value={editForm.earlyBirdPriceEn ?? ""} onChange={e => setEditForm(f => ({ ...f, earlyBirdPriceEn: e.target.value ? parseInt(e.target.value) : null }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" placeholder="0 = aucun" />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">Early Bird jusqu&apos;au</label>
+                      <label className="text-xs text-gray-500 block mb-1">{adminLang === "en" ? "Early Bird until" : "Early Bird jusqu'au"}</label>
                       <input type="date" value={editForm.earlyBirdUntil ? editForm.earlyBirdUntil.slice(0, 10) : ""} onChange={e => setEditForm(f => ({ ...f, earlyBirdUntil: e.target.value || null }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">Capacité max</label>
+                      <label className="text-xs text-gray-500 block mb-1">{adminLang === "en" ? "Max capacity" : "Capacité max"}</label>
                       <input type="number" value={editForm.maxCapacity ?? 200} onChange={e => setEditForm(f => ({ ...f, maxCapacity: parseInt(e.target.value) }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-6">
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <label className="text-xs text-gray-500">Avantages FR</label>
-                        <button onClick={() => addPerk("fr")} className="text-xs text-neon-green">+ Ajouter</button>
+                        <label className="text-xs text-gray-500">{adminLang === "en" ? "Perks FR" : "Avantages FR"}</label>
+                        <button onClick={() => addPerk("fr")} className="text-xs text-neon-green">{adminLang === "en" ? "+ Add" : "+ Ajouter"}</button>
                       </div>
                       {(editForm.perksFrArr || []).map((p, i) => (
                         <div key={i} className="flex gap-1 mb-1">
@@ -3464,7 +3469,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                     </div>
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <label className="text-xs text-gray-500">Avantages EN</label>
+                        <label className="text-xs text-gray-500">{adminLang === "en" ? "Perks EN" : "Avantages EN"}</label>
                         <button onClick={() => addPerk("en")} className="text-xs text-neon-green">+ Add</button>
                       </div>
                       {(editForm.perksEnArr || []).map((p, i) => (
@@ -3482,15 +3487,15 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                     </div>
                     <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
                       <input type="checkbox" checked={!!editForm.isFeatured} onChange={e => setEditForm(f => ({ ...f, isFeatured: e.target.checked }))} />
-                      Recommandé
+                      {adminLang === "en" ? "Featured" : "Recommandé"}
                     </label>
                     <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
                       <input type="checkbox" checked={!!editForm.isVisible} onChange={e => setEditForm(f => ({ ...f, isVisible: e.target.checked }))} />
-                      Visible sur le portail
+                      {adminLang === "en" ? "Visible on portal" : "Visible sur le portail"}
                     </label>
                     <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#00ff9d" }}>
                       <input type="checkbox" checked={editForm.includesSessions !== false} onChange={e => setEditForm(f => ({ ...f, includesSessions: e.target.checked }))} />
-                      📡 Sessions / Conférences
+                      {adminLang === "en" ? "📡 Sessions / Conferences" : "📡 Sessions / Conférences"}
                     </label>
                     <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#a78bfa" }}>
                       <input type="checkbox" checked={!!editForm.includesWorkshops} onChange={e => setEditForm(f => ({ ...f, includesWorkshops: e.target.checked }))} />
@@ -3501,7 +3506,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                       ⚡ CTF
                     </label>
                     <div className="flex items-center gap-2">
-                      <label className="text-xs text-gray-500">Ordre</label>
+                      <label className="text-xs text-gray-500">{adminLang === "en" ? "Order" : "Ordre"}</label>
                       <input type="number" value={editForm.sortOrder ?? 0} onChange={e => setEditForm(f => ({ ...f, sortOrder: parseInt(e.target.value) }))} className="cyber-input text-xs rounded px-2 py-1 w-16" />
                     </div>
                   </div>
@@ -3516,8 +3521,8 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                     </div>
                   </div>
                   <div className="flex gap-3">
-                    <button onClick={() => save(t.id)} className="btn-neon px-4 py-2 rounded text-xs">Enregistrer</button>
-                    <button onClick={() => setEditId(null)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
+                    <button onClick={() => save(t.id)} className="btn-neon px-4 py-2 rounded text-xs">{adminLang === "en" ? "Save" : "Enregistrer"}</button>
+                    <button onClick={() => setEditId(null)} className="text-gray-500 text-xs hover:text-white">{adminLang === "en" ? "Cancel" : "Annuler"}</button>
                   </div>
                 </div>
               ) : (
@@ -3528,8 +3533,8 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-white font-bold">{t.nameFr} / {t.nameEn}</span>
-                          {t.isFeatured && <span className="text-xs px-2 py-0.5 rounded" style={{ background: t.color + "20", color: t.color }}>★ Recommandé</span>}
-                          {!t.isVisible && <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-500">Masqué</span>}
+                          {t.isFeatured && <span className="text-xs px-2 py-0.5 rounded" style={{ background: t.color + "20", color: t.color }}>{adminLang === "en" ? "★ Featured" : "★ Recommandé"}</span>}
+                          {!t.isVisible && <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-500">{adminLang === "en" ? "Hidden" : "Masqué"}</span>}
                           {t.includesSessions && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>📡 Sessions</span>}
                           {t.includesWorkshops && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#a78bfa15", color: "#a78bfa", border: "1px solid #a78bfa30" }}>🛠 Workshops</span>}
                           {t.includesCTF && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}>⚡ CTF</span>}
@@ -3543,16 +3548,16 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                       </div>
                     </div>
                     {canWrite && <div className="flex gap-2 shrink-0">
-                      <button onClick={() => toggleVisible(t)} className="text-xs text-gray-500 hover:text-white transition-colors">{t.isVisible ? "Masquer" : "Afficher"}</button>
-                      <button onClick={() => startEdit(t)} className="text-xs text-gray-500 hover:text-white transition-colors">Modifier</button>
-                      <button onClick={() => del(t.id)} className="text-xs text-red-800 hover:text-red-400 transition-colors">Supprimer</button>
+                      <button onClick={() => toggleVisible(t)} className="text-xs text-gray-500 hover:text-white transition-colors">{t.isVisible ? (adminLang === "en" ? "Hide" : "Masquer") : (adminLang === "en" ? "Show" : "Afficher")}</button>
+                      <button onClick={() => startEdit(t)} className="text-xs text-gray-500 hover:text-white transition-colors">{adminLang === "en" ? "Edit" : "Modifier"}</button>
+                      <button onClick={() => del(t.id)} className="text-xs text-red-800 hover:text-red-400 transition-colors">{adminLang === "en" ? "Delete" : "Supprimer"}</button>
                     </div>}
                   </div>
                   <div className="flex items-center gap-3 mb-2">
                     <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
                       <div className="h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, background: pct > 90 ? "#ff4444" : t.color }} />
                     </div>
-                    <span className="text-xs font-mono shrink-0" style={{ color: t.color, fontFamily: "'Share Tech Mono', monospace" }}>{sold} / {max} vendus</span>
+                    <span className="text-xs font-mono shrink-0" style={{ color: t.color, fontFamily: "'Share Tech Mono', monospace" }}>{adminLang === "en" ? `${sold} / ${max} sold` : `${sold} / ${max} vendus`}</span>
                   </div>
                   <div className="flex gap-1 flex-wrap">
                     {(() => { try { return JSON.parse(t.perksFr) as string[]; } catch { return []; } })().map((p: string) => (
@@ -3565,7 +3570,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
           );
         })}
         {!tickets.length && !loading && (
-          <p className="text-gray-600 text-xs py-8 text-center">Les types de billets sont auto-seedés au démarrage (Student, Standard, VIP).</p>
+          <p className="text-gray-600 text-xs py-8 text-center">{adminLang === "en" ? "Ticket types are auto-seeded at startup (Student, Standard, VIP)." : "Les types de billets sont auto-seedés au démarrage (Student, Standard, VIP)."}</p>
         )}
       </div>
     </div>
@@ -3573,7 +3578,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
 }
 
 function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail: (r: Record<string, unknown>) => void; canManualValidate?: boolean }) {
-  const { t } = useAdminT();
+  const { t, lang } = useAdminT();
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
   const [fStatus, setFStatus] = useState("");
@@ -3602,14 +3607,14 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
   });
 
   const validate = async (r: Record<string, unknown>) => {
-    if (!confirm(`Valider le paiement de ${r.fname} ${r.lname} et envoyer le billet ?`)) return;
+    if (!confirm(lang === "en" ? `Validate payment for ${r.fname} ${r.lname} and send the ticket?` : `Valider le paiement de ${r.fname} ${r.lname} et envoyer le billet ?`)) return;
     setBusyId(r.id as number);
     const res = await fetch("/api/admin/submissions", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type: "registration", action: "validate", id: r.id }),
     });
     setBusyId(null);
-    if (res.ok) { setMsg(`Billet envoyé à ${r.fname} ${r.lname}`); load(); setTimeout(() => setMsg(null), 3000); }
+    if (res.ok) { setMsg(lang === "en" ? `Ticket sent to ${r.fname} ${r.lname}` : `Billet envoyé à ${r.fname} ${r.lname}`); load(); setTimeout(() => setMsg(null), 3000); }
   };
 
   const remind = async (r: Record<string, unknown>) => {
@@ -3619,7 +3624,7 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
       body: JSON.stringify({ type: "registration", action: "remind", id: r.id }),
     });
     setBusyId(null);
-    if (res.ok) { setMsg(`Relance envoyée à ${r.email}`); setTimeout(() => setMsg(null), 3000); }
+    if (res.ok) { setMsg(lang === "en" ? `Follow-up sent to ${r.email}` : `Relance envoyée à ${r.email}`); setTimeout(() => setMsg(null), 3000); }
   };
 
   const selectCls = "bg-black/40 border border-gray-800 rounded px-3 py-1.5 text-xs text-white focus:border-neon-green/50 outline-none";
@@ -3629,22 +3634,22 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black text-white">{t.registrationsTitle} ({filtered.length})</h1>
-          <p className="text-gray-500 text-xs mt-1">Validez le paiement pour envoyer le billet avec QR code</p>
+          <p className="text-gray-500 text-xs mt-1">{lang === "en" ? "Validate payment to send the ticket with QR code" : "Validez le paiement pour envoyer le billet avec QR code"}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <a href="/checkin/scan" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">📷 Scanner QR →</a>
           <a href="/admin/checkin" target="_blank" rel="noreferrer" className="px-4 py-2 rounded text-sm border border-gray-700 text-gray-300 hover:text-white transition-colors">📋 Liste check-in →</a>
           <button
             onClick={async () => {
-              if (!confirm("Générer et envoyer les liens d'accès online à tous les inscrits validés sans lien ?")) return;
+              if (!confirm(lang === "en" ? "Generate and send online access links to all validated registrants without a link?" : "Générer et envoyer les liens d'accès online à tous les inscrits validés sans lien ?")) return;
               const res = await fetch("/api/admin/registrations/generate-online-tokens", { method: "POST" });
               const data = await res.json();
-              setMsg(`🌐 ${data.generated} lien(s) généré(s) et envoyé(s).`);
+              setMsg(lang === "en" ? `🌐 ${data.generated} link(s) generated and sent.` : `🌐 ${data.generated} lien(s) généré(s) et envoyé(s).`);
               setTimeout(() => setMsg(null), 6000);
             }}
             className="px-4 py-2 rounded text-sm border border-cyan-700/40 text-cyan-400 hover:bg-cyan-500/10 transition-colors"
           >
-            🌐 Envoyer accès online
+            {lang === "en" ? "🌐 Send online access" : "🌐 Envoyer accès online"}
           </button>
         </div>
       </div>
@@ -3652,20 +3657,20 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
       {/* Filtres */}
       <div className="flex flex-wrap gap-3 mb-4">
         <select className={selectCls} value={fStatus} onChange={e => setFStatus(e.target.value)}>
-          <option value="">Tous les statuts</option>
+          <option value="">{lang === "en" ? "All statuses" : "Tous les statuts"}</option>
           {statuses.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <select className={selectCls} value={fTicket} onChange={e => setFTicket(e.target.value)}>
-          <option value="">Tous les billets</option>
+          <option value="">{lang === "en" ? "All tickets" : "Tous les billets"}</option>
           {ticketTypes.map(tt => <option key={tt} value={tt}>{tt}</option>)}
         </select>
         <select className={selectCls} value={fCheck} onChange={e => setFCheck(e.target.value)}>
-          <option value="">Check-in : tous</option>
-          <option value="checked">Check-in : présents</option>
-          <option value="unchecked">Check-in : absents</option>
+          <option value="">{lang === "en" ? "Check-in: all" : "Check-in : tous"}</option>
+          <option value="checked">{lang === "en" ? "Check-in: present" : "Check-in : présents"}</option>
+          <option value="unchecked">{lang === "en" ? "Check-in: absent" : "Check-in : absents"}</option>
         </select>
         {(fStatus || fTicket || fCheck) && (
-          <button onClick={() => { setFStatus(""); setFTicket(""); setFCheck(""); }} className="text-xs text-gray-500 hover:text-white px-2">Réinitialiser</button>
+          <button onClick={() => { setFStatus(""); setFTicket(""); setFCheck(""); }} className="text-xs text-gray-500 hover:text-white px-2">{lang === "en" ? "Reset" : "Réinitialiser"}</button>
         )}
       </div>
 
@@ -3705,13 +3710,13 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
                     {r.onlineCheckedInAt
                       ? <span className="text-cyan-400 text-xs">🌐 {new Date(r.onlineCheckedInAt as string).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
                       : r.onlineToken
-                        ? <span className="text-gray-600 text-xs">🔗 en attente</span>
+                        ? <span className="text-gray-600 text-xs">{lang === "en" ? "🔗 pending" : "🔗 en attente"}</span>
                         : <span className="text-gray-700 text-xs">—</span>}
                   </td>
                   <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleDateString("fr-FR")}</td>
                   <td className="py-2 px-3">
                     <div className="flex gap-2 flex-wrap items-center">
-                      <button onClick={() => onDetail(r)} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">Détails</button>
+                      <button onClick={() => onDetail(r)} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">{lang === "en" ? "Details" : "Détails"}</button>
                       {awaiting && (
                         <>
                           {/* Manual payment-bypass validation: root super-admin + QA currency mode only */}
@@ -3721,11 +3726,11 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
                             </button>
                           )}
                           <button disabled={busyId === r.id} onClick={() => remind(r)} className="text-xs px-3 py-1 rounded border border-yellow-600/40 text-yellow-400 hover:bg-yellow-500/10 transition-colors disabled:opacity-50">
-                            {busyId === r.id ? "…" : "✉ Relancer"}
+                            {busyId === r.id ? "…" : lang === "en" ? "✉ Follow up" : "✉ Relancer"}
                           </button>
                         </>
                       )}
-                      {done && <span className="text-xs text-neon-green/60 font-mono">Billet envoyé ✓</span>}
+                      {done && <span className="text-xs text-neon-green/60 font-mono">{lang === "en" ? "Ticket sent ✓" : "Billet envoyé ✓"}</span>}
                       {done && (
                         <button
                           disabled={busyId === r.id}
@@ -3747,7 +3752,7 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
             })}
           </tbody>
         </table>
-        {!filtered.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune inscription</p>}
+        {!filtered.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No registrations" : "Aucune inscription"}</p>}
       </div>
     </div>
   );
@@ -3762,6 +3767,7 @@ const CERT_TABS = [
 ] as const;
 
 function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
+  const { lang } = useAdminT();
   const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState<typeof CERT_TABS[number]["id"]>("participant");
   const [people, setPeople] = useState<Record<string, unknown>[]>([]);
@@ -3827,14 +3833,14 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
     });
     await load();
     setIssuingId(null);
-    setStatus(`Badge envoyé à ${tabDef.nameField(person)}`);
+    setStatus(lang === "en" ? `Badge sent to ${tabDef.nameField(person)}` : `Badge envoyé à ${tabDef.nameField(person)}`);
     setTimeout(() => setStatus(null), 3000);
   };
 
   const batchIssue = async () => {
     const targets = people.filter(p => !hasBadge(p));
     if (!targets.length) return;
-    if (!(await confirm({ message: `Émettre ${targets.length} badge(s) pour les non-reçus ?`, confirmLabel: "Émettre" }))) return;
+    if (!(await confirm({ message: lang === "en" ? `Issue ${targets.length} badge(s) for those who haven't received them?` : `Émettre ${targets.length} badge(s) pour les non-reçus ?`, confirmLabel: lang === "en" ? "Issue" : "Émettre" }))) return;
     setBatchIssuing(true);
     for (const p of targets) {
       await fetch("/api/admin/badges", {
@@ -3845,7 +3851,7 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
     }
     await load();
     setBatchIssuing(false);
-    setStatus(`${targets.length} badge(s) émis !`);
+    setStatus(lang === "en" ? `${targets.length} badge(s) issued!` : `${targets.length} badge(s) émis !`);
     setTimeout(() => setStatus(null), 4000);
   };
 
@@ -3856,8 +3862,8 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-white">🎖 Badges & Certificats</h1>
-          <p className="text-gray-500 text-xs mt-1">Émettez et suivez les badges par catégorie</p>
+          <h1 className="text-2xl font-black text-white">{lang === "en" ? "🎖 Badges & Certificates" : "🎖 Badges & Certificats"}</h1>
+          <p className="text-gray-500 text-xs mt-1">{lang === "en" ? "Issue and track badges by category" : "Émettez et suivez les badges par catégorie"}</p>
         </div>
         {canWrite && unreceived > 0 && (
           <button
@@ -3865,7 +3871,7 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
             disabled={batchIssuing}
             className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green disabled:opacity-50"
           >
-            {batchIssuing ? "Émission…" : `⚡ Émettre pour ${unreceived} non-reçus`}
+            {batchIssuing ? (lang === "en" ? "Issuing…" : "Émission…") : (lang === "en" ? `⚡ Issue for ${unreceived} not received` : `⚡ Émettre pour ${unreceived} non-reçus`)}
           </button>
         )}
       </div>
@@ -3891,14 +3897,14 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
           onClick={() => setFilterUnreceived(!filterUnreceived)}
           className={`text-xs px-3 py-1.5 rounded border transition-all ${filterUnreceived ? "border-orange-500/50 text-orange-400 bg-orange-500/10" : "border-gray-700 text-gray-500 hover:text-white"}`}
         >
-          {filterUnreceived ? "⬜ Non reçus seulement" : "📋 Tous"}
+          {filterUnreceived ? (lang === "en" ? "⬜ Not received only" : "⬜ Non reçus seulement") : (lang === "en" ? "📋 All" : "📋 Tous")}
         </button>
-        <span className="text-xs text-gray-600">{displayed.length} / {people.length} • {unreceived} sans badge</span>
+        <span className="text-xs text-gray-600">{lang === "en" ? `${displayed.length} / ${people.length} • ${unreceived} without badge` : `${displayed.length} / ${people.length} • ${unreceived} sans badge`}</span>
       </div>
 
       {/* Table */}
       {loading ? (
-        <p className="text-gray-600 text-xs py-8 text-center">Chargement…</p>
+        <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "Loading…" : "Chargement…"}</p>
       ) : (
         <div className="space-y-2">
           {displayed.map((p, i) => {
@@ -3916,11 +3922,11 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
                 <div className="shrink-0 text-center min-w-[120px]">
                   {received ? (
                     <div>
-                      <span className="text-neon-green text-xs">✅ Reçu</span>
+                      <span className="text-neon-green text-xs">{lang === "en" ? "✅ Received" : "✅ Reçu"}</span>
                       {date && <p className="text-gray-600 text-xs">{date}</p>}
                     </div>
                   ) : (
-                    <span className="text-gray-600 text-xs">⬜ Non reçu</span>
+                    <span className="text-gray-600 text-xs">{lang === "en" ? "⬜ Not received" : "⬜ Non reçu"}</span>
                   )}
                 </div>
                 {received && getBadgeUuid(p) && (
@@ -3942,12 +3948,12 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
                     ? { borderColor: "#ffffff20", color: "#888" }
                     : { borderColor: "#00ff9d40", color: "#00ff9d", background: "#00ff9d10" }}
                 >
-                  {isIssuing ? "…" : received ? "Renvoyer" : "Émettre"}
+                  {isIssuing ? "…" : received ? (lang === "en" ? "Resend" : "Renvoyer") : (lang === "en" ? "Issue" : "Émettre")}
                 </button>}
               </div>
             );
           })}
-          {!displayed.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun résultat</p>}
+          {!displayed.length && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No results" : "Aucun résultat"}</p>}
         </div>
       )}
     </div>
@@ -3961,6 +3967,7 @@ interface SponsorPkg {
 }
 
 function SponsorPackageEditor({ pkg, onSave, onDelete, canWrite = true }: { pkg: SponsorPkg; onSave: (data: Partial<SponsorPkg>) => Promise<void>; onDelete: () => Promise<void>; canWrite?: boolean }) {
+  const { lang } = useAdminT();
   const [draft, setDraft] = useState<SponsorPkg>({ ...pkg });
   const [perksFr, setPerksFr] = useState<string[]>(() => { try { return JSON.parse(pkg.perksFr || "[]"); } catch { return []; } });
   const [perksEn, setPerksEn] = useState<string[]>(() => { try { return JSON.parse(pkg.perksEn || "[]"); } catch { return []; } });
@@ -3987,8 +3994,8 @@ function SponsorPackageEditor({ pkg, onSave, onDelete, canWrite = true }: { pkg:
       <div className="flex items-center gap-3 p-4 cursor-pointer" onClick={() => setExpanded(e => !e)}>
         <span className="text-base font-black font-mono" style={{ color }}>{draft.tier}</span>
         <span className="text-white font-bold text-sm flex-1">{draft.nameFr} / <span className="text-gray-500">{draft.nameEn}</span></span>
-        <span className="text-neon-green font-mono text-sm">{draft.price > 0 ? `${draft.price.toLocaleString("fr-FR")} FCFA` : "Partenariat"}</span>
-        <span className={`text-xs px-2 py-0.5 rounded ${draft.isVisible ? "text-neon-green bg-neon-green/10" : "text-gray-600 bg-gray-800"}`}>{draft.isVisible ? "Visible" : "Masqué"}</span>
+        <span className="text-neon-green font-mono text-sm">{draft.price > 0 ? `${draft.price.toLocaleString("fr-FR")} FCFA` : lang === "en" ? "Partnership" : "Partenariat"}</span>
+        <span className={`text-xs px-2 py-0.5 rounded ${draft.isVisible ? "text-neon-green bg-neon-green/10" : "text-gray-600 bg-gray-800"}`}>{draft.isVisible ? "Visible" : lang === "en" ? "Hidden" : "Masqué"}</span>
         <span className="text-gray-500 text-xs ml-2">{expanded ? "▲" : "▼"}</span>
       </div>
 
@@ -3997,11 +4004,11 @@ function SponsorPackageEditor({ pkg, onSave, onDelete, canWrite = true }: { pkg:
           {/* Tier + colors */}
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Identifiant (tier)</label>
+              <label className="text-xs text-gray-500 mb-1 block">{lang === "en" ? "Identifier (tier)" : "Identifiant (tier)"}</label>
               <input className="cyber-input w-full px-2 py-1.5 rounded text-sm" value={draft.tier} onChange={e => setDraft(d => ({ ...d, tier: e.target.value }))} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Couleur</label>
+              <label className="text-xs text-gray-500 mb-1 block">{lang === "en" ? "Color" : "Couleur"}</label>
               <div className="flex gap-2 items-center">
                 <input type="color" className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" value={draft.highlightColor} onChange={e => setDraft(d => ({ ...d, highlightColor: e.target.value }))} />
                 <input className="cyber-input flex-1 px-2 py-1.5 rounded text-sm font-mono" value={draft.highlightColor} onChange={e => setDraft(d => ({ ...d, highlightColor: e.target.value }))} />
@@ -4033,8 +4040,8 @@ function SponsorPackageEditor({ pkg, onSave, onDelete, canWrite = true }: { pkg:
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-500 uppercase">Avantages FR</p>
-                <button onClick={() => setPerksFr(p => [...p, ""])} className="text-xs text-neon-green hover:text-neon-green/70">+ Ajouter</button>
+                <p className="text-xs text-gray-500 uppercase">{lang === "en" ? "Perks FR" : "Avantages FR"}</p>
+                <button onClick={() => setPerksFr(p => [...p, ""])} className="text-xs text-neon-green hover:text-neon-green/70">{lang === "en" ? "+ Add" : "+ Ajouter"}</button>
               </div>
               <div className="space-y-1">
                 {perksFr.map((p, i) => (
@@ -4065,11 +4072,11 @@ function SponsorPackageEditor({ pkg, onSave, onDelete, canWrite = true }: { pkg:
           {canWrite && (
             <div className="flex items-center justify-between pt-2">
               <button onClick={() => onSave({ isVisible: !draft.isVisible }).then(() => setDraft(d => ({ ...d, isVisible: !d.isVisible })))} className={`text-xs px-3 py-1.5 rounded border ${draft.isVisible ? "border-neon-green/30 text-neon-green" : "border-gray-700 text-gray-500"}`}>
-                {draft.isVisible ? "Visible ✓" : "Masqué"}
+                {draft.isVisible ? "Visible ✓" : lang === "en" ? "Hidden" : "Masqué"}
               </button>
               <div className="flex gap-2">
-                <button onClick={() => { if (confirm("Supprimer ce package ?")) onDelete(); }} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10">Supprimer</button>
-                <button onClick={save} disabled={saving} className="btn-neon px-4 py-1.5 rounded text-xs">{saving ? "..." : "Enregistrer"}</button>
+                <button onClick={() => { if (confirm(lang === "en" ? "Delete this package?" : "Supprimer ce package ?")) onDelete(); }} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10">{lang === "en" ? "Delete" : "Supprimer"}</button>
+                <button onClick={save} disabled={saving} className="btn-neon px-4 py-1.5 rounded text-xs">{saving ? "..." : lang === "en" ? "Save" : "Enregistrer"}</button>
               </div>
             </div>
           )}
@@ -4080,6 +4087,7 @@ function SponsorPackageEditor({ pkg, onSave, onDelete, canWrite = true }: { pkg:
 }
 
 function SponsorPackagesPanel({ canWrite = true }: { canWrite?: boolean }) {
+  const { lang } = useAdminT();
   const [packages, setPackages] = useState<SponsorPkg[]>([]);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -4096,8 +4104,8 @@ function SponsorPackagesPanel({ canWrite = true }: { canWrite?: boolean }) {
 
   const seed = async () => {
     const res = await fetch("/api/admin/sponsor-packages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ seed: true }) });
-    if (res.status === 409) alert("Les packages sont déjà initialisés.");
-    else if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || "Échec de l'initialisation."); }
+    if (res.status === 409) alert(lang === "en" ? "Packages are already initialized." : "Les packages sont déjà initialisés.");
+    else if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || (lang === "en" ? "Initialization failed." : "Échec de l'initialisation.")); }
     load();
   };
 
@@ -4124,33 +4132,33 @@ function SponsorPackagesPanel({ canWrite = true }: { canWrite?: boolean }) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-white">Packages de Sponsoring</h1>
-          <p className="text-gray-500 text-xs mt-1">Cliquez sur un package pour le modifier. Les données sont stockées en base.</p>
+          <h1 className="text-2xl font-black text-white">{lang === "en" ? "Sponsorship Packages" : "Packages de Sponsoring"}</h1>
+          <p className="text-gray-500 text-xs mt-1">{lang === "en" ? "Click on a package to edit it. Data is stored in the database." : "Cliquez sur un package pour le modifier. Les données sont stockées en base."}</p>
         </div>
         {canWrite && (
           <div className="flex gap-2">
             {!packages.length && !loading && (
-              <button onClick={seed} className="btn-neon px-4 py-2 rounded text-sm">🌱 Initialiser packages standard</button>
+              <button onClick={seed} className="btn-neon px-4 py-2 rounded text-sm">{lang === "en" ? "🌱 Initialize standard packages" : "🌱 Initialiser packages standard"}</button>
             )}
-            <button onClick={() => setAdding(a => !a)} className="btn-neon px-4 py-2 rounded text-sm">+ Nouveau package</button>
+            <button onClick={() => setAdding(a => !a)} className="btn-neon px-4 py-2 rounded text-sm">{lang === "en" ? "+ New package" : "+ Nouveau package"}</button>
           </div>
         )}
       </div>
 
       {!canWrite && (
         <div className="mb-4 px-4 py-2 rounded text-xs border border-yellow-500/30 bg-yellow-500/5 text-yellow-400/90">
-          🔒 Accès en lecture seule — vous ne pouvez pas modifier les packages.
+          {lang === "en" ? "🔒 Read-only access — you cannot modify packages." : "🔒 Accès en lecture seule — vous ne pouvez pas modifier les packages."}
         </div>
       )}
 
       {adding && (
         <div className="cyber-card rounded-xl p-4 mb-4 flex gap-3 items-end">
           <div className="flex-1">
-            <label className="text-xs text-gray-500 mb-1 block">Identifiant du nouveau package (ex: STARTUP)</label>
+            <label className="text-xs text-gray-500 mb-1 block">{lang === "en" ? "New package identifier (e.g.: STARTUP)" : "Identifiant du nouveau package (ex: STARTUP)"}</label>
             <input autoFocus className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="STARTUP" value={newTier} onChange={e => setNewTier(e.target.value)} onKeyDown={e => e.key === "Enter" && createPackage()} />
           </div>
-          <button onClick={createPackage} className="btn-neon px-4 py-2 rounded text-sm">Créer</button>
-          <button onClick={() => setAdding(false)} className="text-gray-500 text-sm px-2">Annuler</button>
+          <button onClick={createPackage} className="btn-neon px-4 py-2 rounded text-sm">{lang === "en" ? "Create" : "Créer"}</button>
+          <button onClick={() => setAdding(false)} className="text-gray-500 text-sm px-2">{lang === "en" ? "Cancel" : "Annuler"}</button>
         </div>
       )}
 
@@ -4165,7 +4173,7 @@ function SponsorPackagesPanel({ canWrite = true }: { canWrite?: boolean }) {
           />
         ))}
         {!packages.length && !loading && (
-          <p className="text-gray-600 text-xs py-8 text-center">Aucun package configuré.</p>
+          <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No packages configured." : "Aucun package configuré."}</p>
         )}
       </div>
     </div>
@@ -4210,6 +4218,7 @@ const SETTINGS_FIELDS = [
 ] as const;
 
 function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
+  const { lang } = useAdminT();
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -4241,7 +4250,7 @@ function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-white">⚙ Paramètres Événement</h1>
+          <h1 className="text-2xl font-black text-white">{lang === "en" ? "⚙ Event Settings" : "⚙ Paramètres Événement"}</h1>
           <p className="text-gray-500 text-xs mt-1">Date, lieu et URLs utilisés sur tout le site et dans les communications</p>
         </div>
         {canWrite && <button
@@ -4328,7 +4337,7 @@ function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
 
 
 function SessionsPanel({ canWrite = true }: { canWrite?: boolean }) {
-  const { t } = useAdminT();
+  const { t, lang } = useAdminT();
   const [sessions, setSessions] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);

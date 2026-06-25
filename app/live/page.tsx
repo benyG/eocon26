@@ -318,26 +318,11 @@ export default function LivePage() {
 
       {/* Glitch style injection */}
       <style>{`
-        @keyframes live-glitch-shadow {
-          0%,100% { text-shadow: 3px 0 #ff0066, -3px 0 #00ccff; transform: skewX(0deg); }
-          5%  { text-shadow: -3px 0 #ff0066, 3px 0 #00ccff; transform: skewX(-1deg); }
-          10% { text-shadow: 3px 1px #ff0066, -3px -1px #00ccff; transform: skewX(0deg); }
-          90% { text-shadow: -4px 0 #ff0066, 4px 0 #00ccff; transform: skewX(1deg); }
-          92% { text-shadow: 4px 0 #ff0066, -4px 0 #00ccff; transform: skewX(-0.5deg); }
-        }
-        @keyframes live-glitch-flicker {
-          0%,97%,100% { opacity: 1; }
-          98% { opacity: 0.8; }
-          99% { opacity: 1; }
-        }
-        @keyframes live-sponsor-scroll {
+@keyframes live-sponsor-scroll {
           0%   { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
-        .live-glitch-title {
-          animation: live-glitch-shadow 4s infinite, live-glitch-flicker 6s infinite;
-        }
-        .live-sponsor-track {
+.live-sponsor-track {
           display: flex;
           gap: 40px;
           align-items: center;
@@ -346,20 +331,6 @@ export default function LivePage() {
         }
         .live-sponsor-track:hover { animation-play-state: paused; }
       `}</style>
-
-      {/* EOCON Glitch Hero */}
-      <div style={{ background: theme === "dark" ? "#020306" : "#eef0f4", borderBottom: th.navBorder, padding: "32px 32px 24px", textAlign: "center" }}>
-        <div style={{ fontSize: 9, color: th.accent, letterSpacing: 6, marginBottom: 8, opacity: 0.7 }}>&gt;_ LIVE STREAMING</div>
-        <div
-          className="live-glitch-title"
-          style={{ fontSize: "clamp(52px, 10vw, 96px)", fontWeight: 900, color: "#00ff9d", letterSpacing: 8, lineHeight: 1, fontFamily: "'Courier New', monospace" }}
-        >
-          EOCON
-        </div>
-        <div style={{ fontSize: 13, color: th.textMuted, letterSpacing: 4, marginTop: 8 }}>
-          2026 &mdash; {lang === "fr" ? "28 Novembre · Douala" : "November 28 · Douala"}
-        </div>
-      </div>
 
       {/* Sponsor banner */}
       {sponsors.length > 0 && (

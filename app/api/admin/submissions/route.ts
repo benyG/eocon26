@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
-import { sendCFPDecision, sendRegistrationTicket, sendVolunteerAccepted, sendRegistrationPending, sendOnlineAccessLink } from "@/lib/email";
-import crypto from "crypto";
+import { sendCFPDecision, sendRegistrationTicket, sendVolunteerAccepted, sendRegistrationPending } from "@/lib/email";
 import { generateQrPayload } from "@/lib/qr";
 import { formatTicketRef } from "@/lib/ticketRef";
 import { logAction } from "@/lib/auditLog";
@@ -68,24 +67,20 @@ export async function PATCH(req: NextRequest) {
     logAction(req, "UPDATE", "cfp", id, { status });
     return NextResponse.json(updated);
   }
-  // Validate registration: set status validated + generate QR + send ticket + send online access link
+  // QA-only: manual validate (requires isRoot + currencySelectorEnabled on the frontend).
+  // Does NOT send online access link — that fires only on real payment via finalizeRegistrationPaid().
   if (type === "registration" && action === "validate") {
     const reg = await prisma.registration.findUnique({ where: { id } });
     if (!reg) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const qrCode = reg.qrCode || generateQrPayload(reg.id);
-    const onlineToken = reg.onlineToken || crypto.randomBytes(32).toString("hex");
     const updated = await prisma.registration.update({
       where: { id },
-      data: { status: "validated", qrCode, onlineToken, onlineAccessSentAt: new Date() },
+      data: { status: "validated", qrCode },
     });
     logAction(req, "VALIDATE", "registration", id, { email: reg.email, ticketType: reg.ticketType });
-    const lang = reg.langExpression === "en" ? "en" : "fr";
     const ticketRef = formatTicketRef(reg.ticketRef || String(reg.id).padStart(5, "0"));
-    sendRegistrationTicket(reg.email, reg.fname, reg.lname, reg.ticketType, reg.id, ticketRef, lang).catch(e =>
+    sendRegistrationTicket(reg.email, reg.fname, reg.lname, reg.ticketType, reg.id, ticketRef, (reg.langExpression === "en" ? "en" : "fr")).catch(e =>
       console.error("[Registration ticket email]", e),
-    );
-    sendOnlineAccessLink(reg.email, reg.fname, reg.lname, onlineToken, lang).catch(e =>
-      console.error("[Online access email]", e),
     );
     return NextResponse.json(updated);
   }

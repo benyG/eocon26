@@ -3235,11 +3235,11 @@ interface TicketTypeRow {
   priceFr: number; priceEn: number; perksFr: string; perksEn: string;
   earlyBirdPriceFr: number | null; earlyBirdPriceEn: number | null;
   earlyBirdUntil: string | null; color: string; isFeatured: boolean;
-  isVisible: boolean; ctfAccess: boolean; includesCTF: boolean; maxCapacity: number; sortOrder: number; sold: number;
+  isVisible: boolean; includesSessions: boolean; includesWorkshops: boolean; includesCTF: boolean; maxCapacity: number; sortOrder: number; sold: number;
   netticketTicketId: string | null; stripeProductId: string | null;
 }
 
-const TICKET_DEFAULT_FORM = { slug: "", nameFr: "", nameEn: "", priceFr: 0, priceEn: 0, color: "#00ff9d", isFeatured: false, isVisible: true, ctfAccess: false, maxCapacity: 200, sortOrder: 0, perksFrArr: [] as string[], perksEnArr: [] as string[], netticketTicketId: "", stripeProductId: "" };
+const TICKET_DEFAULT_FORM = { slug: "", nameFr: "", nameEn: "", priceFr: 0, priceEn: 0, color: "#00ff9d", isFeatured: false, isVisible: true, includesSessions: true, includesWorkshops: false, includesCTF: false, maxCapacity: 200, sortOrder: 0, perksFrArr: [] as string[], perksEnArr: [] as string[], netticketTicketId: "", stripeProductId: "" };
 
 function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [tickets, setTickets] = useState<TicketTypeRow[]>([]);
@@ -3382,9 +3382,17 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
               <input type="checkbox" checked={createForm.isFeatured} onChange={e => setCreateForm(f => ({ ...f, isFeatured: e.target.checked }))} />
               Recommandé
             </label>
+            <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#00ff9d" }}>
+              <input type="checkbox" checked={createForm.includesSessions} onChange={e => setCreateForm(f => ({ ...f, includesSessions: e.target.checked }))} />
+              📡 Sessions / Conférences
+            </label>
+            <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#a78bfa" }}>
+              <input type="checkbox" checked={createForm.includesWorkshops} onChange={e => setCreateForm(f => ({ ...f, includesWorkshops: e.target.checked }))} />
+              🛠 Workshops
+            </label>
             <label className="flex items-center gap-2 text-xs font-bold cursor-pointer" style={{ color: "#00ccff" }}>
-              <input type="checkbox" checked={createForm.ctfAccess} onChange={e => setCreateForm(f => ({ ...f, ctfAccess: e.target.checked }))} />
-              ⚡ Accès CTF inclus
+              <input type="checkbox" checked={createForm.includesCTF} onChange={e => setCreateForm(f => ({ ...f, includesCTF: e.target.checked }))} />
+              ⚡ CTF
             </label>
           </div>
           <div className="flex gap-3">
@@ -3481,13 +3489,17 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                       <input type="checkbox" checked={!!editForm.isVisible} onChange={e => setEditForm(f => ({ ...f, isVisible: e.target.checked }))} />
                       Visible sur le portail
                     </label>
-                    <label className="flex items-center gap-2 text-xs cursor-pointer font-bold" style={{ color: "#00ccff" }}>
-                      <input type="checkbox" checked={!!editForm.ctfAccess} onChange={e => setEditForm(f => ({ ...f, ctfAccess: e.target.checked }))} />
-                      ⚡ Accès CTF
+                    <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#00ff9d" }}>
+                      <input type="checkbox" checked={editForm.includesSessions !== false} onChange={e => setEditForm(f => ({ ...f, includesSessions: e.target.checked }))} />
+                      📡 Sessions / Conférences
                     </label>
-                    <label className="flex items-center gap-2 text-xs cursor-pointer font-bold" style={{ color: "#00ff9d" }}>
+                    <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#a78bfa" }}>
+                      <input type="checkbox" checked={!!editForm.includesWorkshops} onChange={e => setEditForm(f => ({ ...f, includesWorkshops: e.target.checked }))} />
+                      🛠 Workshops
+                    </label>
+                    <label className="flex items-center gap-2 text-xs cursor-pointer font-bold" style={{ color: "#00ccff" }}>
                       <input type="checkbox" checked={!!editForm.includesCTF} onChange={e => setEditForm(f => ({ ...f, includesCTF: e.target.checked }))} />
-                      Accès CTF inclus ⚡
+                      ⚡ CTF
                     </label>
                     <div className="flex items-center gap-2">
                       <label className="text-xs text-gray-500">Ordre</label>
@@ -3519,8 +3531,9 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                           <span className="text-white font-bold">{t.nameFr} / {t.nameEn}</span>
                           {t.isFeatured && <span className="text-xs px-2 py-0.5 rounded" style={{ background: t.color + "20", color: t.color }}>★ Recommandé</span>}
                           {!t.isVisible && <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-500">Masqué</span>}
-                          {t.ctfAccess && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}>⚡ CTF</span>}
-                          {t.includesCTF && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>⚡ CTF inclus</span>}
+                          {t.includesSessions && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>📡 Sessions</span>}
+                          {t.includesWorkshops && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#a78bfa15", color: "#a78bfa", border: "1px solid #a78bfa30" }}>🛠 Workshops</span>}
+                          {t.includesCTF && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}>⚡ CTF</span>}
                         </div>
                         <div className="text-xs text-gray-400 mt-0.5 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
                           <span style={{ color: t.color }}>{t.priceFr.toLocaleString("fr-FR")} XAF</span>

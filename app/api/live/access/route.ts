@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   const registration = await prisma.registration.findUnique({
     where: { onlineToken: token },
-    select: { id: true, fname: true, status: true, onlineCheckedInAt: true },
+    select: { id: true, fname: true, status: true, ticketType: true, onlineCheckedInAt: true },
   });
 
   if (!registration) {
@@ -24,6 +24,15 @@ export async function GET(req: NextRequest) {
 
   if (!["validated", "paid"].includes(registration.status)) {
     return NextResponse.redirect(`${baseUrl}/live/resend?error=notvalidated`);
+  }
+
+  // Check ticket type grants session access
+  const ticketType = await prisma.ticketType.findUnique({
+    where: { slug: registration.ticketType },
+    select: { includesSessions: true },
+  });
+  if (ticketType && !ticketType.includesSessions) {
+    return NextResponse.redirect(`${baseUrl}/live/resend?error=noaccess`);
   }
 
   const sessionToken = crypto.randomBytes(32).toString("hex");

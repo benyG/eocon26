@@ -374,8 +374,9 @@ model TicketType {
   color           String   @default("#00ff9d")
   isFeatured      Boolean  @default(false)
   isVisible       Boolean  @default(true)
-  ctfAccess       Boolean  @default(false)
-  includesCTF     Boolean  @default(false)
+  includesSessions  Boolean  @default(true)   // access to live keynotes/talks/panels
+  includesWorkshops Boolean  @default(false)  // access to workshop rooms (JaaS)
+  includesCTF       Boolean  @default(false)  // access to CTF platform
   maxCapacity     Int      @default(200)
   sortOrder       Int      @default(0)
   // External payment provider mappings

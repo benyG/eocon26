@@ -8,14 +8,24 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   if (!(await hasPermission("prospection", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  if (!process.env.APOLLO_API_KEY) {
+    return NextResponse.json({ error: "Apollo API non configurée — ajoutez APOLLO_API_KEY dans les variables d'environnement." }, { status: 503 });
+  }
+
   const { keywords, locations, employeeRange } = await req.json();
 
-  const orgs = await searchOrganizations({
-    q_organization_keyword_tags: keywords || ["cybersecurity", "technology", "finance"],
-    organization_locations: locations || ["Cameroon", "Ivory Coast", "Senegal", "Nigeria"],
-    organization_num_employees_ranges: employeeRange || ["51,200", "201,1000", "1001,10000"],
-    per_page: 10,
-  });
+  let orgs;
+  try {
+    orgs = await searchOrganizations({
+      q_organization_keyword_tags: keywords || ["cybersecurity", "technology", "finance"],
+      organization_locations: locations || ["Cameroon", "Ivory Coast", "Senegal", "Nigeria"],
+      organization_num_employees_ranges: employeeRange || ["51,200", "201,1000", "1001,10000"],
+      per_page: 10,
+    });
+  } catch (e) {
+    return NextResponse.json({ error: `Apollo API : ${e instanceof Error ? e.message : String(e)}` }, { status: 502 });
+  }
 
   const openai = getOpenAI();
   const results = [];

@@ -157,6 +157,11 @@ body {
   z-index: 9999;
 }
 
+/* Hide scanlines on /live page when light theme is active */
+body[data-live-light] .scanlines {
+  display: none;
+}
+
 /* Neon glow utilities */
 .neon-text {
   color: var(--neon-green);

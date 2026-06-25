@@ -6,7 +6,8 @@ import { logAction } from "@/lib/auditLog";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!(await hasPermission("cfp", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const canRead = (await hasPermission("cfp", "read")) || (await hasPermission("live", "read"));
+  if (!canRead) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const speakers = await prisma.speaker.findMany({
     include: { cfpSubmission: { select: { email: true } } },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],

@@ -62,7 +62,7 @@ export async function fetchRestreamStatus(token: string): Promise<RestreamStatus
   return {
     channels,
     streamKey,
-    rtmpUrl: streamKey ? `${RESTREAM_RTMP_BASE}/${streamKey}` : "",
+    rtmpUrl: RESTREAM_RTMP_BASE,
     anyLive: channels.some(c => c.isLive),
     youtubeEmbedUrl: ytChannel?.embedUrl ?? null,
   };

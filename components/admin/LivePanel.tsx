@@ -180,6 +180,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
   const [restreamTokenSaving, setRestreamTokenSaving] = useState(false);
   const [showRtmpKey, setShowRtmpKey]         = useState(false);
   const [rtmpCopied, setRtmpCopied]           = useState(false);
+  const [keyCopied, setKeyCopied]             = useState(false);
 
   // ── Streaming team ────────────────────────────────────────────────────────
   const [teamMembers, setTeamMembers]       = useState<TeamMember[]>([]);
@@ -220,7 +221,8 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
     setRestreamLoading(true);
     try {
       const res = await fetch("/api/admin/live/restream/status");
-      if (res.ok) setRestreamStatus(await res.json());
+      const data = await res.json().catch(() => null);
+      if (data) setRestreamStatus(data);
     } finally { setRestreamLoading(false); }
   }, []);
 
@@ -294,11 +296,19 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
   };
 
   const copyRtmp = async () => {
-    const full = restreamStatus?.rtmpUrl ?? "";
-    if (!full) return;
-    await navigator.clipboard.writeText(full).catch(() => {});
+    const url = restreamStatus?.rtmpUrl ?? "";
+    if (!url) return;
+    await navigator.clipboard.writeText(url).catch(() => {});
     setRtmpCopied(true);
     setTimeout(() => setRtmpCopied(false), 2000);
+  };
+
+  const copyStreamKey = async () => {
+    const key = restreamStatus?.streamKey ?? "";
+    if (!key) return;
+    await navigator.clipboard.writeText(key).catch(() => {});
+    setKeyCopied(true);
+    setTimeout(() => setKeyCopied(false), 2000);
   };
 
   const loadQuestions = useCallback(async () => {
@@ -897,19 +907,24 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                   <div style={{ background: "#07070e", border: "1px solid #ffffff08", borderRadius: 8, padding: 14, marginBottom: 12 }}>
                     <div style={{ fontSize: 10, color: "#aaa", letterSpacing: 2, marginBottom: 8 }}>🔗 RTMP — À CONFIGURER DANS OBS / ZOOM / RESTREAM STUDIO</div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                      <div style={{ fontSize: 10, color: "#666", width: 80, flexShrink: 0 }}>URL serveur</div>
                       <code style={{ flex: 1, fontSize: 11, color: "#4488ff", fontFamily: "'Courier New', monospace", wordBreak: "break-all", background: "#050508", border: "1px solid #4488ff15", borderRadius: 5, padding: "6px 10px" }}>
-                        rtmp://live.restream.io/live/
+                        {restreamStatus.rtmpUrl}
                       </code>
+                      <button onClick={copyRtmp} style={{ fontSize: 10, color: rtmpCopied ? "#00ff9d" : "#888", background: rtmpCopied ? "#00ff9d15" : "transparent", border: `1px solid ${rtmpCopied ? "#00ff9d40" : "#333"}`, padding: "5px 10px", borderRadius: 5, cursor: "pointer" }}>
+                        {rtmpCopied ? "✓ Copié" : "📋 Copier URL"}
+                      </button>
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <div style={{ fontSize: 10, color: "#666", width: 80, flexShrink: 0 }}>Clé stream</div>
                       <code style={{ flex: 1, fontSize: 11, color: "#4488ff", fontFamily: "'Courier New', monospace", wordBreak: "break-all", background: "#050508", border: "1px solid #4488ff15", borderRadius: 5, padding: "6px 10px" }}>
                         {showRtmpKey ? restreamStatus.streamKey : "•".repeat(Math.min((restreamStatus.streamKey?.length ?? 0), 28))}
                       </code>
                       <button onClick={() => setShowRtmpKey(v => !v)} style={{ fontSize: 10, color: "#888", background: "transparent", border: "1px solid #333", padding: "5px 10px", borderRadius: 5, cursor: "pointer" }}>
                         {showRtmpKey ? "Masquer" : "Afficher"}
                       </button>
-                      <button onClick={copyRtmp} style={{ fontSize: 10, color: rtmpCopied ? "#00ff9d" : "#888", background: rtmpCopied ? "#00ff9d15" : "transparent", border: `1px solid ${rtmpCopied ? "#00ff9d40" : "#333"}`, padding: "5px 10px", borderRadius: 5, cursor: "pointer" }}>
-                        {rtmpCopied ? "✓ Copié" : "📋 Copier URL complète"}
+                      <button onClick={copyStreamKey} style={{ fontSize: 10, color: keyCopied ? "#00ff9d" : "#888", background: keyCopied ? "#00ff9d15" : "transparent", border: `1px solid ${keyCopied ? "#00ff9d40" : "#333"}`, padding: "5px 10px", borderRadius: 5, cursor: "pointer" }}>
+                        {keyCopied ? "✓ Copié" : "📋 Copier clé"}
                       </button>
                     </div>
                   </div>

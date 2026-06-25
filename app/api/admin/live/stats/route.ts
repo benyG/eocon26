@@ -44,8 +44,8 @@ export async function GET() {
     totalConnected,
     participants: recentParticipants.map((s: typeof recentParticipants[0]) => ({
       id: s.id,
-      name: `${s.registration.fname} ${s.registration.lname}`,
-      ticketType: s.registration.ticketType,
+      name: s.registration ? `${s.registration.fname} ${s.registration.lname}` : "Participant",
+      ticketType: s.registration?.ticketType ?? "—",
       lastSeenAt: s.lastSeenAt,
       ipAddress:  s.ipAddress,
     })),

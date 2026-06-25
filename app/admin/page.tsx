@@ -567,7 +567,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
           </div>
           {selectedProfile && (
             <div className="mb-4 p-3 rounded-lg border border-gray-800">
-              <p className="text-xs text-gray-500 mb-2">Accès inclus</p>
+              <p className="text-xs text-gray-500 mb-2">{lang === "en" ? "Included access" : "Accès inclus"}</p>
               <div className="flex flex-wrap gap-1">
                 {Object.entries(selectedProfile.permissions).map(([k, v]) => (
                   <span key={k} className="text-xs px-2 py-0.5 rounded" style={{ background: v === "write" ? "#00ff9d15" : "#0066ff15", color: v === "write" ? "#00ff9d" : "#0066ff" }}>
@@ -579,22 +579,22 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
           )}
           <div className="flex gap-2">
             <button onClick={saveUser} disabled={loading || !form.name || !form.email} className="btn-neon px-4 py-2 rounded text-sm">
-              {loading ? "Création..." : "Créer et envoyer les identifiants"}
+              {loading ? (lang === "en" ? "Creating..." : "Création...") : (lang === "en" ? "Create and send credentials" : "Créer et envoyer les identifiants")}
             </button>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white transition-colors">Annuler</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white transition-colors">{t.cancel}</button>
           </div>
         </div>
       )}
 
       <div className="mb-6">
-        <h3 className="text-xs text-gray-500 uppercase tracking-widest mb-3">Profils disponibles</h3>
+        <h3 className="text-xs text-gray-500 uppercase tracking-widest mb-3">{lang === "en" ? "Available profiles" : "Profils disponibles"}</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
           {profiles.map(profile => (
             <div key={profile.id} className="cyber-card rounded-lg p-3">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-2 h-2 rounded-full" style={{ background: profile.color }} />
                 <span className="text-white text-xs font-bold">{profile.name}</span>
-                {!profile.isSystem && <span className="text-[10px] text-gray-600">personnalisé</span>}
+                {!profile.isSystem && <span className="text-[10px] text-gray-600">{lang === "en" ? "custom" : "personnalisé"}</span>}
               </div>
               <p className="text-gray-600 text-xs">{profile.description}</p>
             </div>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hasPermission } from "@/lib/adminPermissions";
-import { getOpenAI, EOCON_CONTEXT } from "@/lib/openai";
+import { getOpenAI, getEoconContext } from "@/lib/openai";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
 
   const openai = getOpenAI();
 
+  const eoconCtx = await getEoconContext();
   let prompt = "";
   const sponsorAngles = `Angles stratégiques pour convaincre un sponsor :
 1. Accès à un vivier de talents : 1 000+ participants, ingénieurs, chercheurs, étudiants à fort potentiel — pour recruter ou faire rayonner votre marque employeur dans l'écosystème cyber africain.
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
 4. Image de marque alignée à un mouvement : EOCON n'est pas une conférence — c'est un mouvement. Associer votre marque à "Where Africa secures the future" envoie un signal fort à vos clients, talents et partenaires.`;
 
   if (mode === "followup") {
-    prompt = `${EOCON_CONTEXT}
+    prompt = `${eoconCtx}
 
 Tu es directeur partenariats pour EOCON — un mouvement, pas une conférence.
 
@@ -48,7 +49,7 @@ JSON uniquement :
   "bodyEn": "<body English>"
 }`;
   } else {
-    prompt = `${EOCON_CONTEXT}
+    prompt = `${eoconCtx}
 
 Tu es directeur partenariats pour EOCON — un mouvement, pas une conférence.
 

@@ -2215,7 +2215,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
           body: JSON.stringify({
             platform: "linkedin",
             lang: "fr",
-            content: `🎉 [EOCON 2026 · Sponsor ${sponsor.package || sponsor.tier || "BRONZE"}] Nous sommes ravis d'accueillir ${sponsor.org || sponsor.name} comme partenaire ${sponsor.package || sponsor.tier || "BRONZE"} d'EOCON 2026 ! 🙏\n\nMerci pour votre soutien à la communauté cybersécurité africaine.\n\n📅 28 Novembre 2026 · Hotel Onomo, Douala\n🔗 Inscriptions : https://eyesopensecurity.com/#inscription\n\n#EOCON2026 #Cybersecurity #Cameroun`,
+            content: `🎉 [EOCON 2026 · Sponsor ${sponsor.package || sponsor.tier || "BRONZE"}] Nous sommes ravis d'accueillir ${sponsor.org || sponsor.name} comme partenaire ${sponsor.package || sponsor.tier || "BRONZE"} d'EOCON 2026 ! 🙏\n\nMerci pour votre soutien à la communauté cybersécurité africaine.\n\n📅 28 Novembre 2026 · Hotel Onomo, Douala\n\n#EOCON2026 #Cybersecurity #Cameroun`,
             scheduledAt: null,
             status: "draft",
           }),

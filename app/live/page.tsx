@@ -38,6 +38,25 @@ const tx = {
 
 interface SessionInfo { fname: string; lname: string; ticketType: string; }
 
+interface Stream {
+  id: string;
+  title: string;
+  url: string;
+  active: boolean;
+}
+
+interface ProgrammeItem {
+  time: string;
+  title: string;
+  speaker?: string;
+  room?: string;
+}
+
+interface LiveData {
+  streams: Stream[];
+  programme: ProgrammeItem[];
+}
+
 // ── theme token maps ────────────────────────────────────────────────────────
 const themes = {
   dark: {
@@ -95,6 +114,7 @@ export default function LivePage() {
   const [theme, setTheme]     = useState<Theme>("dark");
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<SessionInfo | null>(null);
+  const [liveData, setLiveData] = useState<LiveData>({ streams: [], programme: [] });
 
   // Restore preferences
   useEffect(() => {
@@ -114,13 +134,15 @@ export default function LivePage() {
     return () => document.body.removeAttribute("data-live-light");
   }, [theme]);
 
-  // Fetch session
+  // Fetch session + live config in parallel
   useEffect(() => {
-    fetch("/api/live/session")
-      .then((r) => r.json())
-      .then((data) => { if (data.ok) setSession(data.session); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch("/api/live/session").then(r => r.json()).catch(() => ({})),
+      fetch("/api/live/programme").then(r => r.json()).catch(() => ({ streams: [], programme: [] })),
+    ]).then(([sessionData, prog]) => {
+      if (sessionData.ok) setSession(sessionData.session);
+      setLiveData({ streams: prog.streams ?? [], programme: prog.programme ?? [] });
+    }).finally(() => setLoading(false));
   }, []);
 
   const toggleLang = () => {
@@ -188,13 +210,54 @@ export default function LivePage() {
               </div>
             </div>
 
-            {/* Stream placeholder */}
-            <div style={{ background: th.cardBg, border: th.cardBorderSm, borderRadius: 12, overflow: "hidden", boxShadow: theme === "light" ? "0 2px 12px #00000010" : "none" }}>
-              <div style={{ aspectRatio: "16/9", background: th.streamBg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12 }}>
-                <div style={{ fontSize: 40 }}>📡</div>
-                <p style={{ color: th.streamText, fontSize: 13, letterSpacing: 2, margin: 0 }}>{t.soon}</p>
+            {/* Live streams */}
+            {liveData.streams.filter(s => s.active).length > 0 ? (
+              liveData.streams.filter(s => s.active).map(st => (
+                <div key={st.id} style={{ background: th.cardBg, border: th.cardBorderSm, borderRadius: 12, overflow: "hidden", marginBottom: 24, boxShadow: theme === "light" ? "0 2px 12px #00000010" : "none" }}>
+                  {st.title && (
+                    <div style={{ padding: "12px 20px", borderBottom: th.cardBorderSm }}>
+                      <span style={{ fontSize: 11, color: th.accent, letterSpacing: 2 }}>🔴 {st.title}</span>
+                    </div>
+                  )}
+                  <div style={{ aspectRatio: "16/9", background: th.streamBg }}>
+                    <iframe
+                      src={st.url}
+                      style={{ width: "100%", height: "100%", border: "none" }}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div style={{ background: th.cardBg, border: th.cardBorderSm, borderRadius: 12, overflow: "hidden", boxShadow: theme === "light" ? "0 2px 12px #00000010" : "none" }}>
+                <div style={{ aspectRatio: "16/9", background: th.streamBg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12 }}>
+                  <div style={{ fontSize: 40 }}>📡</div>
+                  <p style={{ color: th.streamText, fontSize: 13, letterSpacing: 2, margin: 0 }}>{t.soon}</p>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Programme du jour */}
+            {liveData.programme.length > 0 && (
+              <div style={{ background: th.cardBg, border: th.cardBorderSm, borderRadius: 12, padding: 24, marginTop: 24, boxShadow: theme === "light" ? "0 2px 12px #00000010" : "none" }}>
+                <div style={{ fontSize: 10, color: th.accent, letterSpacing: 3, marginBottom: 16 }}>
+                  {lang === "fr" ? "📋 PROGRAMME DU JOUR" : "📋 DAY PROGRAMME"}
+                </div>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <tbody>
+                    {liveData.programme.map((item, i) => (
+                      <tr key={i} style={{ borderBottom: `1px solid ${th.accentFaint}` }}>
+                        <td style={{ padding: "10px 8px", fontSize: 12, color: th.accent, fontFamily: "'Courier New', monospace", whiteSpace: "nowrap", width: 60 }}>{item.time}</td>
+                        <td style={{ padding: "10px 8px", fontSize: 13, color: th.text, fontWeight: 600 }}>{item.title}</td>
+                        <td style={{ padding: "10px 8px", fontSize: 11, color: th.textMuted }}>{item.speaker || ""}</td>
+                        <td style={{ padding: "10px 8px", fontSize: 11, color: th.textMuted, textAlign: "right" }}>{item.room || ""}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </>
 
         ) : (

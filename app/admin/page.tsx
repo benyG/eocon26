@@ -11,6 +11,7 @@ import CyberWatchPanel from "@/components/admin/CyberWatchPanel";
 import PilotagePanel from "@/components/admin/PilotagePanel";
 import CampaignsPanel from "@/components/admin/CampaignsPanel";
 import StrategicPlanPanel from "@/components/admin/StrategicPlanPanel";
+import LivePanel from "@/components/admin/LivePanel";
 import RegistrationsChart from "@/components/admin/RegistrationsChart";
 import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
 
@@ -27,7 +28,7 @@ const AdminThemeContext = createContext<{ theme: "dark" | "light"; toggleTheme: 
 });
 const useAdminTheme = () => useContext(AdminThemeContext);
 
-type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "sessions" | "video" | "transactions" | "testimony" | "campaigns" | "strategic-plan";
+type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "live" | "sessions" | "video" | "transactions" | "testimony" | "campaigns" | "strategic-plan";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -5836,6 +5837,7 @@ export default function AdminDashboard() {
     budget: "budget",
     transactions: "transactions",
     ctf: "ctf",
+    live: "live",
     "strategic-plan": "strategic-plan",
     communication: "communication",
     campaigns: "campaigns",
@@ -6100,6 +6102,13 @@ export default function AdminDashboard() {
       icon: "⚡",
       tabs: [
         { id: "ctf", label: "EyesOpen CTF", icon: "⚡" },
+      ],
+    },
+    {
+      label: t.live,
+      icon: "🔴",
+      tabs: [
+        { id: "live", label: t.live, icon: "🔴" },
       ],
     },
     {
@@ -6780,6 +6789,9 @@ export default function AdminDashboard() {
 
           {/* CTF */}
           {activeTab === "ctf" && <CTFPanel canWrite={can("ctf")} />}
+
+          {/* LIVE */}
+          {activeTab === "live" && <LivePanel canWrite={can("live")} />}
 
           {/* TICKETS */}
           {activeTab === "tickets" && <TicketsPanel canWrite={can("tickets")} />}

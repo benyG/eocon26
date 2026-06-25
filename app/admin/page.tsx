@@ -4358,12 +4358,12 @@ function SessionsPanel({ canWrite = true }: { canWrite?: boolean }) {
   useEffect(() => { load(); }, []);
 
   const seed = async () => {
-    if (!confirm("Initialiser le programme avec les sessions standard ? (Annulé si des sessions existent déjà)")) return;
+    if (!confirm(lang === "en" ? "Initialize the program with standard sessions? (Cancelled if sessions already exist)" : "Initialiser le programme avec les sessions standard ? (Annulé si des sessions existent déjà)")) return;
     setSeeding(true);
     const r = await fetch("/api/admin/sessions/seed", { method: "POST" });
     const j = await r.json();
-    if (!r.ok) alert(j.error || "Erreur");
-    else { alert(`${j.seeded} sessions créées.`); load(); }
+    if (!r.ok) alert(j.error || (lang === "en" ? "Error" : "Erreur"));
+    else { alert(lang === "en" ? `${j.seeded} sessions created.` : `${j.seeded} sessions créées.`); load(); }
     setSeeding(false);
   };
 

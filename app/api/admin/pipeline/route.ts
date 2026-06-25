@@ -80,7 +80,7 @@ export async function PATCH(req: NextRequest) {
     });
 
     // Send acceptance email
-    sendCFPDecision(cfp.email, cfp.name, cfp.talkTitle, "accepted").catch(e =>
+    sendCFPDecision(cfp.email, cfp.name, cfp.talkTitle, "accepted", cfp.langPresentation === "en" ? "en" : "fr").catch(e =>
       console.error("[CFP accept email]", e),
     );
 
@@ -199,7 +199,7 @@ export async function DELETE(req: NextRequest) {
     data: { status: "rejected", pipelineStage: "submitted", notes: notes ?? undefined, decisionSentAt: new Date() },
   });
 
-  sendCFPDecision(cfp.email, cfp.name, cfp.talkTitle, "rejected").catch(e =>
+  sendCFPDecision(cfp.email, cfp.name, cfp.talkTitle, "rejected", cfp.langPresentation === "en" ? "en" : "fr").catch(e =>
     console.error("[CFP reject email]", e),
   );
 

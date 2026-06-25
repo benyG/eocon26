@@ -7,8 +7,12 @@ import { syncCfpScheduleStage } from "@/lib/cfpSessionSync";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!(await hasPermission("cfp", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const sessions = await prisma.conferenceSession.findMany({ orderBy: [{ sortOrder: "asc" }, { time: "asc" }] });
+  const canRead = (await hasPermission("cfp", "read")) || (await hasPermission("live", "read"));
+  if (!canRead) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const sessions = await prisma.conferenceSession.findMany({
+    select: { id: true, title: true, time: true, endTime: true, date: true, type: true, room: true, speakerName: true, speakerId: true, liveUrl: true, mode: true, isVisible: true, sortOrder: true },
+    orderBy: [{ sortOrder: "asc" }, { time: "asc" }],
+  });
   return NextResponse.json(sessions);
 }
 

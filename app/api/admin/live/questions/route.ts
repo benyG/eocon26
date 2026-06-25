@@ -7,8 +7,11 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   if (!(await hasPermission("live", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
   const questions = await prisma.sessionQuestion.findMany({
-    where: { hidden: false },
+    where: { hidden: false, askedAt: { gte: startOfToday } },
     orderBy: { askedAt: "desc" },
     select: { id: true, body: true, displayName: true, approved: true, answered: true, upvotes: true, adminNote: true, askedAt: true },
   });

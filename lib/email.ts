@@ -717,3 +717,124 @@ export async function sendOnlineAccessLink(
   });
 }
 
+// ── Restream speaker invite ───────────────────────────────────────────────────
+
+export async function sendRestreamSpeakerInvite(
+  to: string, name: string,
+  studioLink: string, sessionTitle: string, sessionTime: string,
+  techContact: string,
+  lang: "fr" | "en" = "fr",
+): Promise<void> {
+  const isFr = lang === "fr";
+  const subject = isFr
+    ? `EOCON 2026 — Votre lien Restream Studio · ${sessionTitle}`
+    : `EOCON 2026 — Your Restream Studio link · ${sessionTitle}`;
+
+  const body = `
+    <p style="color:#ccc;margin:0 0 6px;">
+      ${isFr ? "Bonjour" : "Hello"} <strong style="color:#00ff9d;">${esc(name)}</strong>,
+    </p>
+    <p style="color:#ccc;margin:0 0 20px;">
+      ${isFr
+        ? `Voici votre lien pour rejoindre la session en direct via <strong style="color:#fff;">Restream Studio</strong>. Merci de rejoindre <strong style="color:#ff9d00;">15 minutes avant</strong> l'heure prévue afin de tester votre connexion.`
+        : `Here is your link to join the live session via <strong style="color:#fff;">Restream Studio</strong>. Please join <strong style="color:#ff9d00;">15 minutes before</strong> the scheduled time to test your connection.`}
+    </p>
+    ${neonBox(`
+      <table cellpadding="0" cellspacing="0" style="width:100%;">
+        ${neonRow(isFr ? "Session" : "Session", esc(sessionTitle))}
+        ${neonRow(isFr ? "Heure" : "Time", esc(sessionTime))}
+        ${neonRow(isFr ? "Contact tech" : "Tech contact", esc(techContact))}
+      </table>
+    `)}
+    ${ctaButton(studioLink, isFr ? "🎙 REJOINDRE RESTREAM STUDIO" : "🎙 JOIN RESTREAM STUDIO")}
+    ${neonBox(`
+      <p style="margin:0 0 10px;font-size:11px;color:#ffaa00;letter-spacing:1px;">
+        ${isFr ? "⚡ CHECKLIST AVANT DE REJOINDRE" : "⚡ CHECKLIST BEFORE JOINING"}
+      </p>
+      <p style="margin:0;font-size:12px;color:#aaa;line-height:1.9;">
+        ${isFr
+          ? `✅ Connexion internet stable (câble recommandé)<br/>
+             ✅ Caméra et micro testés (dans les paramètres du navigateur)<br/>
+             ✅ Arrière-plan professionnel ou flou activé<br/>
+             ✅ Téléphone en silencieux, notifications désactivées<br/>
+             ✅ Navigateur Chrome ou Edge <em>(pas Firefox pour Restream)</em>`
+          : `✅ Stable internet connection (cable recommended)<br/>
+             ✅ Camera and mic tested (in browser settings)<br/>
+             ✅ Professional background or blur enabled<br/>
+             ✅ Phone on silent, notifications off<br/>
+             ✅ Chrome or Edge browser <em>(not Firefox for Restream)</em>`}
+      </p>
+    `)}
+    <p style="font-size:12px;color:#666;margin:20px 0 0;">
+      ${isFr
+        ? `Problème technique ? Contactez immédiatement : <strong style="color:#aaa;">${esc(techContact)}</strong>`
+        : `Technical issue? Contact immediately: <strong style="color:#aaa;">${esc(techContact)}</strong>`}
+    </p>
+    ${dateLine(isFr)}`;
+
+  const resend = getResend();
+  await resend.emails.send({ from: FROM, to, subject, html: emailWrap(body, isFr) });
+}
+
+// ── Moderator streaming briefing ─────────────────────────────────────────────
+
+export async function sendModeratorStreamingBriefing(
+  to: string, name: string,
+  studioLink: string, rtmpUrl: string, streamKey: string,
+  qaAdminUrl: string, sessionTitle: string, sessionTime: string,
+  lang: "fr" | "en" = "fr",
+): Promise<void> {
+  const isFr = lang === "fr";
+  const subject = isFr
+    ? `EOCON 2026 — Briefing modérateur live · ${sessionTitle}`
+    : `EOCON 2026 — Moderator live briefing · ${sessionTitle}`;
+
+  const maskedKey = streamKey
+    ? `${streamKey.slice(0, 6)}${"•".repeat(Math.min(streamKey.length - 6, 22))}`
+    : "(disponible dans l'admin)";
+
+  const body = `
+    <p style="color:#ccc;margin:0 0 6px;">
+      ${isFr ? "Bonjour" : "Hello"} <strong style="color:#00ff9d;">${esc(name)}</strong>,
+    </p>
+    <p style="color:#ccc;margin:0 0 20px;">
+      ${isFr
+        ? `Voici votre briefing complet en tant que <strong style="color:#fff;">modérateur</strong> pour la session EOCON 2026 en ligne.`
+        : `Here is your complete briefing as <strong style="color:#fff;">moderator</strong> for the EOCON 2026 online session.`}
+    </p>
+    ${neonBox(`
+      <table cellpadding="0" cellspacing="0" style="width:100%;">
+        ${neonRow(isFr ? "Session" : "Session", esc(sessionTitle))}
+        ${neonRow(isFr ? "Heure" : "Time", esc(sessionTime))}
+        ${neonRow("RTMP URL", esc(rtmpUrl || "rtmp://live.restream.io/live/"))}
+        ${neonRow("Stream Key", esc(maskedKey))}
+      </table>
+    `)}
+    <div style="display:table;width:100%;">
+      ${ctaButton(studioLink, isFr ? "🎬 OUVRIR RESTREAM STUDIO" : "🎬 OPEN RESTREAM STUDIO")}
+      ${ctaButton(qaAdminUrl, isFr ? "💬 INTERFACE Q&A MODÉRATION" : "💬 Q&A MODERATION PANEL")}
+    </div>
+    ${neonBox(`
+      <p style="margin:0 0 10px;font-size:11px;color:#4488ff;letter-spacing:1px;">
+        ${isFr ? "🎭 VOTRE RÔLE PENDANT LE LIVE" : "🎭 YOUR ROLE DURING THE LIVE"}
+      </p>
+      <p style="margin:0;font-size:12px;color:#aaa;line-height:1.9;">
+        ${isFr
+          ? `▸ <strong style="color:#fff;">J-15 min</strong> — Accueillez le speaker dans Restream Studio, vérifiez audio/vidéo<br/>
+             ▸ <strong style="color:#fff;">Intro</strong> — Présentez le speaker à l'ouverture du live<br/>
+             ▸ <strong style="color:#fff;">Q&A</strong> — Surveillez l'interface admin, approuvez les meilleures questions<br/>
+             ▸ <strong style="color:#fff;">Temps</strong> — Signalez "5 minutes restantes" au speaker<br/>
+             ▸ <strong style="color:#fff;">Clôture</strong> — Remerciez le speaker, annoncez la prochaine session`
+          : `▸ <strong style="color:#fff;">-15 min</strong> — Welcome speaker in Restream Studio, check audio/video<br/>
+             ▸ <strong style="color:#fff;">Intro</strong> — Introduce the speaker at the start of the live<br/>
+             ▸ <strong style="color:#fff;">Q&A</strong> — Monitor admin panel, approve the best questions<br/>
+             ▸ <strong style="color:#fff;">Time</strong> — Signal "5 minutes remaining" to speaker<br/>
+             ▸ <strong style="color:#fff;">Close</strong> — Thank the speaker, announce the next session`}
+      </p>
+    `)}
+    ${dateLine(isFr)}`;
+
+  const resend = getResend();
+  await resend.emails.send({ from: FROM, to, subject, html: emailWrap(body, isFr) });
+}
+

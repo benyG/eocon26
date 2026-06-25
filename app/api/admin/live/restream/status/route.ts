@@ -15,6 +15,6 @@ export async function GET() {
     const status = await fetchRestreamStatus(row.value);
     return NextResponse.json({ configured: true, ...status });
   } catch (e) {
-    return NextResponse.json({ configured: true, error: e instanceof Error ? e.message : String(e) }, { status: 502 });
+    return NextResponse.json({ configured: true, error: e instanceof Error ? e.message : String(e) });
   }
 }

@@ -6015,7 +6015,7 @@ export default function AdminDashboard() {
   };
 
   const del = async (endpoint: string, id: number) => {
-    if (!confirm("Supprimer ?")) return;
+    if (!confirm(lang === "en" ? "Delete?" : "Supprimer ?")) return;
     await fetch(`${endpoint}/${id}`, { method: "DELETE" });
     fetchData(tab);
     fetchStats();

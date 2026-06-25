@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
         skipped.push("ticker");
       }
 
-      logAction(req, "CREATE", "restream_overlay_speaker", speaker.id, { skipped });
+      logAction(req, "CREATE", "restream_overlay_speaker", speaker.id, { skipped: skipped.join(",") });
       return NextResponse.json({ caption, ticker, skipped });
     }
 

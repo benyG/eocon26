@@ -196,6 +196,12 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
   const [inviteSent, setInviteSent]         = useState<Record<string, boolean>>({});
 
   // ── Overlays (captions & tickers) ────────────────────────────────────────
+  // ── Moderator token ───────────────────────────────────────────────────────
+  const [modTokenLoading, setModTokenLoading] = useState(false);
+  const [modTokenUrl, setModTokenUrl]     = useState<string | null>(null);
+  const [modTokenCopied, setModTokenCopied] = useState(false);
+
+  // ── Overlays (captions & tickers) ────────────────────────────────────────
   const [overlays, setOverlays]           = useState<Overlays>({ captions: [], tickers: [] });
   const [overlaysLoading, setOverlaysLoading] = useState(false);
   const [overlaysBulking, setOverlaysBulking] = useState(false);
@@ -745,6 +751,47 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                 <input value={streamingTeam.sessionTime} onChange={e => setStreamingTeam(t => ({ ...t, sessionTime: (e.target as HTMLInputElement).value }))} placeholder="09:00" disabled={!canWrite} style={INPUT_STYLE} />
               </div>
             </div>
+
+            {/* Lien cockpit modérateur */}
+            {streamingTeam.sessionId && canWrite && (
+              <div style={{ background: "#070710", border: "1px solid #4488ff20", borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                <div style={{ fontSize: 10, color: "#4488ff", letterSpacing: 2, marginBottom: 8 }}>🔑 LIEN COCKPIT MODÉRATEUR (valable 48 h)</div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <button
+                    disabled={modTokenLoading}
+                    onClick={async () => {
+                      setModTokenLoading(true); setModTokenUrl(null);
+                      try {
+                        const res = await fetch("/api/admin/sessions/moderator-token", {
+                          method: "POST", headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ sessionId: streamingTeam.sessionId }),
+                        });
+                        const data = await res.json();
+                        if (data.url) setModTokenUrl(data.url);
+                      } finally { setModTokenLoading(false); }
+                    }}
+                    style={{ fontSize: 11, color: modTokenLoading ? "#555" : "#4488ff", background: "#4488ff10", border: "1px solid #4488ff30", padding: "6px 14px", borderRadius: 6, cursor: modTokenLoading ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                    {modTokenLoading ? "Génération…" : modTokenUrl ? "↺ Régénérer" : "Générer le lien"}
+                  </button>
+                  {modTokenUrl && (
+                    <>
+                      <code style={{ flex: 1, fontSize: 10, color: "#4488ff", background: "#050508", border: "1px solid #4488ff15", borderRadius: 5, padding: "5px 10px", wordBreak: "break-all" as const, minWidth: 0 }}>
+                        {modTokenUrl}
+                      </code>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(modTokenUrl).catch(() => {}); setModTokenCopied(true); setTimeout(() => setModTokenCopied(false), 2000); }}
+                        style={{ fontSize: 10, color: modTokenCopied ? "#00ff9d" : "#4488ff", background: modTokenCopied ? "#00ff9d10" : "transparent", border: `1px solid ${modTokenCopied ? "#00ff9d30" : "#4488ff30"}`, padding: "5px 10px", borderRadius: 5, cursor: "pointer", whiteSpace: "nowrap" as const }}>
+                        {modTokenCopied ? "✓ Copié" : "📋 Copier"}
+                      </button>
+                      <a href={modTokenUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: "#888", background: "transparent", border: "1px solid #333", padding: "5px 10px", borderRadius: 5, textDecoration: "none", whiteSpace: "nowrap" as const }}>
+                        → Ouvrir
+                      </a>
+                    </>
+                  )}
+                </div>
+                <div style={{ fontSize: 10, color: "#444", marginTop: 6 }}>À envoyer au modérateur · donne accès au cockpit (speaker, script d&apos;intro, Q&A, runsheet) sans login admin.</div>
+              </div>
+            )}
 
             {/* Studio link */}
             <div style={{ marginBottom: 16 }}>

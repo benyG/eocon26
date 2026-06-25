@@ -84,10 +84,15 @@ interface Stream {
 }
 
 interface ProgrammeItem {
+  id: number;
   time: string;
+  endTime?: string | null;
   title: string;
-  speaker?: string;
-  room?: string;
+  type: string;
+  speakerName?: string | null;
+  room?: string | null;
+  mode?: string | null;
+  liveUrl?: string | null;
 }
 
 interface LiveData {
@@ -343,20 +348,40 @@ export default function LivePage() {
             {liveData.programme.length > 0 && (
               <div style={{ background: th.cardBg, border: th.cardBorderSm, borderRadius: 12, padding: 24, marginTop: 24, boxShadow: theme === "light" ? "0 2px 12px #00000010" : "none" }}>
                 <div style={{ fontSize: 10, color: th.accent, letterSpacing: 3, marginBottom: 16 }}>
-                  {lang === "fr" ? "📋 PROGRAMME DU JOUR" : "📋 DAY PROGRAMME"}
+                  {lang === "fr" ? "📋 PROGRAMME DU JOUR" : "📋 TODAY'S PROGRAMME"}
                 </div>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <tbody>
-                    {liveData.programme.map((item, i) => (
-                      <tr key={i} style={{ borderBottom: `1px solid ${th.accentFaint}` }}>
-                        <td style={{ padding: "10px 8px", fontSize: 12, color: th.accent, fontFamily: "'Courier New', monospace", whiteSpace: "nowrap", width: 60 }}>{item.time}</td>
-                        <td style={{ padding: "10px 8px", fontSize: 13, color: th.text, fontWeight: 600 }}>{item.title}</td>
-                        <td style={{ padding: "10px 8px", fontSize: 11, color: th.textMuted }}>{item.speaker || ""}</td>
-                        <td style={{ padding: "10px 8px", fontSize: 11, color: th.textMuted, textAlign: "right" }}>{item.room || ""}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {liveData.programme.map((item: ProgrammeItem) => {
+                    const typeColor: Record<string, string> = {
+                      keynote: "#ff6600", talk: "#4488ff", workshop: "#aa44ff",
+                      panel: "#00aaff", break: th.textFaint, logistics: th.textFaint,
+                    };
+                    const color = typeColor[item.type] ?? th.accent;
+                    return (
+                      <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 8px", borderBottom: `1px solid ${th.accentFaint}`, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 12, color: th.accent, fontFamily: "'Courier New', monospace", whiteSpace: "nowrap", minWidth: 44 }}>
+                          {item.time}{item.endTime ? `–${item.endTime}` : ""}
+                        </span>
+                        <span style={{ fontSize: 9, color: color, border: `1px solid ${color}40`, borderRadius: 4, padding: "1px 6px", textTransform: "uppercase", letterSpacing: 1, whiteSpace: "nowrap" }}>
+                          {item.type}
+                        </span>
+                        <span style={{ fontSize: 13, color: th.text, fontWeight: 600, flex: 1, minWidth: 120 }}>{item.title}</span>
+                        {item.speakerName && <span style={{ fontSize: 11, color: th.textMuted, whiteSpace: "nowrap" }}>{item.speakerName}</span>}
+                        {item.room && <span style={{ fontSize: 10, color: th.textFaint, whiteSpace: "nowrap" }}>🚪 {item.room}</span>}
+                        {item.liveUrl && (
+                          <a
+                            href={item.liveUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ fontSize: 11, background: th.ctaBg, color: th.ctaText, padding: "4px 12px", borderRadius: 5, textDecoration: "none", fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0 }}
+                          >
+                            {lang === "fr" ? "Rejoindre" : "Join"}
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 

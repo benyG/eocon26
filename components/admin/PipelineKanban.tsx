@@ -79,6 +79,7 @@ interface SessionRecord {
   description?: string | null;
   mode?: string | null;
   zoomLink?: string | null;
+  liveUrl?: string | null;
   slidesDeadline?: string | null;
   sortOrder: number;
   isVisible: boolean;
@@ -1113,8 +1114,12 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">Lien Zoom <span className="text-gray-700">(optionnel)</span></label>
+                  <label className="text-xs text-gray-500 block mb-1">Lien Zoom <span className="text-gray-700">(speaker privé)</span></label>
                   <input value={editSession.zoomLink || ""} onChange={e => setEditSession(s => s ? { ...s, zoomLink: e.target.value || null } : s)} placeholder="https://zoom.us/j/…" className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">🔴 Lien live <span className="text-gray-700">(affiché aux participants sur /live)</span></label>
+                  <input value={editSession.liveUrl || ""} onChange={e => setEditSession(s => s ? { ...s, liveUrl: e.target.value || null } : s)} placeholder="https://meet.jit.si/… ou https://zoom.us/j/…" className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">Date limite slides <span className="text-gray-700">(optionnel)</span></label>

@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef, type ReactNode } from "react"
 import CountrySelect from "@/components/CountrySelect";
 import { useConfirm } from "@/components/admin/ConfirmModal";
 import { evaluateCfpWindow } from "@/lib/cfpWindow";
+import { useLang } from "@/lib/adminLangContext";
 
 type Stage = "submitted" | "reviewing" | "accepted" | "onboarding" | "confirmed" | "scheduled";
 
@@ -151,6 +152,7 @@ function AiAnalysis({ raw }: { raw: string }) {
 }
 
 export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean } = {}) {
+  const __ = useLang();
   const confirm = useConfirm();
   const [view, setView] = useState<ActiveView>("pipeline");
   const [cards, setCards] = useState<CFPCard[]>([]);
@@ -455,7 +457,7 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
   };
 
   const unscheduleSession = async (sess: SessionRecord) => {
-    if (!(await confirm({ message: `Retirer "${sess.title}" du programme ?`, danger: true }))) return;
+    if (!(await confirm({ message: `${__("Retirer", "Remove")} "${sess.title}" ${__("du programme ?", "from the programme?")}`, danger: true }))) return;
     const linkedCard = sess.speakerId ? cards.find(c => c.speakerId === sess.speakerId && c.pipelineStage === "scheduled") : null;
     if (linkedCard) {
       await fetch(`/api/admin/sessions/${sess.id}`, { method: "DELETE" });
@@ -481,11 +483,11 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
   };
 
   const seedSessions = async () => {
-    if (!(await confirm({ message: "Initialiser le programme avec les sessions standard ?" }))) return;
+    if (!(await confirm({ message: __("Initialiser le programme avec les sessions standard ?", "Initialize the programme with standard sessions?") }))) return;
     setSeeding(true);
     const r = await fetch("/api/admin/sessions/seed", { method: "POST" });
     const j = await r.json();
-    if (!r.ok) alert(j.error || "Erreur");
+    if (!r.ok) alert(j.error || __("Erreur", "Error"));
     else { await loadAll(); }
     setSeeding(false);
   };
@@ -494,15 +496,15 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
   const views: { key: ActiveView; label: string }[] = [
     { key: "pipeline",   label: "Pipeline CFP" },
     { key: "speakers",   label: `Speakers (${speakers.length})` },
-    { key: "programme",  label: `Programme (${sessions.length})` },
-    { key: "workshops",  label: `Ateliers (${workshops.length})` },
+    { key: "programme",  label: `${__("Programme", "Programme")} (${sessions.length})` },
+    { key: "workshops",  label: `${__("Ateliers", "Workshops")} (${workshops.length})` },
   ];
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-black text-white">Speakers &amp; Programme</h1>
-        {loading && <span className="text-gray-600 text-xs">Chargement...</span>}
+        <h1 className="text-2xl font-black text-white">Speakers &amp; {__("Programme", "Programme")}</h1>
+        {loading && <span className="text-gray-600 text-xs">{__("Chargement...", "Loading...")}</span>}
       </div>
 
       {/* Sub-view selector */}
@@ -521,13 +523,13 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
       {/* CFP window status */}
       {view === "pipeline" && cfpWin.hasWindow && (
         <div className={`rounded-lg border px-4 py-2.5 text-xs flex flex-wrap items-center gap-x-3 gap-y-1 ${cfpWin.open ? "border-neon-green/30 bg-neon-green/5 text-neon-green" : "border-yellow-600/40 bg-yellow-500/10 text-yellow-300"}`}>
-          <span className="font-bold">{cfpWin.open ? "🟢 Soumissions ouvertes" : "🟡 Soumissions closes"}</span>
+          <span className="font-bold">{cfpWin.open ? `🟢 ${__("Soumissions ouvertes", "Submissions open")}` : `🟡 ${__("Soumissions closes", "Submissions closed")}`}</span>
           <span className="text-gray-400">
-            Fenêtre : {cfpOpenDate ? new Date(cfpOpenDate + "T00:00:00").toLocaleDateString("fr-FR") : "—"}
+            {__("Fenêtre", "Window")} : {cfpOpenDate ? new Date(cfpOpenDate + "T00:00:00").toLocaleDateString("fr-FR") : "—"}
             {" → "}
             {cfpCloseDate ? new Date(cfpCloseDate + "T00:00:00").toLocaleDateString("fr-FR") : "—"}
           </span>
-          {!cfpWin.open && <span className="text-gray-500">Les nouvelles soumissions sont conservées pour la prochaine édition.</span>}
+          {!cfpWin.open && <span className="text-gray-500">{__("Les nouvelles soumissions sont conservées pour la prochaine édition.", "New submissions are held for the next edition.")}</span>}
         </div>
       )}
 
@@ -572,7 +574,7 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                   ))}
                   {stageCards.length === 0 && (
                     <div className="rounded-xl border border-dashed border-gray-800 p-4 text-center">
-                      <p className="text-gray-700 text-xs">Aucun</p>
+                      <p className="text-gray-700 text-xs">{__("Aucun", "None")}</p>
                     </div>
                   )}
                 </div>
@@ -596,14 +598,14 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
           <div className="grid md:grid-cols-2 gap-x-6 gap-y-4 mb-4">
             {/* Coordonnées du proposant */}
             <div className="space-y-2">
-              <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">Coordonnées</p>
+              <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">{__("Coordonnées", "Contact details")}</p>
               <Field label="Email">
                 {selectedCard.email
                   ? <a href={`mailto:${selectedCard.email}`} className="text-neon-green hover:underline break-all">{selectedCard.email}</a>
                   : "—"}
               </Field>
-              <Field label="Organisation">{selectedCard.org || "—"}</Field>
-              <Field label="Pays">{selectedCard.country || "—"}</Field>
+              <Field label={__("Organisation", "Organisation")}>{selectedCard.org || "—"}</Field>
+              <Field label={__("Pays", "Country")}>{selectedCard.country || "—"}</Field>
               <Field label="WhatsApp">
                 {selectedCard.whatsapp
                   ? <a href={`https://wa.me/${selectedCard.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="text-neon-green hover:underline">{selectedCard.whatsapp}</a>
@@ -623,11 +625,11 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
 
             {/* Proposition de talk */}
             <div className="space-y-2">
-              <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">Proposition</p>
-              <Field label="Titre du talk"><span className="text-white font-bold">{selectedCard.talkTitle}</span></Field>
-              <Field label="Format">{selectedCard.format || "—"}</Field>
-              <Field label="Langue de présentation">{selectedCard.langPresentation === "en" ? "Anglais" : selectedCard.langPresentation === "fr" ? "Français" : (selectedCard.langPresentation || "—")}</Field>
-              <Field label="Soumis le">{new Date(selectedCard.createdAt).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" })}</Field>
+              <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">{__("Proposition", "Proposal")}</p>
+              <Field label={__("Titre du talk", "Talk title")}><span className="text-white font-bold">{selectedCard.talkTitle}</span></Field>
+              <Field label={__("Format", "Format")}>{selectedCard.format || "—"}</Field>
+              <Field label={__("Langue de présentation", "Presentation language")}>{selectedCard.langPresentation === "en" ? __("Anglais", "English") : selectedCard.langPresentation === "fr" ? __("Français", "French") : (selectedCard.langPresentation || "—")}</Field>
+              <Field label={__("Soumis le", "Submitted on")}>{new Date(selectedCard.createdAt).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" })}</Field>
             </div>
 
             {/* Abstract complet */}
@@ -638,14 +640,14 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
 
             {/* Bio complète */}
             <div className="md:col-span-2">
-              <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">Bio du proposant</p>
+              <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">{__("Bio du proposant", "Submitter bio")}</p>
               <p className="text-gray-300 text-xs whitespace-pre-wrap leading-relaxed">{selectedCard.bio || "—"}</p>
             </div>
 
             {/* Certifications */}
             {!!selectedCard.certifications && (
               <div className="md:col-span-2">
-                <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">Certifications</p>
+                <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">{__("Certifications", "Certifications")}</p>
                 <p className="text-gray-300 text-xs whitespace-pre-wrap leading-relaxed">{selectedCard.certifications}</p>
               </div>
             )}
@@ -653,7 +655,7 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
             {/* Notes internes */}
             {!!selectedCard.notes && (
               <div className="md:col-span-2">
-                <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">Notes internes</p>
+                <p className="text-gray-600 text-xs uppercase tracking-wider mb-1">{__("Notes internes", "Internal notes")}</p>
                 <p className="text-gray-400 text-xs whitespace-pre-wrap leading-relaxed italic">{selectedCard.notes}</p>
               </div>
             )}
@@ -661,12 +663,12 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
             {/* Analyse IA */}
             <div className="md:col-span-2 border-t border-gray-800 pt-3">
               <div className="flex items-center gap-3 mb-2">
-                <p className="text-gray-600 text-xs uppercase tracking-wider">Score IA</p>
+                <p className="text-gray-600 text-xs uppercase tracking-wider">{__("Score IA", "AI Score")}</p>
                 {selectedCard.aiScore != null ? (
                   <span className="text-sm font-mono font-bold" style={{ color: scoreColor(selectedCard.aiScore) }}>{selectedCard.aiScore.toFixed(1)}/10</span>
                 ) : (
                   <button onClick={() => scoreWithAI(selectedCard)} disabled={scoring === selectedCard.id} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
-                    {scoring === selectedCard.id ? "Analyse..." : "✨ Scorer avec IA"}
+                    {scoring === selectedCard.id ? __("Analyse...", "Analysing...") : `✨ ${__("Scorer avec IA", "Score with AI")}`}
                   </button>
                 )}
               </div>
@@ -676,7 +678,7 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
 
           {/* Stage actions */}
           <div className="border-t border-gray-800 pt-4">
-            <p className="text-gray-600 text-xs uppercase tracking-wider mb-3">Faire avancer dans le pipeline</p>
+            <p className="text-gray-600 text-xs uppercase tracking-wider mb-3">{__("Faire avancer dans le pipeline", "Move forward in pipeline")}</p>
             <div className="flex flex-wrap gap-2">
               {/* "Programmés" is reached only by scheduling the session in the calendar
                   (onglet Programme) — never manually — so the stage stays in sync with the agenda. */}
@@ -692,20 +694,20 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
               ))}
               {canWrite && selectedCard.status !== "rejected" && (
                 <button
-                  onClick={async () => { if (await confirm({ message: `Rejeter la soumission de ${selectedCard.name} ?`, danger: true, confirmLabel: "Rejeter" })) rejectCFP(selectedCard.id); }}
+                  onClick={async () => { if (await confirm({ message: `${__("Rejeter la soumission de", "Reject the submission from")} ${selectedCard.name} ?`, danger: true, confirmLabel: __("Rejeter", "Reject") })) rejectCFP(selectedCard.id); }}
                   className="text-xs px-3 py-1.5 rounded transition-all"
                   style={{ background: "#ff006615", color: "#ff0066", border: "1px solid #ff006640" }}
                 >
-                  ✕ Rejeter
+                  ✕ {__("Rejeter", "Reject")}
                 </button>
               )}
             </div>
             {selectedCard.pipelineStage === "confirmed" && (
-              <p className="text-gray-600 text-xs mt-3">📅 Pour passer ce speaker en <span style={{ color: "#ff6600" }}>Programmé</span>, glissez sa carte sur un créneau dans l&apos;onglet <span className="text-gray-400">Programme</span>. Le statut évolue automatiquement à la programmation de la session.</p>
+              <p className="text-gray-600 text-xs mt-3">📅 {__("Pour passer ce speaker en", "To move this speaker to")} <span style={{ color: "#ff6600" }}>{__("Programmé", "Scheduled")}</span>, {__("glissez sa carte sur un créneau dans l'onglet", "drag their card to a slot in the")} <span className="text-gray-400">{__("Programme", "Programme")}</span>. {__("Le statut évolue automatiquement à la programmation de la session.", "The status updates automatically when the session is scheduled.")}</p>
             )}
             {selectedCard.speakerId && (
               <div className="mt-3 p-2 rounded-lg border border-gray-800">
-                <p className="text-xs text-neon-green">✓ Speaker créé (ID #{selectedCard.speakerId}) — visible dans l&apos;onglet Speakers</p>
+                <p className="text-xs text-neon-green">✓ {__("Speaker créé (ID", "Speaker created (ID")} #{selectedCard.speakerId}) — {__("visible dans l'onglet Speakers", "visible in the Speakers tab")}</p>
               </div>
             )}
           </div>
@@ -716,8 +718,8 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
       {view === "pipeline" && deferredCards.length > 0 && (
         <div className="cyber-card rounded-xl p-4 border-yellow-600/20">
           <div className="flex items-center gap-2 mb-3">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-yellow-400">⏳ Prochaine édition</h3>
-            <span className="text-gray-600 text-xs">— soumissions reçues hors fenêtre ({deferredCards.length})</span>
+            <h3 className="text-xs font-bold uppercase tracking-widest text-yellow-400">⏳ {__("Prochaine édition", "Next edition")}</h3>
+            <span className="text-gray-600 text-xs">— {__("soumissions reçues hors fenêtre", "submissions received outside window")} ({deferredCards.length})</span>
           </div>
           <div className="space-y-1.5">
             {deferredCards.map(c => (
@@ -732,7 +734,7 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                 )}
                 {canWrite && (
                   <button onClick={() => promoteDeferred(c.id)} className="text-xs px-2 py-1 rounded shrink-0 transition-all" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d40" }}>
-                    ↑ Intégrer au pipeline
+                    ↑ {__("Intégrer au pipeline", "Add to pipeline")}
                   </button>
                 )}
               </div>
@@ -746,12 +748,12 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
         const rejected = cards.filter(c => c.status === "rejected");
         return rejected.length > 0 ? (
           <details className="cyber-card rounded-xl p-3">
-            <summary className="text-gray-600 text-xs cursor-pointer hover:text-gray-400">Soumissions rejetées ({rejected.length})</summary>
+            <summary className="text-gray-600 text-xs cursor-pointer hover:text-gray-400">{__("Soumissions rejetées", "Rejected submissions")} ({rejected.length})</summary>
             <div className="mt-3 space-y-1">
               {rejected.map(c => (
                 <div key={c.id} className="flex items-center gap-3 py-1 border-b border-gray-800/50">
                   <span className="text-gray-600 text-xs flex-1">{c.name} — {c.talkTitle}</span>
-                  {canWrite && <button onClick={() => moveStage(c.id, "submitted")} className="text-xs text-gray-700 hover:text-gray-400">↩ Réintégrer</button>}
+                  {canWrite && <button onClick={() => moveStage(c.id, "submitted")} className="text-xs text-gray-700 hover:text-gray-400">↩ {__("Réintégrer", "Restore")}</button>}
                 </div>
               ))}
             </div>
@@ -769,7 +771,7 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                 if (res.ok) { const s = await res.json(); setSpeakers(prev => [s, ...prev]); setEditSpeaker(s); }
               }}
               className="btn-neon px-4 py-2 rounded text-xs"
-            >+ Ajouter Speaker</button>}
+            >+ {__("Ajouter Speaker", "Add Speaker")}</button>}
           </div>
 
           {speakers.map(sp => (
@@ -782,7 +784,7 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                 ) : (
                   <div className="w-14 h-14 rounded-full bg-gray-800 border-2 border-gray-700 flex items-center justify-center text-gray-600 text-xl">👤</div>
                 )}
-                <label className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-neon-green/20 border border-neon-green/40 flex items-center justify-center cursor-pointer text-neon-green text-xs hover:bg-neon-green/40 transition-colors" title="Changer la photo">
+                <label className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-neon-green/20 border border-neon-green/40 flex items-center justify-center cursor-pointer text-neon-green text-xs hover:bg-neon-green/40 transition-colors" title={__("Changer la photo", "Change photo")}>
                   📷
                   <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadSpeakerPhoto(sp.id, f); e.target.value = ""; }} disabled={uploadingPhoto} />
                 </label>
@@ -792,7 +794,7 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                 <div className="flex items-center gap-2">
                   <span className="text-white font-bold text-sm">{sp.name}</span>
                   {sp.isKeynote && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "#ffaa0020", color: "#ffaa00" }}>Keynote</span>}
-                  <span className={`text-xs px-1.5 py-0.5 rounded ${sp.isVisible ? "text-neon-green bg-neon-green/10" : "text-gray-600 bg-gray-800"}`}>{sp.isVisible ? "Visible" : "Caché"}</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${sp.isVisible ? "text-neon-green bg-neon-green/10" : "text-gray-600 bg-gray-800"}`}>{sp.isVisible ? __("Visible", "Visible") : __("Caché", "Hidden")}</span>
                 </div>
                 <p className="text-gray-500 text-xs">{sp.title}{sp.company ? ` · ${sp.company}` : ""}{sp.country ? ` · ${sp.country}` : ""}</p>
                 {sp.talkTitle && <p className="text-gray-400 text-xs mt-0.5 italic line-clamp-1">"{sp.talkTitle}"</p>}
@@ -801,12 +803,12 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                     color: sp.onboardingStatus === "completed" ? "#00ff9d" : sp.onboardingStatus === "sent" ? "#0066ff" : "#888",
                     background: sp.onboardingStatus === "completed" ? "#00ff9d10" : sp.onboardingStatus === "sent" ? "#0066ff10" : "#88888810",
                   }}>
-                    Onboarding : {sp.onboardingStatus === "completed" ? "Complété ✓" : sp.onboardingStatus === "sent" ? "Email envoyé" : "En attente"}
+                    {__("Onboarding", "Onboarding")} : {sp.onboardingStatus === "completed" ? `${__("Complété", "Completed")} ✓` : sp.onboardingStatus === "sent" ? __("Email envoyé", "Email sent") : __("En attente", "Pending")}
                   </span>
                 )}
               </div>
               {canWrite && <button onClick={() => setEditSpeaker(editSpeaker?.id === sp.id ? null : sp)} className="text-xs px-3 py-1.5 rounded shrink-0" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>
-                {editSpeaker?.id === sp.id ? "Fermer" : "Éditer"}
+                {editSpeaker?.id === sp.id ? __("Fermer", "Close") : __("Éditer", "Edit")}
               </button>}
             </div>
           ))}
@@ -814,13 +816,13 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
           {/* Speaker edit form */}
           {canWrite && editSpeaker && (
             <div className="cyber-card rounded-xl p-5 border-neon-green/30">
-              <h3 className="text-white font-bold mb-4 text-sm">Édition — {editSpeaker.name}</h3>
+              <h3 className="text-white font-bold mb-4 text-sm">{__("Édition", "Edit")} — {editSpeaker.name}</h3>
 
               {/* Photo + Visual uploads */}
               <div className="grid grid-cols-2 gap-4 mb-4">
                 {/* Profile photo */}
                 <div>
-                  <p className="text-xs text-gray-500 mb-2">Photo de profil</p>
+                  <p className="text-xs text-gray-500 mb-2">{__("Photo de profil", "Profile photo")}</p>
                   <div className="flex items-center gap-3">
                     {editSpeaker.photoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -829,7 +831,7 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                       <div className="w-16 h-16 rounded-full bg-gray-800 border-2 border-dashed border-gray-700 flex items-center justify-center text-gray-600">👤</div>
                     )}
                     <label className="cursor-pointer border border-dashed border-gray-700 rounded-lg px-3 py-2 hover:border-gray-500 transition-colors">
-                      <span className="text-gray-500 text-xs">{uploadingPhoto ? "Upload..." : "📷 Photo"}</span>
+                      <span className="text-gray-500 text-xs">{uploadingPhoto ? "Upload..." : `📷 ${__("Photo", "Photo")}`}</span>
                       <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" ref={fileRef}
                         onChange={e => { const f = e.target.files?.[0]; if (f) uploadSpeakerPhoto(editSpeaker.id, f).then(() => setEditSpeaker(prev => prev ? { ...prev, photoUrl: speakers.find(s => s.id === editSpeaker.id)?.photoUrl || prev.photoUrl } : null)); e.target.value = ""; }}
                         disabled={uploadingPhoto} />
@@ -839,40 +841,40 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                 {/* Communication visual */}
                 <div>
                   <p className="text-xs text-gray-500 mb-2">
-                    Visuel communication
-                    <span className="ml-1 text-gray-600">(infographiste)</span>
+                    {__("Visuel communication", "Communication visual")}
+                    <span className="ml-1 text-gray-600">({__("infographiste", "graphic designer")})</span>
                   </p>
                   <div className="flex items-center gap-3">
                     {editSpeaker.visualUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={editSpeaker.visualUrl} alt="Visuel" className="w-16 h-16 rounded-lg object-cover border-2 border-neon-green/40" />
+                      <img src={editSpeaker.visualUrl} alt={__("Visuel", "Visual")} className="w-16 h-16 rounded-lg object-cover border-2 border-neon-green/40" />
                     ) : (
                       <div className="w-16 h-16 rounded-lg bg-gray-800 border-2 border-dashed border-neon-green/20 flex items-center justify-center text-xs text-gray-600 text-center p-1">🎨</div>
                     )}
                     <label className="cursor-pointer border border-dashed border-neon-green/30 rounded-lg px-3 py-2 hover:border-neon-green/60 transition-colors">
-                      <span className="text-neon-green/60 text-xs">{uploadingPhoto ? "Upload..." : "🎨 Visuel réseaux"}</span>
+                      <span className="text-neon-green/60 text-xs">{uploadingPhoto ? "Upload..." : `🎨 ${__("Visuel réseaux", "Social visual")}`}</span>
                       <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
                         onChange={e => { const f = e.target.files?.[0]; if (f) uploadSpeakerVisual(editSpeaker.id, f).then(() => setEditSpeaker(prev => prev ? { ...prev, visualUrl: speakers.find(s => s.id === editSpeaker.id)?.visualUrl || prev.visualUrl } : null)); e.target.value = ""; }}
                         disabled={uploadingPhoto} />
                     </label>
                   </div>
                   {editSpeaker.visualUrl && (
-                    <p className="text-xs text-neon-green/40 mt-1">✓ Sera utilisé dans les posts auto</p>
+                    <p className="text-xs text-neon-green/40 mt-1">✓ {__("Sera utilisé dans les posts auto", "Will be used in auto posts")}</p>
                   )}
                   {!editSpeaker.visualUrl && editSpeaker.photoUrl && (
-                    <p className="text-xs text-gray-600 mt-1">Fallback: photo de profil</p>
+                    <p className="text-xs text-gray-600 mt-1">Fallback: {__("photo de profil", "profile photo")}</p>
                   )}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 {([
-                  { key: "name", label: "Nom complet", type: "text" },
-                  { key: "title", label: "Titre / Poste", type: "text" },
-                  { key: "company", label: "Organisation", type: "text" },
+                  { key: "name", label: __("Nom complet", "Full name"), type: "text" },
+                  { key: "title", label: __("Titre / Poste", "Title / Position"), type: "text" },
+                  { key: "company", label: __("Organisation", "Organisation"), type: "text" },
                   { key: "linkedin", label: "LinkedIn URL", type: "text" },
                   { key: "twitter", label: "X/Twitter URL", type: "text" },
-                  { key: "talkTitle", label: "Titre du talk", type: "text" },
+                  { key: "talkTitle", label: __("Titre du talk", "Talk title"), type: "text" },
                 ] as const).map(f => (
                   <div key={f.key}>
                     <label className="text-xs text-gray-500 block mb-1">{f.label}</label>
@@ -885,23 +887,23 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                   </div>
                 ))}
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">Format</label>
+                  <label className="text-xs text-gray-500 block mb-1">{__("Format", "Format")}</label>
                   <select
                     value={editSpeaker.talkFormat || ""}
                     onChange={e => setEditSpeaker(prev => prev ? { ...prev, talkFormat: e.target.value } : prev)}
                     className="cyber-input w-full text-xs rounded px-3 py-2 text-white bg-transparent"
                   >
-                    <option value="" className="bg-dark-800">— Choisir —</option>
+                    <option value="" className="bg-dark-800">— {__("Choisir", "Choose")} —</option>
                     <option value="talk" className="bg-dark-800">Talk (30–45 min)</option>
                     <option value="keynote" className="bg-dark-800">Keynote</option>
-                    <option value="workshop" className="bg-dark-800">Workshop / Atelier</option>
-                    <option value="panel" className="bg-dark-800">Panel / Table ronde</option>
+                    <option value="workshop" className="bg-dark-800">Workshop / {__("Atelier", "Workshop")}</option>
+                    <option value="panel" className="bg-dark-800">Panel / {__("Table ronde", "Round table")}</option>
                     <option value="lightning" className="bg-dark-800">Lightning Talk (10–15 min)</option>
-                    <option value="autre" className="bg-dark-800">Autre</option>
+                    <option value="autre" className="bg-dark-800">{__("Autre", "Other")}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">Pays</label>
+                  <label className="text-xs text-gray-500 block mb-1">{__("Pays", "Country")}</label>
                   <CountrySelect
                     value={(editSpeaker.country as string) || ""}
                     onChange={v => setEditSpeaker(prev => prev ? { ...prev, country: v } : prev)}
@@ -912,27 +914,27 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
               <div className="mt-3 space-y-2">
                 <label className="text-xs text-gray-500 block">Bio</label>
                 <textarea value={editSpeaker.bio} onChange={e => setEditSpeaker(prev => prev ? { ...prev, bio: e.target.value } : prev)} className="cyber-input w-full text-xs rounded px-3 py-2 h-20 resize-none text-white" />
-                <label className="text-xs text-gray-500 block">Abstract du talk</label>
+                <label className="text-xs text-gray-500 block">{__("Abstract du talk", "Talk abstract")}</label>
                 <textarea value={editSpeaker.talkAbstract || ""} onChange={e => setEditSpeaker(prev => prev ? { ...prev, talkAbstract: e.target.value } : prev)} className="cyber-input w-full text-xs rounded px-3 py-2 h-20 resize-none text-white" />
               </div>
               <div className="flex gap-4 mt-3">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={editSpeaker.isVisible} onChange={e => setEditSpeaker(prev => prev ? { ...prev, isVisible: e.target.checked } : prev)} className="accent-neon-green" />
-                  <span className="text-xs text-gray-400">Visible sur le site</span>
+                  <span className="text-xs text-gray-400">{__("Visible sur le site", "Visible on the site")}</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={editSpeaker.isKeynote} onChange={e => setEditSpeaker(prev => prev ? { ...prev, isKeynote: e.target.checked } : prev)} className="accent-neon-green" />
                   <span className="text-xs text-gray-400">Keynote</span>
                 </label>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">Ordre d&apos;affichage</label>
+                  <label className="text-xs text-gray-500 block mb-1">{__("Ordre d'affichage", "Display order")}</label>
                   <input type="number" value={editSpeaker.sortOrder} onChange={e => setEditSpeaker(prev => prev ? { ...prev, sortOrder: parseInt(e.target.value) || 0 } : prev)} className="cyber-input w-16 text-xs rounded px-2 py-1 text-white" />
                 </div>
               </div>
               <div className="flex gap-2 mt-4">
-                {canWrite && <button onClick={() => saveSpeaker(editSpeaker)} className="btn-neon px-4 py-2 rounded text-xs">💾 Sauvegarder</button>}
-                {canWrite && <button onClick={async () => { if (await confirm({ message: `Supprimer ${editSpeaker.name} ?`, danger: true, confirmLabel: "Supprimer" })) { await fetch(`/api/admin/speakers/${editSpeaker.id}`, { method: "DELETE" }); setSpeakers(prev => prev.filter(s => s.id !== editSpeaker.id)); setEditSpeaker(null); } }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>Supprimer</button>}
-                <button onClick={() => setEditSpeaker(null)} className="text-xs text-gray-500 px-3 py-2">Annuler</button>
+                {canWrite && <button onClick={() => saveSpeaker(editSpeaker)} className="btn-neon px-4 py-2 rounded text-xs">💾 {__("Sauvegarder", "Save")}</button>}
+                {canWrite && <button onClick={async () => { if (await confirm({ message: `${__("Supprimer", "Delete")} ${editSpeaker.name} ?`, danger: true, confirmLabel: __("Supprimer", "Delete") })) { await fetch(`/api/admin/speakers/${editSpeaker.id}`, { method: "DELETE" }); setSpeakers(prev => prev.filter(s => s.id !== editSpeaker.id)); setEditSpeaker(null); } }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>{__("Supprimer", "Delete")}</button>}
+                <button onClick={() => setEditSpeaker(null)} className="text-xs text-gray-500 px-3 py-2">{__("Annuler", "Cancel")}</button>
               </div>
             </div>
           )}
@@ -945,7 +947,7 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
           {/* Controls */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 shrink-0">Date de début :</label>
+              <label className="text-xs text-gray-400 shrink-0">{__("Date de début", "Start date")} :</label>
               <input
                 type="date"
                 value={planStartDate}
@@ -958,7 +960,7 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
               <span className="text-xs text-gray-500">{fmtDate(planDays[0])} → {fmtDate(planDays[6])}</span>
             )}
             {canWrite && <button onClick={seedSessions} disabled={seeding} className="ml-auto text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-gray-200 disabled:opacity-50">
-              {seeding ? "…" : "⚙ Seed sessions"}
+              {seeding ? "…" : `⚙ ${__("Seed sessions", "Seed sessions")}`}
             </button>}
           </div>
 
@@ -966,10 +968,10 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
           <div className="cyber-card rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <h3 className="text-xs font-bold uppercase tracking-widest text-neon-green">Backlog</h3>
-              <span className="text-gray-600 text-xs">— glissez vers une journée</span>
+              <span className="text-gray-600 text-xs">— {__("glissez vers une journée", "drag to a day")}</span>
             </div>
             {cards.filter(c => c.pipelineStage === "confirmed" && !sessions.some(s => s.speakerId && s.speakerId === c.speakerId)).length === 0 && sessions.filter(s => !s.date).length === 0 ? (
-              <p className="text-gray-600 text-xs py-2">Aucun speaker confirmé ni session non planifiée.</p>
+              <p className="text-gray-600 text-xs py-2">{__("Aucun speaker confirmé ni session non planifiée.", "No confirmed speakers or unscheduled sessions.")}</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {cards.filter(c => c.pipelineStage === "confirmed" && !sessions.some(s => s.speakerId && s.speakerId === c.speakerId)).map(card => (
@@ -1010,7 +1012,7 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
           {/* 7-day grid */}
           {!planStartDate ? (
             <p className="text-gray-600 text-xs text-center py-8 border border-dashed border-gray-800 rounded-xl">
-              Choisissez une date de début pour afficher le planning.
+              {__("Choisissez une date de début pour afficher le planning.", "Choose a start date to display the schedule.")}
             </p>
           ) : (
             <div className="overflow-x-auto pb-2">
@@ -1031,7 +1033,7 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                       <div className="px-3 py-2 border-b border-gray-800 flex items-center justify-between">
                         <div>
                           <span className="text-xs font-bold text-white">J{i + 1}</span>
-                          {i === 5 && <span className="ml-1 text-xs text-gray-600">(défaut seed)</span>}
+                          {i === 5 && <span className="ml-1 text-xs text-gray-600">({__("défaut seed", "seed default")})</span>}
                           <div className="text-gray-500 text-xs">{fmtDate(day)}</div>
                         </div>
                         <span className="text-gray-700 text-xs font-mono">{daySessions.length}</span>
@@ -1049,18 +1051,18 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                                 {sess.speakerName && <p className="text-gray-500 text-xs truncate">{sess.speakerName}</p>}
                               </div>
                               <div className="flex flex-col gap-0.5 shrink-0">
-                                {canWrite && <button onClick={() => toggleSessionVisible(sess)} title={sess.isVisible ? "Masquer" : "Publier"} className="text-xs leading-none p-0.5 hover:bg-white/10 rounded">
+                                {canWrite && <button onClick={() => toggleSessionVisible(sess)} title={sess.isVisible ? __("Masquer", "Hide") : __("Publier", "Publish")} className="text-xs leading-none p-0.5 hover:bg-white/10 rounded">
                                   {sess.isVisible ? "👁" : "🙈"}
                                 </button>}
-                                {canWrite && <button onClick={() => setEditSession(sess)} title="Modifier" className="text-xs leading-none p-0.5 hover:bg-white/10 rounded text-gray-500 hover:text-gray-300">✎</button>}
-                                {canWrite && <button onClick={() => unscheduleSession(sess)} title="Retirer" className="text-xs leading-none p-0.5 hover:bg-red-900/30 rounded text-gray-600 hover:text-red-400">✕</button>}
+                                {canWrite && <button onClick={() => setEditSession(sess)} title={__("Modifier", "Edit")} className="text-xs leading-none p-0.5 hover:bg-white/10 rounded text-gray-500 hover:text-gray-300">✎</button>}
+                                {canWrite && <button onClick={() => unscheduleSession(sess)} title={__("Retirer", "Remove")} className="text-xs leading-none p-0.5 hover:bg-red-900/30 rounded text-gray-600 hover:text-red-400">✕</button>}
                               </div>
                             </div>
                           </div>
                         ))}
                         {daySessions.length === 0 && (
                           <div className="h-16 flex items-center justify-center border border-dashed border-gray-800 rounded-lg">
-                            <span className="text-gray-700 text-xs">{dragItem ? "↓ Déposer" : "vide"}</span>
+                            <span className="text-gray-700 text-xs">{dragItem ? `↓ ${__("Déposer", "Drop")}` : __("vide", "empty")}</span>
                           </div>
                         )}
                       </div>
@@ -1077,60 +1079,60 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
             <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setEditSession(null)}>
               <div className="cyber-card rounded-xl p-6 max-w-lg w-full border-neon-green/30 space-y-3" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-white font-bold text-sm">✎ Modifier la session</h3>
+                  <h3 className="text-white font-bold text-sm">✎ {__("Modifier la session", "Edit session")}</h3>
                   <button onClick={() => setEditSession(null)} className="text-gray-500 hover:text-white text-lg">✕</button>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Titre</label>
+                    <label className="text-xs text-gray-500 block mb-1">{__("Titre", "Title")}</label>
                     <input value={editSession.title} onChange={e => setEditSession(s => s ? { ...s, title: e.target.value } : s)} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Type</label>
+                    <label className="text-xs text-gray-500 block mb-1">{__("Type", "Type")}</label>
                     <select value={editSession.type} onChange={e => setEditSession(s => s ? { ...s, type: e.target.value } : s)} className="cyber-input w-full text-xs rounded px-3 py-2 text-black">
                       {["keynote","talk","panel","workshop","break","logistics"].map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Heure de début</label>
+                    <label className="text-xs text-gray-500 block mb-1">{__("Heure de début", "Start time")}</label>
                     <input type="time" value={editSession.time} onChange={e => setEditSession(s => s ? { ...s, time: e.target.value } : s)} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Heure de fin <span className="text-gray-700">(optionnel)</span></label>
+                    <label className="text-xs text-gray-500 block mb-1">{__("Heure de fin", "End time")} <span className="text-gray-700">({__("optionnel", "optional")})</span></label>
                     <input type="time" value={editSession.endTime || ""} onChange={e => setEditSession(s => s ? { ...s, endTime: e.target.value || null } : s)} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Salle <span className="text-gray-700">(optionnel)</span></label>
+                    <label className="text-xs text-gray-500 block mb-1">{__("Salle", "Room")} <span className="text-gray-700">({__("optionnel", "optional")})</span></label>
                     <input value={editSession.room || ""} onChange={e => setEditSession(s => s ? { ...s, room: e.target.value || null } : s)} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Mode</label>
+                    <label className="text-xs text-gray-500 block mb-1">{__("Mode", "Mode")}</label>
                     <select value={editSession.mode || ""} onChange={e => setEditSession(s => s ? { ...s, mode: e.target.value || null } : s)} className="cyber-input w-full text-xs rounded px-3 py-2 text-black">
                       <option value="">—</option>
-                      <option value="Présentiel">Présentiel</option>
-                      <option value="Online via Zoom">Online via Zoom</option>
-                      <option value="Hybride">Hybride</option>
+                      <option value="Présentiel">{__("Présentiel", "In-person")}</option>
+                      <option value="Online via Zoom">{__("Online via Zoom", "Online via Zoom")}</option>
+                      <option value="Hybride">{__("Hybride", "Hybrid")}</option>
                     </select>
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">Lien Zoom <span className="text-gray-700">(speaker privé)</span></label>
+                  <label className="text-xs text-gray-500 block mb-1">{__("Lien Zoom", "Zoom link")} <span className="text-gray-700">({__("speaker privé", "private for speaker")})</span></label>
                   <input value={editSession.zoomLink || ""} onChange={e => setEditSession(s => s ? { ...s, zoomLink: e.target.value || null } : s)} placeholder="https://zoom.us/j/…" className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">🔴 Lien live <span className="text-gray-700">(affiché aux participants sur /live)</span></label>
+                  <label className="text-xs text-gray-500 block mb-1">🔴 {__("Lien live", "Live link")} <span className="text-gray-700">({__("affiché aux participants sur /live", "shown to participants on /live")})</span></label>
                   <input value={editSession.liveUrl || ""} onChange={e => setEditSession(s => s ? { ...s, liveUrl: e.target.value || null } : s)} placeholder="https://meet.jit.si/… ou https://zoom.us/j/…" className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">Date limite slides <span className="text-gray-700">(optionnel)</span></label>
-                  <input value={editSession.slidesDeadline || ""} onChange={e => setEditSession(s => s ? { ...s, slidesDeadline: e.target.value || null } : s)} placeholder="ex : 21 novembre 2026" className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
+                  <label className="text-xs text-gray-500 block mb-1">{__("Date limite slides", "Slides deadline")} <span className="text-gray-700">({__("optionnel", "optional")})</span></label>
+                  <input value={editSession.slidesDeadline || ""} onChange={e => setEditSession(s => s ? { ...s, slidesDeadline: e.target.value || null } : s)} placeholder={__("ex : 21 novembre 2026", "e.g. November 21, 2026")} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
                 </div>
                 {editSession.speakerId && (
-                  <p className="text-gray-600 text-xs">Les champs <span className="text-gray-400">mode / Zoom / slides deadline</span> alimentent automatiquement l&apos;email <span className="text-gray-400">🎤 Speaker — Programmé</span> via {"{{mode}} {{zoomLink}} {{slidesDeadline}}"}.</p>
+                  <p className="text-gray-600 text-xs">{__("Les champs", "The fields")} <span className="text-gray-400">{__("mode / Zoom / slides deadline", "mode / Zoom / slides deadline")}</span> {__("alimentent automatiquement l'email", "automatically feed the email")} <span className="text-gray-400">🎤 Speaker — {__("Programmé", "Scheduled")}</span> via {"{{mode}} {{zoomLink}} {{slidesDeadline}}"}.</p>
                 )}
                 <div className="flex gap-2 pt-1">
-                  <button onClick={() => saveSession(editSession)} className="btn-neon px-4 py-2 rounded text-xs">💾 Sauvegarder</button>
-                  <button onClick={() => setEditSession(null)} className="text-gray-500 text-xs px-3 py-2 hover:text-gray-300">Annuler</button>
+                  <button onClick={() => saveSession(editSession)} className="btn-neon px-4 py-2 rounded text-xs">💾 {__("Sauvegarder", "Save")}</button>
+                  <button onClick={() => setEditSession(null)} className="text-gray-500 text-xs px-3 py-2 hover:text-gray-300">{__("Annuler", "Cancel")}</button>
                 </div>
               </div>
             </div>
@@ -1139,39 +1141,39 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
           {pendingDrop && (
             <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
               <div className="cyber-card rounded-xl p-6 max-w-sm w-full border-neon-green/30">
-                <h3 className="text-white font-bold mb-1 text-sm">Programmer la session</h3>
+                <h3 className="text-white font-bold mb-1 text-sm">{__("Programmer la session", "Schedule session")}</h3>
                 <p className="text-gray-400 text-xs mb-4">
                   <span className="text-white">{pendingDrop.item.type === "cfp" ? (pendingDrop.item as { name: string }).name : pendingDrop.item.title}</span>
                   {" → "}J{planDays.indexOf(pendingDrop.date) + 1} ({fmtDate(pendingDrop.date)})
                 </p>
                 <div className="mb-3">
-                  <label className="text-xs text-gray-500 block mb-1">Heure de début</label>
+                  <label className="text-xs text-gray-500 block mb-1">{__("Heure de début", "Start time")}</label>
                   <input type="time" value={dropTime} onChange={e => setDropTime(e.target.value)} className="cyber-input w-full text-sm rounded px-3 py-2 text-white" />
                 </div>
                 {pendingDrop.item.type === "cfp" && (
                   <>
                     <div className="mb-3">
-                      <label className="text-xs text-gray-500 block mb-1">Mode</label>
+                      <label className="text-xs text-gray-500 block mb-1">{__("Mode", "Mode")}</label>
                       <select value={dropMode} onChange={e => setDropMode(e.target.value)} className="cyber-input w-full text-sm rounded px-3 py-2 text-black">
-                        <option value="Présentiel">Présentiel</option>
-                        <option value="Online via Zoom">Online via Zoom</option>
-                        <option value="Hybride">Hybride</option>
+                        <option value="Présentiel">{__("Présentiel", "In-person")}</option>
+                        <option value="Online via Zoom">{__("Online via Zoom", "Online via Zoom")}</option>
+                        <option value="Hybride">{__("Hybride", "Hybrid")}</option>
                       </select>
                     </div>
                     <div className="mb-3">
-                      <label className="text-xs text-gray-500 block mb-1">Lien Zoom <span className="text-gray-700">(optionnel)</span></label>
+                      <label className="text-xs text-gray-500 block mb-1">{__("Lien Zoom", "Zoom link")} <span className="text-gray-700">({__("optionnel", "optional")})</span></label>
                       <input type="text" value={dropZoom} onChange={e => setDropZoom(e.target.value)} placeholder="https://zoom.us/j/…" className="cyber-input w-full text-sm rounded px-3 py-2 text-white" />
                     </div>
                     <div className="mb-4">
-                      <label className="text-xs text-gray-500 block mb-1">Date limite d&apos;envoi des slides <span className="text-gray-700">(optionnel)</span></label>
-                      <input type="text" value={dropDeadline} onChange={e => setDropDeadline(e.target.value)} placeholder="ex : 21 novembre 2026" className="cyber-input w-full text-sm rounded px-3 py-2 text-white" />
+                      <label className="text-xs text-gray-500 block mb-1">{__("Date limite d'envoi des slides", "Slides submission deadline")} <span className="text-gray-700">({__("optionnel", "optional")})</span></label>
+                      <input type="text" value={dropDeadline} onChange={e => setDropDeadline(e.target.value)} placeholder={__("ex : 21 novembre 2026", "e.g. November 21, 2026")} className="cyber-input w-full text-sm rounded px-3 py-2 text-white" />
                     </div>
-                    <p className="text-gray-600 text-xs mb-4 leading-relaxed">Ces informations alimentent automatiquement l&apos;email « Speaker — Programmé » ({"{{date}} {{time}} {{mode}} {{zoomLink}} {{slidesDeadline}}"}).</p>
+                    <p className="text-gray-600 text-xs mb-4 leading-relaxed">{__("Ces informations alimentent automatiquement l'email « Speaker — Programmé »", "This information automatically feeds the \"Speaker — Scheduled\" email")} ({"{{date}} {{time}} {{mode}} {{zoomLink}} {{slidesDeadline}}"}).</p>
                   </>
                 )}
                 <div className="flex gap-2">
-                  {canWrite && <button onClick={confirmDrop} className="btn-neon px-4 py-2 rounded text-xs flex-1">✓ Confirmer</button>}
-                  <button onClick={() => { setPendingDrop(null); setDropTime("09:00"); setDropMode("Présentiel"); setDropZoom(""); setDropDeadline(""); }} className="text-gray-500 text-xs px-3 py-2 hover:text-gray-300">Annuler</button>
+                  {canWrite && <button onClick={confirmDrop} className="btn-neon px-4 py-2 rounded text-xs flex-1">✓ {__("Confirmer", "Confirm")}</button>}
+                  <button onClick={() => { setPendingDrop(null); setDropTime("09:00"); setDropMode("Présentiel"); setDropZoom(""); setDropDeadline(""); }} className="text-gray-500 text-xs px-3 py-2 hover:text-gray-300">{__("Annuler", "Cancel")}</button>
                 </div>
               </div>
             </div>
@@ -1183,8 +1185,8 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
       {view === "workshops" && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-gray-500 text-xs">Les ateliers affichés ici sont publiés directement sur le site.</p>
-            <button onClick={createWorkshop} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter atelier</button>
+            <p className="text-gray-500 text-xs">{__("Les ateliers affichés ici sont publiés directement sur le site.", "Workshops shown here are published directly on the site.")}</p>
+            <button onClick={createWorkshop} className="btn-neon px-4 py-2 rounded text-xs">+ {__("Ajouter atelier", "Add workshop")}</button>
           </div>
 
           {workshops.map(ws => (
@@ -1194,13 +1196,13 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-xs px-1.5 py-0.5 rounded" style={{ color: ws.level === "advanced" ? "#ff0066" : ws.level === "intermediate" ? "#ffaa00" : "#00ff9d", background: ws.level === "advanced" ? "#ff006615" : ws.level === "intermediate" ? "#ffaa0015" : "#00ff9d15" }}>{ws.level}</span>
                     <span className="text-white font-bold text-sm">{ws.title}</span>
-                    {!ws.isVisible && <span className="text-gray-600 text-xs">(caché)</span>}
+                    {!ws.isVisible && <span className="text-gray-600 text-xs">({__("caché", "hidden")})</span>}
                   </div>
-                  <p className="text-gray-500 text-xs">{ws.instructor && `Animé par ${ws.instructor} · `}{ws.duration}{ws.maxSeats ? ` · ${ws.maxSeats} places` : ""}</p>
+                  <p className="text-gray-500 text-xs">{ws.instructor && `${__("Animé par", "Led by")} ${ws.instructor} · `}{ws.duration}{ws.maxSeats ? ` · ${ws.maxSeats} ${__("places", "seats")}` : ""}</p>
                   <p className="text-gray-600 text-xs mt-1 line-clamp-2">{ws.description}</p>
                 </div>
                 <button onClick={() => setEditWorkshop(editWorkshop?.id === ws.id ? null : ws)} className="text-xs px-3 py-1 rounded shrink-0" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>
-                  {editWorkshop?.id === ws.id ? "Fermer" : "Éditer"}
+                  {editWorkshop?.id === ws.id ? __("Fermer", "Close") : __("Éditer", "Edit")}
                 </button>
               </div>
 
@@ -1208,9 +1210,9 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                 <div className="mt-4 pt-4 border-t border-gray-800 space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     {([
-                      { key: "title", label: "Titre" },
-                      { key: "instructor", label: "Animateur" },
-                      { key: "duration", label: "Durée (ex: 3h)" },
+                      { key: "title", label: __("Titre", "Title") },
+                      { key: "instructor", label: __("Animateur", "Instructor") },
+                      { key: "duration", label: __("Durée (ex: 3h)", "Duration (e.g. 3h)") },
                     ] as { key: keyof WorkshopRecord; label: string }[]).map(f => (
                       <div key={f.key}>
                         <label className="text-xs text-gray-500 block mb-1">{f.label}</label>
@@ -1218,36 +1220,36 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                       </div>
                     ))}
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">Places max</label>
+                      <label className="text-xs text-gray-500 block mb-1">{__("Places max", "Max seats")}</label>
                       <input type="number" value={editWorkshop.maxSeats || ""} onChange={e => setEditWorkshop(prev => prev ? { ...prev, maxSeats: parseInt(e.target.value) || null } : prev)} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Niveau</label>
+                    <label className="text-xs text-gray-500 block mb-1">{__("Niveau", "Level")}</label>
                     <select value={editWorkshop.level} onChange={e => setEditWorkshop(prev => prev ? { ...prev, level: e.target.value } : prev)} className="cyber-input text-xs rounded px-3 py-2 text-black">
-                      <option value="beginner">Débutant</option>
-                      <option value="intermediate">Intermédiaire</option>
-                      <option value="advanced">Avancé</option>
+                      <option value="beginner">{__("Débutant", "Beginner")}</option>
+                      <option value="intermediate">{__("Intermédiaire", "Intermediate")}</option>
+                      <option value="advanced">{__("Avancé", "Advanced")}</option>
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Description</label>
+                    <label className="text-xs text-gray-500 block mb-1">{__("Description", "Description")}</label>
                     <textarea value={editWorkshop.description} onChange={e => setEditWorkshop(prev => prev ? { ...prev, description: e.target.value } : prev)} className="cyber-input w-full text-xs rounded px-3 py-2 h-20 resize-none text-white" />
                   </div>
                   <div className="flex items-center gap-4">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={editWorkshop.isVisible} onChange={e => setEditWorkshop(prev => prev ? { ...prev, isVisible: e.target.checked } : prev)} className="accent-neon-green" />
-                      <span className="text-xs text-gray-400">Visible sur le site</span>
+                      <span className="text-xs text-gray-400">{__("Visible sur le site", "Visible on the site")}</span>
                     </label>
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">Ordre</label>
+                      <label className="text-xs text-gray-500 block mb-1">{__("Ordre", "Order")}</label>
                       <input type="number" value={editWorkshop.sortOrder} onChange={e => setEditWorkshop(prev => prev ? { ...prev, sortOrder: parseInt(e.target.value) || 0 } : prev)} className="cyber-input w-16 text-xs rounded px-2 py-1 text-white" />
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => saveWorkshop(editWorkshop)} className="btn-neon px-4 py-2 rounded text-xs">💾 Sauvegarder</button>
-                    <button onClick={async () => { if (await confirm({ message: "Supprimer cet atelier ?", danger: true, confirmLabel: "Supprimer" })) deleteWorkshop(editWorkshop.id); }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>Supprimer</button>
-                    <button onClick={() => setEditWorkshop(null)} className="text-xs text-gray-500 px-3 py-2">Annuler</button>
+                    <button onClick={() => saveWorkshop(editWorkshop)} className="btn-neon px-4 py-2 rounded text-xs">💾 {__("Sauvegarder", "Save")}</button>
+                    <button onClick={async () => { if (await confirm({ message: __("Supprimer cet atelier ?", "Delete this workshop?"), danger: true, confirmLabel: __("Supprimer", "Delete") })) deleteWorkshop(editWorkshop.id); }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>{__("Supprimer", "Delete")}</button>
+                    <button onClick={() => setEditWorkshop(null)} className="text-xs text-gray-500 px-3 py-2">{__("Annuler", "Cancel")}</button>
                   </div>
                 </div>
               )}

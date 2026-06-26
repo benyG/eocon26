@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
+import { Prisma } from "@prisma/client";
 
 const RETENTION_DAYS = 60;
 
@@ -32,7 +33,7 @@ export function logAction(
         action,
         resource,
         resourceId: resourceId != null ? String(resourceId) : null,
-        details: details as unknown as Record<string, unknown> | undefined,
+        details: details as Prisma.InputJsonValue ?? Prisma.DbNull,
       },
     })
     .catch((e: unknown) => console.error("[AuditLog]", e));

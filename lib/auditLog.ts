@@ -33,17 +33,17 @@ export function logAction(
         action,
         resource,
         resourceId: resourceId != null ? String(resourceId) : null,
-        details: details as Prisma.InputJsonValue ?? Prisma.DbNull,
+        details: details != null ? (details as unknown as import("@prisma/client").Prisma.InputJsonValue) : undefined,
       },
     })
-    .catch(e => console.error("[AuditLog]", e));
+    .catch((e: unknown) => console.error("[AuditLog]", e));
 
   if (Math.random() < 0.05) {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - RETENTION_DAYS);
     prisma.auditLog
       .deleteMany({ where: { createdAt: { lt: cutoff } } })
-      .catch(e => console.error("[AuditLog cleanup]", e));
+      .catch((e: unknown) => console.error("[AuditLog cleanup]", e));
   }
 }
 

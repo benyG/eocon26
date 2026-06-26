@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { Storage } from "@google-cloud/storage";
 
 function normalizePrivateKey(key: string): string {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import React from "react";
 import StreamingGuide from "./StreamingGuide";
 import { useLang } from "@/lib/adminLangContext";
 
@@ -367,7 +368,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
 
   const sendInvite = async (key: string, type: "speaker" | "moderator", to: string, name: string, lang: "fr" | "en") => {
     if (!to) return;
-    setInviteSending(s => ({ ...s, [key]: true }));
+    setInviteSending((s: Record<string, boolean>) => ({ ...s, [key]: true }));
     try {
       const res = await fetch("/api/admin/live/invite", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -378,8 +379,8 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
           studioLink: streamingTeam.studioLink || "https://studio.restream.io",
         }),
       });
-      if (res.ok) { setInviteSent(s => ({ ...s, [key]: true })); setTimeout(() => setInviteSent(s => ({ ...s, [key]: false })), 5000); }
-    } finally { setInviteSending(s => ({ ...s, [key]: false })); }
+      if (res.ok) { setInviteSent((s: Record<string, boolean>) => ({ ...s, [key]: true })); setTimeout(() => setInviteSent((s: Record<string, boolean>) => ({ ...s, [key]: false })), 5000); }
+    } finally { setInviteSending((s: Record<string, boolean>) => ({ ...s, [key]: false })); }
   };
 
 
@@ -530,7 +531,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
       });
       if (res.ok) {
         const saved = await res.json();
-        setPlanning(p => ({ ...p, id: saved.id ?? p.id }));
+        setPlanning((p: SessionPlanning) => ({ ...p, id: saved.id ?? p.id }));
         setPlanningSaved(true);
         setTimeout(() => setPlanningSaved(false), 2000);
       }
@@ -557,7 +558,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
         body: JSON.stringify({ sessionTitle: selectedPlanSession.title }),
       });
       const data = await res.json().catch(() => null);
-      if (data?.liveUrl) setPlanning(p => ({ ...p, lienLive: data.liveUrl }));
+      if (data?.liveUrl) setPlanning((p: SessionPlanning) => ({ ...p, lienLive: data.liveUrl }));
     } finally { setCreatingLiveUrl(false); }
   };
 
@@ -574,7 +575,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
       });
       if (res.ok) {
         const created = await res.json();
-        setRooms(r => [...r, created]);
+        setRooms((r: StreamingRoom[]) => [...r, created]);
         setNewRoom({ name: "", type: "conference", guestLink: "" });
       }
     } finally { setRoomSaving(false); }
@@ -582,35 +583,35 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
 
   const deleteRoom = async (id: string) => {
     const res = await fetch(`/api/admin/live/rooms/${id}`, { method: "DELETE" });
-    if (res.ok) setRooms(r => r.filter(rm => rm.id !== id));
+    if (res.ok) setRooms((r: StreamingRoom[]) => r.filter((rm: StreamingRoom) => rm.id !== id));
   };
 
   const addWorkshop        = () => setEditWs({ ...EMPTY_WORKSHOP, id: Date.now().toString() });
   const saveEditedWorkshop = (ws: Workshop) => {
-    const next = workshops.some(w => w.id === ws.id) ? workshops.map(w => w.id === ws.id ? ws : w) : [...workshops, ws];
+    const next = workshops.some((w: Workshop) => w.id === ws.id) ? workshops.map((w: Workshop) => w.id === ws.id ? ws : w) : [...workshops, ws];
     saveWorkshops(next);
     setEditWs(null);
   };
-  const removeWorkshop = (id: string) => saveWorkshops(workshops.filter(w => w.id !== id));
+  const removeWorkshop = (id: string) => saveWorkshops(workshops.filter((w: Workshop) => w.id !== id));
 
   const patchQuestion = async (id: number, patch: Partial<Question>) => {
     const res = await fetch(`/api/admin/live/questions/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
     });
-    if (res.ok) setQuestions(qs => qs.map(q => q.id === id ? { ...q, ...patch } : q));
+    if (res.ok) setQuestions((qs: Question[]) => qs.map((q: Question) => q.id === id ? { ...q, ...patch } : q));
   };
   const deleteQuestion = async (id: number) => {
     const res = await fetch(`/api/admin/live/questions/${id}`, { method: "DELETE" });
-    if (res.ok) setQuestions(qs => qs.filter(q => q.id !== id));
+    if (res.ok) setQuestions((qs: Question[]) => qs.filter((q: Question) => q.id !== id));
   };
 
-  const filteredQuestions = questions.filter(q => {
+  const filteredQuestions = questions.filter((q: Question) => {
     if (qaFilter === "pending")  return !q.approved && !q.answered;
     if (qaFilter === "approved") return q.approved && !q.answered;
     return q.answered;
   });
 
-  const pendingCount = questions.filter(q => !q.approved && !q.answered).length;
+  const pendingCount = questions.filter((q: Question) => !q.approved && !q.answered).length;
 
   // ── Mode toggle ───────────────────────────────────────────────────────────
   const MODE_BTN = (active: boolean, col: string) => ({
@@ -720,7 +721,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                 <p style={{ fontSize: 12, color: "var(--txt-mute)" }}>{__("Aucun canal connecté dans Restream.", "No channel connected in Restream.")}</p>
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
-                  {(restreamStatus.channels ?? []).map(ch => (
+                  {(restreamStatus.channels ?? []).map((ch: RestreamChannel) => (
                     <div key={ch.id} style={{ background: "var(--card2)", border: `1px solid ${ch.isLive ? "#ff444030" : "var(--bdr)"}`, borderRadius: 8, padding: "10px 14px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                         <span style={{ fontSize: 16 }}>{PLATFORM_ICON[ch.type] ?? "📺"}</span>
@@ -748,14 +749,14 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
             <div style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 3, marginBottom: 14 }}>📢 {__("ANNONCE BROADCAST", "BROADCAST ANNOUNCEMENT")}</div>
             <textarea
               value={announcement.message}
-              onChange={e => setAnnouncement(a => ({ ...a, message: (e.target as HTMLTextAreaElement).value }))}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAnnouncement((a: Announcement) => ({ ...a, message: (e.target as HTMLTextAreaElement).value }))}
               disabled={!canWrite} rows={3}
               placeholder={__("Message affiché en banner sur la page /live…", "Message displayed as a banner on the /live page…")}
               style={{ width: "100%", background: "var(--card)", border: "1px solid #ffaa0020", borderRadius: 6, color: "var(--txt)", padding: "10px 12px", fontSize: 13, fontFamily: "'Courier New', monospace", boxSizing: "border-box" as const, resize: "none" as const, outline: "none", marginBottom: 10 }}
             />
             <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--txt-2)", cursor: "pointer" }}>
-                <input type="checkbox" checked={announcement.enabled} onChange={e => setAnnouncement(a => ({ ...a, enabled: (e.target as HTMLInputElement).checked }))} disabled={!canWrite} style={{ accentColor: "#ffaa00" }} />
+                <input type="checkbox" checked={announcement.enabled} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAnnouncement((a: Announcement) => ({ ...a, enabled: (e.target as HTMLInputElement).checked }))} disabled={!canWrite} style={{ accentColor: "#ffaa00" }} />
                 {__("Activer l'annonce", "Enable announcement")}
               </label>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--txt-dim)" }}>
@@ -763,11 +764,11 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                 <input
                   type="datetime-local"
                   value={announcement.expiresAt ? announcement.expiresAt.slice(0, 16) : ""}
-                  onChange={e => setAnnouncement(a => ({ ...a, expiresAt: (e.target as HTMLInputElement).value ? new Date((e.target as HTMLInputElement).value).toISOString() : null }))}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAnnouncement((a: Announcement) => ({ ...a, expiresAt: (e.target as HTMLInputElement).value ? new Date((e.target as HTMLInputElement).value).toISOString() : null }))}
                   disabled={!canWrite}
                   style={{ background: "var(--card)", border: "1px solid var(--bdr-2)", borderRadius: 4, color: "var(--txt-2)", padding: "3px 8px", fontSize: 11, fontFamily: "'Courier New', monospace" }}
                 />
-                {announcement.expiresAt && <button onClick={() => setAnnouncement(a => ({ ...a, expiresAt: null }))} style={{ background: "transparent", border: "none", color: "var(--txt-mute)", cursor: "pointer", fontSize: 12 }}>✕</button>}
+                {announcement.expiresAt && <button onClick={() => setAnnouncement((a: Announcement) => ({ ...a, expiresAt: null }))} style={{ background: "transparent", border: "none", color: "var(--txt-mute)", cursor: "pointer", fontSize: 12 }}>✕</button>}
               </div>
               {canWrite && (
                 <button onClick={saveAnnouncement} disabled={annSaving} style={{ ...SAVE_BTN_STYLE(annSaving), background: "#ffaa00", marginLeft: "auto" }}>
@@ -795,7 +796,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                   fontFamily: "'Courier New', monospace",
                 }}>
                   {f === "pending" ? `⏳ ${__("En attente", "Pending")}` : f === "approved" ? `✓ ${__("Approuvées", "Approved")}` : `✅ ${__("Répondues", "Answered")}`}
-                  <span style={{ marginLeft: 6, opacity: 0.7 }}>({questions.filter(q => f === "pending" ? (!q.approved && !q.answered) : f === "approved" ? (q.approved && !q.answered) : q.answered).length})</span>
+                  <span style={{ marginLeft: 6, opacity: 0.7 }}>({questions.filter((q: Question) => f === "pending" ? (!q.approved && !q.answered) : f === "approved" ? (q.approved && !q.answered) : q.answered).length})</span>
                 </button>
               ))}
               <button onClick={loadQuestions} disabled={qaLoading} style={{ fontSize: 11, color: "var(--txt-mute)", background: "transparent", border: "1px solid var(--bdr-2)", padding: "5px 10px", borderRadius: 6, cursor: "pointer", marginLeft: "auto" }}>
@@ -806,7 +807,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
             {filteredQuestions.length === 0 ? (
               <p style={{ color: "var(--txt-mute)", fontSize: 12, padding: "16px 0" }}>{__("Aucune question dans ce filtre.", "No questions in this filter.")}</p>
             ) : (
-              filteredQuestions.map(q => (
+              filteredQuestions.map((q: Question) => (
                 <div key={q.id} style={{ background: "var(--card2)", border: `1px solid ${q.answered ? "#0066ff30" : q.approved ? "var(--ac-bdr)" : "var(--bdr)"}`, borderRadius: 10, padding: 16, marginBottom: 10 }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                     <div style={{ flex: 1 }}>
@@ -851,7 +852,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                     ))}</tr>
                   </thead>
                   <tbody>
-                    {(stats?.participants ?? []).map(p => {
+                    {(stats?.participants ?? []).map((p: Participant) => {
                       const seenMs = p.lastSeenAt ? Date.now() - new Date(p.lastSeenAt).getTime() : null;
                       const seenStr = seenMs == null ? "—" : seenMs < 60000 ? "< 1 min" : seenMs < 3600000 ? `${Math.floor(seenMs/60000)} min` : `${Math.floor(seenMs/3600000)} h`;
                       const isOnline = seenMs != null && seenMs < 3*60*1000;
@@ -882,7 +883,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
             {allSessions.length === 0 ? (
               <p style={{ fontSize: 12, color: "var(--txt-mute)" }}>{__("Aucune session.", "No sessions.")}</p>
             ) : (
-              allSessions.map(sess => {
+              allSessions.map((sess: AllSession) => {
                 const isSelected = selectedPlanSession?.id === sess.id;
                 const typeColor = sess.type === "keynote" ? "#ffaa00" : sess.type === "workshop" ? "#9b59ff" : sess.type === "talk" ? "#4488ff" : "#888";
                 return (
@@ -952,14 +953,14 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                   ) : (
                     <select
                       value={planning.roomId ?? ""}
-                      onChange={e => setPlanning(p => ({ ...p, roomId: (e.target as HTMLSelectElement).value || null }))}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPlanning((p: SessionPlanning) => ({ ...p, roomId: (e.target as HTMLSelectElement).value || null }))}
                       disabled={!canWrite}
                       style={{ ...INPUT_STYLE, cursor: "pointer" }}
                     >
                       <option value="">— {__("Choisir une salle", "Choose a room")} —</option>
                       {rooms
-                        .filter(r => selectedPlanSession.type === "workshop" ? r.type === "workshop" : r.type === "conference")
-                        .map(r => (
+                        .filter((r: StreamingRoom) => selectedPlanSession.type === "workshop" ? r.type === "workshop" : r.type === "conference")
+                        .map((r: StreamingRoom) => (
                           <option key={r.id} value={r.id}>{r.name}</option>
                         ))
                       }
@@ -973,18 +974,18 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                   <div style={{ display: "flex", gap: 8 }}>
                     <input
                       value={planning.lienWebinaire}
-                      onChange={e => setPlanning(p => ({ ...p, lienWebinaire: (e.target as HTMLInputElement).value }))}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPlanning((p: SessionPlanning) => ({ ...p, lienWebinaire: (e.target as HTMLInputElement).value }))}
                       disabled={!canWrite}
                       placeholder="https://…"
                       style={{ ...INPUT_STYLE, flex: 1 }}
                     />
                     {canWrite && (() => {
-                      const selectedRoom = rooms.find(r => r.id === planning.roomId);
+                      const selectedRoom = rooms.find((r: StreamingRoom) => r.id === planning.roomId);
                       return (
                         <>
                           {selectedRoom?.jaasRoom && (
                             <button
-                              onClick={() => setPlanning(p => ({ ...p, lienWebinaire: `https://8x8.vc/${selectedRoom.jaasRoom}` }))}
+                              onClick={() => setPlanning((p: SessionPlanning) => ({ ...p, lienWebinaire: `https://8x8.vc/${selectedRoom.jaasRoom}` }))}
                               title={__("Remplir avec le lien JaaS de la salle", "Fill with room JaaS link")}
                               style={{ background: "#4488ff15", border: "1px solid #4488ff40", color: "#4488ff", padding: "6px 10px", borderRadius: 6, cursor: "pointer", fontSize: 14, flexShrink: 0 }}>
                               📹
@@ -992,7 +993,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                           )}
                           {selectedRoom?.guestLink && (
                             <button
-                              onClick={() => setPlanning(p => ({ ...p, lienWebinaire: selectedRoom.guestLink }))}
+                              onClick={() => setPlanning((p: SessionPlanning) => ({ ...p, lienWebinaire: selectedRoom.guestLink }))}
                               title={__("Remplir avec le lien invité Restream", "Fill with Restream guest link")}
                               style={{ background: "#ff444415", border: "1px solid #ff444440", color: "#ff6b6b", padding: "6px 10px", borderRadius: 6, cursor: "pointer", fontSize: 14, flexShrink: 0 }}>
                               🔴
@@ -1013,7 +1014,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                   <div style={{ display: "flex", gap: 8 }}>
                     <input
                       value={planning.lienLive}
-                      onChange={e => setPlanning(p => ({ ...p, lienLive: (e.target as HTMLInputElement).value }))}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPlanning((p: SessionPlanning) => ({ ...p, lienLive: (e.target as HTMLInputElement).value }))}
                       disabled={!canWrite}
                       placeholder="https://…"
                       style={{ ...INPUT_STYLE, flex: 1 }}
@@ -1035,15 +1036,15 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ fontSize: 10, color: "#00cc88", letterSpacing: 2, display: "block", marginBottom: 6 }}>{__("MODÉRATEUR(S)", "MODERATOR(S)")}</label>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {teamMembers.map(m => {
+                    {teamMembers.map((m: TeamMember) => {
                       const selected = planning.moderateurIds.includes(m.id);
                       return (
                         <button
                           key={m.id}
-                          onClick={() => canWrite && setPlanning(p => ({
+                          onClick={() => canWrite && setPlanning((p: SessionPlanning) => ({
                             ...p,
                             moderateurIds: selected
-                              ? p.moderateurIds.filter(id => id !== m.id)
+                              ? p.moderateurIds.filter((id: number) => id !== m.id)
                               : [...p.moderateurIds, m.id],
                           }))}
                           style={{
@@ -1063,15 +1064,15 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ fontSize: 10, color: "#00cc88", letterSpacing: 2, display: "block", marginBottom: 6 }}>{__("TECHNICIEN(S)", "TECHNICIAN(S)")}</label>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {teamMembers.map(m => {
+                    {teamMembers.map((m: TeamMember) => {
                       const selected = planning.technicienIds.includes(m.id);
                       return (
                         <button
                           key={m.id}
-                          onClick={() => canWrite && setPlanning(p => ({
+                          onClick={() => canWrite && setPlanning((p: SessionPlanning) => ({
                             ...p,
                             technicienIds: selected
-                              ? p.technicienIds.filter(id => id !== m.id)
+                              ? p.technicienIds.filter((id: number) => id !== m.id)
                               : [...p.technicienIds, m.id],
                           }))}
                           style={{
@@ -1093,7 +1094,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                     <label style={{ fontSize: 10, color: "#00cc88", letterSpacing: 2 }}>{__("PANÉLISTES SUPPLÉMENTAIRES", "EXTRA PANELISTS")}</label>
                     {canWrite && (
                       <button
-                        onClick={() => setPlanning(p => ({ ...p, panelistesExtra: [...p.panelistesExtra, { name: "", email: "", lang: "fr" }] }))}
+                        onClick={() => setPlanning((p: SessionPlanning) => ({ ...p, panelistesExtra: [...p.panelistesExtra, { name: "", email: "", lang: "fr" }] }))}
                         style={{ fontSize: 10, color: "#00cc88", background: "transparent", border: "1px solid #00cc8830", padding: "3px 10px", borderRadius: 4, cursor: "pointer" }}>
                         + {__("Ajouter", "Add")}
                       </button>
@@ -1102,32 +1103,32 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                   {planning.panelistesExtra.length === 0 && (
                     <p style={{ fontSize: 11, color: "var(--txt-mute)" }}>{__("Aucun panéliste supplémentaire.", "No extra panelists.")}</p>
                   )}
-                  {planning.panelistesExtra.map((pan, idx) => (
+                  {planning.panelistesExtra.map((pan: PanelisteExtra, idx: number) => (
                     <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 60px auto", gap: 8, marginBottom: 8, alignItems: "flex-end" }}>
                       <input
                         value={pan.name}
-                        onChange={e => setPlanning(p => { const arr = [...p.panelistesExtra]; arr[idx] = { ...arr[idx], name: (e.target as HTMLInputElement).value }; return { ...p, panelistesExtra: arr }; })}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPlanning((p: SessionPlanning) => { const arr = [...p.panelistesExtra]; arr[idx] = { ...arr[idx], name: (e.target as HTMLInputElement).value }; return { ...p, panelistesExtra: arr }; })}
                         placeholder={__("Nom", "Name")}
                         disabled={!canWrite}
                         style={{ ...INPUT_STYLE, padding: "6px 10px" }}
                       />
                       <input
                         value={pan.email}
-                        onChange={e => setPlanning(p => { const arr = [...p.panelistesExtra]; arr[idx] = { ...arr[idx], email: (e.target as HTMLInputElement).value }; return { ...p, panelistesExtra: arr }; })}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPlanning((p: SessionPlanning) => { const arr = [...p.panelistesExtra]; arr[idx] = { ...arr[idx], email: (e.target as HTMLInputElement).value }; return { ...p, panelistesExtra: arr }; })}
                         placeholder="email@…"
                         disabled={!canWrite}
                         style={{ ...INPUT_STYLE, padding: "6px 10px" }}
                       />
                       <select
                         value={pan.lang}
-                        onChange={e => setPlanning(p => { const arr = [...p.panelistesExtra]; arr[idx] = { ...arr[idx], lang: (e.target as HTMLSelectElement).value as "fr" | "en" }; return { ...p, panelistesExtra: arr }; })}
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPlanning((p: SessionPlanning) => { const arr = [...p.panelistesExtra]; arr[idx] = { ...arr[idx], lang: (e.target as HTMLSelectElement).value as "fr" | "en" }; return { ...p, panelistesExtra: arr }; })}
                         disabled={!canWrite}
                         style={{ ...INPUT_STYLE, cursor: "pointer", padding: "6px 8px" }}>
                         <option value="fr">FR</option>
                         <option value="en">EN</option>
                       </select>
                       {canWrite && (
-                        <button onClick={() => setPlanning(p => ({ ...p, panelistesExtra: p.panelistesExtra.filter((_, i) => i !== idx) }))} style={{ background: "transparent", border: "1px solid #ff000030", color: "#ff6b6b", padding: "6px 10px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>✕</button>
+                        <button onClick={() => setPlanning((p: SessionPlanning) => ({ ...p, panelistesExtra: p.panelistesExtra.filter((_: unknown, i: number) => i !== idx) }))} style={{ background: "transparent", border: "1px solid #ff000030", color: "#ff6b6b", padding: "6px 10px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>✕</button>
                       )}
                     </div>
                   ))}
@@ -1180,7 +1181,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
               <p style={{ fontSize: 12, color: "var(--txt-mute)", marginBottom: 16 }}>{__("Aucune salle configurée.", "No rooms configured.")}</p>
             ) : (
               <div style={{ marginBottom: 20 }}>
-                {rooms.map(rm => (
+                {rooms.map((rm: StreamingRoom) => (
                   <div key={rm.id} style={{ background: "var(--card2)", border: "1px solid var(--bdr)", borderRadius: 8, padding: "12px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
@@ -1207,7 +1208,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                     <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>{__("Nom de la salle", "Room name")} *</label>
                     <input
                       value={newRoom.name}
-                      onChange={e => setNewRoom(r => ({ ...r, name: (e.target as HTMLInputElement).value }))}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewRoom((r: { name: string; type: "conference" | "workshop"; guestLink: string }) => ({ ...r, name: (e.target as HTMLInputElement).value }))}
                       placeholder={__("ex: Salle Principale", "e.g. Main Hall")}
                       style={INPUT_STYLE}
                     />
@@ -1216,7 +1217,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                     <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>{__("Type", "Type")}</label>
                     <select
                       value={newRoom.type}
-                      onChange={e => setNewRoom(r => ({ ...r, type: (e.target as HTMLSelectElement).value as "conference" | "workshop" }))}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewRoom((r: { name: string; type: "conference" | "workshop"; guestLink: string }) => ({ ...r, type: (e.target as HTMLSelectElement).value as "conference" | "workshop" }))}
                       style={{ ...INPUT_STYLE, cursor: "pointer" }}>
                       <option value="conference">{__("Conférence", "Conference")}</option>
                       <option value="workshop">Workshop</option>
@@ -1228,7 +1229,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                     <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>{__("Lien invité Restream (guestLink)", "Restream guest link (guestLink)")}</label>
                     <input
                       value={newRoom.guestLink}
-                      onChange={e => setNewRoom(r => ({ ...r, guestLink: (e.target as HTMLInputElement).value }))}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewRoom((r: { name: string; type: "conference" | "workshop"; guestLink: string }) => ({ ...r, guestLink: (e.target as HTMLInputElement).value }))}
                       placeholder="https://studio.restream.io/guest/…"
                       style={INPUT_STYLE}
                     />
@@ -1261,21 +1262,21 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                 <label style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 2, display: "block", marginBottom: 4 }}>{__("TITRE DE LA SESSION", "SESSION TITLE")}</label>
                 <select
                   value={streamingTeam.sessionId ?? ""}
-                  onChange={e => {
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                     const sid = parseInt((e.target as HTMLSelectElement).value);
-                    const sess = sessions.find(s => s.id === sid);
-                    if (sess) setStreamingTeam(t => ({ ...t, sessionId: sid, sessionTitle: sess.title, sessionTime: sess.time || "" }));
+                    const sess = sessions.find((s: Session) => s.id === sid);
+                    if (sess) setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, sessionId: sid, sessionTitle: sess.title, sessionTime: sess.time || "" }));
                   }}
                   style={{ ...INPUT_STYLE, cursor: "pointer" }}
                   disabled={!canWrite}
                 >
                   <option value="">— {__("Sélectionner une session", "Select a session")} —</option>
-                  {sessions.map(s => <option key={s.id} value={s.id}>{s.time ? `${s.time} · ` : ""}{s.title}</option>)}
+                  {sessions.map((s: Session) => <option key={s.id} value={s.id}>{s.time ? `${s.time} · ` : ""}{s.title}</option>)}
                 </select>
               </div>
               <div>
                 <label style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 2, display: "block", marginBottom: 4 }}>{__("HEURE", "TIME")}</label>
-                <input value={streamingTeam.sessionTime} onChange={e => setStreamingTeam(t => ({ ...t, sessionTime: (e.target as HTMLInputElement).value }))} placeholder="09:00" disabled={!canWrite} style={INPUT_STYLE} />
+                <input value={streamingTeam.sessionTime} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, sessionTime: (e.target as HTMLInputElement).value }))} placeholder="09:00" disabled={!canWrite} style={INPUT_STYLE} />
               </div>
             </div>
 
@@ -1323,14 +1324,14 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
             {/* Studio link */}
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 2, display: "block", marginBottom: 4 }}>{__("LIEN RESTREAM STUDIO (guest invite link)", "RESTREAM STUDIO LINK (guest invite link)")}</label>
-              <input value={streamingTeam.studioLink} onChange={e => setStreamingTeam(t => ({ ...t, studioLink: (e.target as HTMLInputElement).value }))} placeholder="https://studio.restream.io/guest/…" disabled={!canWrite} style={INPUT_STYLE} />
+              <input value={streamingTeam.studioLink} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, studioLink: (e.target as HTMLInputElement).value }))} placeholder="https://studio.restream.io/guest/…" disabled={!canWrite} style={INPUT_STYLE} />
               <div style={{ fontSize: 10, color: "var(--txt-mute)", marginTop: 4 }}>{__("Généré dans Restream Studio → + Inviter → Guest link", "Generated in Restream Studio → + Invite → Guest link")}</div>
             </div>
 
             {/* Tech contact */}
             <div style={{ marginBottom: 20 }}>
               <label style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 2, display: "block", marginBottom: 4 }}>{__("CONTACT TECHNICIEN (nom ou téléphone)", "TECH CONTACT (name or phone)")}</label>
-              <input value={streamingTeam.techContact} onChange={e => setStreamingTeam(t => ({ ...t, techContact: (e.target as HTMLInputElement).value }))} placeholder={__("ex: Jean Dupont — +237 6XX XXX XXX", "e.g. Jean Dupont — +237 6XX XXX XXX")} disabled={!canWrite} style={INPUT_STYLE} />
+              <input value={streamingTeam.techContact} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, techContact: (e.target as HTMLInputElement).value }))} placeholder={__("ex: Jean Dupont — +237 6XX XXX XXX", "e.g. Jean Dupont — +237 6XX XXX XXX")} disabled={!canWrite} style={INPUT_STYLE} />
             </div>
 
             {/* Moderator */}
@@ -1341,26 +1342,26 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                   <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>{__("Nom", "Name")}</label>
                   <select
                     value={streamingTeam.moderator?.name ?? ""}
-                    onChange={e => {
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                       const val = (e.target as HTMLSelectElement).value;
-                      const member = teamMembers.find(m => m.name === val);
-                      if (member) setStreamingTeam(t => ({ ...t, moderator: { name: member.name, email: member.email || "", lang: t.moderator?.lang || "fr" } }));
-                      else setStreamingTeam(t => ({ ...t, moderator: t.moderator ? { ...t.moderator, name: val } : { name: val, email: "", lang: "fr" } }));
+                      const member = teamMembers.find((m: TeamMember) => m.name === val);
+                      if (member) setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, moderator: { name: member.name, email: member.email || "", lang: t.moderator?.lang || "fr" } }));
+                      else setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, moderator: t.moderator ? { ...t.moderator, name: val } : { name: val, email: "", lang: "fr" } }));
                     }}
                     style={{ ...INPUT_STYLE, cursor: "pointer" }}
                     disabled={!canWrite}
                   >
                     <option value="">— {__("Équipe EOCON", "EOCON Team")} —</option>
-                    {teamMembers.map(m => <option key={m.id} value={m.name}>{m.name} ({m.role})</option>)}
+                    {teamMembers.map((m: TeamMember) => <option key={m.id} value={m.name}>{m.name} ({m.role})</option>)}
                   </select>
                 </div>
                 <div>
                   <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>Email</label>
-                  <input value={streamingTeam.moderator?.email ?? ""} onChange={e => setStreamingTeam(t => ({ ...t, moderator: t.moderator ? { ...t.moderator, email: (e.target as HTMLInputElement).value } : { name: "", email: (e.target as HTMLInputElement).value, lang: "fr" } }))} placeholder="email@exemple.com" disabled={!canWrite} style={INPUT_STYLE} />
+                  <input value={streamingTeam.moderator?.email ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, moderator: t.moderator ? { ...t.moderator, email: (e.target as HTMLInputElement).value } : { name: "", email: (e.target as HTMLInputElement).value, lang: "fr" } }))} placeholder="email@exemple.com" disabled={!canWrite} style={INPUT_STYLE} />
                 </div>
                 <div>
                   <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>{__("Langue", "Language")}</label>
-                  <select value={streamingTeam.moderator?.lang ?? "fr"} onChange={e => setStreamingTeam(t => ({ ...t, moderator: t.moderator ? { ...t.moderator, lang: (e.target as HTMLSelectElement).value as "fr" | "en" } : { name: "", email: "", lang: (e.target as HTMLSelectElement).value as "fr" | "en" } }))} style={{ ...INPUT_STYLE, cursor: "pointer" }} disabled={!canWrite}>
+                  <select value={streamingTeam.moderator?.lang ?? "fr"} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, moderator: t.moderator ? { ...t.moderator, lang: (e.target as HTMLSelectElement).value as "fr" | "en" } : { name: "", email: "", lang: (e.target as HTMLSelectElement).value as "fr" | "en" } }))} style={{ ...INPUT_STYLE, cursor: "pointer" }} disabled={!canWrite}>
                     <option value="fr">FR</option>
                     <option value="en">EN</option>
                   </select>
@@ -1381,36 +1382,36 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                 <div style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 2 }}>👤 SPEAKER(S)</div>
                 {canWrite && (
-                  <button onClick={() => setStreamingTeam(t => ({ ...t, speakers: [...t.speakers, { name: "", email: "", lang: "fr" }] }))} style={{ fontSize: 10, color: "#ffaa00", background: "transparent", border: "1px solid #ffaa0030", padding: "3px 10px", borderRadius: 4, cursor: "pointer" }}>+ Speaker</button>
+                  <button onClick={() => setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, speakers: [...t.speakers, { name: "", email: "", lang: "fr" }] }))} style={{ fontSize: 10, color: "#ffaa00", background: "transparent", border: "1px solid #ffaa0030", padding: "3px 10px", borderRadius: 4, cursor: "pointer" }}>+ Speaker</button>
                 )}
               </div>
               {streamingTeam.speakers.length === 0 && <p style={{ fontSize: 11, color: "var(--txt-mute)" }}>{__("Aucun speaker sélectionné.", "No speaker selected.")}</p>}
-              {streamingTeam.speakers.map((sp, idx) => (
+              {streamingTeam.speakers.map((sp: { name: string; email: string; lang: "fr" | "en" }, idx: number) => (
                 <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 80px auto auto", gap: 8, alignItems: "flex-end", marginBottom: 8 }}>
                   <div>
                     {idx === 0 && <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>{__("Nom", "Name")}</label>}
                     <select
                       value={sp.name}
-                      onChange={e => {
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                         const val = (e.target as HTMLSelectElement).value;
-                        const found = acceptedSpeakers.find(s => s.name === val);
+                        const found = acceptedSpeakers.find((s: AcceptedSpeaker) => s.name === val);
                         const email = found?.cfpSubmission?.email || "";
-                        setStreamingTeam(t => { const sps = [...t.speakers]; sps[idx] = { ...sps[idx], name: val, email: email || sps[idx].email }; return { ...t, speakers: sps }; });
+                        setStreamingTeam((t: StreamingTeamConfig) => { const sps = [...t.speakers]; sps[idx] = { ...sps[idx], name: val, email: email || sps[idx].email }; return { ...t, speakers: sps }; });
                       }}
                       style={{ ...INPUT_STYLE, cursor: "pointer" }}
                       disabled={!canWrite}
                     >
                       <option value="">— {__("Speakers acceptés", "Accepted speakers")} —</option>
-                      {acceptedSpeakers.map(s => <option key={s.id} value={s.name}>{s.name}{s.title ? ` (${s.title})` : ""}</option>)}
+                      {acceptedSpeakers.map((s: AcceptedSpeaker) => <option key={s.id} value={s.name}>{s.name}{s.title ? ` (${s.title})` : ""}</option>)}
                     </select>
                   </div>
                   <div>
                     {idx === 0 && <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>Email</label>}
-                    <input value={sp.email} onChange={e => setStreamingTeam(t => { const sps = [...t.speakers]; sps[idx] = { ...sps[idx], email: (e.target as HTMLInputElement).value }; return { ...t, speakers: sps }; })} placeholder="email@exemple.com" disabled={!canWrite} style={INPUT_STYLE} />
+                    <input value={sp.email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStreamingTeam((t: StreamingTeamConfig) => { const sps = [...t.speakers]; sps[idx] = { ...sps[idx], email: (e.target as HTMLInputElement).value }; return { ...t, speakers: sps }; })} placeholder="email@exemple.com" disabled={!canWrite} style={INPUT_STYLE} />
                   </div>
                   <div>
                     {idx === 0 && <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>{__("Langue", "Language")}</label>}
-                    <select value={sp.lang} onChange={e => setStreamingTeam(t => { const sps = [...t.speakers]; sps[idx] = { ...sps[idx], lang: (e.target as HTMLSelectElement).value as "fr" | "en" }; return { ...t, speakers: sps }; })} style={{ ...INPUT_STYLE, cursor: "pointer" }} disabled={!canWrite}>
+                    <select value={sp.lang} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStreamingTeam((t: StreamingTeamConfig) => { const sps = [...t.speakers]; sps[idx] = { ...sps[idx], lang: (e.target as HTMLSelectElement).value as "fr" | "en" }; return { ...t, speakers: sps }; })} style={{ ...INPUT_STYLE, cursor: "pointer" }} disabled={!canWrite}>
                       <option value="fr">FR</option>
                       <option value="en">EN</option>
                     </select>
@@ -1424,7 +1425,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                     </button>
                   )}
                   {canWrite && (
-                    <button onClick={() => setStreamingTeam(t => ({ ...t, speakers: t.speakers.filter((_, i) => i !== idx) }))} style={{ background: "transparent", border: "1px solid #ff000030", color: "#ff6b6b", padding: "8px 10px", borderRadius: 6, fontSize: 10, cursor: "pointer" }}>✕</button>
+                    <button onClick={() => setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, speakers: t.speakers.filter((_: unknown, i: number) => i !== idx) }))} style={{ background: "transparent", border: "1px solid #ff000030", color: "#ff6b6b", padding: "8px 10px", borderRadius: 6, fontSize: 10, cursor: "pointer" }}>✕</button>
                   )}
                 </div>
               ))}
@@ -1519,7 +1520,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                       <code style={{ flex: 1, fontSize: 11, color: "#4488ff", fontFamily: "'Courier New', monospace", wordBreak: "break-all", background: "var(--card)", border: "1px solid #4488ff15", borderRadius: 5, padding: "6px 10px" }}>
                         {showRtmpKey ? restreamStatus.streamKey : "•".repeat(Math.min((restreamStatus.streamKey?.length ?? 0), 28))}
                       </code>
-                      <button onClick={() => setShowRtmpKey(v => !v)} style={{ fontSize: 10, color: "var(--txt-dim)", background: "transparent", border: "1px solid var(--bdr-2)", padding: "5px 10px", borderRadius: 5, cursor: "pointer" }}>
+                      <button onClick={() => setShowRtmpKey((v: boolean) => !v)} style={{ fontSize: 10, color: "var(--txt-dim)", background: "transparent", border: "1px solid var(--bdr-2)", padding: "5px 10px", borderRadius: 5, cursor: "pointer" }}>
                         {showRtmpKey ? __("Masquer", "Hide") : __("Afficher", "Show")}
                       </button>
                       <button onClick={copyStreamKey} style={{ fontSize: 10, color: keyCopied ? "var(--ac)" : "var(--txt-dim)", background: keyCopied ? "var(--ac-bg)" : "transparent", border: `1px solid ${keyCopied ? "var(--ac-bdr)" : "var(--bdr-2)"}`, padding: "5px 10px", borderRadius: 5, cursor: "pointer" }}>
@@ -1791,30 +1792,30 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                       <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                         <button disabled={loading}
                           onClick={async () => {
-                            setOverlayPerSpeaker(s => ({ ...s, [sp.id]: true }));
+                            setOverlayPerSpeaker((s: Record<number, boolean>) => ({ ...s, [sp.id]: true }));
                             await overlayAction("create_caption", { text: captionText, secondaryText: sp.talkTitle || undefined });
                             await loadOverlays();
-                            setOverlayPerSpeaker(s => ({ ...s, [sp.id]: false }));
+                            setOverlayPerSpeaker((s: Record<number, boolean>) => ({ ...s, [sp.id]: false }));
                           }}
                           style={{ fontSize: 10, color: "#ff6b35", background: "#ff6b3510", border: "1px solid #ff6b3530", padding: "4px 10px", borderRadius: 5, cursor: loading ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
                           + Caption
                         </button>
                         <button disabled={loading}
                           onClick={async () => {
-                            setOverlayPerSpeaker(s => ({ ...s, [sp.id]: true }));
+                            setOverlayPerSpeaker((s: Record<number, boolean>) => ({ ...s, [sp.id]: true }));
                             await overlayAction("create_ticker", { text: tickerText });
                             await loadOverlays();
-                            setOverlayPerSpeaker(s => ({ ...s, [sp.id]: false }));
+                            setOverlayPerSpeaker((s: Record<number, boolean>) => ({ ...s, [sp.id]: false }));
                           }}
                           style={{ fontSize: 10, color: "#ff6b35", background: "#ff6b3510", border: "1px solid #ff6b3530", padding: "4px 10px", borderRadius: 5, cursor: loading ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
                           + Ticker
                         </button>
                         <button disabled={loading}
                           onClick={async () => {
-                            setOverlayPerSpeaker(s => ({ ...s, [sp.id]: true }));
+                            setOverlayPerSpeaker((s: Record<number, boolean>) => ({ ...s, [sp.id]: true }));
                             await overlayAction("bulk_speaker", { speakerId: sp.id });
                             await loadOverlays();
-                            setOverlayPerSpeaker(s => ({ ...s, [sp.id]: false }));
+                            setOverlayPerSpeaker((s: Record<number, boolean>) => ({ ...s, [sp.id]: false }));
                           }}
                           style={{ fontSize: 10, color: loading ? "var(--txt-mute)" : "var(--ac)", background: loading ? "transparent" : "var(--ac-bg)", border: `1px solid ${loading ? "var(--bdr-2)" : "var(--ac-bdr)"}`, padding: "4px 10px", borderRadius: 5, cursor: loading ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
                           {loading ? "…" : `⚡ ${__("Les deux", "Both")}`}
@@ -1851,7 +1852,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                 <label style={{ fontSize: 10, color: "#9b59ff", letterSpacing: 2, display: "block", marginBottom: 4 }}>
                   {field === "appId" ? "APP ID (vpaas-magic-cookie-xxxx)" : "API KEY ID (kid)"}
                 </label>
-                <input value={jaas[field]} onChange={e => setJaas(j => ({ ...j, [field]: (e.target as HTMLInputElement).value }))} disabled={!canWrite}
+                <input value={jaas[field]} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setJaas((j: JaasConfig) => ({ ...j, [field]: (e.target as HTMLInputElement).value }))} disabled={!canWrite}
                   placeholder={field === "appId" ? "vpaas-magic-cookie-xxxx" : "xxxx"} style={INPUT_STYLE} />
               </div>
             ))}

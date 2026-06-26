@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
 import { logAction } from "@/lib/auditLog";
@@ -39,17 +40,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     panelistesExtra?: unknown[];
   };
 
+  const data: Prisma.SessionPlanningUncheckedUpdateInput = {};
+  if (body.roomId          !== undefined) data.roomId          = body.roomId;
+  if (body.lienWebinaire   !== undefined) data.lienWebinaire   = body.lienWebinaire;
+  if (body.lienLive        !== undefined) data.lienLive        = body.lienLive;
+  if (body.restreamEventId !== undefined) data.restreamEventId = body.restreamEventId;
+  if (body.technicienIds   !== undefined) data.technicienIds   = body.technicienIds;
+  if (body.moderateurIds   !== undefined) data.moderateurIds   = body.moderateurIds;
+  if (body.panelistesExtra !== undefined) data.panelistesExtra = body.panelistesExtra as Prisma.InputJsonValue[];
+
   const updated = await prisma.sessionPlanning.update({
     where: { id },
-    data: {
-      ...(body.roomId          !== undefined ? { roomId:          body.roomId          } : {}),
-      ...(body.lienWebinaire   !== undefined ? { lienWebinaire:   body.lienWebinaire   } : {}),
-      ...(body.lienLive        !== undefined ? { lienLive:        body.lienLive        } : {}),
-      ...(body.restreamEventId !== undefined ? { restreamEventId: body.restreamEventId } : {}),
-      ...(body.technicienIds   !== undefined ? { technicienIds:   body.technicienIds   } : {}),
-      ...(body.moderateurIds   !== undefined ? { moderateurIds:   body.moderateurIds   } : {}),
-      ...(body.panelistesExtra !== undefined ? { panelistesExtra: body.panelistesExtra } : {}),
-    },
+    data,
     include: {
       session: { select: { id: true, title: true, date: true, time: true, type: true, speakerName: true } },
       room: true,

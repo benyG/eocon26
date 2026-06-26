@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 type Lang = "fr" | "en";
@@ -176,7 +176,7 @@ const themes = {
   },
 } as const;
 
-export default function LivePage() {
+function LivePageInner() {
   const searchParams = useSearchParams();
   const liveToken = searchParams?.get("t") ?? null;
 
@@ -649,5 +649,13 @@ export default function LivePage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function LivePage() {
+  return (
+    <Suspense>
+      <LivePageInner />
+    </Suspense>
   );
 }

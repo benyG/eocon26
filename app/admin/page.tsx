@@ -3874,7 +3874,7 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const batchIssue = async () => {
-    const targets = people.filter(p => !hasBadge(p));
+    const targets = people.filter(p => !hasBadge(p) && (activeTab !== "participant" || (p.status === "validated" && p.checkedInAt != null)));
     if (!targets.length) return;
     if (!(await confirm({ message: lang === "en" ? `Issue ${targets.length} badge(s) for those who haven't received them?` : `Émettre ${targets.length} badge(s) pour les non-reçus ?`, confirmLabel: lang === "en" ? "Issue" : "Émettre" }))) return;
     setBatchIssuing(true);
@@ -3892,7 +3892,7 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const displayed = filterUnreceived ? people.filter(p => !hasBadge(p)) : people;
-  const unreceived = people.filter(p => !hasBadge(p)).length;
+  const unreceived = people.filter(p => !hasBadge(p) && (activeTab !== "participant" || (p.status === "validated" && p.checkedInAt != null))).length;
 
   return (
     <div>
@@ -3949,12 +3949,25 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
             const received = hasBadge(p);
             const date = getBadgeDate(p);
             const isIssuing = issuingId === email;
+            const personId = p.id as number | undefined;
+            const pStat = (activeTab === "participant" && personId != null && presenceStats)
+              ? presenceStats.get(personId)
+              : undefined;
+            // Eligibility: participants must be validated AND checked in; other categories always eligible
+            const isEligible = activeTab !== "participant"
+              || (p.status === "validated" && p.checkedInAt != null);
             return (
               <div key={i} className="cyber-card rounded-lg px-4 py-3 flex items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-white text-sm font-bold truncate">{name}</p>
                   <p className="text-gray-500 text-xs">{email}</p>
                 </div>
+                {pStat != null && (
+                  <div className="shrink-0 text-center min-w-[90px]">
+                    <p className="text-xs text-gray-400">{pStat.totalMinutes} min</p>
+                    <p className="text-xs text-neon-green font-bold">{pStat.cpe} CPE</p>
+                  </div>
+                )}
                 <div className="shrink-0 text-center min-w-[120px]">
                   {received ? (
                     <div>
@@ -3976,16 +3989,26 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
                     🔍
                   </a>
                 )}
-                {canWrite && <button
-                  onClick={() => issueBadge(p, received ? "resend" : "issue")}
-                  disabled={isIssuing}
-                  className="shrink-0 text-xs px-3 py-1.5 rounded border transition-all disabled:opacity-50"
-                  style={received
-                    ? { borderColor: "#ffffff20", color: "#888" }
-                    : { borderColor: "#00ff9d40", color: "#00ff9d", background: "#00ff9d10" }}
-                >
-                  {isIssuing ? "…" : received ? (lang === "en" ? "Resend" : "Renvoyer") : (lang === "en" ? "Issue" : "Émettre")}
-                </button>}
+                {canWrite && (isEligible ? (
+                  <button
+                    onClick={() => issueBadge(p, received ? "resend" : "issue")}
+                    disabled={isIssuing}
+                    className="shrink-0 text-xs px-3 py-1.5 rounded border transition-all disabled:opacity-50"
+                    style={received
+                      ? { borderColor: "#ffffff20", color: "#888" }
+                      : { borderColor: "#00ff9d40", color: "#00ff9d", background: "#00ff9d10" }}
+                  >
+                    {isIssuing ? "…" : received ? (lang === "en" ? "Resend" : "Renvoyer") : (lang === "en" ? "Issue" : "Émettre")}
+                  </button>
+                ) : (
+                  <span
+                    className="shrink-0 text-xs px-3 py-1.5 rounded border"
+                    style={{ borderColor: "#ffffff15", color: "#555" }}
+                    title={lang === "en" ? "Must be validated and checked in" : "Doit être validé et enregistré"}
+                  >
+                    {lang === "en" ? "Not eligible" : "Non éligible"}
+                  </span>
+                ))}
               </div>
             );
           })}

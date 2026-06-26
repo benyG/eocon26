@@ -542,7 +542,6 @@ export const adminI18n = {
 
     // Live panel
     live: "LIVE STREAMING",
-    studio: "Studio",
     liveTitle: "Live Streaming",
     liveSubtitle: "Configurez les flux vidéo et le programme diffusé aux participants en ligne",
     liveStreamsTab: "📡 Flux vidéo",
@@ -1105,7 +1104,6 @@ export const adminI18n = {
 
     // Live panel
     live: "LIVE STREAMING",
-    studio: "Studio",
     liveTitle: "Live Streaming",
     liveSubtitle: "Configure video streams and the programme shown to online participants",
     liveStreamsTab: "📡 Video streams",

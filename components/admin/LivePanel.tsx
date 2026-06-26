@@ -573,16 +573,38 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
     } finally { setNotifying(false); }
   };
 
+  const [fetchLiveUrlResult, setFetchLiveUrlResult] = useState<string | null>(null);
+  const [fetchingLiveUrl, setFetchingLiveUrl] = useState(false);
+
+  const fetchLiveUrl = async () => {
+    setFetchingLiveUrl(true); setFetchLiveUrlResult(null);
+    try {
+      const res = await fetch("/api/admin/live/restream/fetch-live-url");
+      const data = await res.json().catch(() => null);
+      if (data?.liveUrl) {
+        setPlanning((p: SessionPlanning) => ({ ...p, lienLive: data.liveUrl }));
+        setFetchLiveUrlResult(`✓ ${__("URL récupérée", "URL fetched")} (${data.source === "channel_live" ? __("live en cours", "live in progress") : __("événement Restream", "Restream event")})`);
+      } else {
+        setFetchLiveUrlResult(`— ${data?.message ?? __("Aucun live actif détecté", "No active live detected")}`);
+      }
+    } finally { setFetchingLiveUrl(false); }
+  };
+
   const createRestreamLiveUrl = async () => {
     if (!selectedPlanSession) return;
-    setCreatingLiveUrl(true);
+    setCreatingLiveUrl(true); setFetchLiveUrlResult(null);
     try {
       const res = await fetch("/api/admin/live/restream/create-event", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionTitle: selectedPlanSession.title }),
+        body: JSON.stringify({ sessionTitle: selectedPlanSession.title, privacy: "unlisted" }),
       });
       const data = await res.json().catch(() => null);
-      if (data?.liveUrl) setPlanning((p: SessionPlanning) => ({ ...p, lienLive: data.liveUrl }));
+      if (data?.liveUrl) {
+        setPlanning((p: SessionPlanning) => ({ ...p, lienLive: data.liveUrl }));
+        setFetchLiveUrlResult(`✓ ${__("Événement créé", "Event created")}${data.eventIdentifier ? ` — ID: ${data.eventIdentifier}` : ""}`);
+      } else {
+        setFetchLiveUrlResult(`⚠ ${data?.error ?? __("L'événement a été créé mais l'ID YouTube n'est pas encore disponible", "Event created but YouTube ID not yet available")}`);
+      }
     } finally { setCreatingLiveUrl(false); }
   };
 
@@ -1023,26 +1045,42 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
 
                 {/* Lien live */}
                 <div style={{ marginBottom: 16 }}>
-                  <label style={{ fontSize: 10, color: "#00cc88", letterSpacing: 2, display: "block", marginBottom: 6 }}>🔴 {__("LIEN LIVE", "LIVE LINK")} <span style={{ color: "var(--txt-mute)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>({__("affiché aux participants sur /live", "shown to participants on /live")})</span></label>
+                  <label style={{ fontSize: 10, color: "#00cc88", letterSpacing: 2, display: "block", marginBottom: 6 }}>🔴 {__("LIEN LIVE", "LIVE LINK")} <span style={{ color: "var(--txt-mute)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>({__("embed affiché aux participants sur /live", "embed shown to participants on /live")})</span></label>
                   <div style={{ display: "flex", gap: 8 }}>
                     <input
                       value={planning.lienLive}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPlanning((p: SessionPlanning) => ({ ...p, lienLive: (e.target as HTMLInputElement).value }))}
                       disabled={!canWrite}
-                      placeholder="https://…"
+                      placeholder="https://www.youtube.com/embed/VIDEO_ID?autoplay=1"
                       style={{ ...INPUT_STYLE, flex: 1 }}
                     />
                     {canWrite && (
-                      <button
-                        onClick={createRestreamLiveUrl}
-                        disabled={creatingLiveUrl}
-                        title={__("Créer un événement Restream et récupérer l'URL live", "Create a Restream event and get the live URL")}
-                        style={{ background: "#ff444415", border: "1px solid #ff444440", color: creatingLiveUrl ? "var(--txt-mute)" : "#ff6b6b", padding: "6px 10px", borderRadius: 6, cursor: creatingLiveUrl ? "not-allowed" : "pointer", fontSize: 14, flexShrink: 0 }}>
-                        {creatingLiveUrl ? "…" : "🔴"}
-                      </button>
+                      <>
+                        <button
+                          onClick={fetchLiveUrl}
+                          disabled={fetchingLiveUrl}
+                          title={__("Récupérer l'URL du live en cours (canal Restream ou événement récent)", "Fetch the URL of the ongoing live (Restream channel or recent event)")}
+                          style={{ background: "#00cc8815", border: "1px solid #00cc8840", color: fetchingLiveUrl ? "var(--txt-mute)" : "#00cc88", padding: "6px 12px", borderRadius: 6, cursor: fetchingLiveUrl ? "not-allowed" : "pointer", fontSize: 11, fontWeight: 700, flexShrink: 0, whiteSpace: "nowrap" as const }}>
+                          {fetchingLiveUrl ? "…" : `↗ ${__("Récupérer", "Fetch")}`}
+                        </button>
+                        <button
+                          onClick={createRestreamLiveUrl}
+                          disabled={creatingLiveUrl || !selectedPlanSession}
+                          title={__("Créer un événement Restream (non listé) et récupérer l'URL live", "Create an unlisted Restream event and get the live URL")}
+                          style={{ background: "#ff444415", border: "1px solid #ff444440", color: creatingLiveUrl ? "var(--txt-mute)" : "#ff6b6b", padding: "6px 12px", borderRadius: 6, cursor: (creatingLiveUrl || !selectedPlanSession) ? "not-allowed" : "pointer", fontSize: 11, fontWeight: 700, flexShrink: 0, whiteSpace: "nowrap" as const }}>
+                          {creatingLiveUrl ? "…" : `+ ${__("Créer", "Create")}`}
+                        </button>
+                      </>
                     )}
                   </div>
-                  <div style={{ fontSize: 10, color: "var(--txt-mute)", marginTop: 4 }}>🔴 = {__("Créer événement Restream et récupérer l'URL", "Create Restream event and get URL")}</div>
+                  {fetchLiveUrlResult && (
+                    <div style={{ fontSize: 11, color: fetchLiveUrlResult.startsWith("✓") ? "var(--ac)" : "var(--txt-mute)", marginTop: 6 }}>
+                      {fetchLiveUrlResult}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 10, color: "var(--txt-mute)", marginTop: 4 }}>
+                    {__("↗ Récupérer", "↗ Fetch")} = {__("détecte le live en cours", "detects the ongoing live")} · {__("+ Créer", "+ Create")} = {__("crée un événement Restream (non listé)", "creates an unlisted Restream event")}
+                  </div>
                 </div>
 
                 {/* Modérateurs */}

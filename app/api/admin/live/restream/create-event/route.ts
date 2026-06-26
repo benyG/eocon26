@@ -59,9 +59,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Network error: ${(e as Error).message}` }, { status: 502 });
   }
 
-  // Extract the YouTube video / event identifier from various possible response shapes
+  // Extract the YouTube video ID: check platforms[] first, then top-level fields
   const eventId = data.id ? String(data.id) : null;
-  const eventIdentifier =
+  const platforms = Array.isArray(data.platforms)
+    ? (data.platforms as Array<Record<string, unknown>>)
+    : [];
+  const ytPlatform = platforms.find(p =>
+    String(p.platform ?? p.type ?? "").toLowerCase().includes("youtube"),
+  );
+  const eventIdentifier: string | null =
+    (ytPlatform?.externalEventId as string | undefined) ??
+    (ytPlatform?.eventId as string | undefined) ??
+    (ytPlatform?.videoId as string | undefined) ??
+    (data.externalEventId as string | undefined) ??
     (data.eventIdentifier as string | undefined) ??
     (data.videoId as string | undefined) ??
     (data.youtubeVideoId as string | undefined) ??
@@ -69,7 +79,7 @@ export async function POST(req: NextRequest) {
     null;
 
   const liveUrl = eventIdentifier
-    ? `https://www.youtube.com/watch?v=${eventIdentifier}`
+    ? `https://www.youtube.com/embed/${eventIdentifier}?autoplay=1`
     : null;
 
   logAction(req, "create", "restream_event", eventId ?? undefined, { title: body.title, eventIdentifier: eventIdentifier ?? "" });

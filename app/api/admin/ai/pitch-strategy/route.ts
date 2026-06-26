@@ -16,13 +16,21 @@ export async function POST(req: NextRequest) {
 
 Contexte EOCON : ${eoconCtx}
 
-Angles stratégiques disponibles :
-1. Accès à un vivier de talents : recruter ou rayonner dans l'écosystème cyber africain et diaspora.
-2. Positionnement sur le marché africain de la cybersécurité — la prochaine vague de croissance mondiale.
-3. Visibilité internationale : 15+ pays, audience en ligne (Paris, Montréal, Lagos, Londres).
-4. Association à un mouvement : "Where Africa secures the future" — signal fort pour clients, talents et partenaires.
+Positionnement EOCON :
+EOCON ne doit jamais être réduit à une simple conférence. C'est une plateforme d'écosystème, un rendez-vous stratégique et un mouvement qui connecte talents, experts, entreprises, décideurs, institutions et diaspora autour de la cybersécurité africaine.
 
-Tu dois préparer un brief stratégique INTERNE (200 mots max) pour convaincre ce sponsor potentiel.
+Phrase de référence :
+"Where Africa secures the future."
+
+Axes stratégiques disponibles :
+1. Accès à un vivier de talents cyber : recrutement, marque employeur, visibilité auprès des profils techniques.
+2. Positionnement sur le marché africain de la cybersécurité : présence précoce dans un écosystème en croissance.
+3. Visibilité internationale : audience multi-pays, diaspora, accessibilité en ligne, rayonnement au-delà du Cameroun.
+4. Association à un mouvement : contribution visible à la construction du futur cyber africain.
+5. Crédibilité technique : workshops, CTF, talks experts, communautés spécialisées.
+6. Influence business : accès à des décideurs, partenaires, institutions et entreprises sensibles aux enjeux cyber.
+
+Sponsor potentiel :
 
 Sponsor : ${org}
 Secteur : ${sector || "non précisé"}
@@ -31,11 +39,24 @@ Site web : ${website || "non disponible"}
 Package recommandé : ${recommendedPackage || "à déterminer"}
 ${aiScoreReason ? `Analyse préliminaire : ${aiScoreReason}` : ""}
 
+Instructions :
+- Adapte l'argumentaire au secteur du sponsor.
+- Ne fais aucune promesse non prouvée.
+- N'invente aucun chiffre, partenaire, ville, speaker ou sponsor.
+- Utilise uniquement les données présentes dans le contexte fourni.
+- Ne parle pas seulement de visibilité logo : relie toujours le sponsoring à un résultat business concret.
+- Si le secteur est inconnu, privilégie les angles universels : talents, image, écosystème, visibilité internationale, accès marché.
+- Le ton doit être stratégique, direct, premium et orienté décision.
+- Le brief doit aider l'équipe à savoir quoi dire, quoi éviter et comment ouvrir la discussion.
+
 Génère un brief concis comprenant :
-1. **Accroche** (1-2 phrases) : l'argument central adapté à leur secteur — jamais "une conférence", toujours un mouvement/écosystème
-2. **Valeur concrète** (3-4 points) : ce qu'ils gagnent concrètement (talents, marché, visibilité internationale, image)
-3. **Objection probable** + réponse préparée
-4. **Ouverture de réunion** : une question sur leur stratégie talents ou positionnement Afrique pour engager la conversation
+1. "accroche" : 1 à 2 phrases adaptées au sponsor.
+2. "valeur" : 3 à 4 bénéfices concrets pour ce sponsor.
+3. "objection" : l'objection la plus probable + une réponse préparée.
+4. "ouverture" : une question intelligente pour démarrer la réunion.
+5. "angle_prioritaire" : l'axe le plus fort à utiliser avec ce sponsor.
+6. "a_eviter" : ce qu'il ne faut pas dire ou ne pas trop mettre en avant.
+7. "brief_complet" : texte fluide de 200 mots maximum, prêt à être lu avant la réunion.
 
 Réponds uniquement en JSON :
 {

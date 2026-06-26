@@ -41,29 +41,79 @@ export async function POST(req: NextRequest) {
 
   // The CTA for this content type is mandatory when configured — per-language instruction
   const ctaInstruction = cta
-    ? `\n🔗 CTA IMPOSÉ — tu DOIS terminer chaque post par exactement ce lien, en respectant la langue du post :\n  • Posts en français : "${cta.text}" → ${cta.url}\n  • Posts en anglais : "${cta.textEn}" → ${cta.url}\nN'utilise AUCUNE autre URL EOCON. N'invente rien. Ce lien et ce libellé (dans la bonne langue) uniquement.`
+    ? `\n🔗 CTA IMPOSÉ — tu DOIS terminer chaque post par le CTA exact correspondant à la langue du post. :\n  • Posts en français : "${cta.text}" → ${cta.url}\n  • Posts en anglais : "${cta.textEn}" → ${cta.url}\nN'utilise AUCUNE autre URL EOCON. N'invente rien. Ce lien et ce libellé (dans la bonne langue) uniquement.`
     : `\nAucun CTA configuré pour ce type de contenu. N'invente aucune URL liée à l'événement EOCON.`;
 
   const prompt = `${eoconCtx}${contextSection ? "\n" + contextSection : ""}
 ${ctaInstruction}
 
-Tu es la voix d'EOCON. Tu incarnes un mouvement, pas un événement.
+Tu es la voix d'EOCON.
+Tu n'écris pas pour promouvoir une simple conférence. Tu écris pour incarner un mouvement cyber africain, une plateforme internationale, un rendez-vous stratégique pour celles et ceux qui veulent compter dans la cybersécurité.
+Positionnement central :
+EOCON est l'évènement bilingue d'une semaine qui connecte talents, experts,  professionnels, entreprises, décideurs et chercheurs pour accélérer la cybersécurité dans le monde et particulièrement en Afrique.
+
+Phrase de référence disponible :
+"Where Africa secures the future."
+
+Axes éditoriaux prioritaires :
+1. EOCON comme carrefour cyber bilingue : francophone, anglophone, international et africain en particulier, 15+ pays, accessibilité en ligne.
+2. EOCON comme plateforme d'opportunités : apprendre, recruter, networker, se rendre visible, créer des collaborations.
+3. EOCON comme espace de crédibilité technique : workshops, compétition CTF, experts, pratiques concrètes, montée en compétence.
+4. EOCON comme mouvement d'écosystème : entreprises, institutions, étudiants, professionnels, communautés techniques.
+5. EOCON comme rendez-vous stratégique africain à Douala, au cœur du hub économique de l'Afrique centrale.
+6. EOCON comme dynamique durable : 7e édition, communauté établie, plateforme construite pour le long terme.
+
 Règles éditoriales :
-— Ne jamais présenter EOCON comme "une conférence" : c'est un rendez-vous, une plateforme, un mouvement.
-— Ne jamais vendre des talks ou des speakers seuls : vendre l'accès à une communauté, à des opportunités, à un écosystème.
-— Toujours évoquer la dimension internationale : diaspora, audience de 15+ pays, accessibilité en ligne.
-— Faire sentir que rater EOCON, c'est rater un moment dans l'évolution de la cybersécurité africaine et mondiale.
-— Ton : ambitieux, visionnaire, premium, inspirant. Jamais générique, jamais purement promotionnel.
-— Phrase de référence disponible : "Where Africa secures the future."
+— Ne jamais réduire EOCON à une simple conférence.
+— Ne jamais vendre uniquement des talks, des speakers ou un programme.
+— Toujours vendre l'accès à une communauté de talents, à des opportunités, à un écosystème, à un moment important.
+— Faire sentir que rater EOCON, c'est rater un signal fort dans l'évolution de la cybersécurité africaine, voir internationale.
+— Le ton doit être ambitieux, visionnaire, premium, inspirant et concret.
+— Éviter les formulations génériques comme "ne manquez pas cet événement exceptionnel".
+— Éviter le langage corporate froid.
+— Ne pas exagérer avec des promesses non prouvées.
+— Ne pas inventer de chiffres, de noms, de sponsors, de speakers ou de partenaires.
+— Utiliser les chiffres uniquement s'ils sont présents dans le contexte fourni.
+— Adapter naturellement la langue, la culture et le ton à chaque plateforme.
 
 À partir du brief suivant, génère des posts optimisés pour chaque réseau social.
 
 Brief: ${brief}
 
-Règles de format :
-- LinkedIn : professionnel, storytelling du mouvement, 200-300 mots, émojis pertinents, terminer par le CTA imposé ci-dessus, hashtags en fin (#EOCON #EyesOpenCTF #Africa #SecuresTheFuture #Cameroon #Cybersecurity #InfoSec)
-- Twitter/X : percutant, 260 caractères max strict, inclure le CTA imposé, 2-3 hashtags max
-- Instagram : visuel et engageant, 150 mots max, inclure le CTA imposé, 8-10 hashtags variés en fin
+Règles de format, Contraintes par réseau :
+
+LinkedIn :
+- 200 à 300 mots.
+- Ton professionnel, stratégique et inspirant.
+- Storytelling autour du mouvement EOCON.
+- Mettre en avant l'écosystème, les talents, les décideurs et l'impact africain.
+- Hashtags avant le CTA.
+- Terminer par le CTA imposé.
+
+Twitter/X :
+- 260 caractères maximum, CTA inclus.
+- Message direct, mémorable et percutant.
+- 2 à 3 hashtags maximum.
+- Hashtags avant le CTA.
+- Terminer par le CTA imposé.
+- Si le CTA rend les 260 caractères impossibles, prioriser le CTA et produire le message le plus court possible.
+
+Instagram :
+- 150 mots maximum.
+- Ton visuel, émotionnel, engageant.
+- Créer un sentiment d'appartenance et d'urgence.
+- 8 à 10 hashtags variés.
+- Hashtags avant le CTA.
+- Terminer par le CTA imposé.
+
+Hashtags recommandés selon le contexte :
+- Général: #EOCON2026, #EOCON, #EyesOpenSecurity, #SecureTheFuture, 
+- Cyber: #Cybersecurity, #InfoSec, #CyberSecurityAfrica, #AppSec, #CloudSecurity
+- CTF: #CTF, #EyesOpenCTF, #CaptureTheFlag, #EthicalHacking, #RedTeam, #BlueTeam, 
+- Afrique : #AfricaTech, #DigitalAfrica, #AfricaCybersecurity, #TechAfrica
+- Cameroun: #CameroonTech, #Douala, #Cameroun, #DigitalCameroon, 
+- Business: #DigitalTransformation, #CyberRisk, #GRC, #Innovation, #TechLeadership
+- Étudiants: #StudentsInTech, #WomenInCyber, #CyberTalent, #TechCareers
 
 Réponds en JSON uniquement, sans markdown :
 {

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 function getFrom(): string {
-  return process.env.EMAIL_FROM || "EOCON 2026 <noreply@eyesopensecurity.com>";
+  return process.env.EMAIL_FROM || "EOCON <noreply@eyesopensecurity.com>";
 }
 
 // Re-send an already-sent campaign to a filtered subset:

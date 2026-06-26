@@ -61,7 +61,7 @@ function buildSessionICS(s: Session): string {
   const location = (s.room ? `${s.room}, ${EVENT_LOCATION}` : EVENT_LOCATION).replace(/,/g, "\\,");
   return [
     "BEGIN:VCALENDAR", "VERSION:2.0",
-    "PRODID:-//EOCON 2026//eyesopensecurity.com//FR",
+    "PRODID:-//EOCON //eyesopensecurity.com//FR",
     "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
     "BEGIN:VEVENT",
     `UID:${uid}`, `DTSTAMP:${now}`,
@@ -82,11 +82,11 @@ function buildFullICS(sessions: Session[]): string {
     const location = (s.room ? `${s.room}, ${EVENT_LOCATION}` : EVENT_LOCATION).replace(/,/g, "\\,");
     return [
       "BEGIN:VEVENT",
-      `UID:eocon2026-s${s.id}@eyesopensecurity.com`,
+      `UID:eocon-s${s.id}@eyesopensecurity.com`,
       `DTSTAMP:${now}`,
       `DTSTART;TZID=Africa/Douala:${toICSDateTime(date, s.time)}`,
       `DTEND;TZID=Africa/Douala:${endICSDateTime(date, s.time, s.endTime, s.type)}`,
-      `SUMMARY:EOCON 2026 — ${summary}`,
+      `SUMMARY:EOCON — ${summary}`,
       `LOCATION:${location}`,
       s.description ? `DESCRIPTION:${s.description.replace(/\n/g, "\\n").replace(/,/g, "\\,")}` : "",
       "END:VEVENT",
@@ -94,7 +94,7 @@ function buildFullICS(sessions: Session[]): string {
   });
   return [
     "BEGIN:VCALENDAR", "VERSION:2.0",
-    "PRODID:-//EOCON 2026//eyesopensecurity.com//FR",
+    "PRODID:-//EOCON //eyesopensecurity.com//FR",
     "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
     "X-WR-CALNAME:EOCON 2026",
     "X-WR-TIMEZONE:Africa/Douala",
@@ -107,7 +107,7 @@ function googleCalUrl(s: Session): string {
   const date = s.date || EVENT_DATE;
   const dtStart = toICSDateTime(date, s.time);
   const dtEnd = endICSDateTime(date, s.time, s.endTime, s.type);
-  const text = encodeURIComponent(`EOCON 2026 — ${s.speakerName ? `${s.title} — ${s.speakerName}` : s.title}`);
+  const text = encodeURIComponent(`EOCON — ${s.speakerName ? `${s.title} — ${s.speakerName}` : s.title}`);
   const loc = encodeURIComponent(s.room ? `${s.room}, ${EVENT_LOCATION}` : EVENT_LOCATION);
   const desc = encodeURIComponent(s.description || "");
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${dtStart}/${dtEnd}&location=${loc}&details=${desc}`;

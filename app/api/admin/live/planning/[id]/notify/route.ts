@@ -27,7 +27,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { session, room } = planning;
   const techIds = (planning.technicienIds as number[]) ?? [];
   const modIds  = (planning.moderateurIds as number[]) ?? [];
-  const allIds  = [...new Set([...techIds, ...modIds])];
+  const allIds  = Array.from(new Set([...techIds, ...modIds]));
 
   // Fetch team members
   const teamMembers = allIds.length > 0

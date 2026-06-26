@@ -43,7 +43,7 @@ function StatCard({ label, value, color = "#00ff9d" }: { label: string; value: n
 function Badge({ status }: { status: string }) {
   const colors: Record<string, string> = { pending: "#ffaa00", payment_pending: "#ffaa00", paid: "#00ff9d", validated: "#00ff9d", pre_registered: "#00ccff", accepted: "#00ff9d", rejected: "#ff0066" };
   return (
-    <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: (colors[status] || "#888") + "20", color: colors[status] || "#888", fontFamily: "'Share Tech Mono', monospace" }}>
+    <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: colors[status] ? colors[status] + "20" : "var(--bdr)", color: colors[status] || "var(--txt-dim)", fontFamily: "'Share Tech Mono', monospace" }}>
       {status}
     </span>
   );
@@ -557,7 +557,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
                   className={`p-3 rounded-lg border text-left transition-all ${form.profileId === profile.id ? "border-opacity-60" : "border-gray-800 hover:border-gray-600"}`}
                   style={form.profileId === profile.id ? { borderColor: profile.color, background: profile.color + "15" } : {}}
                 >
-                  <p className="text-xs font-bold" style={{ color: form.profileId === profile.id ? profile.color : "#888" }}>
+                  <p className="text-xs font-bold" style={{ color: form.profileId === profile.id ? profile.color : "var(--txt-dim)" }}>
                     {profile.name}{!profile.isSystem && <span className="text-gray-600 font-normal"> · {lang === "en" ? "custom" : "personnalisé"}</span>}
                   </p>
                   <p className="text-gray-600 text-xs mt-0.5">{profile.description}</p>
@@ -610,7 +610,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
             return (
               <div key={u.id as number} className="cyber-card rounded-xl p-4 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: (profile?.color || "#888") + "20", color: profile?.color || "#888" }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: profile?.color ? profile.color + "20" : "var(--bdr)", color: profile?.color || "var(--txt-dim)" }}>
                     {(u.name as string).slice(0, 2).toUpperCase()}
                   </div>
                   <div>
@@ -1140,13 +1140,13 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
               return (
                 <div key={pkg.id as number} className="border border-gray-800 rounded-lg p-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold" style={{ color: (pkg.highlightColor as string) || "#888" }}>{pkg.tier as string}</span>
+                    <span className="text-xs font-bold" style={{ color: (pkg.highlightColor as string) || "var(--txt-dim)" }}>{pkg.tier as string}</span>
                     <span className="text-xs font-mono text-white">{(pkg.price as number) > 0 ? `${(pkg.price as number).toLocaleString("fr-FR")} FCFA` : t.exchangeLabel}</span>
                   </div>
                   <p className="text-gray-500 text-xs mb-2">{pkg.nameFr as string}</p>
                   <ul className="space-y-0.5">
                     {perks.slice(0, 3).map((p, i) => (
-                      <li key={i} className="text-gray-600 text-xs flex gap-1"><span style={{ color: (pkg.highlightColor as string) || "#888" }}>·</span>{p}</li>
+                      <li key={i} className="text-gray-600 text-xs flex gap-1"><span style={{ color: (pkg.highlightColor as string) || "var(--txt-dim)" }}>·</span>{p}</li>
                     ))}
                     {perks.length > 3 && <li className="text-gray-700 text-xs">+{perks.length - 3} {t.morePerks}</li>}
                   </ul>
@@ -2318,7 +2318,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
             <div className="flex justify-between items-start p-6 pb-4 border-b border-gray-800 shrink-0">
               <div>
                 <h3 className="text-white font-bold text-lg">{detail.org as string}</h3>
-                <span className="text-xs px-2 py-0.5 rounded inline-block mt-1" style={{ background: (PROSPECT_STATUSES.find(s => s.value === detail.status)?.color || "#888") + "20", color: PROSPECT_STATUSES.find(s => s.value === detail.status)?.color || "#888" }}>
+                <span className="text-xs px-2 py-0.5 rounded inline-block mt-1" style={{ background: PROSPECT_STATUSES.find(s => s.value === detail.status)?.color ? (PROSPECT_STATUSES.find(s => s.value === detail.status)!.color + "20") : "var(--bdr)", color: PROSPECT_STATUSES.find(s => s.value === detail.status)?.color || "var(--txt-dim)" }}>
                   {(() => { const s = PROSPECT_STATUSES.find(x => x.value === detail.status); return s ? (lang === "en" ? s.en : s.fr) : (detail.status as string); })()}
                 </span>
               </div>
@@ -4828,10 +4828,10 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                       <div key={c.id as number} draggable={canWrite} onDragStart={() => canWrite && setDragId(c.id as number)}
                         onClick={() => canWrite && setEditChallenge({ ...c })}
                         className={`rounded-lg p-2.5 ${canWrite ? "cursor-pointer active:cursor-grabbing hover:brightness-125" : ""} transition-all`}
-                        style={{ background: (CTF_CATEGORY_COLORS[c.category as string] || "#888") + "15", border: `1px solid ${(CTF_CATEGORY_COLORS[c.category as string] || "#888")}40` }}>
+                        style={{ background: CTF_CATEGORY_COLORS[c.category as string] ? CTF_CATEGORY_COLORS[c.category as string] + "15" : "var(--bdr)", border: `1px solid ${CTF_CATEGORY_COLORS[c.category as string] ? CTF_CATEGORY_COLORS[c.category as string] + "40" : "var(--bdr-2)"}` }}>
                         <div className="text-xs font-bold text-white mb-1">{c.title as string}</div>
                         <div className="flex items-center gap-1 flex-wrap">
-                          <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: (CTF_CATEGORY_COLORS[c.category as string] || "#888") + "30", color: CTF_CATEGORY_COLORS[c.category as string] || "#888" }}>{c.category as string}</span>
+                          <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: CTF_CATEGORY_COLORS[c.category as string] ? CTF_CATEGORY_COLORS[c.category as string] + "30" : "var(--bdr-2)", color: CTF_CATEGORY_COLORS[c.category as string] || "var(--txt-dim)" }}>{c.category as string}</span>
                           <span className="text-xs text-gray-500">{c.difficulty as string}</span>
                           <span className="text-xs text-gray-400 ml-auto">{c.points as number}pts</span>
                         </div>

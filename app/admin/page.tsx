@@ -6269,8 +6269,8 @@ export default function AdminDashboard() {
 
           <nav className="flex-1 py-2">
             {visibleTabGroups.map(group => {
-              const isGroupCollapsed = !openGroups.has(group.label) && !groupHasActive;
               const groupHasActive = group.tabs.some(tabItem => tabItem.id === tab);
+              const isGroupCollapsed = !openGroups.has(group.label) && !groupHasActive;
               return (
                 <div key={group.label} className="mb-1">
                   {/* Group header */}

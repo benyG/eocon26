@@ -168,6 +168,76 @@ export async function fetchRestreamStatus(token: string): Promise<RestreamStatus
   };
 }
 
+// ── Active YouTube embed URL ──────────────────────────────────────────────────
+
+interface RestreamEventPlatform {
+  platform?: string;
+  type?: string;
+  eventId?: string;
+  externalEventId?: string;
+  videoId?: string;
+  [key: string]: unknown;
+}
+
+interface RestreamEvent {
+  id?: number | string;
+  title?: string;
+  status?: string;
+  externalEventId?: string;
+  eventIdentifier?: string;
+  videoId?: string;
+  youtubeVideoId?: string;
+  platforms?: RestreamEventPlatform[];
+  [key: string]: unknown;
+}
+
+function extractYoutubeIdFromEvent(event: RestreamEvent): string | null {
+  for (const p of (event.platforms ?? [])) {
+    const isYt = String(p.platform ?? p.type ?? "").toLowerCase().includes("youtube");
+    if (!isYt) continue;
+    const id = p.externalEventId ?? p.eventId ?? p.videoId;
+    if (id) return String(id);
+  }
+  const top = event.externalEventId ?? event.eventIdentifier ?? event.videoId ?? event.youtubeVideoId;
+  return top ? String(top) : null;
+}
+
+/**
+ * Tries to resolve the active YouTube embed URL via Restream:
+ * 1. Channel status → YouTube channel isLive with embedUrl
+ * 2. Events list   → most recent event with a YouTube platform ID
+ * Returns { url, source } or null.
+ */
+export async function fetchActiveYoutubeEmbedUrl(
+  token: string,
+): Promise<{ url: string; source: string } | null> {
+  // ── 1. Channel status (Go Live direct) ───────────────────────────────
+  try {
+    const status = await fetchRestreamStatus(token);
+    if (status.youtubeEmbedUrl) {
+      return { url: status.youtubeEmbedUrl, source: "channel_live" };
+    }
+  } catch { /* non-fatal */ }
+
+  // ── 2. Events list (pre-created event) ───────────────────────────────
+  try {
+    const events = await restreamGet<RestreamEvent[]>("/user/events", token);
+    if (Array.isArray(events)) {
+      for (const ev of events.slice(0, 20)) {
+        const ytId = extractYoutubeIdFromEvent(ev);
+        if (ytId) {
+          return {
+            url: `https://www.youtube.com/embed/${ytId}?autoplay=1`,
+            source: "events_list",
+          };
+        }
+      }
+    }
+  } catch { /* non-fatal */ }
+
+  return null;
+}
+
 // ── Captions ──────────────────────────────────────────────────────────────────
 
 export async function listCaptions(token: string): Promise<RestreamCaption[]> {

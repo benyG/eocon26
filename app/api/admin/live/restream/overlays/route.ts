@@ -5,14 +5,13 @@ import { logAction } from "@/lib/auditLog";
 import {
   listCaptions, createCaption, updateCaption, deleteCaption,
   listTickers, createTicker, updateTicker, deleteTicker,
+  getValidRestreamToken,
 } from "@/lib/restream";
 
 export const dynamic = "force-dynamic";
 
 async function getToken(): Promise<string> {
-  const row = await prisma.eventSetting.findUnique({ where: { key: "restream_access_token" } });
-  if (!row?.value) throw new Error("Token Restream non configuré — allez dans Étape 1 > Configuration Restream");
-  return row.value;
+  return getValidRestreamToken();
 }
 
 // GET — liste toutes les captions et tickers existants

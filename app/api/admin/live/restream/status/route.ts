@@ -1,20 +1,20 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
-import { fetchRestreamStatus } from "@/lib/restream";
+import { fetchRestreamStatus, getValidRestreamToken } from "@/lib/restream";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   if (!(await hasPermission("live", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const row = await prisma.eventSetting.findUnique({ where: { key: "restream_access_token" } });
-  if (!row?.value) return NextResponse.json({ configured: false });
-
   try {
-    const status = await fetchRestreamStatus(row.value);
+    const token = await getValidRestreamToken();
+    const status = await fetchRestreamStatus(token);
     return NextResponse.json({ configured: true, ...status });
   } catch (e) {
-    return NextResponse.json({ configured: true, error: e instanceof Error ? e.message : String(e) });
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("non connecté")) return NextResponse.json({ configured: false });
+    return NextResponse.json({ configured: true, error: msg });
   }
 }

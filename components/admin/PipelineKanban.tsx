@@ -1102,33 +1102,21 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                     <input type="time" value={editSession.endTime || ""} onChange={e => setEditSession(s => s ? { ...s, endTime: e.target.value || null } : s)} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">{__("Salle", "Room")} <span className="text-gray-700">({__("optionnel", "optional")})</span></label>
-                    <input value={editSession.room || ""} onChange={e => setEditSession(s => s ? { ...s, room: e.target.value || null } : s)} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
-                  </div>
-                  <div>
                     <label className="text-xs text-gray-500 block mb-1">{__("Mode", "Mode")}</label>
                     <select value={editSession.mode || ""} onChange={e => setEditSession(s => s ? { ...s, mode: e.target.value || null } : s)} className="cyber-input w-full text-xs rounded px-3 py-2 text-black">
                       <option value="">—</option>
                       <option value="Présentiel">{__("Présentiel", "In-person")}</option>
-                      <option value="Online via Zoom">{__("Online via Zoom", "Online via Zoom")}</option>
+                      <option value="Online">{__("Online", "Online")}</option>
                       <option value="Hybride">{__("Hybride", "Hybrid")}</option>
                     </select>
                   </div>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">{__("Lien Zoom", "Zoom link")} <span className="text-gray-700">({__("speaker privé", "private for speaker")})</span></label>
-                  <input value={editSession.zoomLink || ""} onChange={e => setEditSession(s => s ? { ...s, zoomLink: e.target.value || null } : s)} placeholder="https://zoom.us/j/…" className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 block mb-1">🔴 {__("Lien live", "Live link")} <span className="text-gray-700">({__("affiché aux participants sur /live", "shown to participants on /live")})</span></label>
-                  <input value={editSession.liveUrl || ""} onChange={e => setEditSession(s => s ? { ...s, liveUrl: e.target.value || null } : s)} placeholder="https://meet.jit.si/… ou https://zoom.us/j/…" className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 block mb-1">{__("Date limite slides", "Slides deadline")} <span className="text-gray-700">({__("optionnel", "optional")})</span></label>
                   <input value={editSession.slidesDeadline || ""} onChange={e => setEditSession(s => s ? { ...s, slidesDeadline: e.target.value || null } : s)} placeholder={__("ex : 21 novembre 2026", "e.g. November 21, 2026")} className="cyber-input w-full text-xs rounded px-3 py-2 text-white" />
                 </div>
                 {editSession.speakerId && (
-                  <p className="text-gray-600 text-xs">{__("Les champs", "The fields")} <span className="text-gray-400">{__("mode / Zoom / slides deadline", "mode / Zoom / slides deadline")}</span> {__("alimentent automatiquement l'email", "automatically feed the email")} <span className="text-gray-400">🎤 Speaker — {__("Programmé", "Scheduled")}</span> via {"{{mode}} {{zoomLink}} {{slidesDeadline}}"}.</p>
+                  <p className="text-gray-600 text-xs">{__("Les champs", "The fields")} <span className="text-gray-400">{__("mode / slides deadline", "mode / slides deadline")}</span> {__("alimentent automatiquement l'email", "automatically feed the email")} <span className="text-gray-400">🎤 Speaker — {__("Programmé", "Scheduled")}</span> via {"{{mode}} {{slidesDeadline}}"}.</p>
                 )}
                 <div className="flex gap-2 pt-1">
                   <button onClick={() => saveSession(editSession)} className="btn-neon px-4 py-2 rounded text-xs">💾 {__("Sauvegarder", "Save")}</button>
@@ -1156,19 +1144,15 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                       <label className="text-xs text-gray-500 block mb-1">{__("Mode", "Mode")}</label>
                       <select value={dropMode} onChange={e => setDropMode(e.target.value)} className="cyber-input w-full text-sm rounded px-3 py-2 text-black">
                         <option value="Présentiel">{__("Présentiel", "In-person")}</option>
-                        <option value="Online via Zoom">{__("Online via Zoom", "Online via Zoom")}</option>
+                        <option value="Online">{__("Online", "Online")}</option>
                         <option value="Hybride">{__("Hybride", "Hybrid")}</option>
                       </select>
-                    </div>
-                    <div className="mb-3">
-                      <label className="text-xs text-gray-500 block mb-1">{__("Lien Zoom", "Zoom link")} <span className="text-gray-700">({__("optionnel", "optional")})</span></label>
-                      <input type="text" value={dropZoom} onChange={e => setDropZoom(e.target.value)} placeholder="https://zoom.us/j/…" className="cyber-input w-full text-sm rounded px-3 py-2 text-white" />
                     </div>
                     <div className="mb-4">
                       <label className="text-xs text-gray-500 block mb-1">{__("Date limite d'envoi des slides", "Slides submission deadline")} <span className="text-gray-700">({__("optionnel", "optional")})</span></label>
                       <input type="text" value={dropDeadline} onChange={e => setDropDeadline(e.target.value)} placeholder={__("ex : 21 novembre 2026", "e.g. November 21, 2026")} className="cyber-input w-full text-sm rounded px-3 py-2 text-white" />
                     </div>
-                    <p className="text-gray-600 text-xs mb-4 leading-relaxed">{__("Ces informations alimentent automatiquement l'email « Speaker — Programmé »", "This information automatically feeds the \"Speaker — Scheduled\" email")} ({"{{date}} {{time}} {{mode}} {{zoomLink}} {{slidesDeadline}}"}).</p>
+                    <p className="text-gray-600 text-xs mb-4 leading-relaxed">{__("Ces informations alimentent automatiquement l'email « Speaker — Programmé »", "This information automatically feeds the \"Speaker — Scheduled\" email")} ({"{{date}} {{time}} {{mode}} {{slidesDeadline}}"}).</p>
                   </>
                 )}
                 <div className="flex gap-2">

@@ -43,7 +43,7 @@ function StatCard({ label, value, color = "#00ff9d" }: { label: string; value: n
 function Badge({ status }: { status: string }) {
   const colors: Record<string, string> = { pending: "#ffaa00", payment_pending: "#ffaa00", paid: "#00ff9d", validated: "#00ff9d", pre_registered: "#00ccff", accepted: "#00ff9d", rejected: "#ff0066" };
   return (
-    <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: (colors[status] || "#888") + "20", color: colors[status] || "#888", fontFamily: "'Share Tech Mono', monospace" }}>
+    <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: colors[status] ? colors[status] + "20" : "var(--bdr)", color: colors[status] || "var(--txt-dim)", fontFamily: "'Share Tech Mono', monospace" }}>
       {status}
     </span>
   );
@@ -190,7 +190,7 @@ function AccountModal({
           <button onClick={changePassword} disabled={pwSaving || !curPw || newPw.length < 8} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
             {pwSaving ? "…" : (lang === "en" ? "Change password" : "Changer le mot de passe")}
           </button>
-          {pwMsg && <p className="text-xs" style={{ color: pwMsg.startsWith("✓") ? "#00ff9d" : "#ff6666" }}>{pwMsg}</p>}
+          {pwMsg && <p className="text-xs" style={{ color: pwMsg.startsWith("✓") ? "var(--ac)" : "#ff6666" }}>{pwMsg}</p>}
         </div>
 
         {/* MFA */}
@@ -220,7 +220,7 @@ function AccountModal({
               {lang === "en" ? "Disable MFA" : "Désactiver le MFA"}
             </button>
           )}
-          {mfaMsg && <p className="text-xs" style={{ color: mfaMsg.startsWith("✓") ? "#00ff9d" : "#ff6666" }}>{mfaMsg}</p>}
+          {mfaMsg && <p className="text-xs" style={{ color: mfaMsg.startsWith("✓") ? "var(--ac)" : "#ff6666" }}>{mfaMsg}</p>}
         </div>
       </div>
     </div>
@@ -484,7 +484,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
             <div className="bg-black/50 border border-neon-green/30 rounded-lg p-4 mb-4">
               <p className="text-xs text-gray-500 mb-1">{lang === "en" ? "Temporary password" : "Mot de passe temporaire"}</p>
               <div className="flex items-center justify-between">
-                <span className="text-xl font-black font-mono" style={{ color: "#00ff9d", fontFamily: "'Share Tech Mono', monospace" }}>{created.tempPassword}</span>
+                <span className="text-xl font-black font-mono" style={{ color: "var(--ac)", fontFamily: "'Share Tech Mono', monospace" }}>{created.tempPassword}</span>
                 <button onClick={() => navigator.clipboard.writeText(created.tempPassword)} className="text-xs text-gray-500 hover:text-white transition-colors px-2">{lang === "en" ? "Copy" : "Copier"}</button>
               </div>
             </div>
@@ -557,7 +557,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
                   className={`p-3 rounded-lg border text-left transition-all ${form.profileId === profile.id ? "border-opacity-60" : "border-gray-800 hover:border-gray-600"}`}
                   style={form.profileId === profile.id ? { borderColor: profile.color, background: profile.color + "15" } : {}}
                 >
-                  <p className="text-xs font-bold" style={{ color: form.profileId === profile.id ? profile.color : "#888" }}>
+                  <p className="text-xs font-bold" style={{ color: form.profileId === profile.id ? profile.color : "var(--txt-dim)" }}>
                     {profile.name}{!profile.isSystem && <span className="text-gray-600 font-normal"> · {lang === "en" ? "custom" : "personnalisé"}</span>}
                   </p>
                   <p className="text-gray-600 text-xs mt-0.5">{profile.description}</p>
@@ -570,7 +570,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
               <p className="text-xs text-gray-500 mb-2">{lang === "en" ? "Included access" : "Accès inclus"}</p>
               <div className="flex flex-wrap gap-1">
                 {Object.entries(selectedProfile.permissions).map(([k, v]) => (
-                  <span key={k} className="text-xs px-2 py-0.5 rounded" style={{ background: v === "write" ? "#00ff9d15" : "#0066ff15", color: v === "write" ? "#00ff9d" : "#0066ff" }}>
+                  <span key={k} className="text-xs px-2 py-0.5 rounded" style={{ background: v === "write" ? "var(--ac-bg)" : "#0066ff15", color: v === "write" ? "var(--ac)" : "#0066ff" }}>
                     {k}: {v}
                   </span>
                 ))}
@@ -610,7 +610,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
             return (
               <div key={u.id as number} className="cyber-card rounded-xl p-4 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: (profile?.color || "#888") + "20", color: profile?.color || "#888" }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: profile?.color ? profile.color + "20" : "var(--bdr)", color: profile?.color || "var(--txt-dim)" }}>
                     {(u.name as string).slice(0, 2).toUpperCase()}
                   </div>
                   <div>
@@ -887,7 +887,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
             <div className="flex items-center justify-between p-6 pb-4 border-b border-gray-800 shrink-0">
               <div>
                 <h3 className="text-white font-bold">{emailTarget.org as string}</h3>
-                <p className="text-gray-500 text-xs">{emailTarget.sector as string} · {t.package} : <span style={{ color: "#00ff9d" }}>{(emailTarget.recommendedPackage as string) || "—"}</span></p>
+                <p className="text-gray-500 text-xs">{emailTarget.sector as string} · {t.package} : <span style={{ color: "var(--ac)" }}>{(emailTarget.recommendedPackage as string) || "—"}</span></p>
               </div>
               <button onClick={() => { setEmailTarget(null); setEmailResult(null); }} className="text-gray-500 hover:text-white text-xl">✕</button>
             </div>
@@ -902,7 +902,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                   <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-gray-400 uppercase">{e.lang}</span>
-                      <button onClick={() => navigator.clipboard.writeText(`${t.emailSubjectField} : ${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>{t.close}</button>
+                      <button onClick={() => navigator.clipboard.writeText(`${t.emailSubjectField} : ${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "var(--ac)" }}>{t.close}</button>
                     </div>
                     <p className="text-white text-xs font-bold mb-2">{t.emailSubjectField} : {e.subject}</p>
                     <p className="text-gray-400 text-xs whitespace-pre-wrap leading-relaxed">{e.body}</p>
@@ -911,7 +911,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                 {canWrite && <button
                   onClick={() => addToPipeline(emailTarget)}
                   className="w-full py-2 rounded text-sm font-bold transition-all"
-                  style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}
+                  style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "1px solid var(--ac-bdr)" }}
                 >
                   {t.addToPipeline}
                 </button>}
@@ -944,7 +944,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                   <p className="text-xs font-bold uppercase tracking-widest mb-2 text-gray-400">{lang === "en" ? "Concrete value" : "Valeur concrète"}</p>
                   <ul className="space-y-1">
                     {pitchResult.valeur.map((v, i) => (
-                      <li key={i} className="text-gray-300 text-sm flex gap-2"><span style={{ color: "#00ff9d" }}>▸</span>{v}</li>
+                      <li key={i} className="text-gray-300 text-sm flex gap-2"><span style={{ color: "var(--ac)" }}>▸</span>{v}</li>
                     ))}
                   </ul>
                 </div>
@@ -960,7 +960,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                 <div className="border border-gray-800 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs font-bold uppercase tracking-widest text-gray-400">{lang === "en" ? "Full brief" : "Brief complet"}</p>
-                    <button onClick={() => navigator.clipboard.writeText(pitchResult!.brief_complet)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>📋 {lang === "en" ? "Copy" : "Copier"}</button>
+                    <button onClick={() => navigator.clipboard.writeText(pitchResult!.brief_complet)} className="text-xs hover:underline" style={{ color: "var(--ac)" }}>📋 {lang === "en" ? "Copy" : "Copier"}</button>
                   </div>
                   <p className="text-gray-300 text-xs whitespace-pre-wrap leading-relaxed">{pitchResult.brief_complet}</p>
                 </div>
@@ -972,7 +972,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
       )}
 
       <div className="cyber-card rounded-xl p-5 mb-5">
-        <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#00ff9d" }}>
+        <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "var(--ac)" }}>
           {t.prospectionStep1}
         </h2>
         <div className="flex gap-2 mb-4">
@@ -1057,13 +1057,13 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                     <p className="text-gray-500 text-xs mt-0.5">{lead.sector as string}{lead.city ? ` · ${lead.city}` : ""}</p>
                   )}
                   <div className="flex gap-1.5 flex-wrap mt-1.5">
-                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.contactEmail ? "#00ff9d20" : "#ff006615", color: lead.contactEmail ? "#00ff9d" : "#ff0066" }}>📧 email</span>
-                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.phone ? "#00ff9d20" : "#ff006615", color: lead.phone ? "#00ff9d" : "#ff0066" }}>📞 tel</span>
-                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.contactName ? "#00ff9d20" : "#ff006615", color: lead.contactName ? "#00ff9d" : "#ff0066" }}>👤 contact</span>
-                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.website ? "#00ff9d20" : "#ff006615", color: lead.website ? "#00ff9d" : "#ff0066" }}>🌐 web</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.contactEmail ? "var(--ac-bg)" : "#ff006615", color: lead.contactEmail ? "var(--ac)" : "#ff0066" }}>📧 email</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.phone ? "var(--ac-bg)" : "#ff006615", color: lead.phone ? "var(--ac)" : "#ff0066" }}>📞 tel</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.contactName ? "var(--ac-bg)" : "#ff006615", color: lead.contactName ? "var(--ac)" : "#ff0066" }}>👤 contact</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.website ? "var(--ac-bg)" : "#ff006615", color: lead.website ? "var(--ac)" : "#ff0066" }}>🌐 web</span>
                   </div>
                   {!!lead.contactName && (
-                    <p className="text-xs mt-1" style={{ color: "#00ff9d" }}>
+                    <p className="text-xs mt-1" style={{ color: "var(--ac)" }}>
                       👤 {lead.contactName as string}{lead.contactTitle ? ` — ${lead.contactTitle}` : ""}
                     </p>
                   )}
@@ -1140,13 +1140,13 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
               return (
                 <div key={pkg.id as number} className="border border-gray-800 rounded-lg p-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold" style={{ color: (pkg.highlightColor as string) || "#888" }}>{pkg.tier as string}</span>
+                    <span className="text-xs font-bold" style={{ color: (pkg.highlightColor as string) || "var(--txt-dim)" }}>{pkg.tier as string}</span>
                     <span className="text-xs font-mono text-white">{(pkg.price as number) > 0 ? `${(pkg.price as number).toLocaleString("fr-FR")} FCFA` : t.exchangeLabel}</span>
                   </div>
                   <p className="text-gray-500 text-xs mb-2">{pkg.nameFr as string}</p>
                   <ul className="space-y-0.5">
                     {perks.slice(0, 3).map((p, i) => (
-                      <li key={i} className="text-gray-600 text-xs flex gap-1"><span style={{ color: (pkg.highlightColor as string) || "#888" }}>·</span>{p}</li>
+                      <li key={i} className="text-gray-600 text-xs flex gap-1"><span style={{ color: (pkg.highlightColor as string) || "var(--txt-dim)" }}>·</span>{p}</li>
                     ))}
                     {perks.length > 3 && <li className="text-gray-700 text-xs">+{perks.length - 3} {t.morePerks}</li>}
                   </ul>
@@ -1903,7 +1903,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                     onClick={savePosts}
                     disabled={saving || !scheduleDate}
                     className="py-2 rounded text-xs font-bold transition-all"
-                    style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d40" }}
+                    style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "1px solid var(--ac-bdr)" }}
                   >
                     {saving ? "..." : t.schedulePostBtn}
                   </button>
@@ -1948,7 +1948,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                     <div key={post.id as number} className="border border-gray-800 rounded-lg p-3 space-y-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={{ background: platformColor + "20", color: platformColor }}>{post.platform as string}</span>
-                        <span className="text-xs px-1.5 py-0.5 rounded font-mono uppercase" style={{ background: "#ffffff10", color: "#aaa" }}>{post.lang as string}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded font-mono uppercase" style={{ background: "var(--bdr)", color: "var(--txt-2)" }}>{post.lang as string}</span>
                         <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={{ background: color + "20", color }}>{post.status as string}</span>
                         {!!post.scheduledAt && <span className="text-xs text-gray-600">📅 {new Date(post.scheduledAt as string).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>}
                       </div>
@@ -1993,7 +1993,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                             href={post.platform === "twitter"
                               ? `https://x.com/i/web/status/${post.linkedinPostId as string}`
                               : `https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`}
-                            target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded" style={{ color: "#00ff9d" }}
+                            target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded" style={{ color: "var(--ac)" }}
                           >↗ Voir</a>
                         )}
                         {canWrite && post.status === "failed" && (
@@ -2281,7 +2281,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                 <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-xs font-bold text-gray-400">{e.lang}</span>
-                    <button onClick={() => navigator.clipboard.writeText(`${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>{lang === "en" ? "Copy" : "Copier"}</button>
+                    <button onClick={() => navigator.clipboard.writeText(`${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "var(--ac)" }}>{lang === "en" ? "Copy" : "Copier"}</button>
                   </div>
                   <p className="text-white text-xs font-bold mb-2">{lang === "en" ? "Subject:" : "Objet:"} {e.subject}</p>
                   <p className="text-gray-400 text-xs whitespace-pre-wrap">{e.body}</p>
@@ -2290,14 +2290,14 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                     disabled={!aiEmailTarget.email || sendingLang !== null}
                     title={!aiEmailTarget.email ? (lang === "en" ? "No email address for this prospect" : "Ce prospect n'a pas d'email") : undefined}
                     className="mt-3 w-full text-xs px-3 py-2 rounded border transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                    style={{ background: "#00ff9d15", color: "#00ff9d", borderColor: "#00ff9d40" }}
+                    style={{ background: "var(--ac-bg)", color: "var(--ac)", borderColor: "var(--ac-bdr)" }}
                   >
                     {sendingLang === e.lang ? "…" : (lang === "en" ? `Send this email (${e.lang})` : `Envoyer ce courriel (${e.lang})`)}
                   </button>}
                 </div>
               ))}
             </div>
-            {sentMsg && <p className="text-xs text-center mt-3" style={{ color: "#00ff9d" }}>{sentMsg}</p>}
+            {sentMsg && <p className="text-xs text-center mt-3" style={{ color: "var(--ac)" }}>{sentMsg}</p>}
             <div className="mt-4 pt-4 border-t border-gray-800">
               {canWrite && <button
                 onClick={() => markContacted(aiEmailTarget.id)}
@@ -2318,7 +2318,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
             <div className="flex justify-between items-start p-6 pb-4 border-b border-gray-800 shrink-0">
               <div>
                 <h3 className="text-white font-bold text-lg">{detail.org as string}</h3>
-                <span className="text-xs px-2 py-0.5 rounded inline-block mt-1" style={{ background: (PROSPECT_STATUSES.find(s => s.value === detail.status)?.color || "#888") + "20", color: PROSPECT_STATUSES.find(s => s.value === detail.status)?.color || "#888" }}>
+                <span className="text-xs px-2 py-0.5 rounded inline-block mt-1" style={{ background: PROSPECT_STATUSES.find(s => s.value === detail.status)?.color ? (PROSPECT_STATUSES.find(s => s.value === detail.status)!.color + "20") : "var(--bdr)", color: PROSPECT_STATUSES.find(s => s.value === detail.status)?.color || "var(--txt-dim)" }}>
                   {(() => { const s = PROSPECT_STATUSES.find(x => x.value === detail.status); return s ? (lang === "en" ? s.en : s.fr) : (detail.status as string); })()}
                 </span>
               </div>
@@ -2640,7 +2640,7 @@ function BudgetPanel({ items, onRefresh, canWrite = true }: { items: Record<stri
       {/* Auto-revenues from ticket sales + sponsors */}
       {autoRevenues.length > 0 && (
         <div className="cyber-card rounded-xl p-5 mb-6">
-          <h3 className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: "#00ff9d" }}>
+          <h3 className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: "var(--ac)" }}>
             {t.autoRevenues}
             <span className="ml-2 text-xs font-normal text-gray-500">{t.autoRevenuesHint}</span>
           </h3>
@@ -2844,7 +2844,7 @@ function TaskCard({
           </div>
           <div className="flex flex-wrap items-center gap-1 text-xs">
             {showPhase && !!t.phase && (
-              <span className="px-1.5 py-0.5 rounded" style={{ background: "#ffffff10", color: "#aaa" }}>{t.phase as string}</span>
+              <span className="px-1.5 py-0.5 rounded" style={{ background: "var(--bdr)", color: "var(--txt-2)" }}>{t.phase as string}</span>
             )}
             {!!t.category && (
               <span className="text-gray-500">{t.category as string}</span>
@@ -2966,10 +2966,10 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
         <div className="cyber-card rounded-xl p-4 mb-4">
           <div className="flex justify-between text-xs text-gray-500 mb-2">
             <span>{lang === "en" ? "Overall progress" : "Progression globale"}</span>
-            <span className="font-bold" style={{ color: "#00ff9d" }}>{totalDone}/{total} ({pct}%)</span>
+            <span className="font-bold" style={{ color: "var(--ac)" }}>{totalDone}/{total} ({pct}%)</span>
           </div>
           <div className="h-3 bg-gray-900 rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pct === 100 ? "#00ff9d" : "#0066ff" }} />
+            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pct === 100 ? "var(--ac)" : "#0066ff" }} />
           </div>
         </div>
       )}
@@ -3047,7 +3047,7 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
                             {t.title as string}
                           </div>
                           <div className="flex flex-wrap items-center gap-1 text-xs mb-1">
-                            <span className="px-1.5 py-0.5 rounded" style={{ background: "#ffffff10", color: "#aaa" }}>{t.phase as string}</span>
+                            <span className="px-1.5 py-0.5 rounded" style={{ background: "var(--bdr)", color: "var(--txt-2)" }}>{t.phase as string}</span>
                             <span className="px-1.5 py-0.5 rounded font-bold" style={{ color: PRIORITY_COLORS[(t.priority as string) || "medium"], background: (PRIORITY_COLORS[(t.priority as string) || "medium"]) + "20" }}>
                               {(t.priority as string || "medium").toUpperCase()}
                             </span>
@@ -3141,10 +3141,10 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
                 <div className="cyber-card rounded-xl p-3 mb-4">
                   <div className="flex justify-between text-xs text-gray-500 mb-1">
                     <span>Phase {activePhase}</span>
-                    <span className="font-bold" style={{ color: "#00ff9d" }}>{phDone}/{phTasks.length} ({phPct}%)</span>
+                    <span className="font-bold" style={{ color: "var(--ac)" }}>{phDone}/{phTasks.length} ({phPct}%)</span>
                   </div>
                   <div className="h-2 bg-gray-900 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${phPct}%`, background: phPct === 100 ? "#00ff9d" : "#0066ff" }} />
+                    <div className="h-full rounded-full transition-all" style={{ width: `${phPct}%`, background: phPct === 100 ? "var(--ac)" : "#0066ff" }} />
                   </div>
                 </div>
                 <div className="space-y-4">
@@ -3402,7 +3402,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
               <input type="checkbox" checked={createForm.isFeatured} onChange={e => setCreateForm(f => ({ ...f, isFeatured: e.target.checked }))} />
               {adminLang === "en" ? "Featured" : "Recommandé"}
             </label>
-            <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#00ff9d" }}>
+            <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "var(--ac)" }}>
               <input type="checkbox" checked={createForm.includesSessions} onChange={e => setCreateForm(f => ({ ...f, includesSessions: e.target.checked }))} />
               {adminLang === "en" ? "📡 Sessions / Conferences" : "📡 Sessions / Conférences"}
             </label>
@@ -3509,7 +3509,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                       <input type="checkbox" checked={!!editForm.isVisible} onChange={e => setEditForm(f => ({ ...f, isVisible: e.target.checked }))} />
                       {adminLang === "en" ? "Visible on portal" : "Visible sur le portail"}
                     </label>
-                    <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#00ff9d" }}>
+                    <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "var(--ac)" }}>
                       <input type="checkbox" checked={editForm.includesSessions !== false} onChange={e => setEditForm(f => ({ ...f, includesSessions: e.target.checked }))} />
                       {adminLang === "en" ? "📡 Sessions / Conferences" : "📡 Sessions / Conférences"}
                     </label>
@@ -3551,7 +3551,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                           <span className="text-white font-bold">{t.nameFr} / {t.nameEn}</span>
                           {t.isFeatured && <span className="text-xs px-2 py-0.5 rounded" style={{ background: t.color + "20", color: t.color }}>{adminLang === "en" ? "★ Featured" : "★ Recommandé"}</span>}
                           {!t.isVisible && <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-500">{adminLang === "en" ? "Hidden" : "Masqué"}</span>}
-                          {t.includesSessions && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>📡 Sessions</span>}
+                          {t.includesSessions && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "1px solid var(--ac-bdr)" }}>📡 Sessions</span>}
                           {t.includesWorkshops && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#a78bfa15", color: "#a78bfa", border: "1px solid #a78bfa30" }}>🛠 Workshops</span>}
                           {t.includesCTF && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}>⚡ CTF</span>}
                         </div>
@@ -3782,6 +3782,12 @@ const CERT_TABS = [
   { id: "organizer", label: "Organisateurs", icon: "👥", apiPath: "/api/admin/team", nameField: (r: Record<string,unknown>) => r.name as string, emailField: "email" },
 ] as const;
 
+function computeCPE(m: number): number {
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return h + (r >= 50 ? 1 : r > 0 ? 0.5 : 0);
+}
+
 function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
   const { lang } = useAdminT();
   const confirm = useConfirm();
@@ -3793,6 +3799,7 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [batchIssuing, setBatchIssuing] = useState(false);
   const [filterUnreceived, setFilterUnreceived] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [presenceStats, setPresenceStats] = useState<Map<number, { totalMinutes: number; cpe: number }> | null>(null);
 
   const tabDef = CERT_TABS.find(t => t.id === activeTab)!;
 
@@ -3800,16 +3807,29 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
     setLoading(true);
     setPeople([]);
     setBadges([]);
+    setPresenceStats(null);
     try {
-      const [pRes, bRes] = await Promise.all([
+      const fetches: Promise<Response>[] = [
         fetch(tabDef.apiPath),
         fetch(`/api/admin/badges?type=${activeTab}`),
-      ]);
+      ];
+      if (activeTab === "participant") {
+        fetches.push(fetch("/api/admin/live/presence-stats"));
+      }
+      const [pRes, bRes, psRes] = await Promise.all(fetches);
       if (pRes.ok) {
         const raw = await pRes.json();
         setPeople(Array.isArray(raw) ? raw : raw.registrations || raw.volunteers || []);
       }
       if (bRes.ok) setBadges(await bRes.json());
+      if (psRes?.ok) {
+        const statsArr = await psRes.json() as { registrationId: number; totalMinutes: number }[];
+        const map = new Map<number, { totalMinutes: number; cpe: number }>();
+        for (const s of statsArr) {
+          map.set(s.registrationId, { totalMinutes: s.totalMinutes, cpe: computeCPE(s.totalMinutes) });
+        }
+        setPresenceStats(map);
+      }
     } finally {
       setLoading(false);
     }
@@ -3854,7 +3874,7 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const batchIssue = async () => {
-    const targets = people.filter(p => !hasBadge(p));
+    const targets = people.filter(p => !hasBadge(p) && (activeTab !== "participant" || (p.status === "validated" && p.checkedInAt != null)));
     if (!targets.length) return;
     if (!(await confirm({ message: lang === "en" ? `Issue ${targets.length} badge(s) for those who haven't received them?` : `Émettre ${targets.length} badge(s) pour les non-reçus ?`, confirmLabel: lang === "en" ? "Issue" : "Émettre" }))) return;
     setBatchIssuing(true);
@@ -3872,7 +3892,7 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const displayed = filterUnreceived ? people.filter(p => !hasBadge(p)) : people;
-  const unreceived = people.filter(p => !hasBadge(p)).length;
+  const unreceived = people.filter(p => !hasBadge(p) && (activeTab !== "participant" || (p.status === "validated" && p.checkedInAt != null))).length;
 
   return (
     <div>
@@ -3929,12 +3949,25 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
             const received = hasBadge(p);
             const date = getBadgeDate(p);
             const isIssuing = issuingId === email;
+            const personId = p.id as number | undefined;
+            const pStat = (activeTab === "participant" && personId != null && presenceStats)
+              ? presenceStats.get(personId)
+              : undefined;
+            // Eligibility: participants must be validated AND checked in; other categories always eligible
+            const isEligible = activeTab !== "participant"
+              || (p.status === "validated" && p.checkedInAt != null);
             return (
               <div key={i} className="cyber-card rounded-lg px-4 py-3 flex items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-white text-sm font-bold truncate">{name}</p>
                   <p className="text-gray-500 text-xs">{email}</p>
                 </div>
+                {pStat != null && (
+                  <div className="shrink-0 text-center min-w-[90px]">
+                    <p className="text-xs text-gray-400">{pStat.totalMinutes} min</p>
+                    <p className="text-xs text-neon-green font-bold">{pStat.cpe} CPE</p>
+                  </div>
+                )}
                 <div className="shrink-0 text-center min-w-[120px]">
                   {received ? (
                     <div>
@@ -3956,16 +3989,26 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
                     🔍
                   </a>
                 )}
-                {canWrite && <button
-                  onClick={() => issueBadge(p, received ? "resend" : "issue")}
-                  disabled={isIssuing}
-                  className="shrink-0 text-xs px-3 py-1.5 rounded border transition-all disabled:opacity-50"
-                  style={received
-                    ? { borderColor: "#ffffff20", color: "#888" }
-                    : { borderColor: "#00ff9d40", color: "#00ff9d", background: "#00ff9d10" }}
-                >
-                  {isIssuing ? "…" : received ? (lang === "en" ? "Resend" : "Renvoyer") : (lang === "en" ? "Issue" : "Émettre")}
-                </button>}
+                {canWrite && (isEligible ? (
+                  <button
+                    onClick={() => issueBadge(p, received ? "resend" : "issue")}
+                    disabled={isIssuing}
+                    className="shrink-0 text-xs px-3 py-1.5 rounded border transition-all disabled:opacity-50"
+                    style={received
+                      ? { borderColor: "#ffffff20", color: "#888" }
+                      : { borderColor: "#00ff9d40", color: "#00ff9d", background: "#00ff9d10" }}
+                  >
+                    {isIssuing ? "…" : received ? (lang === "en" ? "Resend" : "Renvoyer") : (lang === "en" ? "Issue" : "Émettre")}
+                  </button>
+                ) : (
+                  <span
+                    className="shrink-0 text-xs px-3 py-1.5 rounded border"
+                    style={{ borderColor: "#ffffff15", color: "#555" }}
+                    title={lang === "en" ? "Must be validated and checked in" : "Doit être validé et enregistré"}
+                  >
+                    {lang === "en" ? "Not eligible" : "Non éligible"}
+                  </span>
+                ))}
               </div>
             );
           })}
@@ -4272,7 +4315,7 @@ function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
         {canWrite && <button
           onClick={save}
           disabled={saving}
-          style={{ background: "#00ff9d", color: "#000", border: "none", borderRadius: "6px", padding: "10px 20px", fontWeight: "bold", cursor: "pointer", fontSize: "13px" }}
+          style={{ background: "var(--ac)", color: "var(--panel)", border: "none", borderRadius: "6px", padding: "10px 20px", fontWeight: "bold", cursor: "pointer", fontSize: "13px" }}
         >
           {saving ? (lang === "en" ? "Saving…" : "Sauvegarde…") : saved ? (lang === "en" ? "✓ Saved" : "✓ Sauvegardé") : (lang === "en" ? "Save" : "Enregistrer")}
         </button>}
@@ -4337,7 +4380,7 @@ function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
               : type === "sponsor" ? "url_sponsor"
               : "url_programme";
             return (
-              <div key={type} className="rounded p-2" style={{ background: "#111", border: "1px solid #1a1a2e" }}>
+              <div key={type} className="rounded p-2" style={{ background: "var(--card)", border: "1px solid var(--bdr)" }}>
                 <div className="text-xs text-gray-400 mb-1">{icon} {label}</div>
                 <div className="text-xs font-mono text-neon-green truncate" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
                   {settings[urlKey] || "—"}
@@ -4766,7 +4809,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
               ) : null;
             })}
             <span className="text-xs px-2 py-1 rounded bg-gray-800 text-gray-400 font-mono">Total: {challenges.length}</span>
-            <span className="text-xs px-2 py-1 rounded font-mono" style={{ background: "#00ff9d20", color: "#00ff9d" }}>
+            <span className="text-xs px-2 py-1 rounded font-mono" style={{ background: "var(--ac-bg)", color: "var(--ac)" }}>
               {lang === "en" ? `✓ ${challenges.filter(c => c.status === "validated" || c.status === "published").length} ready` : `✓ ${challenges.filter(c => c.status === "validated" || c.status === "published").length} prêts`}
             </span>
             {canWrite && challenges.length === 0 && (
@@ -4828,15 +4871,15 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                       <div key={c.id as number} draggable={canWrite} onDragStart={() => canWrite && setDragId(c.id as number)}
                         onClick={() => canWrite && setEditChallenge({ ...c })}
                         className={`rounded-lg p-2.5 ${canWrite ? "cursor-pointer active:cursor-grabbing hover:brightness-125" : ""} transition-all`}
-                        style={{ background: (CTF_CATEGORY_COLORS[c.category as string] || "#888") + "15", border: `1px solid ${(CTF_CATEGORY_COLORS[c.category as string] || "#888")}40` }}>
+                        style={{ background: CTF_CATEGORY_COLORS[c.category as string] ? CTF_CATEGORY_COLORS[c.category as string] + "15" : "var(--bdr)", border: `1px solid ${CTF_CATEGORY_COLORS[c.category as string] ? CTF_CATEGORY_COLORS[c.category as string] + "40" : "var(--bdr-2)"}` }}>
                         <div className="text-xs font-bold text-white mb-1">{c.title as string}</div>
                         <div className="flex items-center gap-1 flex-wrap">
-                          <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: (CTF_CATEGORY_COLORS[c.category as string] || "#888") + "30", color: CTF_CATEGORY_COLORS[c.category as string] || "#888" }}>{c.category as string}</span>
+                          <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: CTF_CATEGORY_COLORS[c.category as string] ? CTF_CATEGORY_COLORS[c.category as string] + "30" : "var(--bdr-2)", color: CTF_CATEGORY_COLORS[c.category as string] || "var(--txt-dim)" }}>{c.category as string}</span>
                           <span className="text-xs text-gray-500">{c.difficulty as string}</span>
                           <span className="text-xs text-gray-400 ml-auto">{c.points as number}pts</span>
                         </div>
                         {!!c.author && <div className="text-xs text-gray-600 mt-1">{c.author as string}</div>}
-                        <div className="text-xs mt-1" style={{ color: c.assigneeName ? "#00ccff" : "#555" }}>
+                        <div className="text-xs mt-1" style={{ color: c.assigneeName ? "#00ccff" : "var(--txt-mute)" }}>
                           {c.assigneeName ? `👤 ${c.assigneeName as string}` : lang === "en" ? "👤 unassigned" : "👤 non assigné"}
                         </div>
                         {canWrite && <button onClick={e => { e.stopPropagation(); deleteChallenge(c.id as number); }} className="text-red-800 hover:text-red-400 text-xs mt-1">{lang === "en" ? "✗ Delete" : "✗ Supprimer"}</button>}
@@ -5109,7 +5152,7 @@ function TransactionsPanel({ canWrite = true }: { canWrite?: boolean }) {
                     </div>
                     <span className="text-[10px] text-gray-600 font-mono mt-0.5 block">{currency}</span>
                   </td>
-                  <td className="py-2 px-3 text-gray-300 font-mono font-bold" style={{ color: isStripe ? "#00ccff" : "#aaa" }}>{fmtAmount}</td>
+                  <td className="py-2 px-3 text-gray-300 font-mono font-bold" style={{ color: isStripe ? "#00ccff" : "var(--txt-2)" }}>{fmtAmount}</td>
                   <td className="py-2 px-3">
                     {r.providerRef
                       ? <span className="text-gray-500 font-mono text-[10px] max-w-[120px] block truncate" title={r.providerRef as string}>{r.providerRef as string}</span>
@@ -5361,7 +5404,7 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
                       <p className="text-white text-sm font-bold truncate">{v.title as string}</p>
                       {!!(v.speaker) && <p className="text-gray-500 text-xs">{v.speaker as string}</p>}
                       <div className="flex gap-1.5 mt-1 flex-wrap">
-                        <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "#00ff9d15", color: "#00ff9d" }}>EOCON {v.edition as string}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--ac-bg)", color: "var(--ac)" }}>EOCON {v.edition as string}</span>
                         {!!(v.category) && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-800 text-gray-400">{v.category as string}</span>}
                         {!v.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-500">{lang === "en" ? "Hidden" : "Masqué"}</span>}
                       </div>
@@ -5552,7 +5595,7 @@ function DomainCard({
 function MetricRow({ label, value, color }: { label: string; value: string | number; color?: string }) {
   return (
     <div className="text-center">
-      <div className="text-lg font-black font-mono" style={{ color: color || "#aaa", fontFamily: "'Share Tech Mono', monospace" }}>{value}</div>
+      <div className="text-lg font-black font-mono" style={{ color: color || "var(--txt-2)", fontFamily: "'Share Tech Mono', monospace" }}>{value}</div>
       <div className="text-gray-600 text-xs mt-0.5 uppercase tracking-wider leading-tight">{label}</div>
     </div>
   );
@@ -6341,7 +6384,7 @@ export default function AdminDashboard() {
                     target="_blank"
                     rel="noreferrer"
                     className="flex items-center gap-2 px-4 py-2 rounded text-sm font-bold transition-all"
-                    style={{ background: "#00ff9d15", color: "#00ff9d", border: "2px solid #00ff9d", letterSpacing: "0.1em" }}
+                    style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "2px solid var(--ac)", letterSpacing: "0.1em" }}
                   >
                     <span>▣</span> SCANNER QR <span>→</span>
                   </a>

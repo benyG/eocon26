@@ -514,6 +514,7 @@ export async function sendRegistrationPending(
 export async function sendRegistrationTicket(
   to: string, fname: string, lname: string, ticketType: string, registrationId: number, ticketRef: string,
   lang: "fr" | "en" = "fr",
+  liveToken?: string,
 ) {
   const isFr = lang === "fr";
   const isCTFOnly = /ctf.?only|ctf.?seul|eyesopenctf.?only/i.test(ticketType) || ticketType.toLowerCase() === "ctf";
@@ -607,6 +608,23 @@ export async function sendRegistrationTicket(
         ℹ️ <strong>EyesOpenCTF access only.</strong> This ticket grants access exclusively to the CTF competition. It does not include access to EOCON 2026 talks, workshops, or the exhibition area.
        </div>`;
 
+  const livePresenceBaseUrl = process.env.NEXT_PUBLIC_URL || process.env.NEXT_PUBLIC_BASE_URL || baseUrl;
+  const livePresenceBlock = liveToken
+    ? `<div style="margin-top:16px;padding:14px 16px;background:#050a05;border:1px solid #00ff9d30;border-radius:8px;text-align:center;">
+         <p style="font-family:'Courier New',Courier,monospace;font-size:10px;color:#00ff9d80;letter-spacing:2px;margin:0 0 8px;">
+           ${isFr ? "📡 SUIVI DE PRÉSENCE EN LIGNE" : "📡 ONLINE PRESENCE TRACKING"}
+         </p>
+         <p style="font-size:11px;color:#888;margin:0 0 10px;">
+           ${isFr
+             ? "Accédez à la conférence en ligne via votre lien personnel de suivi."
+             : "Join the online conference via your personal tracking link."}
+         </p>
+         <a href="${livePresenceBaseUrl}/live?t=${liveToken}" style="display:inline-block;padding:8px 20px;background:#00ff9d;color:#000;font-family:'Courier New',Courier,monospace;font-size:11px;font-weight:bold;text-decoration:none;border-radius:6px;letter-spacing:1px;">
+           ${isFr ? "🔗 REJOINDRE EN LIGNE" : "🔗 JOIN ONLINE"}
+         </a>
+       </div>`
+    : "";
+
   const body = isFr
     ? `<p>${greenLabel("Bonjour " + esc(fname) + " " + esc(lname))},</p>
        <p>${isCTFOnly ? "🏁 Votre accès <strong>EyesOpenCTF</strong> est confirmé. Préparez-vous — le challenge commence bientôt !" : "🎟️ Votre billet EOCON 2026 est confirmé. On vous attend du 23 au 28 novembre en ligne et à Douala !"}</p>
@@ -619,6 +637,7 @@ export async function sendRegistrationTicket(
        </tbody></table>`)}
        ${qrImg}
        ${isCTFOnly ? "" : calLinks}
+       ${livePresenceBlock}
        <div style="margin-top:24px;padding:16px;background:#0d1117;border:1px solid #00ccff30;border-radius:8px;">
          <p style="color:#00ccff;font-size:11px;letter-spacing:2px;margin:0 0 10px;">🪪 BADGE D'ENTRÉE À IMPRIMER</p>
          ${badgeCoupon}
@@ -635,6 +654,7 @@ export async function sendRegistrationTicket(
        </tbody></table>`)}
        ${qrImg}
        ${isCTFOnly ? "" : calLinks}
+       ${livePresenceBlock}
        <div style="margin-top:24px;padding:16px;background:#0d1117;border:1px solid #00ccff30;border-radius:8px;">
          <p style="color:#00ccff;font-size:11px;letter-spacing:2px;margin:0 0 10px;">🪪 ENTRY BADGE TO PRINT</p>
          ${badgeCoupon}

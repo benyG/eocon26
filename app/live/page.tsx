@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 
 type Lang = "fr" | "en";
 type Theme = "dark" | "light";
@@ -175,7 +176,10 @@ const themes = {
   },
 } as const;
 
-export default function LivePage() {
+function LivePageInner() {
+  const searchParams = useSearchParams();
+  const liveToken = searchParams?.get("t") ?? null;
+
   const [lang, setLang]       = useState<Lang>("fr");
   const [theme, setTheme]     = useState<Theme>("dark");
   const [loading, setLoading] = useState(true);
@@ -234,6 +238,19 @@ export default function LivePage() {
     const t = setInterval(ping, 60000);
     return () => clearInterval(t);
   }, [session]);
+
+  // Presence tracking — silent heartbeat every 60s using ?t= token
+  useEffect(() => {
+    if (!liveToken) return;
+    const presencePing = () => fetch("/api/live/presence", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: liveToken }),
+    }).catch(() => {});
+    presencePing();
+    const interval = setInterval(presencePing, 60000);
+    return () => clearInterval(interval);
+  }, [liveToken]);
 
   // Announcement polling every 30s
   useEffect(() => {
@@ -632,5 +649,13 @@ export default function LivePage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function LivePage() {
+  return (
+    <Suspense>
+      <LivePageInner />
+    </Suspense>
   );
 }

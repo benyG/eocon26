@@ -1,5 +1,72 @@
+import { prisma } from "@/lib/db";
+
 const RESTREAM_BASE = "https://api.restream.io/v2";
 const RESTREAM_RTMP_BASE = "rtmp://live.restream.io/live";
+const RESTREAM_TOKEN_URL = "https://api.restream.io/oauth/token";
+
+// ── OAuth token management ─────────────────────────────────────────────────────
+
+async function refreshAccessToken(refreshToken: string): Promise<string> {
+  const clientId     = process.env.RESTREAM_CLIENT_ID ?? "";
+  const clientSecret = process.env.RESTREAM_CLIENT_SECRET ?? "";
+  const credentials  = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+
+  const res = await fetch(RESTREAM_TOKEN_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type":  "application/x-www-form-urlencoded",
+      "Authorization": `Basic ${credentials}`,
+    },
+    body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken }).toString(),
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`Restream token refresh failed (${res.status}): ${txt.slice(0, 120)}`);
+  }
+
+  const data = await res.json() as {
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+    accessTokenExpiresEpoch?: number;
+  };
+
+  const expiresAt = data.accessTokenExpiresEpoch
+    ? String(data.accessTokenExpiresEpoch)
+    : String(Math.floor(Date.now() / 1000) + (data.expires_in ?? 3600));
+
+  // Persist new tokens
+  await Promise.all([
+    prisma.eventSetting.upsert({ where: { key: "restream_access_token"     }, create: { key: "restream_access_token",     value: data.access_token  }, update: { value: data.access_token  } }),
+    prisma.eventSetting.upsert({ where: { key: "restream_refresh_token"    }, create: { key: "restream_refresh_token",    value: data.refresh_token }, update: { value: data.refresh_token } }),
+    prisma.eventSetting.upsert({ where: { key: "restream_token_expires_at" }, create: { key: "restream_token_expires_at", value: expiresAt           }, update: { value: expiresAt           } }),
+  ]);
+
+  return data.access_token;
+}
+
+/** Returns a valid access token, refreshing automatically if expired (< 5 min remaining). */
+export async function getValidRestreamToken(): Promise<string> {
+  const rows = await prisma.eventSetting.findMany({
+    where: { key: { in: ["restream_access_token", "restream_refresh_token", "restream_token_expires_at"] } },
+  });
+  const get = (k: string) => rows.find(r => r.key === k)?.value ?? "";
+  const accessToken  = get("restream_access_token");
+  const refreshToken = get("restream_refresh_token");
+  const expiresAt    = Number(get("restream_token_expires_at") || "0");
+
+  if (!accessToken) throw new Error("Restream non connecté");
+
+  // Refresh if expired or expiring within 5 minutes
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (refreshToken && expiresAt && expiresAt - nowSec < 300) {
+    return refreshAccessToken(refreshToken);
+  }
+
+  return accessToken;
+}
 
 export interface RestreamChannel {
   id: number;

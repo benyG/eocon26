@@ -181,9 +181,8 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
   // ── Restream ──────────────────────────────────────────────────────────────
   const [restreamStatus, setRestreamStatus]   = useState<RestreamStatus | null>(null);
   const [restreamLoading, setRestreamLoading] = useState(false);
-  const [restreamToken, setRestreamToken]     = useState("");
-  const [restreamTokenSaved, setRestreamTokenSaved] = useState(false);
-  const [restreamTokenSaving, setRestreamTokenSaving] = useState(false);
+  const [restreamConnecting, setRestreamConnecting] = useState(false);
+  const [restreamDisconnecting, setRestreamDisconnecting] = useState(false);
   const [showRtmpKey, setShowRtmpKey]         = useState(false);
   const [rtmpCopied, setRtmpCopied]           = useState(false);
   const [keyCopied, setKeyCopied]             = useState(false);
@@ -245,13 +244,24 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
     } finally { setRestreamLoading(false); }
   }, []);
 
-  const loadRestreamConfig = useCallback(async () => {
-    const res = await fetch("/api/admin/live/restream");
-    if (res.ok) {
-      const data = await res.json() as { configured: boolean; tokenPreview: string };
-      if (data.tokenPreview) setRestreamToken(data.tokenPreview);
-    }
-  }, []);
+  const connectRestream = async () => {
+    setRestreamConnecting(true);
+    try {
+      const res = await fetch("/api/admin/live/restream/connect");
+      const data = await res.json() as { url?: string; error?: string };
+      if (data.url) window.location.href = data.url;
+      else alert(data.error ?? __("Erreur lors de la connexion à Restream", "Error connecting to Restream"));
+    } finally { setRestreamConnecting(false); }
+  };
+
+  const disconnectRestream = async () => {
+    setRestreamDisconnecting(true);
+    try {
+      await fetch("/api/admin/live/restream/connect", { method: "DELETE" });
+      setRestreamStatus(null);
+      loadRestreamStatus();
+    } finally { setRestreamDisconnecting(false); }
+  };
 
   const loadStreamingTeam = useCallback(async () => {
     try {
@@ -317,20 +327,6 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
     } finally { setInviteSending(s => ({ ...s, [key]: false })); }
   };
 
-  const saveRestreamToken = async (newToken: string) => {
-    setRestreamTokenSaving(true); setRestreamTokenSaved(false);
-    try {
-      const res = await fetch("/api/admin/live/restream", {
-        method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: newToken }),
-      });
-      if (res.ok) {
-        setRestreamTokenSaved(true);
-        setTimeout(() => setRestreamTokenSaved(false), 2500);
-        loadRestreamStatus();
-      }
-    } finally { setRestreamTokenSaving(false); }
-  };
 
   const copyRtmp = async () => {
     const url = restreamStatus?.rtmpUrl ?? "";
@@ -380,7 +376,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
     } finally { setStatsLoading(false); }
   }, []);
 
-  useEffect(() => { loadSettings(); loadRestreamConfig(); }, [loadSettings, loadRestreamConfig]);
+  useEffect(() => { loadSettings(); }, [loadSettings]);
   useEffect(() => { loadDashboard(); loadQuestions(); loadRestreamStatus(); }, [loadDashboard, loadQuestions, loadRestreamStatus]);
   useEffect(() => { if (mode === "config") { loadWorkshops(); loadStreamingTeam(); loadOverlays(); } }, [mode, loadWorkshops, loadStreamingTeam, loadOverlays]);
 
@@ -942,39 +938,35 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
               </a>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "flex-end", marginBottom: 14 }}>
-              <div>
-                <label style={{ fontSize: 10, color: "#ff6b6b", letterSpacing: 2, display: "block", marginBottom: 4 }}>ACCESS TOKEN (OAuth Bearer)</label>
-                <input
-                  type="password"
-                  value={restreamToken}
-                  onChange={e => setRestreamToken((e.target as HTMLInputElement).value)}
-                  placeholder={__("Collez ici votre access token Restream…", "Paste your Restream access token here…")}
-                  disabled={!canWrite}
-                  style={{ ...INPUT_STYLE, border: "1px solid #ff444025" }}
-                />
-                <div style={{ fontSize: 10, color: "#555", marginTop: 4 }}>
-                  {__("Obtenez votre token sur", "Get your token at")}{" "}
-                  <a href="https://restream.io/settings/api" target="_blank" rel="noopener noreferrer" style={{ color: "#ff6b6b" }}>restream.io/settings/api</a>
-                  {" "}→ <em>Personal Access Token</em>
-                </div>
-              </div>
-              {canWrite && (
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button
-                    onClick={() => saveRestreamToken(restreamToken)}
-                    disabled={restreamTokenSaving || !restreamToken}
-                    style={{ ...SAVE_BTN_STYLE(restreamTokenSaving || !restreamToken), background: "#ff4444" }}>
-                    {restreamTokenSaved ? `✓ ${__("Sauvegardé", "Saved")}` : restreamTokenSaving ? "…" : __("Connecter", "Connect")}
-                  </button>
-                  {restreamStatus?.configured && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+              {restreamStatus?.configured ? (
+                <>
+                  <span style={{ fontSize: 11, color: "#00ff9d", background: "#00ff9d10", border: "1px solid #00ff9d30", padding: "6px 12px", borderRadius: 6, letterSpacing: 1 }}>
+                    ✓ {__("Connecté via OAuth", "Connected via OAuth")}
+                  </span>
+                  {canWrite && (
                     <button
-                      onClick={() => saveRestreamToken("")}
-                      style={{ background: "transparent", border: "1px solid #ff000030", color: "#ff6b6b", padding: "8px 12px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>
-                      {__("Déconnecter", "Disconnect")}
+                      onClick={disconnectRestream}
+                      disabled={restreamDisconnecting}
+                      style={{ background: "transparent", border: "1px solid #ff000030", color: "#ff6b6b", padding: "6px 12px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>
+                      {restreamDisconnecting ? "…" : __("Déconnecter", "Disconnect")}
                     </button>
                   )}
-                </div>
+                </>
+              ) : (
+                <>
+                  <span style={{ fontSize: 11, color: "#555" }}>
+                    {__("Non connecté", "Not connected")}
+                  </span>
+                  {canWrite && (
+                    <button
+                      onClick={connectRestream}
+                      disabled={restreamConnecting}
+                      style={{ background: "#ff4444", border: "none", color: "#fff", padding: "8px 16px", borderRadius: 6, fontSize: 11, cursor: "pointer", fontWeight: "bold", letterSpacing: 1 }}>
+                      {restreamConnecting ? "…" : `🔗 ${__("Connecter Restream (OAuth)", "Connect Restream (OAuth)")}`}
+                    </button>
+                  )}
+                </>
               )}
             </div>
 

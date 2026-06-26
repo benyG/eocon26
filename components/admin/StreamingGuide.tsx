@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import type { ReactNode } from "react";
 
 // ── Local helper components ────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function Step({ n, title, children }: { n: number | string; title: string; children?: any }) {
+function Step({ n, title, children }: { n: number | string; title: string; children?: ReactNode }) {
   return (
     <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
       <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#00ff9d20", border: "1px solid #00ff9d50", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, color: "#00ff9d", fontFamily: "'Courier New', monospace", flexShrink: 0, marginTop: 2 }}>{n}</div>
@@ -17,8 +17,7 @@ function Step({ n, title, children }: { n: number | string; title: string; child
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function Tip({ children }: { children?: any }) {
+function Tip({ children }: { children?: ReactNode }) {
   return (
     <div style={{ background: "#00ff9d08", border: "1px solid #00ff9d25", borderRadius: 8, padding: "10px 14px", margin: "12px 0", fontSize: 12, color: "#aaa", lineHeight: 1.8 }}>
       <span style={{ color: "#00ff9d", fontWeight: 700, marginRight: 6 }}>💡</span>{children}
@@ -26,8 +25,7 @@ function Tip({ children }: { children?: any }) {
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function Warn({ children }: { children?: any }) {
+function Warn({ children }: { children?: ReactNode }) {
   return (
     <div style={{ background: "#ffaa0008", border: "1px solid #ffaa0030", borderRadius: 8, padding: "10px 14px", margin: "12px 0", fontSize: 12, color: "#aaa", lineHeight: 1.8 }}>
       <span style={{ color: "#ffaa00", fontWeight: 700, marginRight: 6 }}>⚠</span>{children}
@@ -35,8 +33,7 @@ function Warn({ children }: { children?: any }) {
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function Info({ children }: { children?: any }) {
+function Info({ children }: { children?: ReactNode }) {
   return (
     <div style={{ background: "#4488ff08", border: "1px solid #4488ff25", borderRadius: 8, padding: "10px 14px", margin: "12px 0", fontSize: 12, color: "#aaa", lineHeight: 1.8 }}>
       <span style={{ color: "#4488ff", fontWeight: 700, marginRight: 6 }}>ℹ</span>{children}
@@ -48,8 +45,7 @@ function Code({ children }: { children: string }) {
   return <code style={{ background: "#050508", border: "1px solid #ffffff15", borderRadius: 4, padding: "2px 7px", fontSize: 11, color: "#4488ff", fontFamily: "'Courier New', monospace" }}>{children}</code>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function Section({ title, color = "#00ff9d", children }: { title: string; color?: string; children?: any }) {
+function Section({ title, color = "#00ff9d", children }: { title: string; color?: string; children?: ReactNode }) {
   return (
     <div style={{ marginBottom: 28 }}>
       <div style={{ fontSize: 10, color, letterSpacing: 3, marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>

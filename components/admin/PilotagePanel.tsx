@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import type { ChangeEvent, DragEvent, MouseEvent } from "react";
 import { useLang } from "@/lib/adminLangContext";
 
 type Status = "backlog" | "todo" | "in_progress" | "blocked" | "review" | "done";
@@ -186,7 +187,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
 
   const filtered = useMemo(() => {
     const weekEnd = fThisWeekAndBefore ? endOfCurrentWeek() : null;
-    return tasks.filter((t) => {
+    return tasks.filter((t: Task) => {
       if (fPhase && t.phase !== Number(fPhase)) return false;
       if (fPole && t.pole !== fPole) return false;
       if (fSubTeam && t.subTeam !== fSubTeam) return false;
@@ -204,12 +205,12 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
 
   const kpi = useMemo(() => {
     const total = tasks.length;
-    const done = tasks.filter((t) => t.status === "done").length;
+    const done = tasks.filter((t: Task) => t.status === "done").length;
     const pct = total ? Math.round((done / total) * 100) : 0;
-    const milestonesAtRisk = tasks.filter((t) => t.isMilestone && t.status !== "done" && (isOverdue(t) || daysUntil(t.dueDate) <= 7)).length;
+    const milestonesAtRisk = tasks.filter((t: Task) => t.isMilestone && t.status !== "done" && (isOverdue(t) || daysUntil(t.dueDate) <= 7)).length;
     const nextMeeting = meetings
-      .filter((m) => new Date(m.scheduledAt).getTime() >= Date.now())
-      .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
+      .filter((m: Meeting) => new Date(m.scheduledAt).getTime() >= Date.now())
+      .sort((a: Meeting, b: Meeting) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
     return { total, done, pct, milestonesAtRisk, nextMeeting };
   }, [tasks, meetings]);
 
@@ -221,7 +222,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
     });
     if (res.ok) {
       const updated: Task = await res.json();
-      setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)));
+      setTasks((prev: Task[]) => prev.map((t: Task) => (t.id === id ? updated : t)));
       if (selected?.id === id) setSelected(updated);
       return updated;
     }
@@ -230,7 +231,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
 
   const handleDrop = (status: Status) => {
     if (dragId !== null) {
-      const card = tasks.find((t) => t.id === dragId);
+      const card = tasks.find((t: Task) => t.id === dragId);
       if (card && card.status !== status) patchTask(dragId, { status });
     }
     setDragId(null);
@@ -253,7 +254,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
   const deleteTask = async (id: number) => {
     if (!confirm(__("Supprimer cette tâche ?", "Delete this task?"))) return;
     const res = await fetch(`/api/admin/pilotage/tasks/${id}`, { method: "DELETE" });
-    if (res.ok) { setTasks((prev) => prev.filter((t) => t.id !== id)); setSelected(null); }
+    if (res.ok) { setTasks((prev: Task[]) => prev.filter((t: Task) => t.id !== id)); setSelected(null); }
   };
 
   const createTask = async () => {
@@ -262,7 +263,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: "Nouvelle tâche", pole: POLES[0], phase: 1, status: "todo" }),
     });
-    if (res.ok) { const t = await res.json(); setTasks((prev) => [...prev, t]); openDetail(t); }
+    if (res.ok) { const t = await res.json(); setTasks((prev: Task[]) => [...prev, t]); openDetail(t); }
   };
 
   const seed = async (force = false) => {
@@ -288,7 +289,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
     }
   };
 
-  const assigneeOptions = members.filter((m) => m.email);
+  const assigneeOptions = members.filter((m: Member) => m.email);
 
   return (
     <div className="space-y-4">
@@ -340,7 +341,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
           <div className="flex gap-1 flex-wrap">
             {PHASES.map((p) => (
               <span key={p.n} className="text-xs font-mono px-1.5 rounded" style={{ background: `${p.color}22`, color: p.color }}>
-                P{p.n}:{tasks.filter((t) => t.phase === p.n).length}
+                P{p.n}:{tasks.filter((t: Task) => t.phase === p.n).length}
               </span>
             ))}
           </div>
@@ -351,25 +352,25 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
         <>
           {/* Filters */}
           <div className="flex flex-wrap gap-2 items-center text-xs">
-            <select value={fPhase} onChange={(e) => setFPhase(e.target.value)} className="cyber-input rounded px-2 py-1 bg-transparent text-white">
+            <select value={fPhase} onChange={(e: ChangeEvent<HTMLSelectElement>) => setFPhase(e.target.value)} className="cyber-input rounded px-2 py-1 bg-transparent text-white">
               <option value="" className="bg-dark-800">{__("Toutes phases", "All phases")}</option>
               {PHASES.map((p) => <option key={p.n} value={p.n} className="bg-dark-800">{p.label}</option>)}
             </select>
-            <select value={fPole} onChange={(e) => setFPole(e.target.value)} className="cyber-input rounded px-2 py-1 bg-transparent text-white max-w-[180px]">
+            <select value={fPole} onChange={(e: ChangeEvent<HTMLSelectElement>) => setFPole(e.target.value)} className="cyber-input rounded px-2 py-1 bg-transparent text-white max-w-[180px]">
               <option value="" className="bg-dark-800">{__("Tous pôles", "All poles")}</option>
               {POLES.map((p) => <option key={p} value={p} className="bg-dark-800">{p}</option>)}
             </select>
-            <select value={fSubTeam} onChange={(e) => setFSubTeam(e.target.value)} className="cyber-input rounded px-2 py-1 bg-transparent text-white">
+            <select value={fSubTeam} onChange={(e: ChangeEvent<HTMLSelectElement>) => setFSubTeam(e.target.value)} className="cyber-input rounded px-2 py-1 bg-transparent text-white">
               <option value="" className="bg-dark-800">{__("Toutes sous-équipes", "All sub-teams")}</option>
               {SUBTEAMS.map((s) => <option key={s} value={s} className="bg-dark-800">{s}</option>)}
             </select>
             <select
               value={fAssignee}
-              onChange={(e) => setFAssignee(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) => setFAssignee(e.target.value)}
               className={`cyber-input rounded px-2 py-1 bg-transparent text-white ${fAssignee === currentUserEmail && currentUserEmail ? "border-neon-green/40 text-neon-green" : ""}`}
             >
               <option value="" className="bg-dark-800">{__("Tous responsables", "All assignees")}</option>
-              {assigneeOptions.map((m) => <option key={m.id} value={m.email!} className="bg-dark-800">{m.name}{m.email === currentUserEmail ? ` (${__("moi", "me")})` : ""}</option>)}
+              {assigneeOptions.map((m: Member) => <option key={m.id} value={m.email!} className="bg-dark-800">{m.name}{m.email === currentUserEmail ? ` (${__("moi", "me")})` : ""}</option>)}
             </select>
             {currentUserEmail && fAssignee !== currentUserEmail && (
               <button
@@ -380,13 +381,13 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
                 👤 {__("Mes tâches", "My tasks")}
               </button>
             )}
-            <label className="flex items-center gap-1 text-gray-400 cursor-pointer"><input type="checkbox" checked={fLate} onChange={(e) => setFLate(e.target.checked)} /> {__("En retard", "Overdue")}</label>
-            <label className="flex items-center gap-1 text-gray-400 cursor-pointer"><input type="checkbox" checked={fSoon} onChange={(e) => setFSoon(e.target.checked)} /> {__("30 prochains jours", "Next 30 days")}</label>
+            <label className="flex items-center gap-1 text-gray-400 cursor-pointer"><input type="checkbox" checked={fLate} onChange={(e: ChangeEvent<HTMLInputElement>) => setFLate(e.target.checked)} /> {__("En retard", "Overdue")}</label>
+            <label className="flex items-center gap-1 text-gray-400 cursor-pointer"><input type="checkbox" checked={fSoon} onChange={(e: ChangeEvent<HTMLInputElement>) => setFSoon(e.target.checked)} /> {__("30 prochains jours", "Next 30 days")}</label>
             <label className="flex items-center gap-1 cursor-pointer" style={{ color: fThisWeekAndBefore ? "var(--ac)" : "#9ca3af" }}>
               <input
                 type="checkbox"
                 checked={fThisWeekAndBefore}
-                onChange={(e) => setFThisWeekAndBefore(e.target.checked)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setFThisWeekAndBefore(e.target.checked)}
               />
               📅 {__("Semaine en cours & antérieures", "Current week & earlier")}
             </label>
@@ -396,13 +397,13 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
           <div className="overflow-x-auto pb-2">
             <div className="flex gap-3" style={{ minWidth: `${STATUSES.length * 220}px` }}>
               {STATUSES.map((col) => {
-                const cards = filtered.filter((t) => t.status === col.key);
+                const cards = filtered.filter((t: Task) => t.status === col.key);
                 return (
                   <div
                     key={col.key}
                     className="flex-shrink-0 w-52 rounded-lg border transition-colors"
                     style={{ borderColor: col.color, borderWidth: dropTarget === col.key ? 2 : 1, backgroundColor: dropTarget === col.key ? `${col.color}10` : "transparent" }}
-                    onDragOver={canWrite ? (e) => { e.preventDefault(); setDropTarget(col.key); } : undefined}
+                    onDragOver={canWrite ? (e: DragEvent<HTMLDivElement>) => { e.preventDefault(); setDropTarget(col.key); } : undefined}
                     onDragLeave={canWrite ? () => setDropTarget(null) : undefined}
                     onDrop={canWrite ? () => handleDrop(col.key) : undefined}
                   >
@@ -411,7 +412,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
                       <span className="text-xs text-gray-600 font-mono bg-gray-800 rounded-full px-1.5">{cards.length}</span>
                     </div>
                     <div className="p-2 space-y-2 min-h-[140px]">
-                      {cards.map((card) => (
+                      {cards.map((card: Task) => (
                         <div
                           key={card.id}
                           draggable={canWrite}
@@ -445,7 +446,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
       {/* Detail drawer — tasks */}
       {selected && (
         <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setSelected(null)}>
-          <div className="w-full max-w-md h-full bg-[#0a0a0a] border-l border-gray-800 overflow-y-auto p-6 space-y-3" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-md h-full bg-[#0a0a0a] border-l border-gray-800 overflow-y-auto p-6 space-y-3" onClick={(e: MouseEvent<HTMLDivElement>) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-black text-neon-green font-mono">{canWrite ? __("Éditer la tâche", "Edit task") : __("Détail de la tâche", "Task detail")}</h3>
               <button onClick={() => setSelected(null)} className="text-gray-600 hover:text-white text-lg">✕</button>
@@ -453,43 +454,43 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
             {!canWrite && <p className="text-xs text-yellow-500 font-mono bg-yellow-500/10 rounded px-2 py-1">{__("Accès lecture seule", "Read-only access")}</p>}
 
             <label className="block text-xs text-gray-500">{__("Titre", "Title")}</label>
-            <textarea rows={2} value={edit.title || ""} onChange={(e) => setEdit({ ...edit, title: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none disabled:opacity-60 disabled:cursor-not-allowed" />
+            <textarea rows={2} value={edit.title || ""} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setEdit({ ...edit, title: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none disabled:opacity-60 disabled:cursor-not-allowed" />
 
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs text-gray-500">{__("Phase", "Phase")}</label>
-                <select value={edit.phase ?? 1} onChange={(e) => setEdit({ ...edit, phase: Number(e.target.value) })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
+                <select value={edit.phase ?? 1} onChange={(e: ChangeEvent<HTMLSelectElement>) => setEdit({ ...edit, phase: Number(e.target.value) })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
                   {PHASES.map((p) => <option key={p.n} value={p.n} className="bg-dark-800">{p.label}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs text-gray-500">{__("Statut", "Status")}</label>
-                <select value={edit.status || "todo"} onChange={(e) => setEdit({ ...edit, status: e.target.value as Status })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
+                <select value={edit.status || "todo"} onChange={(e: ChangeEvent<HTMLSelectElement>) => setEdit({ ...edit, status: e.target.value as Status })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
                   {STATUSES.map((s) => <option key={s.key} value={s.key} className="bg-dark-800">{s.label}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs text-gray-500">{__("Pôle", "Pole")}</label>
-                <select value={edit.pole || ""} onChange={(e) => setEdit({ ...edit, pole: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
+                <select value={edit.pole || ""} onChange={(e: ChangeEvent<HTMLSelectElement>) => setEdit({ ...edit, pole: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
                   {POLES.map((p) => <option key={p} value={p} className="bg-dark-800">{p}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs text-gray-500">{__("Sous-équipe", "Sub-team")}</label>
-                <select value={edit.subTeam || ""} onChange={(e) => setEdit({ ...edit, subTeam: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
+                <select value={edit.subTeam || ""} onChange={(e: ChangeEvent<HTMLSelectElement>) => setEdit({ ...edit, subTeam: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
                   <option value="" className="bg-dark-800">—</option>
                   {SUBTEAMS.map((s) => <option key={s} value={s} className="bg-dark-800">{s}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs text-gray-500">{__("Priorité", "Priority")}</label>
-                <select value={edit.priority || "medium"} onChange={(e) => setEdit({ ...edit, priority: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
+                <select value={edit.priority || "medium"} onChange={(e: ChangeEvent<HTMLSelectElement>) => setEdit({ ...edit, priority: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed">
                   {PRIORITIES.map((p) => <option key={p} value={p} className="bg-dark-800">{p}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs text-gray-500">{__("Échéance", "Due date")}</label>
-                <input type="date" value={(edit.dueDate as string) || ""} onChange={(e) => setEdit({ ...edit, dueDate: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed" />
+                <input type="date" value={(edit.dueDate as string) || ""} onChange={(e: ChangeEvent<HTMLInputElement>) => setEdit({ ...edit, dueDate: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed" />
               </div>
             </div>
 
@@ -497,24 +498,24 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
               <label className="block text-xs text-gray-500">{__("Responsable", "Assignee")}</label>
               <select
                 value={edit.assigneeEmail || ""}
-                onChange={(e) => {
-                  const m = members.find((x) => x.email === e.target.value);
+                onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                  const m = members.find((x: Member) => x.email === e.target.value);
                   setEdit({ ...edit, assigneeEmail: e.target.value || null, assigneeName: m?.name || null });
                 }}
                 disabled={!canWrite}
                 className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option value="" className="bg-dark-800">— {__("non assigné", "unassigned")} —</option>
-                {assigneeOptions.map((m) => <option key={m.id} value={m.email!} className="bg-dark-800">{m.name} ({m.role})</option>)}
+                {assigneeOptions.map((m: Member) => <option key={m.id} value={m.email!} className="bg-dark-800">{m.name} ({m.role})</option>)}
               </select>
             </div>
 
             <label className={`flex items-center gap-2 text-xs cursor-pointer ${canWrite ? "text-gray-400" : "text-gray-600 cursor-not-allowed"}`}>
-              <input type="checkbox" checked={!!edit.isMilestone} onChange={(e) => setEdit({ ...edit, isMilestone: e.target.checked })} disabled={!canWrite} /> {__("Jalon", "Milestone")} ⚠️
+              <input type="checkbox" checked={!!edit.isMilestone} onChange={(e: ChangeEvent<HTMLInputElement>) => setEdit({ ...edit, isMilestone: e.target.checked })} disabled={!canWrite} /> {__("Jalon", "Milestone")} ⚠️
             </label>
 
             <label className="block text-xs text-gray-500">{__("Notes", "Notes")}</label>
-            <textarea rows={3} value={edit.notes || ""} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none disabled:opacity-60 disabled:cursor-not-allowed" />
+            <textarea rows={3} value={edit.notes || ""} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setEdit({ ...edit, notes: e.target.value })} disabled={!canWrite} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none disabled:opacity-60 disabled:cursor-not-allowed" />
 
             {canWrite && (
               <div className="flex gap-2 pt-2">
@@ -570,7 +571,7 @@ function MeetingsView({
   const generateJitsiLink = () => {
     const code = Math.random().toString(36).slice(2, 10).toUpperCase();
     const url = `https://meet.jit.si/EOCON-${code}`;
-    setForm((f) => ({ ...f, location: url }));
+    setForm((f: MeetingForm) => ({ ...f, location: url }));
     setMeetDropdownOpen(false);
   };
 
@@ -778,7 +779,7 @@ function MeetingsView({
         <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setEditTarget(null)}>
           <div
             className="w-full max-w-md h-full bg-[#0a0a0a] border-l border-gray-800 overflow-y-auto p-6 space-y-4"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e: MouseEvent<HTMLDivElement>) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-black text-neon-green font-mono">
@@ -792,7 +793,7 @@ function MeetingsView({
               <label className="block text-xs text-gray-500 mb-1">{__("Titre", "Title")} *</label>
               <input
                 value={form.title}
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((f: MeetingForm) => ({ ...f, title: e.target.value }))}
                 className="cyber-input w-full px-3 py-2 rounded text-xs"
                 placeholder={__("Réunion de coordination…", "Coordination meeting…")}
               />
@@ -804,7 +805,7 @@ function MeetingsView({
                 <label className="block text-xs text-gray-500 mb-1">{__("Type", "Type")}</label>
                 <select
                   value={form.type}
-                  onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setForm((f: MeetingForm) => ({ ...f, type: e.target.value }))}
                   className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white"
                 >
                   <option value="collective" className="bg-dark-800">{__("Collectif", "Collective")}</option>
@@ -815,7 +816,7 @@ function MeetingsView({
                 <label className="block text-xs text-gray-500 mb-1">{__("Sous-équipe", "Sub-team")}</label>
                 <select
                   value={form.subTeam}
-                  onChange={(e) => setForm((f) => ({ ...f, subTeam: e.target.value }))}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setForm((f: MeetingForm) => ({ ...f, subTeam: e.target.value }))}
                   disabled={form.type !== "subteam"}
                   className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white disabled:opacity-40"
                 >
@@ -831,7 +832,7 @@ function MeetingsView({
               <input
                 type="datetime-local"
                 value={form.scheduledAt}
-                onChange={(e) => setForm((f) => ({ ...f, scheduledAt: e.target.value }))}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((f: MeetingForm) => ({ ...f, scheduledAt: e.target.value }))}
                 className="cyber-input w-full px-3 py-2 rounded text-xs"
               />
             </div>
@@ -842,7 +843,7 @@ function MeetingsView({
               <div className="flex gap-1.5 items-center">
                 <input
                   value={form.location}
-                  onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((f: MeetingForm) => ({ ...f, location: e.target.value }))}
                   className="cyber-input flex-1 px-3 py-2 rounded text-xs"
                   placeholder={__("Salle A, lien Zoom, Google Meet…", "Room A, Zoom link, Google Meet…")}
                 />
@@ -850,7 +851,7 @@ function MeetingsView({
                 <div className="relative shrink-0" ref={meetDropdownRef}>
                   <button
                     type="button"
-                    onClick={() => setMeetDropdownOpen((o) => !o)}
+                    onClick={() => setMeetDropdownOpen((o: boolean) => !o)}
                     title={__("Générer un lien visio", "Generate a video link")}
                     className="cyber-input px-2.5 py-2 rounded text-base hover:text-neon-green hover:border-neon-green/50 transition-colors"
                   >
@@ -898,7 +899,7 @@ function MeetingsView({
               <textarea
                 rows={3}
                 value={form.agenda}
-                onChange={(e) => setForm((f) => ({ ...f, agenda: e.target.value }))}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setForm((f: MeetingForm) => ({ ...f, agenda: e.target.value }))}
                 className="cyber-input w-full px-3 py-2 rounded text-xs resize-none"
                 placeholder={__("Points à aborder…", "Topics to cover…")}
               />
@@ -912,7 +913,7 @@ function MeetingsView({
               </label>
               <select
                 value={form.convenerEmail}
-                onChange={(e) => setForm((f) => ({ ...f, convenerEmail: e.target.value }))}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) => setForm((f: MeetingForm) => ({ ...f, convenerEmail: e.target.value }))}
                 className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white"
               >
                 <option value="" className="bg-dark-800">— {__("sélectionner", "select")} —</option>
@@ -944,12 +945,12 @@ function MeetingsView({
                     <input
                       type="checkbox"
                       checked={form.attendeeEmails.includes(m.email!)}
-                      onChange={(e) => {
-                        setForm((f) => ({
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                        setForm((f: MeetingForm) => ({
                           ...f,
                           attendeeEmails: e.target.checked
                             ? [...f.attendeeEmails, m.email!]
-                            : f.attendeeEmails.filter((x) => x !== m.email),
+                            : f.attendeeEmails.filter((x: string) => x !== m.email),
                         }));
                       }}
                     />

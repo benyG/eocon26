@@ -214,7 +214,7 @@ function ChannelCard({
   };
 
   const setContent = (lang: "fr" | "en", val: string) => {
-    setEdits(prev => ({ ...prev, [`${channel.platform}__${lang}`]: val }));
+    setEdits((prev: Record<string, string>) => ({ ...prev, [`${channel.platform}__${lang}`]: val }));
   };
 
   const copy = () => {
@@ -243,12 +243,12 @@ function ChannelCard({
           <div className="text-xs text-gray-600 mt-0.5">{channel.category}</div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2 shrink-0" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
           <PriorityBadge p={channel.priority} />
 
           <select
             value={status}
-            onChange={e => onStatusChange(e.target.value as ChannelStatus)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onStatusChange(e.target.value as ChannelStatus)}
             disabled={!canWrite}
             className="text-xs rounded px-2 py-1 outline-none"
             style={{ background: statusOpt.color + "20", color: statusOpt.color, border: `1px solid ${statusOpt.color}50` }}
@@ -275,7 +275,7 @@ function ChannelCard({
 
           {canWrite && (
             deleteConfirm ? (
-              <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center gap-1" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 <button
                   onClick={() => { onDelete(); setDeleteConfirm(false); }}
                   className="text-xs px-2 py-1 rounded"
@@ -293,7 +293,7 @@ function ChannelCard({
               </div>
             ) : (
               <button
-                onClick={e => { e.stopPropagation(); setDeleteConfirm(true); }}
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteConfirm(true); }}
                 title={__("Supprimer ce canal", "Delete this channel")}
                 className="text-xs w-6 h-6 flex items-center justify-center rounded transition-colors opacity-30 hover:opacity-100"
                 style={{ color: "#ff0066" }}
@@ -330,7 +330,7 @@ function ChannelCard({
               <input
                 type="url"
                 value={localUrl}
-                onChange={e => handleUrlChange(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleUrlChange(e.target.value)}
                 placeholder={channel.defaultUrl || "https://..."}
                 disabled={!canWrite}
                 className="flex-1 text-xs rounded-lg px-3 py-2 text-white placeholder-gray-700 outline-none"
@@ -397,7 +397,7 @@ function ChannelCard({
               <div className="p-4">
                 <textarea
                   value={getContent(aiLang)}
-                  onChange={e => setContent(aiLang, e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setContent(aiLang, e.target.value)}
                   className="w-full text-sm text-gray-300 bg-transparent outline-none resize-none leading-relaxed"
                   rows={7}
                   style={{ fontFamily: "inherit" }}
@@ -459,7 +459,7 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
               <input
                 type="text"
                 value={form.platform}
-                onChange={e => setForm(f => ({ ...f, platform: e.target.value }))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: { category: string; platform: string; objective: string; what: string; action: string; priority: Priority; defaultUrl: string }) => ({ ...f, platform: e.target.value }))}
                 placeholder={__("ex: Substack, Medium...", "e.g. Substack, Medium...")}
                 className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
                 style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
@@ -471,7 +471,7 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
                 type="text"
                 list="cat-options"
                 value={form.category}
-                onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: { category: string; platform: string; objective: string; what: string; action: string; priority: Priority; defaultUrl: string }) => ({ ...f, category: e.target.value }))}
                 placeholder={__("ex: Réseaux sociaux...", "e.g. Social networks...")}
                 className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
                 style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
@@ -486,7 +486,7 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
             <input
               type="text"
               value={form.objective}
-              onChange={e => setForm(f => ({ ...f, objective: e.target.value }))}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: { category: string; platform: string; objective: string; what: string; action: string; priority: Priority; defaultUrl: string }) => ({ ...f, objective: e.target.value }))}
               placeholder={__("ex: Attirer sponsors B2B francophones", "e.g. Attract B2B sponsors")}
               className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
               style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
@@ -497,7 +497,7 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
             <input
               type="text"
               value={form.what}
-              onChange={e => setForm(f => ({ ...f, what: e.target.value }))}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: { category: string; platform: string; objective: string; what: string; action: string; priority: Priority; defaultUrl: string }) => ({ ...f, what: e.target.value }))}
               placeholder={__("ex: Annonce générale + CTA inscription", "e.g. General announcement + registration CTA")}
               className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
               style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
@@ -508,7 +508,7 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
             <input
               type="text"
               value={form.action}
-              onChange={e => setForm(f => ({ ...f, action: e.target.value }))}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: { category: string; platform: string; objective: string; what: string; action: string; priority: Priority; defaultUrl: string }) => ({ ...f, action: e.target.value }))}
               placeholder={__("ex: Envoyer communiqué presse", "e.g. Send press release")}
               className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
               style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
@@ -520,7 +520,7 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
               <input
                 type="url"
                 value={form.defaultUrl}
-                onChange={e => setForm(f => ({ ...f, defaultUrl: e.target.value }))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f: { category: string; platform: string; objective: string; what: string; action: string; priority: Priority; defaultUrl: string }) => ({ ...f, defaultUrl: e.target.value }))}
                 placeholder="https://..."
                 className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
                 style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
@@ -530,7 +530,7 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
               <label className="text-xs text-gray-500 mb-1.5 block">{__("Priorité", "Priority")}</label>
               <select
                 value={form.priority}
-                onChange={e => setForm(f => ({ ...f, priority: Number(e.target.value) as Priority }))}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm((f: { category: string; platform: string; objective: string; what: string; action: string; priority: Priority; defaultUrl: string }) => ({ ...f, priority: Number(e.target.value) as Priority }))}
                 className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
                 style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
               >
@@ -620,10 +620,10 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
   };
 
   const deleteChannel = async (platform: string) => {
-    const isCustom = (db.custom || []).some(c => c.platform === platform);
+    const isCustom = (db.custom || []).some((c: Channel) => c.platform === platform);
     let updated: DbData;
     if (isCustom) {
-      updated = { ...db, custom: (db.custom || []).filter(c => c.platform !== platform) };
+      updated = { ...db, custom: (db.custom || []).filter((c: Channel) => c.platform !== platform) };
     } else {
       updated = { ...db, hidden: [...(db.hidden || []), platform] };
     }
@@ -650,8 +650,8 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
       });
       if (r.ok) {
         const result = await r.json();
-        setAiResults(prev => ({ ...prev, [ch.platform]: result }));
-        setExpandedChannels(prev => new Set(Array.from(prev).concat(ch.platform)));
+        setAiResults((prev: Record<string, AiResult>) => ({ ...prev, [ch.platform]: result }));
+        setExpandedChannels((prev: Set<string>) => new Set(Array.from(prev).concat(ch.platform)));
       }
     } finally {
       setGenerating(null);
@@ -659,7 +659,7 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
   };
 
   const toggleExpand = (platform: string) => {
-    setExpandedChannels(prev => {
+    setExpandedChannels((prev: Set<string>) => {
       const next = new Set(prev);
       if (next.has(platform)) next.delete(platform); else next.add(platform);
       return next;
@@ -668,7 +668,7 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
 
   const allChannels: Channel[] = [
     ...CHANNELS.filter(c => !(db.hidden || []).includes(c.platform)),
-    ...(db.custom || []).map(c => ({ ...c, isCustom: true })),
+    ...(db.custom || []).map((c: Channel) => ({ ...c, isCustom: true })),
   ];
 
   const categories = Array.from(new Set(allChannels.map(c => c.category)));
@@ -751,13 +751,13 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
               type="text"
               placeholder={__("Rechercher une plateforme...", "Search a platform...")}
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
               className="flex-1 min-w-40 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none"
               style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
             />
             <select
               value={priorityFilter}
-              onChange={e => setPriorityFilter(Number(e.target.value) as Priority | 0)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPriorityFilter(Number(e.target.value) as Priority | 0)}
               className="rounded-lg px-3 py-2 text-sm text-white outline-none"
               style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
             >
@@ -768,7 +768,7 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
             </select>
             <select
               value={categoryFilter}
-              onChange={e => setCategoryFilter(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCategoryFilter(e.target.value)}
               className="rounded-lg px-3 py-2 text-sm text-white outline-none"
               style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
             >
@@ -789,7 +789,7 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
           <div className="text-xs text-gray-600">{filteredChannels.length} {__("canaux", "channels")}</div>
 
           <div className="space-y-2">
-            {filteredChannels.map((ch, i) => (
+            {filteredChannels.map((ch: Channel, i: number) => (
               <ChannelCard
                 key={`${ch.platform}-${i}`}
                 channel={ch}
@@ -797,8 +797,8 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
                 url={db.urls[ch.platform] || ch.defaultUrl || ""}
                 expanded={expandedChannels.has(ch.platform)}
                 onToggle={() => toggleExpand(ch.platform)}
-                onStatusChange={s => updateStatus(ch.platform, s)}
-                onUrlSave={url => updateUrl(ch.platform, url)}
+                onStatusChange={(s: ChannelStatus) => updateStatus(ch.platform, s)}
+                onUrlSave={(url: string) => updateUrl(ch.platform, url)}
                 onDelete={() => deleteChannel(ch.platform)}
                 canWrite={canWrite}
                 aiResult={aiResults[ch.platform]}

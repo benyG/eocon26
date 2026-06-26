@@ -559,7 +559,7 @@ function MeetingsView({
 
   // Close dropdown on outside click
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const handler = (e: globalThis.MouseEvent) => {
       if (meetDropdownRef.current && !meetDropdownRef.current.contains(e.target as Node)) {
         setMeetDropdownOpen(false);
       }

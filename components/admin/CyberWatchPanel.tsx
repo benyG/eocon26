@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { RSS_FEEDS, CATEGORY_LABELS, CATEGORY_COLORS, RssFeedCategory } from "@/lib/rssFeeds";
+import { useLang } from "@/lib/adminLangContext";
 
 interface Settings {
   enabled: boolean;
@@ -32,6 +33,7 @@ const SCORE_COLOR = (s: number) =>
   s >= 0.8 ? "#00ff9d" : s >= 0.65 ? "#ffaa00" : "#ff0066";
 
 export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolean } = {}) {
+  const __ = useLang();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [items, setItems] = useState<WatchItem[]>([]);
   const [loadingSettings, setLoadingSettings] = useState(true);
@@ -119,7 +121,7 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
   };
 
   if (loadingSettings) {
-    return <div className="flex items-center justify-center h-64 text-gray-600 font-mono text-xs">Chargement…</div>;
+    return <div className="flex items-center justify-center h-64 text-gray-600 font-mono text-xs">{__("Chargement…", "Loading…")}</div>;
   }
   if (!settings) return null;
 
@@ -134,16 +136,16 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black text-white flex items-center gap-2">
-            📡 Veille cyber automatique
+            📡 {__("Veille cyber automatique", "Automated cyber watch")}
           </h1>
           <p className="text-gray-500 text-xs mt-1">
-            Surveillance RSS + rédaction IA · modération avant publication
+            {__("Surveillance RSS + rédaction IA · modération avant publication", "RSS monitoring + AI drafting · moderation before publishing")}
           </p>
         </div>
 
         {/* Master toggle */}
         <div className="flex items-center gap-3">
-          <span className="text-xs font-mono text-gray-500">Veille</span>
+          <span className="text-xs font-mono text-gray-500">{__("Veille", "Watch")}</span>
           {canWrite ? <button
             onClick={() => saveSettings({ enabled: !settings.enabled })}
             className={`relative w-12 h-6 rounded-full transition-colors ${settings.enabled ? "bg-neon-green" : "bg-gray-800"}`}
@@ -159,8 +161,8 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
       {/* Sub-tabs */}
       <div className="flex gap-1 mb-6 border-b border-gray-800">
         {([
-          { key: "moderation", label: `📋 Propositions IA${pendingItems.length > 0 ? ` (${pendingItems.length})` : ""}` },
-          { key: "settings", label: "⚙️ Configuration" },
+          { key: "moderation", label: `📋 ${__("Propositions IA", "AI proposals")}${pendingItems.length > 0 ? ` (${pendingItems.length})` : ""}` },
+          { key: "settings", label: `⚙️ ${__("Configuration", "Settings")}` },
         ] as const).map(t => (
           <button
             key={t.key}
@@ -182,55 +184,55 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
               disabled={fetching || !settings.enabled}
               className="text-xs px-4 py-2 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono transition-colors disabled:opacity-40"
             >
-              {fetching ? "⏳ Récupération en cours…" : "🔄 Récupérer maintenant"}
+              {fetching ? `⏳ ${__("Récupération en cours…", "Fetching…")}` : `🔄 ${__("Récupérer maintenant", "Fetch now")}`}
             </button>}
             {fetchResult && (
               <span className="text-xs text-gray-500 font-mono">
-                {fetchResult.fetched} récupérés
-                {fetchResult.candidates !== undefined && ` · ${fetchResult.candidates} nouveaux`}
-                {fetchResult.scored !== undefined && fetchResult.scored > 0 && ` · ${fetchResult.scored} scorés`}
+                {fetchResult.fetched} {__("récupérés", "fetched")}
+                {fetchResult.candidates !== undefined && ` · ${fetchResult.candidates} ${__("nouveaux", "new")}`}
+                {fetchResult.scored !== undefined && fetchResult.scored > 0 && ` · ${fetchResult.scored} ${__("scorés", "scored")}`}
                 {" · "}
                 <span className={fetchResult.saved > 0 ? "text-neon-green" : "text-yellow-500"}>
                   {fetchResult.saved > 0
-                    ? `${fetchResult.saved} nouvelles propositions`
+                    ? `${fetchResult.saved} ${__("nouvelles propositions", "new proposals")}`
                     : fetchResult.skipped === "queue_full"
-                      ? "file d'attente déjà pleine"
+                      ? __("file d'attente déjà pleine", "queue already full")
                       : fetchResult.skipped === "all_filtered"
-                        ? "tous déjà vus ou trop anciens"
+                        ? __("tous déjà vus ou trop anciens", "all already seen or too old")
                         : fetchResult.scored === 0
-                          ? "aucun candidat retenu"
-                          : "score IA insuffisant"}
+                          ? __("aucun candidat retenu", "no candidate retained")
+                          : __("score IA insuffisant", "AI score too low")}
                 </span>
               </span>
             )}
             {!settings.enabled && (
-              <span className="text-xs text-gray-600 font-mono italic">Activez la veille pour récupérer des articles</span>
+              <span className="text-xs text-gray-600 font-mono italic">{__("Activez la veille pour récupérer des articles", "Enable watch to fetch articles")}</span>
             )}
           </div>
 
           {/* Moderation disabled notice */}
           {!settings.moderation && (
             <div className="mb-4 px-4 py-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 text-yellow-400 text-xs font-mono">
-              ⚡ Modération désactivée — l&apos;IA sélectionne et planifie automatiquement {settings.dailyCount} post{settings.dailyCount > 1 ? "s" : ""}/jour
+              ⚡ {__("Modération désactivée — l'IA sélectionne et planifie automatiquement", "Moderation disabled — AI selects and schedules automatically")} {settings.dailyCount} post{settings.dailyCount > 1 ? "s" : ""}/{__("jour", "day")}
             </div>
           )}
 
           {/* Scheduled items summary */}
           {scheduledItems.length > 0 && (
             <div className="mb-4 px-4 py-2 rounded-lg border border-gray-800 bg-gray-900/50 flex items-center gap-2">
-              <span className="text-neon-green text-xs font-mono">✓ {scheduledItems.length} post{scheduledItems.length > 1 ? "s" : ""} planifié{scheduledItems.length > 1 ? "s" : ""}</span>
-              <span className="text-gray-600 text-xs">sur les prochaines 24h</span>
+              <span className="text-neon-green text-xs font-mono">✓ {scheduledItems.length} post{scheduledItems.length > 1 ? "s" : ""} {__("planifié", "scheduled")}{scheduledItems.length > 1 ? "s" : ""}</span>
+              <span className="text-gray-600 text-xs">{__("sur les prochaines 24h", "in the next 24h")}</span>
             </div>
           )}
 
           {/* Pending items */}
           {loadingItems ? (
-            <div className="text-gray-600 text-xs font-mono text-center py-12">Chargement des propositions…</div>
+            <div className="text-gray-600 text-xs font-mono text-center py-12">{__("Chargement des propositions…", "Loading proposals…")}</div>
           ) : pendingItems.length === 0 ? (
             <div className="text-center py-16 text-gray-600 font-mono text-sm">
               <div className="text-4xl mb-3">📭</div>
-              <p>Aucune proposition en attente</p>
-              <p className="text-xs mt-1">Cliquez sur "Récupérer maintenant" pour analyser les flux RSS</p>
+              <p>{__("Aucune proposition en attente", "No pending proposals")}</p>
+              <p className="text-xs mt-1">{__("Cliquez sur \"Récupérer maintenant\" pour analyser les flux RSS", "Click \"Fetch now\" to analyse RSS feeds")}</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -244,7 +246,7 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
                           {item.sourceName}
                         </span>
                         <span className="text-xs font-mono font-bold" style={{ color: SCORE_COLOR(item.aiScore) }}>
-                          Score {Math.round(item.aiScore * 100)}%
+                          {__("Score", "Score")} {Math.round(item.aiScore * 100)}%
                         </span>
                         {item.aiReason && (
                           <span className="text-xs text-gray-600 italic truncate max-w-xs">{item.aiReason}</span>
@@ -259,7 +261,7 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
                         onClick={() => handleDelete(item.id)}
                         disabled={savingId === item.id}
                         className="w-7 h-7 rounded text-gray-600 hover:text-red-400 hover:bg-red-400/10 transition-colors flex items-center justify-center text-sm"
-                        title="Supprimer"
+                        title={__("Supprimer", "Delete")}
                       >✕</button>}
                     </div>
                   </div>
@@ -268,7 +270,7 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
                   {canWrite && editId === item.id ? (
                     <div className="space-y-3">
                       <div>
-                        <label className="text-xs text-gray-500 font-mono uppercase tracking-wider block mb-1">Brouillon FR</label>
+                        <label className="text-xs text-gray-500 font-mono uppercase tracking-wider block mb-1">{__("Brouillon FR", "Draft FR")}</label>
                         <textarea
                           value={editDraftFr}
                           onChange={e => setEditDraftFr(e.target.value)}
@@ -276,7 +278,7 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-500 font-mono uppercase tracking-wider block mb-1">Brouillon EN</label>
+                        <label className="text-xs text-gray-500 font-mono uppercase tracking-wider block mb-1">{__("Brouillon EN", "Draft EN")}</label>
                         <textarea
                           value={editDraftEn}
                           onChange={e => setEditDraftEn(e.target.value)}
@@ -289,10 +291,10 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
                           disabled={savingId === item.id}
                           className="flex-1 text-xs py-2 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono disabled:opacity-50"
                         >
-                          {savingId === item.id ? "…" : "✓ Valider & planifier"}
+                          {savingId === item.id ? "…" : `✓ ${__("Valider & planifier", "Approve & schedule")}`}
                         </button>
                         <button onClick={() => setEditId(null)} className="text-xs px-4 py-2 rounded border border-gray-700 text-gray-400 hover:text-white font-mono">
-                          Annuler
+                          {__("Annuler", "Cancel")}
                         </button>
                       </div>
                     </div>
@@ -302,12 +304,12 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
                       <DraftPreview label="EN" content={item.draftEn} />
                       {/* Platforms badge */}
                       <div className="flex items-center gap-2 pt-1">
-                        <span className="text-xs text-gray-600 font-mono">Canaux :</span>
+                        <span className="text-xs text-gray-600 font-mono">{__("Canaux :", "Channels:")}</span>
                         {item.platforms.split(",").map(p => (
                           <span key={p} className="text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-400 font-mono">{p.trim()}</span>
                         ))}
                         <span className="text-xs text-gray-600 font-mono ml-auto">
-                          Expire le {new Date(item.expiresAt).toLocaleDateString("fr-FR")}
+                          {__("Expire le", "Expires")} {new Date(item.expiresAt).toLocaleDateString("fr-FR")}
                         </span>
                       </div>
                       {/* Actions */}
@@ -317,20 +319,20 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
                           disabled={savingId === item.id}
                           className="flex-1 text-xs py-2 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono disabled:opacity-50"
                         >
-                          {savingId === item.id ? "…" : "✓ Valider & planifier"}
+                          {savingId === item.id ? "…" : `✓ ${__("Valider & planifier", "Approve & schedule")}`}
                         </button>
                         <button
                           onClick={() => { setEditId(item.id); setEditDraftFr(item.draftFr); setEditDraftEn(item.draftEn); }}
                           className="text-xs px-4 py-2 rounded border border-gray-700 text-gray-400 hover:text-white font-mono"
                         >
-                          ✎ Modifier
+                          ✎ {__("Modifier", "Edit")}
                         </button>
                         <button
                           onClick={() => handleAction(item.id, "rejected")}
                           disabled={savingId === item.id}
                           className="text-xs px-4 py-2 rounded border border-red-800/50 text-red-500 hover:bg-red-500/10 font-mono disabled:opacity-50"
                         >
-                          Rejeter
+                          {__("Rejeter", "Reject")}
                         </button>
                       </div>}
                     </div>
@@ -348,15 +350,15 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
 
           {/* Moderation & publication */}
           <section>
-            <h3 className="text-xs text-gray-500 uppercase tracking-wider font-mono mb-4">Publication</h3>
+            <h3 className="text-xs text-gray-500 uppercase tracking-wider font-mono mb-4">{__("Publication", "Publication")}</h3>
             <div className="cyber-card rounded-xl p-5 space-y-5">
               {/* Moderation toggle */}
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-white font-bold">Modération humaine</p>
+                  <p className="text-sm text-white font-bold">{__("Modération humaine", "Human moderation")}</p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Activée : les propositions attendent votre validation avant publication.<br />
-                    Désactivée : l&apos;IA choisit et planifie automatiquement.
+                    {__("Activée : les propositions attendent votre validation avant publication.", "Enabled: proposals wait for your approval before publishing.")}<br />
+                    {__("Désactivée : l'IA choisit et planifie automatiquement.", "Disabled: AI selects and schedules automatically.")}
                   </p>
                 </div>
                 {canWrite ? <button
@@ -370,7 +372,7 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
               {/* Daily count */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm text-white font-bold">Publications par jour</p>
+                  <p className="text-sm text-white font-bold">{__("Publications par jour", "Posts per day")}</p>
                   <span className="text-neon-green font-mono text-sm font-bold">{settings.dailyCount}</span>
                 </div>
                 <input
@@ -386,7 +388,7 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
 
               {/* Channels */}
               <div>
-                <p className="text-sm text-white font-bold mb-2">Canaux de publication</p>
+                <p className="text-sm text-white font-bold mb-2">{__("Canaux de publication", "Publishing channels")}</p>
                 <div className="flex gap-2">
                   {["linkedin", "twitter"].map(ch => (
                     <button
@@ -406,11 +408,11 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
           {/* RSS sources */}
           <section>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xs text-gray-500 uppercase tracking-wider font-mono">Sources RSS</h3>
+              <h3 className="text-xs text-gray-500 uppercase tracking-wider font-mono">{__("Sources RSS", "RSS Sources")}</h3>
               <div className="flex gap-2">
-                {canWrite && <button onClick={() => saveSettings({ activeSources: RSS_FEEDS.map(f => f.id) })} className="text-xs text-neon-green/70 hover:text-neon-green font-mono">Tout activer</button>}
+                {canWrite && <button onClick={() => saveSettings({ activeSources: RSS_FEEDS.map(f => f.id) })} className="text-xs text-neon-green/70 hover:text-neon-green font-mono">{__("Tout activer", "Enable all")}</button>}
                 {canWrite && <span className="text-gray-700">·</span>}
-                {canWrite && <button onClick={() => saveSettings({ activeSources: [] })} className="text-xs text-gray-600 hover:text-gray-400 font-mono">Tout désactiver</button>}
+                {canWrite && <button onClick={() => saveSettings({ activeSources: [] })} className="text-xs text-gray-600 hover:text-gray-400 font-mono">{__("Tout désactiver", "Disable all")}</button>}
               </div>
             </div>
             <div className="space-y-5">

@@ -13,14 +13,8 @@ import CampaignsPanel from "@/components/admin/CampaignsPanel";
 import StrategicPlanPanel from "@/components/admin/StrategicPlanPanel";
 import LivePanel from "@/components/admin/LivePanel";
 import RegistrationsChart from "@/components/admin/RegistrationsChart";
-import { adminI18n, AdminLang, AdminTranslations } from "@/lib/adminI18n";
-
-const AdminLangContext = createContext<{ lang: AdminLang; t: AdminTranslations; setLang: (l: AdminLang) => void }>({
-  lang: "fr",
-  t: adminI18n.fr,
-  setLang: () => {},
-});
-const useAdminT = () => useContext(AdminLangContext);
+import { adminI18n } from "@/lib/adminI18n";
+import { AdminLangContext, useAdminT } from "@/lib/adminLangContext";
 
 const AdminThemeContext = createContext<{ theme: "dark" | "light"; toggleTheme: () => void }>({
   theme: "dark",
@@ -128,6 +122,7 @@ function AccountModal({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const { t, lang } = useAdminT();
   const [curPw, setCurPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [pwMsg, setPwMsg] = useState("");
@@ -145,7 +140,7 @@ function AccountModal({
       body: JSON.stringify({ currentPassword: curPw, newPassword: newPw }),
     });
     const d = await res.json().catch(() => ({}));
-    setPwMsg(res.ok ? "✓ Mot de passe mis à jour." : (d.error || "Échec."));
+    setPwMsg(res.ok ? (lang === "en" ? "✓ Password updated." : "✓ Mot de passe mis à jour.") : (d.error || (lang === "en" ? "Failed." : "Échec.")));
     if (res.ok) { setCurPw(""); setNewPw(""); }
     setPwSaving(false);
   };
@@ -154,7 +149,7 @@ function AccountModal({
     setMfaMsg(""); setMfaBusy(true);
     const res = await fetch("/api/admin/account/mfa");
     const d = await res.json().catch(() => ({}));
-    if (res.ok) setQr(d.qrDataUrl); else setMfaMsg(d.error || "Échec.");
+    if (res.ok) setQr(d.qrDataUrl); else setMfaMsg(d.error || (lang === "en" ? "Failed." : "Échec."));
     setMfaBusy(false);
   };
   const verifyMfa = async () => {
@@ -163,16 +158,16 @@ function AccountModal({
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ totp }),
     });
     const d = await res.json().catch(() => ({}));
-    if (res.ok) { setMfaMsg("✓ MFA activé."); setQr(""); setTotp(""); onChanged(); }
-    else setMfaMsg(d.error || "Code incorrect.");
+    if (res.ok) { setMfaMsg(lang === "en" ? "✓ MFA enabled." : "✓ MFA activé."); setQr(""); setTotp(""); onChanged(); }
+    else setMfaMsg(d.error || (lang === "en" ? "Incorrect code." : "Code incorrect."));
     setMfaBusy(false);
   };
   const disableMfa = async () => {
-    if (!confirm("Désactiver le MFA pour votre compte ?")) return;
+    if (!confirm(lang === "en" ? "Disable MFA for your account?" : "Désactiver le MFA pour votre compte ?")) return;
     setMfaMsg(""); setMfaBusy(true);
     const res = await fetch("/api/admin/account/mfa", { method: "DELETE" });
     const d = await res.json().catch(() => ({}));
-    if (res.ok) { setMfaMsg("MFA désactivé."); onChanged(); } else setMfaMsg(d.error || "Échec.");
+    if (res.ok) { setMfaMsg(lang === "en" ? "MFA disabled." : "MFA désactivé."); onChanged(); } else setMfaMsg(d.error || (lang === "en" ? "Failed." : "Échec."));
     setMfaBusy(false);
   };
 
@@ -181,7 +176,7 @@ function AccountModal({
       <div className="cyber-card rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto space-y-5">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-white font-bold">👤 Mon compte</h3>
+            <h3 className="text-white font-bold">{lang === "en" ? "👤 My Account" : "👤 Mon compte"}</h3>
             <p className="text-gray-500 text-xs">{info.email || info.name}</p>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-white text-xl">✕</button>
@@ -189,11 +184,11 @@ function AccountModal({
 
         {/* Password */}
         <div className="space-y-2">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Mot de passe</p>
-          <input type="password" placeholder="Mot de passe actuel" className="cyber-input w-full text-sm rounded px-3 py-2" value={curPw} onChange={e => setCurPw(e.target.value)} />
-          <input type="password" placeholder="Nouveau mot de passe (min 8)" className="cyber-input w-full text-sm rounded px-3 py-2" value={newPw} onChange={e => setNewPw(e.target.value)} />
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{lang === "en" ? "Password" : "Mot de passe"}</p>
+          <input type="password" placeholder={lang === "en" ? "Current password" : "Mot de passe actuel"} className="cyber-input w-full text-sm rounded px-3 py-2" value={curPw} onChange={e => setCurPw(e.target.value)} />
+          <input type="password" placeholder={lang === "en" ? "New password (min 8)" : "Nouveau mot de passe (min 8)"} className="cyber-input w-full text-sm rounded px-3 py-2" value={newPw} onChange={e => setNewPw(e.target.value)} />
           <button onClick={changePassword} disabled={pwSaving || !curPw || newPw.length < 8} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
-            {pwSaving ? "…" : "Changer le mot de passe"}
+            {pwSaving ? "…" : (lang === "en" ? "Change password" : "Changer le mot de passe")}
           </button>
           {pwMsg && <p className="text-xs" style={{ color: pwMsg.startsWith("✓") ? "#00ff9d" : "#ff6666" }}>{pwMsg}</p>}
         </div>
@@ -201,28 +196,28 @@ function AccountModal({
         {/* MFA */}
         <div className="space-y-2 border-t border-gray-800 pt-4">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-            Double authentification (MFA){info.mfaRequired ? " · obligatoire" : ""}
+            {lang === "en" ? "Two-factor authentication (MFA)" : "Double authentification (MFA)"}{info.mfaRequired ? (lang === "en" ? " · required" : " · obligatoire") : ""}
           </p>
           <p className="text-xs text-gray-500">
-            Statut : {info.mfaEnabled ? <span className="text-neon-green">activé ✓</span> : <span className="text-yellow-400">non activé</span>}
+            {lang === "en" ? "Status: " : "Statut : "}{info.mfaEnabled ? <span className="text-neon-green">{lang === "en" ? "enabled ✓" : "activé ✓"}</span> : <span className="text-yellow-400">{lang === "en" ? "not enabled" : "non activé"}</span>}
           </p>
           {!info.mfaEnabled && !qr && (
             <button onClick={startMfa} disabled={mfaBusy} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
-              {mfaBusy ? "…" : "Configurer le MFA"}
+              {mfaBusy ? "…" : (lang === "en" ? "Set up MFA" : "Configurer le MFA")}
             </button>
           )}
           {qr && (
             <div className="space-y-2">
-              <p className="text-xs text-gray-400">Scannez ce QR avec votre application d&apos;authentification, puis entrez le code :</p>
+              <p className="text-xs text-gray-400">{lang === "en" ? "Scan this QR with your authenticator app, then enter the code:" : "Scannez ce QR avec votre application d'authentification, puis entrez le code :"}</p>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={qr} alt="QR MFA" width={160} height={160} className="rounded bg-white p-2 mx-auto" />
               <input inputMode="numeric" maxLength={6} placeholder="000000" className="cyber-input w-full text-sm rounded px-3 py-2 text-center tracking-[0.4em]" value={totp} onChange={e => setTotp(e.target.value.replace(/\D/g, "").slice(0, 6))} />
-              <button onClick={verifyMfa} disabled={mfaBusy || totp.length < 6} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">Activer le MFA</button>
+              <button onClick={verifyMfa} disabled={mfaBusy || totp.length < 6} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">{lang === "en" ? "Enable MFA" : "Activer le MFA"}</button>
             </div>
           )}
           {info.mfaEnabled && !info.mfaRequired && (
             <button onClick={disableMfa} disabled={mfaBusy} className="text-xs px-3 py-1.5 rounded border border-red-500/40 text-red-400 hover:bg-red-500/10 disabled:opacity-50">
-              Désactiver le MFA
+              {lang === "en" ? "Disable MFA" : "Désactiver le MFA"}
             </button>
           )}
           {mfaMsg && <p className="text-xs" style={{ color: mfaMsg.startsWith("✓") ? "#00ff9d" : "#ff6666" }}>{mfaMsg}</p>}
@@ -244,6 +239,7 @@ interface MfaSetupState {
 }
 
 function MfaSetupModal({ setup, onClose, onSuccess }: { setup: MfaSetupState; onClose: () => void; onSuccess: () => void }) {
+  const { t, lang } = useAdminT();
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
   const [verifying, setVerifying] = useState(false);
@@ -259,27 +255,27 @@ function MfaSetupModal({ setup, onClose, onSuccess }: { setup: MfaSetupState; on
     });
     const json = await res.json();
     if (res.ok) { setDone(true); onSuccess(); }
-    else setErr(json.error || "Erreur");
+    else setErr(json.error || (lang === "en" ? "Error" : "Erreur"));
     setVerifying(false);
   };
 
   return (
     <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
       <div className="cyber-card rounded-xl p-6 max-w-sm w-full">
-        <h3 className="text-white font-bold mb-2">🔐 Activer MFA — {setup.userName}</h3>
+        <h3 className="text-white font-bold mb-2">{lang === "en" ? "🔐 Enable MFA" : "🔐 Activer MFA"} — {setup.userName}</h3>
         {done ? (
           <>
-            <p className="text-neon-green text-sm mb-4">✓ MFA activé avec succès !</p>
-            <button onClick={onClose} className="btn-neon w-full py-2 rounded text-sm">Fermer</button>
+            <p className="text-neon-green text-sm mb-4">{lang === "en" ? "✓ MFA successfully enabled!" : "✓ MFA activé avec succès !"}</p>
+            <button onClick={onClose} className="btn-neon w-full py-2 rounded text-sm">{t.close}</button>
           </>
         ) : (
           <>
-            <p className="text-gray-400 text-xs mb-3">Scannez ce QR code avec Google Authenticator ou une app TOTP compatible.</p>
+            <p className="text-gray-400 text-xs mb-3">{lang === "en" ? "Scan this QR code with Google Authenticator or a compatible TOTP app." : "Scannez ce QR code avec Google Authenticator ou une app TOTP compatible."}</p>
             <div className="flex justify-center mb-3">
               <img src={setup.qrDataUrl} alt="QR Code MFA" className="w-48 h-48" />
             </div>
             <p className="text-gray-600 text-xs text-center mb-4 font-mono break-all" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{setup.secret}</p>
-            <label className="text-xs text-gray-500 block mb-1">Code de vérification (6 chiffres)</label>
+            <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Verification code (6 digits)" : "Code de vérification (6 chiffres)"}</label>
             <input
               className="cyber-input w-full px-3 py-2 rounded text-sm mb-3 font-mono"
               style={{ fontFamily: "'Share Tech Mono', monospace" }}
@@ -291,9 +287,9 @@ function MfaSetupModal({ setup, onClose, onSuccess }: { setup: MfaSetupState; on
             {err && <p className="text-red-400 text-xs mb-2">{err}</p>}
             <div className="flex gap-2">
               <button onClick={verify} disabled={verifying || code.length !== 6} className="btn-neon flex-1 py-2 rounded text-sm">
-                {verifying ? "Vérification..." : "Vérifier et activer"}
+                {verifying ? (lang === "en" ? "Verifying..." : "Vérification...") : (lang === "en" ? "Verify and enable" : "Vérifier et activer")}
               </button>
-              <button onClick={onClose} className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white transition-colors">Annuler</button>
+              <button onClick={onClose} className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white transition-colors">{t.cancel}</button>
             </div>
           </>
         )}
@@ -303,6 +299,7 @@ function MfaSetupModal({ setup, onClose, onSuccess }: { setup: MfaSetupState; on
 }
 
 function MfaToggle() {
+  const { lang } = useAdminT();
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
   useEffect(() => {
@@ -318,7 +315,7 @@ function MfaToggle() {
   if (enabled === null) return <div className="text-gray-600 text-xs">…</div>;
   return (
     <button onClick={toggle} disabled={saving} className={`shrink-0 px-4 py-2 rounded text-sm font-bold transition-all ${enabled ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white"}`}>
-      {saving ? "…" : enabled ? "✓ Activé" : "Désactivé"}
+      {saving ? "…" : enabled ? (lang === "en" ? "✓ Enabled" : "✓ Activé") : (lang === "en" ? "Disabled" : "Désactivé")}
     </button>
   );
 }
@@ -334,7 +331,7 @@ interface ProfileLite {
 }
 
 function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: boolean; canDelete?: boolean }) {
-  const { t } = useAdminT();
+  const { t, lang } = useAdminT();
   const confirm = useConfirm();
   const [users, setUsers] = useState<Record<string, unknown>[]>([]);
   const [profiles, setProfiles] = useState<ProfileLite[]>([]);
@@ -425,7 +422,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
 
   const startMfaSetup = async (u: Record<string, unknown>) => {
     const res = await fetch(`/api/admin/mfa/setup?userId=${u.id}`);
-    if (!res.ok) { alert("Erreur lors de la génération du QR code"); return; }
+    if (!res.ok) { alert(lang === "en" ? "Error generating QR code" : "Erreur lors de la génération du QR code"); return; }
     const json = await res.json() as { qrDataUrl: string; secret: string };
     setMfaSetup({
       userId: u.id as number,
@@ -440,7 +437,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
   };
 
   const disableMfa = async (id: number) => {
-    if (!(await confirm({ message: "Désactiver le MFA pour cet utilisateur ?", danger: true }))) return;
+    if (!(await confirm({ message: lang === "en" ? "Disable MFA for this user?" : "Désactiver le MFA pour cet utilisateur ?", danger: true }))) return;
     const res = await fetch("/api/admin/mfa/setup", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -452,7 +449,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
   };
 
   const deleteUser = async (u: Record<string, unknown>) => {
-    if (!(await confirm({ message: `Supprimer définitivement le compte "${u.name as string}" (${u.email as string}) ? Cette action est irréversible.`, danger: true }))) return;
+    if (!(await confirm({ message: lang === "en" ? `Permanently delete the account "${u.name as string}" (${u.email as string})? This action is irreversible.` : `Supprimer définitivement le compte "${u.name as string}" (${u.email as string}) ? Cette action est irréversible.`, danger: true }))) return;
     const res = await fetch(`/api/admin/users/${u.id as number}`, { method: "DELETE" });
     if (res.ok) {
       setUsers(prev => prev.filter(x => x.id !== u.id));
@@ -482,16 +479,16 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
       {created && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <div className="cyber-card rounded-xl p-6 max-w-md w-full">
-            <h3 className="text-white font-bold mb-4">✅ Utilisateur créé</h3>
-            <p className="text-gray-400 text-sm mb-4">Un email a été envoyé à <strong className="text-white">{created.email}</strong> avec les identifiants.</p>
+            <h3 className="text-white font-bold mb-4">{lang === "en" ? "✅ User created" : "✅ Utilisateur créé"}</h3>
+            <p className="text-gray-400 text-sm mb-4">{lang === "en" ? <>An email has been sent to <strong className="text-white">{created.email}</strong> with the credentials.</> : <>Un email a été envoyé à <strong className="text-white">{created.email}</strong> avec les identifiants.</>}</p>
             <div className="bg-black/50 border border-neon-green/30 rounded-lg p-4 mb-4">
-              <p className="text-xs text-gray-500 mb-1">Mot de passe temporaire</p>
+              <p className="text-xs text-gray-500 mb-1">{lang === "en" ? "Temporary password" : "Mot de passe temporaire"}</p>
               <div className="flex items-center justify-between">
                 <span className="text-xl font-black font-mono" style={{ color: "#00ff9d", fontFamily: "'Share Tech Mono', monospace" }}>{created.tempPassword}</span>
-                <button onClick={() => navigator.clipboard.writeText(created.tempPassword)} className="text-xs text-gray-500 hover:text-white transition-colors px-2">Copier</button>
+                <button onClick={() => navigator.clipboard.writeText(created.tempPassword)} className="text-xs text-gray-500 hover:text-white transition-colors px-2">{lang === "en" ? "Copy" : "Copier"}</button>
               </div>
             </div>
-            <button onClick={() => setCreated(null)} className="btn-neon w-full py-2 rounded text-sm">Fermer</button>
+            <button onClick={() => setCreated(null)} className="btn-neon w-full py-2 rounded text-sm">{t.close}</button>
           </div>
         </div>
       )}
@@ -500,38 +497,38 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setEditUser(null)}>
           <div className="cyber-card rounded-xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white font-bold text-sm">Éditer — {editUser.name}</h3>
+              <h3 className="text-white font-bold text-sm">{lang === "en" ? "Edit" : "Éditer"} — {editUser.name}</h3>
               <button onClick={() => setEditUser(null)} className="text-gray-500 hover:text-white text-xl leading-none">×</button>
             </div>
             <div className="mb-4">
-              <label className="text-xs text-gray-500 block mb-1">Nouveau mot de passe <span className="text-gray-600">(laisser vide pour ne pas changer)</span></label>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "New password" : "Nouveau mot de passe"} <span className="text-gray-600">{lang === "en" ? "(leave blank to keep unchanged)" : "(laisser vide pour ne pas changer)"}</span></label>
               <input
                 type="text"
                 className="cyber-input w-full text-sm rounded px-3 py-2"
-                placeholder="ex. mot de passe commun hôtesses"
+                placeholder={lang === "en" ? "e.g. shared password for hosts" : "ex. mot de passe commun hôtesses"}
                 value={editUser.password}
                 onChange={e => setEditUser(u => u && ({ ...u, password: e.target.value }))}
               />
-              <p className="text-[11px] text-gray-600 mt-1">Pour un compte partagé (ex. hôtesses check-in), définissez ici un mot de passe commun et communiquez-le à l&apos;équipe.</p>
+              <p className="text-[11px] text-gray-600 mt-1">{lang === "en" ? "For a shared account (e.g. check-in hosts), set a common password here and share it with the team." : "Pour un compte partagé (ex. hôtesses check-in), définissez ici un mot de passe commun et communiquez-le à l'équipe."}</p>
             </div>
             <div className="mb-4">
-              <label className="text-xs text-gray-500 block mb-2">Profil de rôle</label>
+              <label className="text-xs text-gray-500 block mb-2">{lang === "en" ? "Role profile" : "Profil de rôle"}</label>
               <select
                 className="cyber-input w-full text-sm rounded px-3 py-2 bg-transparent"
                 value={editUser.profileId ?? ""}
                 onChange={e => setEditUser(u => u && ({ ...u, profileId: e.target.value ? Number(e.target.value) : null }))}
               >
-                <option value="" className="bg-dark-800">— Aucun —</option>
+                <option value="" className="bg-dark-800">{lang === "en" ? "— None —" : "— Aucun —"}</option>
                 {profiles.map(p => (
-                  <option key={p.id} value={p.id} className="bg-dark-800">{p.name}{!p.isSystem ? " (personnalisé)" : ""}</option>
+                  <option key={p.id} value={p.id} className="bg-dark-800">{p.name}{!p.isSystem ? (lang === "en" ? " (custom)" : " (personnalisé)") : ""}</option>
                 ))}
               </select>
             </div>
             <div className="flex gap-2">
               <button onClick={saveEdit} disabled={editSaving} className="btn-neon px-4 py-2 rounded text-sm">
-                {editSaving ? "Enregistrement..." : "Enregistrer"}
+                {editSaving ? (lang === "en" ? "Saving..." : "Enregistrement...") : t.save}
               </button>
-              <button onClick={() => setEditUser(null)} className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white transition-colors">Annuler</button>
+              <button onClick={() => setEditUser(null)} className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white transition-colors">{t.cancel}</button>
             </div>
           </div>
         </div>
@@ -539,10 +536,10 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
 
       {canWrite && showForm && (
         <div className="cyber-card rounded-xl p-6 mb-6">
-          <h3 className="text-white font-bold mb-4 text-sm">Nouveau compte administrateur</h3>
+          <h3 className="text-white font-bold mb-4 text-sm">{lang === "en" ? "New administrator account" : "Nouveau compte administrateur"}</h3>
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Nom complet</label>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Full name" : "Nom complet"}</label>
               <input className="cyber-input w-full text-sm rounded px-3 py-2" placeholder="Jean Mbarga" value={(form.name as string) || ""} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
             </div>
             <div>
@@ -551,7 +548,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
             </div>
           </div>
           <div className="mb-4">
-            <label className="text-xs text-gray-500 block mb-2">Profil de rôle</label>
+            <label className="text-xs text-gray-500 block mb-2">{lang === "en" ? "Role profile" : "Profil de rôle"}</label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {profiles.map(profile => (
                 <button
@@ -561,7 +558,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
                   style={form.profileId === profile.id ? { borderColor: profile.color, background: profile.color + "15" } : {}}
                 >
                   <p className="text-xs font-bold" style={{ color: form.profileId === profile.id ? profile.color : "#888" }}>
-                    {profile.name}{!profile.isSystem && <span className="text-gray-600 font-normal"> · personnalisé</span>}
+                    {profile.name}{!profile.isSystem && <span className="text-gray-600 font-normal"> · {lang === "en" ? "custom" : "personnalisé"}</span>}
                   </p>
                   <p className="text-gray-600 text-xs mt-0.5">{profile.description}</p>
                 </button>
@@ -570,7 +567,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
           </div>
           {selectedProfile && (
             <div className="mb-4 p-3 rounded-lg border border-gray-800">
-              <p className="text-xs text-gray-500 mb-2">Accès inclus</p>
+              <p className="text-xs text-gray-500 mb-2">{lang === "en" ? "Included access" : "Accès inclus"}</p>
               <div className="flex flex-wrap gap-1">
                 {Object.entries(selectedProfile.permissions).map(([k, v]) => (
                   <span key={k} className="text-xs px-2 py-0.5 rounded" style={{ background: v === "write" ? "#00ff9d15" : "#0066ff15", color: v === "write" ? "#00ff9d" : "#0066ff" }}>
@@ -582,22 +579,22 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
           )}
           <div className="flex gap-2">
             <button onClick={saveUser} disabled={loading || !form.name || !form.email} className="btn-neon px-4 py-2 rounded text-sm">
-              {loading ? "Création..." : "Créer et envoyer les identifiants"}
+              {loading ? (lang === "en" ? "Creating..." : "Création...") : (lang === "en" ? "Create and send credentials" : "Créer et envoyer les identifiants")}
             </button>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white transition-colors">Annuler</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white transition-colors">{t.cancel}</button>
           </div>
         </div>
       )}
 
       <div className="mb-6">
-        <h3 className="text-xs text-gray-500 uppercase tracking-widest mb-3">Profils disponibles</h3>
+        <h3 className="text-xs text-gray-500 uppercase tracking-widest mb-3">{lang === "en" ? "Available profiles" : "Profils disponibles"}</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
           {profiles.map(profile => (
             <div key={profile.id} className="cyber-card rounded-lg p-3">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-2 h-2 rounded-full" style={{ background: profile.color }} />
                 <span className="text-white text-xs font-bold">{profile.name}</span>
-                {!profile.isSystem && <span className="text-[10px] text-gray-600">personnalisé</span>}
+                {!profile.isSystem && <span className="text-[10px] text-gray-600">{lang === "en" ? "custom" : "personnalisé"}</span>}
               </div>
               <p className="text-gray-600 text-xs">{profile.description}</p>
             </div>
@@ -606,7 +603,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
       </div>
 
       <div>
-        <h3 className="text-xs text-gray-500 uppercase tracking-widest mb-3">Comptes existants ({users.length})</h3>
+        <h3 className="text-xs text-gray-500 uppercase tracking-widest mb-3">{lang === "en" ? `Existing accounts (${users.length})` : `Comptes existants (${users.length})`}</h3>
         <div className="space-y-2">
           {users.map(u => {
             const profile = profiles.find(p => p.id === (u.profileId as number));
@@ -631,43 +628,43 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
                     🔐 MFA {u.mfaEnabled ? "ON" : "OFF"}
                   </span>
                   <span className={`text-xs px-2 py-0.5 rounded ${u.isActive ? "bg-neon-green/10 text-neon-green" : "bg-gray-800 text-gray-600"}`}>
-                    {u.isActive ? "Actif" : "Inactif"}
+                    {u.isActive ? (lang === "en" ? "Active" : "Actif") : (lang === "en" ? "Inactive" : "Inactif")}
                   </span>
                   {canWrite && <button onClick={() => setEditUser({ id: u.id as number, name: u.name as string, profileId: (u.profileId as number) ?? null, password: "" })} className="text-xs text-neon-green/80 hover:text-neon-green transition-colors">
-                    Éditer
+                    {lang === "en" ? "Edit" : "Éditer"}
                   </button>}
                   {canWrite && <button onClick={() => toggleActive(u.id as number, !(u.isActive as boolean))} className="text-xs text-gray-600 hover:text-white transition-colors">
-                    {u.isActive ? "Désactiver" : "Activer"}
+                    {u.isActive ? (lang === "en" ? "Deactivate" : "Désactiver") : (lang === "en" ? "Activate" : "Activer")}
                   </button>}
                   {canWrite && (u.mfaEnabled ? (
                     <button onClick={() => disableMfa(u.id as number)} className="text-xs text-red-500 hover:text-red-400 transition-colors">
-                      Désactiver MFA
+                      {lang === "en" ? "Disable MFA" : "Désactiver MFA"}
                     </button>
                   ) : (
                     <button onClick={() => startMfaSetup(u)} className="text-xs text-purple-400 hover:text-purple-300 transition-colors">
-                      Activer MFA
+                      {lang === "en" ? "Enable MFA" : "Activer MFA"}
                     </button>
                   ))}
                   {canDelete && (
                     <button onClick={() => deleteUser(u)} className="text-xs text-red-600 hover:text-red-400 transition-colors border border-red-900/40 hover:border-red-500/50 px-2 py-0.5 rounded">
-                      Supprimer
+                      {t.delete}
                     </button>
                   )}
                 </div>
               </div>
             );
           })}
-          {!users.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun utilisateur créé</p>}
+          {!users.length && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No users created" : "Aucun utilisateur créé"}</p>}
         </div>
       </div>
 
       {/* Sécurité MFA */}
       {canWrite && <div className="cyber-card rounded-xl p-5 mt-6">
-        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">🔐 Sécurité</h3>
+        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">{t.securitySection}</h3>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-white text-sm font-bold mb-1">Forcer le MFA pour tous les utilisateurs admin</p>
-            <p className="text-gray-500 text-xs">Les utilisateurs sans MFA seront bloqués à la connexion jusqu&apos;à l&apos;enrollment.</p>
+            <p className="text-white text-sm font-bold mb-1">{t.forceMfa}</p>
+            <p className="text-gray-500 text-xs">{t.forceMfaDesc}</p>
           </div>
           <MfaToggle />
         </div>
@@ -694,7 +691,7 @@ function AiScoreBadge({ score, analysis }: { score: number | null; analysis: str
 }
 
 function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record<string, unknown>[]; onRefresh: () => void; canWrite?: boolean }) {
-  const { t } = useAdminT();
+  const { t, lang } = useAdminT();
   const [searchTab, setSearchTab] = useState<"apollo" | "places">("apollo");
   const [apolloKeywords, setApolloKeywords] = useState("cybersecurity,technology,telecom,finance");
   const [placesQuery, setPlacesQuery] = useState("");
@@ -931,20 +928,20 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
             <div className="flex items-center justify-between p-6 pb-4 border-b border-gray-800 shrink-0">
               <div>
                 <h3 className="text-white font-bold">🎯 Pitch · {pitchTarget.org as string}</h3>
-                <p className="text-gray-500 text-xs">{pitchTarget.sector as string} · Package : <span style={{ color: "#ff0066" }}>{(pitchTarget.recommendedPackage as string) || "—"}</span></p>
+                <p className="text-gray-500 text-xs">{pitchTarget.sector as string} · {t.package} : <span style={{ color: "#ff0066" }}>{(pitchTarget.recommendedPackage as string) || "—"}</span></p>
               </div>
               <button onClick={() => { setPitchTarget(null); setPitchResult(null); }} className="text-gray-500 hover:text-white text-xl">✕</button>
             </div>
             <div className="p-6 overflow-y-auto">
-            {generatingPitch && <p className="text-gray-500 text-xs text-center py-8">Génération du brief stratégique…</p>}
+            {generatingPitch && <p className="text-gray-500 text-xs text-center py-8">{lang === "en" ? "Generating strategic brief…" : "Génération du brief stratégique…"}</p>}
             {pitchResult && (
               <div className="space-y-4">
                 <div className="border rounded-lg p-4" style={{ borderColor: "#ff006640", background: "#ff006610" }}>
-                  <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#ff0066" }}>Accroche</p>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#ff0066" }}>{lang === "en" ? "Hook" : "Accroche"}</p>
                   <p className="text-white text-sm leading-relaxed">{pitchResult.accroche}</p>
                 </div>
                 <div className="border border-gray-800 rounded-lg p-4">
-                  <p className="text-xs font-bold uppercase tracking-widest mb-2 text-gray-400">Valeur concrète</p>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-2 text-gray-400">{lang === "en" ? "Concrete value" : "Valeur concrète"}</p>
                   <ul className="space-y-1">
                     {pitchResult.valeur.map((v, i) => (
                       <li key={i} className="text-gray-300 text-sm flex gap-2"><span style={{ color: "#00ff9d" }}>▸</span>{v}</li>
@@ -952,18 +949,18 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                   </ul>
                 </div>
                 <div className="border border-gray-800 rounded-lg p-4">
-                  <p className="text-xs font-bold uppercase tracking-widest mb-2 text-gray-400">Objection probable</p>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-2 text-gray-400">{lang === "en" ? "Likely objection" : "Objection probable"}</p>
                   <p className="text-sm font-semibold text-white mb-1">❝ {pitchResult.objection.question} ❞</p>
                   <p className="text-gray-400 text-sm">→ {pitchResult.objection.reponse}</p>
                 </div>
                 <div className="border border-gray-800 rounded-lg p-4">
-                  <p className="text-xs font-bold uppercase tracking-widest mb-2 text-gray-400">Ouverture de réunion</p>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-2 text-gray-400">{lang === "en" ? "Meeting opener" : "Ouverture de réunion"}</p>
                   <p className="text-white text-sm italic">❝ {pitchResult.ouverture} ❞</p>
                 </div>
                 <div className="border border-gray-800 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Brief complet</p>
-                    <button onClick={() => navigator.clipboard.writeText(pitchResult!.brief_complet)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>📋 Copier</button>
+                    <p className="text-xs font-bold uppercase tracking-widest text-gray-400">{lang === "en" ? "Full brief" : "Brief complet"}</p>
+                    <button onClick={() => navigator.clipboard.writeText(pitchResult!.brief_complet)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>📋 {lang === "en" ? "Copy" : "Copier"}</button>
                   </div>
                   <p className="text-gray-300 text-xs whitespace-pre-wrap leading-relaxed">{pitchResult.brief_complet}</p>
                 </div>
@@ -1002,7 +999,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
           <div className="flex gap-3">
             <div className="flex-1">
               <label className="text-xs text-gray-500 block mb-1">{t.placesQueryLabel}</label>
-              <input value={placesQuery} onChange={e => setPlacesQuery(e.target.value)} className="cyber-input w-full text-xs rounded px-3 py-2" placeholder="banque Douala, opérateur télécom Cameroun..." onKeyDown={e => e.key === "Enter" && runPlacesSearch()} />
+              <input value={placesQuery} onChange={e => setPlacesQuery(e.target.value)} className="cyber-input w-full text-xs rounded px-3 py-2" placeholder={lang === "en" ? "bank Douala, telecom operator Cameroon..." : "banque Douala, opérateur télécom Cameroun..."} onKeyDown={e => e.key === "Enter" && runPlacesSearch()} />
             </div>
             {canWrite && <button onClick={runPlacesSearch} disabled={searching || !placesQuery.trim()} className="btn-neon px-5 py-2 rounded text-xs self-end shrink-0">
               {searching ? t.searchingLabel : t.searchBtn}
@@ -1082,7 +1079,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                     </a>
                   )}
                   {lead.aiScore !== null && lead.aiScore !== undefined && !hasContact(lead) && (
-                    <p className="text-gray-600 text-xs mt-1 italic line-through">Score {(lead.aiScore as number).toFixed(1)}/10 — Score inutile sans contact</p>
+                    <p className="text-gray-600 text-xs mt-1 italic line-through">Score {(lead.aiScore as number).toFixed(1)}/10 — {lang === "en" ? "Score useless without contact" : "Score inutile sans contact"}</p>
                   )}
                   {!!lead.aiScoreReason && (
                     <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>
@@ -1096,7 +1093,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                       className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
                       style={{ background: "#cc00ff15", color: "#cc00ff", border: "1px solid #cc00ff40" }}
                     >
-                      {enrichingId === (lead.id as number) ? "…" : "🔍 Enrichir"}
+                      {enrichingId === (lead.id as number) ? "…" : (lang === "en" ? "🔍 Enrich" : "🔍 Enrichir")}
                     </button>
                     <button
                       onClick={() => generateEmail(lead)}
@@ -1115,7 +1112,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                     <button
                       onClick={() => hasContact(lead) ? addToPipeline(lead) : undefined}
                       disabled={!hasContact(lead)}
-                      title={!hasContact(lead) ? "Enrichissez les données de contact avant de qualifier ce prospect." : undefined}
+                      title={!hasContact(lead) ? (lang === "en" ? "Enrich contact data before qualifying this prospect." : "Enrichissez les données de contact avant de qualifier ce prospect.") : undefined}
                       className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
                       style={hasContact(lead)
                         ? { background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }
@@ -1124,7 +1121,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                       {t.addToPipeline}
                     </button>
                     {!hasContact(lead) && (
-                      <p className="text-xs text-gray-600 max-w-[140px] text-center leading-tight">Enrichissez les données de contact</p>
+                      <p className="text-xs text-gray-600 max-w-[140px] text-center leading-tight">{lang === "en" ? "Enrich contact data" : "Enrichissez les données de contact"}</p>
                     )}
                   </div>
                 )}
@@ -1166,6 +1163,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
 
 // ---- Library Panel ----
 function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
+  const { t, lang } = useAdminT();
   const [files, setFiles] = useState<{ name: string; url: string; size: number; updated: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -1192,7 +1190,7 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const deleteFile = async (name: string) => {
-    if (!confirm(`Supprimer "${name.split("/").pop()}" ?`)) return;
+    if (!confirm(lang === "en" ? `Delete "${name.split("/").pop()}"?` : `Supprimer "${name.split("/").pop()}" ?`)) return;
     setDeleting(name);
     await fetch("/api/admin/library", {
       method: "DELETE",
@@ -1210,13 +1208,13 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-white">📁 Library</h1>
-          <p className="text-gray-500 text-xs mt-1">Images hébergées sur Google Cloud Storage · réutilisables dans tous les posts</p>
+          <h1 className="text-2xl font-black text-white">{t.libraryTitle}</h1>
+          <p className="text-gray-500 text-xs mt-1">{t.librarySubtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <input
             type="text"
-            placeholder="Rechercher…"
+            placeholder={t.searchPlaceholder}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="cyber-input text-xs px-3 py-1.5 rounded w-44"
@@ -1226,7 +1224,7 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
             disabled={uploading}
             className="text-xs px-4 py-1.5 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono transition-colors disabled:opacity-50"
           >
-            {uploading ? "⏳ Import…" : "⬆ Importer"}
+            {uploading ? t.importingBtn : t.importBtn}
           </button>}
           {canWrite && <input
             ref={fileRef}
@@ -1239,13 +1237,13 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-64 text-gray-600 font-mono text-xs">Chargement…</div>
+        <div className="flex items-center justify-center h-64 text-gray-600 font-mono text-xs">{t.loading}</div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 text-gray-600 font-mono text-xs gap-3">
-          <span>{search ? "Aucun résultat pour cette recherche" : "Aucune image importée"}</span>
+          <span>{search ? t.noSearchResult : t.noImages}</span>
           {canWrite && !search && (
             <button onClick={() => fileRef.current?.click()} className="text-neon-green text-xs underline">
-              Importer votre première image
+              {t.importFirstImage}
             </button>
           )}
         </div>
@@ -1279,6 +1277,7 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
 // ---- Library Picker Modal ----
 // Browse and pick an existing image from the GCS library (no upload here).
 function LibraryPickerModal({ onPick, onClose }: { onPick: (url: string) => void; onClose: () => void }) {
+  const { lang } = useAdminT();
   const [files, setFiles] = useState<{ name: string; url: string; size: number; updated: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -1299,13 +1298,13 @@ function LibraryPickerModal({ onPick, onClose }: { onPick: (url: string) => void
       <div className="cyber-card rounded-xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between gap-3 p-5 pb-3 border-b border-gray-800 shrink-0">
           <div>
-            <h3 className="text-white font-bold text-sm">📁 Choisir une image de la Library</h3>
-            <p className="text-gray-500 text-xs mt-0.5">Images hébergées sur Google Cloud Storage</p>
+            <h3 className="text-white font-bold text-sm">{lang === "en" ? "📁 Choose an image from the Library" : "📁 Choisir une image de la Library"}</h3>
+            <p className="text-gray-500 text-xs mt-0.5">{lang === "en" ? "Images hosted on Google Cloud Storage" : "Images hébergées sur Google Cloud Storage"}</p>
           </div>
           <div className="flex items-center gap-2">
             <input
               type="text"
-              placeholder="Rechercher…"
+              placeholder={lang === "en" ? "Search…" : "Rechercher…"}
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="cyber-input text-xs px-3 py-1.5 rounded w-40"
@@ -1315,11 +1314,11 @@ function LibraryPickerModal({ onPick, onClose }: { onPick: (url: string) => void
         </div>
         <div className="p-5 overflow-y-auto">
           {loading ? (
-            <div className="flex items-center justify-center h-48 text-gray-600 font-mono text-xs">Chargement…</div>
+            <div className="flex items-center justify-center h-48 text-gray-600 font-mono text-xs">{lang === "en" ? "Loading…" : "Chargement…"}</div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-gray-600 font-mono text-xs gap-2">
-              <span>{search ? "Aucun résultat" : "Aucune image dans la Library"}</span>
-              <span className="text-gray-700">Importez des images via l&apos;onglet 📁 Library.</span>
+              <span>{search ? (lang === "en" ? "No results" : "Aucun résultat") : (lang === "en" ? "No images in the Library" : "Aucune image dans la Library")}</span>
+              <span className="text-gray-700">{lang === "en" ? "Import images via the 📁 Library tab." : "Importez des images via l'onglet 📁 Library."}</span>
             </div>
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
@@ -1349,7 +1348,7 @@ function LibraryPickerModal({ onPick, onClose }: { onPick: (url: string) => void
 // ---- Communication Panel ----
 
 function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
-  const { t } = useAdminT();
+  const { t, lang: adminLang } = useAdminT();
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
@@ -1385,25 +1384,41 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
     if (!data) return "";
     switch (type) {
       case "speaker":
-        if (!item) return "Annonce d'un speaker EOCON 2026. Sélectionner un speaker ci-dessous pour personnaliser ce brief avec son nom, son expertise et son sujet de talk.";
-        return `Annonce de la conférence de ${item.name as string}, ${item.title as string}${item.company ? ` chez ${item.company}` : ""}${item.country ? ` (${item.country})` : ""}. Talk : "${item.talkTitle || "à confirmer"}". ${item.isKeynote ? "Keynote speaker de l'événement. " : ""}Créer de l'enthousiasme et mettre en avant son expertise pour EOCON 2026.`;
+        if (!item) return adminLang === "en" ? "Announcement of an EOCON 2026 speaker. Select a speaker below to customize this brief with their name, expertise and talk topic." : "Annonce d'un speaker EOCON 2026. Sélectionner un speaker ci-dessous pour personnaliser ce brief avec son nom, son expertise et son sujet de talk.";
+        return adminLang === "en"
+          ? `Announcement of ${item.name as string}'s talk, ${item.title as string}${item.company ? ` at ${item.company}` : ""}${item.country ? ` (${item.country})` : ""}. Talk: "${item.talkTitle || "TBC"}". ${item.isKeynote ? "Keynote speaker of the event. " : ""}Build excitement and highlight their expertise for EOCON 2026.`
+          : `Annonce de la conférence de ${item.name as string}, ${item.title as string}${item.company ? ` chez ${item.company}` : ""}${item.country ? ` (${item.country})` : ""}. Talk : "${item.talkTitle || "à confirmer"}". ${item.isKeynote ? "Keynote speaker de l'événement. " : ""}Créer de l'enthousiasme et mettre en avant son expertise pour EOCON 2026.`;
       case "session":
-        if (!item) return "Mise en avant d'une session du programme EOCON 2026. Sélectionner une session ci-dessous pour personnaliser ce brief avec son titre, son intervenant et sa date.";
-        return `Mise en avant de la session "${item.title as string}"${item.speakerName ? ` par ${item.speakerName}` : ""}${item.date ? ` le ${item.date}` : ""}${item.time ? ` à ${item.time}` : ""}. ${item.description ? `Contexte : ${(item.description as string).slice(0, 150)}...` : ""}`;
+        if (!item) return adminLang === "en" ? "Highlight of an EOCON 2026 programme session. Select a session below to customize this brief with its title, speaker and date." : "Mise en avant d'une session du programme EOCON 2026. Sélectionner une session ci-dessous pour personnaliser ce brief avec son titre, son intervenant et sa date.";
+        return adminLang === "en"
+          ? `Highlight of the session "${item.title as string}"${item.speakerName ? ` by ${item.speakerName}` : ""}${item.date ? ` on ${item.date}` : ""}${item.time ? ` at ${item.time}` : ""}. ${item.description ? `Context: ${(item.description as string).slice(0, 150)}...` : ""}`
+          : `Mise en avant de la session "${item.title as string}"${item.speakerName ? ` par ${item.speakerName}` : ""}${item.date ? ` le ${item.date}` : ""}${item.time ? ` à ${item.time}` : ""}. ${item.description ? `Contexte : ${(item.description as string).slice(0, 150)}...` : ""}`;
       case "workshop":
-        if (!item) return "Annonce d'un workshop EOCON 2026. Sélectionner un workshop ci-dessous pour personnaliser ce brief avec son titre, son animateur, son niveau et sa durée.";
-        return `Annonce du workshop "${item.title as string}"${item.instructor ? ` animé par ${item.instructor}` : ""}, niveau ${item.level as string}, durée ${item.duration as string}. ${(item.description as string).slice(0, 150)}... Inviter les participants à s'inscrire.`;
+        if (!item) return adminLang === "en" ? "Announcement of an EOCON 2026 workshop. Select a workshop below to customize this brief with its title, instructor, level and duration." : "Annonce d'un workshop EOCON 2026. Sélectionner un workshop ci-dessous pour personnaliser ce brief avec son titre, son animateur, son niveau et sa durée.";
+        return adminLang === "en"
+          ? `Announcement of the workshop "${item.title as string}"${item.instructor ? ` led by ${item.instructor}` : ""}, level ${item.level as string}, duration ${item.duration as string}. ${(item.description as string).slice(0, 150)}... Invite participants to register.`
+          : `Annonce du workshop "${item.title as string}"${item.instructor ? ` animé par ${item.instructor}` : ""}, niveau ${item.level as string}, durée ${item.duration as string}. ${(item.description as string).slice(0, 150)}... Inviter les participants à s'inscrire.`;
       case "sponsor":
-        if (!item) return "Mise en avant d'un partenaire EOCON 2026. Sélectionner un sponsor ci-dessous pour personnaliser ce brief avec son nom et son niveau de partenariat.";
-        return `Mise en avant et remerciement de ${item.name as string}, partenaire ${item.tier as string} d'EOCON 2026. Valoriser leur soutien et leur engagement pour la cybersécurité en Afrique.`;
+        if (!item) return adminLang === "en" ? "Highlight of an EOCON 2026 partner. Select a sponsor below to customize this brief with their name and partnership level." : "Mise en avant d'un partenaire EOCON 2026. Sélectionner un sponsor ci-dessous pour personnaliser ce brief avec son nom et son niveau de partenariat.";
+        return adminLang === "en"
+          ? `Highlight and thanks to ${item.name as string}, ${item.tier as string} partner of EOCON 2026. Showcase their support and commitment to cybersecurity in Africa.`
+          : `Mise en avant et remerciement de ${item.name as string}, partenaire ${item.tier as string} d'EOCON 2026. Valoriser leur soutien et leur engagement pour la cybersécurité en Afrique.`;
       case "countdown":
-        return `Compte à rebours EOCON 2026 : J-${data.daysUntil} ! Créer l'urgence et l'excitation. ${data.daysUntil <= 7 ? "Derniers rappels pratiques (lieu, programme)." : data.daysUntil <= 30 ? "Rappeler les points clés de l'événement." : "Présenter les highlights du programme à venir."}`;
+        return adminLang === "en"
+          ? `EOCON 2026 countdown: D-${data.daysUntil}! Create urgency and excitement. ${data.daysUntil <= 7 ? "Last practical reminders (venue, programme)." : data.daysUntil <= 30 ? "Remind about the key highlights of the event." : "Present the highlights of the upcoming programme."}`
+          : `Compte à rebours EOCON 2026 : J-${data.daysUntil} ! Créer l'urgence et l'excitation. ${data.daysUntil <= 7 ? "Derniers rappels pratiques (lieu, programme)." : data.daysUntil <= 30 ? "Rappeler les points clés de l'événement." : "Présenter les highlights du programme à venir."}`;
       case "cfp":
-        return "Annonce liée au Call for Papers (CFP) d'EOCON 2026. Préciser s'il s'agit de l'ouverture du CFP, d'un rappel de deadline, ou de l'annonce des résultats de sélection. Inciter les experts en cybersécurité à soumettre leur proposition de talk.";
+        return adminLang === "en"
+          ? "Announcement related to the Call for Papers (CFP) for EOCON 2026. Specify whether this is the CFP opening, a deadline reminder, or the announcement of selection results. Encourage cybersecurity experts to submit their talk proposals."
+          : "Annonce liée au Call for Papers (CFP) d'EOCON 2026. Préciser s'il s'agit de l'ouverture du CFP, d'un rappel de deadline, ou de l'annonce des résultats de sélection. Inciter les experts en cybersécurité à soumettre leur proposition de talk.";
       case "inscriptions":
-        return `Les inscriptions pour EOCON 2026 sont ouvertes ! ${data.registrationCount > 0 ? `Déjà ${data.registrationCount} participants inscrits. ` : ""}Inviter à s'inscrire, mettre en avant les types de billets disponibles (Standard, Student, VIP, Early Bird). Rappeler que l'événement est accessible en ligne pour la diaspora africaine.`;
+        return adminLang === "en"
+          ? `Registrations for EOCON 2026 are open! ${data.registrationCount > 0 ? `Already ${data.registrationCount} participants registered. ` : ""}Invite to register, highlight the available ticket types (Standard, Student, VIP, Early Bird). Remind that the event is accessible online for the African diaspora.`
+          : `Les inscriptions pour EOCON 2026 sont ouvertes ! ${data.registrationCount > 0 ? `Déjà ${data.registrationCount} participants inscrits. ` : ""}Inviter à s'inscrire, mettre en avant les types de billets disponibles (Standard, Student, VIP, Early Bird). Rappeler que l'événement est accessible en ligne pour la diaspora africaine.`;
       case "ctf":
-        return "Annonce de l'EyesOpenCTF — le Capture The Flag d'EOCON 2026. Présenter le challenge cybersécurité, ses catégories, les lots à remporter et le niveau attendu des participants. Inviter les équipes et individus à s'inscrire et à se challenger.";
+        return adminLang === "en"
+          ? "Announcement of the EyesOpenCTF — the Capture The Flag of EOCON 2026. Present the cybersecurity challenge, its categories, prizes to win and the expected level of participants. Invite teams and individuals to register and compete."
+          : "Annonce de l'EyesOpenCTF — le Capture The Flag d'EOCON 2026. Présenter le challenge cybersécurité, ses catégories, les lots à remporter et le niveau attendu des participants. Inviter les équipes et individus à s'inscrire et à se challenger.";
       case "custom":
         return "";
       default:
@@ -1429,7 +1444,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   // Calendar helpers
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
-  const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+  const monthNames = adminLang === "en" ? ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] : ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
   // Posts by date for calendar
   const postsByDate: Record<string, Record<string, unknown>[]> = {};
@@ -1549,7 +1564,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
           </div>
           {/* Day labels */}
           <div className="grid grid-cols-7 gap-1 mb-1">
-            {["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"].map(d => (
+            {(adminLang === "en" ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] : ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"]).map(d => (
               <div key={d} className="text-center text-gray-600 text-xs py-1">{d}</div>
             ))}
           </div>
@@ -1608,11 +1623,11 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                   { key: "session", icon: "📋", label: "Session" },
                   { key: "workshop", icon: "🛠", label: "Workshop" },
                   { key: "sponsor", icon: "🏢", label: "Sponsor" },
-                  { key: "countdown", icon: "⏱", label: "Compte à rebours" },
+                  { key: "countdown", icon: "⏱", label: adminLang === "en" ? "Countdown" : "Compte à rebours" },
                   { key: "cfp", icon: "📝", label: "CFP" },
                   { key: "inscriptions", icon: "🎟", label: "Inscriptions" },
                   { key: "ctf", icon: "🏆", label: "CTF" },
-                  { key: "custom", icon: "✏️", label: "Personnalisé" },
+                  { key: "custom", icon: "✏️", label: adminLang === "en" ? "Custom" : "Personnalisé" },
                 ] as const).map(ctx => (
                   <button
                     key={ctx.key}
@@ -1669,7 +1684,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                     contextData.sponsors
                   ).map(item => (
                     <option key={item.id as number} value={item.id as number}>
-                      {contextType === "speaker" ? `${item.name as string} — ${(item.talkTitle as string) || "Talk à confirmer"}` :
+                      {contextType === "speaker" ? `${item.name as string} — ${(item.talkTitle as string) || (adminLang === "en" ? "Talk TBC" : "Talk à confirmer")}` :
                        contextType === "session" ? `${item.title as string}${item.speakerName ? ` (${item.speakerName as string})` : ""}` :
                        contextType === "workshop" ? `${item.title as string} — ${item.level as string}` :
                        `${item.name as string} (${item.tier as string})`}
@@ -1771,7 +1786,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                     <button
                       onClick={() => setShowImagePicker(true)}
                       className="px-2 h-5 rounded-full bg-black/70 text-white text-xs flex items-center justify-center hover:bg-black/90"
-                    >Changer</button>
+                    >{adminLang === "en" ? "Change" : "Changer"}</button>
                     <button
                       onClick={() => setPostImage(null)}
                       className="w-5 h-5 rounded-full bg-black/70 text-white text-xs flex items-center justify-center hover:bg-black/90"
@@ -1910,8 +1925,8 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
       <div className="cyber-card rounded-xl p-5">
         {!selectedDay ? (
           <>
-            <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#0066ff" }}>Posts planifiés & publiés</h3>
-            <p className="text-gray-600 text-xs text-center py-4">Cliquez sur un jour pour voir les posts planifiés</p>
+            <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#0066ff" }}>{adminLang === "en" ? "Scheduled & published posts" : "Posts planifiés & publiés"}</h3>
+            <p className="text-gray-600 text-xs text-center py-4">{adminLang === "en" ? "Click on a day to see scheduled posts" : "Cliquez sur un jour pour voir les posts planifiés"}</p>
           </>
         ) : (() => {
           const dateKey = `${selectedDay.getFullYear()}-${String(selectedDay.getMonth()+1).padStart(2,"0")}-${String(selectedDay.getDate()).padStart(2,"0")}`;
@@ -1920,11 +1935,11 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
             <>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: "#0066ff" }}>
-                  Posts du {selectedDay.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                  {adminLang === "en" ? `Posts for ${selectedDay.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}` : `Posts du ${selectedDay.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`}
                 </h3>
-                <button onClick={() => setSelectedDay(null)} className="text-gray-600 hover:text-gray-400 text-xs">✕ Fermer</button>
+                <button onClick={() => setSelectedDay(null)} className="text-gray-600 hover:text-gray-400 text-xs">{adminLang === "en" ? "✕ Close" : "✕ Fermer"}</button>
               </div>
-              {dayPostsList.length === 0 && <p className="text-gray-600 text-xs text-center py-4">Aucun post ce jour. Cliquez sur le calendrier pour créer.</p>}
+              {dayPostsList.length === 0 && <p className="text-gray-600 text-xs text-center py-4">{adminLang === "en" ? "No posts this day. Click on the calendar to create one." : "Aucun post ce jour. Cliquez sur le calendrier pour créer."}</p>}
               <div className="space-y-3">
                 {dayPostsList.map(post => {
                   const color = statusColors[post.status as string] || "#888";
@@ -1959,18 +1974,18 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                         {canWrite && <button
                           onClick={() => { handleDayClick(selectedDay.getDate()); }}
                           className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white transition-colors"
-                        >✏️ Modifier</button>}
+                        >{adminLang === "en" ? "✏️ Edit" : "✏️ Modifier"}</button>}
                         {canWrite && post.status === "scheduled" && (
                           <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
-                            {publishing === (post.id as number) ? "..." : "▶️ Publier maintenant"}
+                            {publishing === (post.id as number) ? "..." : (adminLang === "en" ? "▶️ Publish now" : "▶️ Publier maintenant")}
                           </button>
                         )}
                         {canWrite && post.status === "draft" && (
                           <>
                             <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
-                              {publishing === (post.id as number) ? "..." : "▶️ Publier maintenant"}
+                              {publishing === (post.id as number) ? "..." : (adminLang === "en" ? "▶️ Publish now" : "▶️ Publier maintenant")}
                             </button>
-                            <button onClick={() => { setScheduleId(post.id as number); setScheduleDate(""); }} className="text-xs px-2 py-1 rounded" style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0030" }}>🕐 Planifier</button>
+                            <button onClick={() => { setScheduleId(post.id as number); setScheduleDate(""); }} className="text-xs px-2 py-1 rounded" style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0030" }}>{adminLang === "en" ? "🕐 Schedule" : "🕐 Planifier"}</button>
                           </>
                         )}
                         {post.status === "published" && !!post.linkedinPostId && (
@@ -1983,7 +1998,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                         )}
                         {canWrite && post.status === "failed" && (
                           <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#ff006615", color: "#ff6666", border: "1px solid #ff006630" }}>
-                            {publishing === (post.id as number) ? "..." : "🔄 Réessayer"}
+                            {publishing === (post.id as number) ? "..." : (adminLang === "en" ? "🔄 Retry" : "🔄 Réessayer")}
                           </button>
                         )}
                         {canWrite && <button
@@ -1992,7 +2007,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                             await loadLinkedinPosts();
                           }}
                           className="text-xs px-2 py-1 rounded border border-red-800/50 text-red-500 hover:bg-red-900/20 transition-colors"
-                        >🗑️ Supprimer</button>}
+                        >{adminLang === "en" ? "🗑️ Delete" : "🗑️ Supprimer"}</button>}
                         {canWrite && scheduleId === (post.id as number) && (
                           <div className="flex gap-1 items-center w-full mt-1">
                             <input type="datetime-local" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} className="cyber-input text-xs rounded px-1 py-0.5 w-36" />
@@ -2041,6 +2056,7 @@ function SponsorFormPanel({
   onSave: () => void;
   onCancel: () => void;
 }) {
+  const { lang } = useAdminT();
   const [showLibrary, setShowLibrary] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -2065,13 +2081,13 @@ function SponsorFormPanel({
           onClose={() => setShowLibrary(false)}
         />
       )}
-      <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier le Sponsor" : "Nouveau Sponsor"}</h3>
+      <h3 className="text-neon-green text-sm mb-4">{editing ? (lang === "en" ? "Edit Sponsor" : "Modifier le Sponsor") : (lang === "en" ? "New Sponsor" : "Nouveau Sponsor")}</h3>
       <div className="grid sm:grid-cols-2 gap-3">
         {[
-          { key: "name", label: "Nom du Sponsor *" },
-          { key: "website", label: "Site Web" },
+          { key: "name", label: lang === "en" ? "Sponsor Name *" : "Nom du Sponsor *" },
+          { key: "website", label: lang === "en" ? "Website" : "Site Web" },
           { key: "email", label: "Email" },
-          { key: "phone", label: "Téléphone" },
+          { key: "phone", label: lang === "en" ? "Phone" : "Téléphone" },
         ].map(f => (
           <div key={f.key}>
             <label className="block text-xs text-gray-500 mb-1">{f.label}</label>
@@ -2082,7 +2098,7 @@ function SponsorFormPanel({
           <label className="block text-xs text-gray-500 mb-1">Logo</label>
           <div className="flex items-center gap-2 flex-wrap">
             {!!form.logoUrl && <img src={form.logoUrl as string} alt="logo" className="w-10 h-10 object-contain rounded bg-white/5 p-1 border border-gray-700" />}
-            <input className="cyber-input flex-1 px-3 py-2 rounded text-xs min-w-0" placeholder="URL du logo" value={(form.logoUrl as string) || ""} onChange={e => setForm({ ...form, logoUrl: e.target.value })} />
+            <input className="cyber-input flex-1 px-3 py-2 rounded text-xs min-w-0" placeholder={lang === "en" ? "Logo URL" : "URL du logo"} value={(form.logoUrl as string) || ""} onChange={e => setForm({ ...form, logoUrl: e.target.value })} />
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }} />
             <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="text-xs px-3 py-2 rounded border border-gray-700 hover:border-neon-green text-gray-400 hover:text-neon-green shrink-0">
               {uploading ? "Upload…" : "⬆ Upload"}
@@ -2099,17 +2115,17 @@ function SponsorFormPanel({
           </select>
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Ordre</label>
+          <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Order" : "Ordre"}</label>
           <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.sortOrder as number) || 0} onChange={e => setForm({ ...form, sortOrder: Number(e.target.value) })} />
         </div>
         <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
           <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
-          Visible sur le site
+          {lang === "en" ? "Visible on site" : "Visible sur le site"}
         </label>
       </div>
       <div className="flex gap-3 mt-4">
-        <button onClick={onSave} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
-        <button onClick={onCancel} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+        <button onClick={onSave} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">{lang === "en" ? "Save" : "Sauvegarder"}</button>
+        <button onClick={onCancel} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "Cancel" : "Annuler"}</button>
       </div>
     </div>
   );
@@ -2226,7 +2242,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
   };
 
   const del = async (id: number) => {
-    if (!(await confirm({ message: "Supprimer ce prospect ?", danger: true, confirmLabel: "Supprimer" }))) return;
+    if (!(await confirm({ message: lang === "en" ? "Delete this prospect?" : "Supprimer ce prospect ?", danger: true, confirmLabel: lang === "en" ? "Delete" : "Supprimer" }))) return;
     await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "DELETE" });
     onRefresh();
   };
@@ -2265,9 +2281,9 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                 <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-xs font-bold text-gray-400">{e.lang}</span>
-                    <button onClick={() => navigator.clipboard.writeText(`${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>Copier</button>
+                    <button onClick={() => navigator.clipboard.writeText(`${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>{lang === "en" ? "Copy" : "Copier"}</button>
                   </div>
-                  <p className="text-white text-xs font-bold mb-2">Objet: {e.subject}</p>
+                  <p className="text-white text-xs font-bold mb-2">{lang === "en" ? "Subject:" : "Objet:"} {e.subject}</p>
                   <p className="text-gray-400 text-xs whitespace-pre-wrap">{e.body}</p>
                   {canWrite && <button
                     onClick={() => sendProspectEmail(e.subject, e.body, e.lang)}
@@ -2313,7 +2329,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                 { label: t.contact, val: detail.contact as string },
                 { label: t.email, val: detail.email as string, href: detail.email ? `mailto:${detail.email}` : undefined },
                 { label: t.phone, val: detail.phone as string, href: detail.phone ? `tel:${detail.phone}` : undefined },
-                { label: "Site web", val: detail.website as string, href: detail.website ? (String(detail.website).startsWith("http") ? String(detail.website) : `https://${detail.website}`) : undefined },
+                { label: lang === "en" ? "Website" : "Site web", val: detail.website as string, href: detail.website ? (String(detail.website).startsWith("http") ? String(detail.website) : `https://${detail.website}`) : undefined },
                 { label: t.package, val: detail.package as string },
               ]).map(f => (
                 <div key={f.label} className="flex gap-3">
@@ -2330,23 +2346,23 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                 <span className="text-gray-300 whitespace-pre-wrap break-words">{(detail.notes as string) || "—"}</span>
               </div>
               <div className="flex gap-3 border-t border-gray-800 pt-3">
-                <span className="text-gray-600 shrink-0 w-28">Créé le</span>
+                <span className="text-gray-600 shrink-0 w-28">{lang === "en" ? "Created on" : "Créé le"}</span>
                 <span className="text-gray-400">{detail.createdAt ? new Date(detail.createdAt as string).toLocaleString("fr-FR") : "—"}</span>
               </div>
               <div className="flex gap-3">
-                <span className="text-gray-600 shrink-0 w-28">Mis à jour</span>
+                <span className="text-gray-600 shrink-0 w-28">{lang === "en" ? "Updated" : "Mis à jour"}</span>
                 <span className="text-gray-400">{detail.updatedAt ? new Date(detail.updatedAt as string).toLocaleString("fr-FR") : "—"}</span>
               </div>
               {!!detail.emailJson && (
                 <div className="border-t border-gray-800 pt-3">
-                  <p className="text-gray-600 mb-1">Courriel IA en cache</p>
-                  <p className="text-neon-green/60">✓ Un courriel de relance a été généré pour ce prospect.</p>
+                  <p className="text-gray-600 mb-1">{lang === "en" ? "Cached AI email" : "Courriel IA en cache"}</p>
+                  <p className="text-neon-green/60">{lang === "en" ? "✓ A follow-up email has been generated for this prospect." : "✓ Un courriel de relance a été généré pour ce prospect."}</p>
                 </div>
               )}
               {canWrite && (
                 <div className="border-t border-gray-800 pt-4 flex gap-2">
                   <button onClick={() => { generateFollowupEmail(detail); setDetail(null); }} className="flex-1 text-xs px-3 py-2 rounded font-bold" style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}>
-                    {detail.emailJson ? "✨ Voir / envoyer le courriel" : "✨ Générer un courriel (IA)"}
+                    {detail.emailJson ? (lang === "en" ? "✨ View / send email" : "✨ Voir / envoyer le courriel") : (lang === "en" ? "✨ Generate email (AI)" : "✨ Générer un courriel (IA)")}
                   </button>
                 </div>
               )}
@@ -2364,7 +2380,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
               { key: "contact", label: t.contact },
               { key: "email", label: t.email },
               { key: "phone", label: t.phone },
-              { key: "website", label: "Site web" },
+              { key: "website", label: lang === "en" ? "Website" : "Site web" },
               { key: "package", label: t.package },
             ].map(f => (
               <div key={f.key}>
@@ -2409,7 +2425,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                       className="cyber-card rounded-lg p-3 text-xs"
                       style={{ borderLeft: `3px solid ${st.color}40` }}
                     >
-                      <button onClick={() => setDetail(p)} className="text-white font-bold text-sm mb-1 truncate w-full text-left hover:text-neon-green transition-colors" title="Voir les détails">{p.org as string}</button>
+                      <button onClick={() => setDetail(p)} className="text-white font-bold text-sm mb-1 truncate w-full text-left hover:text-neon-green transition-colors" title={lang === "en" ? "View details" : "Voir les détails"}>{p.org as string}</button>
                       {(p.contact as string) && <p className="text-gray-500 truncate">{p.contact as string}</p>}
                       {(p.email as string) && <p className="text-neon-green/60 truncate">{p.email as string}</p>}
                       {(p.package as string) && (
@@ -2448,7 +2464,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                   ))}
                   {group.length === 0 && (
                     <div className="border border-dashed border-gray-800 rounded-lg h-16 flex items-center justify-center">
-                      <span className="text-gray-800 text-xs">vide</span>
+                      <span className="text-gray-800 text-xs">{lang === "en" ? "empty" : "vide"}</span>
                     </div>
                   )}
                 </div>
@@ -2457,7 +2473,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
           })}
         </div>
       </div>
-      {!prospects.length && <p className="text-gray-600 text-xs py-4 text-center">Aucun prospect pour l&apos;instant</p>}
+      {!prospects.length && <p className="text-gray-600 text-xs py-4 text-center">{lang === "en" ? "No prospects yet" : "Aucun prospect pour l'instant"}</p>}
     </div>
   );
 }
@@ -2473,7 +2489,7 @@ const BUDGET_COST_LABELS = [
 interface AutoRevenue { label: string; value: number; color: string; }
 
 function BudgetPanel({ items, onRefresh, canWrite = true }: { items: Record<string, unknown>[]; onRefresh: () => void; canWrite?: boolean }) {
-  const { t } = useAdminT();
+  const { t, lang } = useAdminT();
   const confirm = useConfirm();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ category: "costs", planned: 0, actual: 0, status: "pending" });
@@ -2517,7 +2533,7 @@ function BudgetPanel({ items, onRefresh, canWrite = true }: { items: Record<stri
   };
 
   const del = async (id: number) => {
-    if (!(await confirm({ message: "Supprimer ?", danger: true, confirmLabel: "Supprimer" }))) return;
+    if (!(await confirm({ message: lang === "en" ? "Delete?" : "Supprimer ?", danger: true, confirmLabel: lang === "en" ? "Delete" : "Supprimer" }))) return;
     await fetch(`/api/admin/budget/${id}`, { method: "DELETE" });
     onRefresh();
   };
@@ -2685,24 +2701,24 @@ function BudgetPanel({ items, onRefresh, canWrite = true }: { items: Record<stri
               </select>
             </div>
             <div className="lg:col-span-2">
-              <label className="text-xs text-gray-500 block mb-1">Libellé</label>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Label" : "Libellé"}</label>
               <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.label as string) || ""} onChange={e => setForm(p => ({ ...p, label: e.target.value }))} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Montant prévu (FCFA)</label>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Planned amount (FCFA)" : "Montant prévu (FCFA)"}</label>
               <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.planned as number) || 0} onChange={e => setForm(p => ({ ...p, planned: parseFloat(e.target.value) || 0 }))} />
             </div>
           </div>
           <div className="flex gap-2 mt-3">
-            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">Ajouter</button>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
+            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "Add" : "Ajouter"}</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">{lang === "en" ? "Cancel" : "Annuler"}</button>
           </div>
         </div>
       )}
 
       {!items.length && (
         <div className="text-center py-8">
-          <p className="text-gray-600 text-xs mb-3">Aucun élément. Initialisez avec le budget standard EOCON.</p>
+          <p className="text-gray-600 text-xs mb-3">{lang === "en" ? "No items. Initialize with the standard EOCON budget." : "Aucun élément. Initialisez avec le budget standard EOCON."}</p>
           {canWrite && <button
             onClick={async () => {
               const res = await fetch("/api/admin/seed", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "budget" }) });
@@ -2710,22 +2726,22 @@ function BudgetPanel({ items, onRefresh, canWrite = true }: { items: Record<stri
             }}
             className="btn-neon px-4 py-2 rounded text-xs"
           >
-            🌱 Initialiser budget EOCON
+            {lang === "en" ? "🌱 Initialize EOCON budget" : "🌱 Initialiser budget EOCON"}
           </button>}
         </div>
       )}
-      {renderTable(manualRevenues, "Revenus additionnels (manuels)", "#00ff9d")}
-      {renderTable(costs, "Dépenses", "#ff4444")}
+      {renderTable(manualRevenues, lang === "en" ? "Additional revenues (manual)" : "Revenus additionnels (manuels)", "#00ff9d")}
+      {renderTable(costs, lang === "en" ? "Expenses" : "Dépenses", "#ff4444")}
     </div>
   );
 }
 
 // ---- Logistics Panel ----
 const STATUS_COLS = [
-  { id: "todo",        label: "TODO",      color: "#888",    bg: "#88888815" },
-  { id: "in_progress", label: "EN COURS",  color: "#0066ff", bg: "#0066ff15" },
-  { id: "blocked",     label: "BLOQUÉ",    color: "#ff0066", bg: "#ff006615" },
-  { id: "done",        label: "TERMINÉ",   color: "#00ff9d", bg: "#00ff9d15" },
+  { id: "todo",        label: "TODO",      labelEn: "TODO",        color: "#888",    bg: "#88888815" },
+  { id: "in_progress", label: "EN COURS",  labelEn: "IN PROGRESS", color: "#0066ff", bg: "#0066ff15" },
+  { id: "blocked",     label: "BLOQUÉ",    labelEn: "BLOCKED",     color: "#ff0066", bg: "#ff006615" },
+  { id: "done",        label: "TERMINÉ",   labelEn: "DONE",        color: "#00ff9d", bg: "#00ff9d15" },
 ];
 const PRIORITY_COLORS: Record<string, string> = {
   critical: "#ff0066", high: "#ff6600", medium: "#ffaa00", low: "#888"
@@ -2806,6 +2822,7 @@ function TaskCard({
   showPhase?: boolean;
   canWrite?: boolean;
 }) {
+  const { lang } = useAdminT();
   const now = new Date();
   const deadline = t.deadline ? new Date(t.deadline as string) : null;
   const isOverdue = deadline && deadline < now && t.status !== "done";
@@ -2839,7 +2856,7 @@ function TaskCard({
             {deadline && (
               <span className={isOverdue ? "text-red-400 font-bold" : "text-gray-600"}>
                 {deadline.toLocaleDateString("fr-FR")}
-                {isOverdue && " (retard)"}
+                {isOverdue && (lang === "en" ? " (late)" : " (retard)")}
               </span>
             )}
           </div>
@@ -2852,6 +2869,7 @@ function TaskCard({
 }
 
 function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<string, unknown>[]; onRefresh: () => void; canWrite?: boolean }) {
+  const { lang } = useAdminT();
   const [activeTab, setActiveTab] = useState<"kanban" | "phase" | "overdue" | "all">("kanban");
   const [activePhase, setActivePhase] = useState<Phase>("J-90");
   const [showForm, setShowForm] = useState(false);
@@ -2868,7 +2886,7 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
   };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer ?")) return;
+    if (!confirm(lang === "en" ? "Delete?" : "Supprimer ?")) return;
     await fetch(`/api/admin/logistics/${id}`, { method: "DELETE" });
     onRefresh();
   };
@@ -2906,24 +2924,24 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
   };
 
   const tabs = [
-    { id: "kanban" as const, label: "Vue Kanban" },
-    { id: "phase" as const, label: "Vue Phase" },
-    { id: "overdue" as const, label: "Vue Retards" },
-    { id: "all" as const, label: "Toutes" },
+    { id: "kanban" as const, label: lang === "en" ? "Kanban View" : "Vue Kanban" },
+    { id: "phase" as const, label: lang === "en" ? "Phase View" : "Vue Phase" },
+    { id: "overdue" as const, label: lang === "en" ? "Overdue View" : "Vue Retards" },
+    { id: "all" as const, label: lang === "en" ? "All" : "Toutes" },
   ];
 
   return (
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-black text-white">Logistique</h1>
+        <h1 className="text-2xl font-black text-white">{lang === "en" ? "Logistics" : "Logistique"}</h1>
         {canWrite && <div className="flex gap-2">
           {!tasks.length && (
             <button onClick={seedAll} className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">
-              Initialiser toutes les tâches
+              {lang === "en" ? "Initialize all tasks" : "Initialiser toutes les tâches"}
             </button>
           )}
-          <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter tâche</button>
+          <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "+ Add task" : "+ Ajouter tâche"}</button>
         </div>}
       </div>
 
@@ -2947,7 +2965,7 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
       {total > 0 && (
         <div className="cyber-card rounded-xl p-4 mb-4">
           <div className="flex justify-between text-xs text-gray-500 mb-2">
-            <span>Progression globale</span>
+            <span>{lang === "en" ? "Overall progress" : "Progression globale"}</span>
             <span className="font-bold" style={{ color: "#00ff9d" }}>{totalDone}/{total} ({pct}%)</span>
           </div>
           <div className="h-3 bg-gray-900 rounded-full overflow-hidden">
@@ -2961,11 +2979,11 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
         <div className="cyber-card rounded-xl p-5 mb-6">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Catégorie</label>
-              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.category as string) || ""} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} placeholder="ex: Technique" />
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Category" : "Catégorie"}</label>
+              <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.category as string) || ""} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} placeholder={lang === "en" ? "e.g.: Technical" : "ex: Technique"} />
             </div>
             <div className="lg:col-span-2">
-              <label className="text-xs text-gray-500 block mb-1">Titre *</label>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Title *" : "Titre *"}</label>
               <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.title as string) || ""} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
             </div>
             <div>
@@ -2975,7 +2993,7 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Priorité</label>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Priority" : "Priorité"}</label>
               <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.priority as string) || "medium"} onChange={e => setForm(p => ({ ...p, priority: e.target.value }))}>
                 <option value="critical">Critical</option>
                 <option value="high">High</option>
@@ -2984,17 +3002,17 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Statut</label>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Status" : "Statut"}</label>
               <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.status as string) || "todo"} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
-                {STATUS_COLS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                {STATUS_COLS.map(s => <option key={s.id} value={s.id}>{lang === "en" ? s.labelEn : s.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Responsable</label>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Assignee" : "Responsable"}</label>
               <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.assignee as string) || ""} onChange={e => setForm(p => ({ ...p, assignee: e.target.value }))} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Échéance</label>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Deadline" : "Échéance"}</label>
               <input type="date" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.deadline as string) || ""} onChange={e => setForm(p => ({ ...p, deadline: e.target.value }))} />
             </div>
             <div className="lg:col-span-3">
@@ -3003,8 +3021,8 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
             </div>
           </div>
           <div className="flex gap-2 mt-3">
-            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">Ajouter</button>
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
+            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "Add" : "Ajouter"}</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">{lang === "en" ? "Cancel" : "Annuler"}</button>
           </div>
         </div>
       )}
@@ -3017,7 +3035,7 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
             return (
               <div key={col.id} className="min-w-[260px] flex-shrink-0 rounded-xl p-3" style={{ background: col.bg, border: `1px solid ${col.color}30` }}>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold font-mono tracking-widest" style={{ color: col.color }}>{col.label}</span>
+                  <span className="text-xs font-bold font-mono tracking-widest" style={{ color: col.color }}>{lang === "en" ? col.labelEn : col.label}</span>
                   <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: col.color + "20", color: col.color }}>{colTasks.length}</span>
                 </div>
                 <div>
@@ -3061,7 +3079,7 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
                     </div>
                   ))}
                   {colTasks.length === 0 && (
-                    <div className="text-xs text-gray-700 text-center py-4 italic">Aucune tâche</div>
+                    <div className="text-xs text-gray-700 text-center py-4 italic">{lang === "en" ? "No tasks" : "Aucune tâche"}</div>
                   )}
                 </div>
               </div>
@@ -3099,12 +3117,12 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
             if (phTasks.length === 0) {
               return (
                 <div className="text-center py-8">
-                  <p className="text-gray-600 text-xs mb-3">Aucune tâche pour la phase {activePhase}.</p>
+                  <p className="text-gray-600 text-xs mb-3">{lang === "en" ? `No tasks for phase ${activePhase}.` : `Aucune tâche pour la phase ${activePhase}.`}</p>
                   {canWrite && <button
                     onClick={() => seedPhase(activePhase)}
                     className="btn-neon px-4 py-2 rounded text-xs"
                   >
-                    Initialiser cette phase
+                    {lang === "en" ? "Initialize this phase" : "Initialiser cette phase"}
                   </button>}
                 </div>
               );
@@ -3153,12 +3171,12 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
         <div>
           {overdueTasks.length === 0 ? (
             <div className="text-center py-8 cyber-card rounded-xl">
-              <p className="text-green-400 font-bold">Aucun retard !</p>
-              <p className="text-gray-600 text-xs mt-1">Toutes les tâches avec deadline sont à jour.</p>
+              <p className="text-green-400 font-bold">{lang === "en" ? "No delays!" : "Aucun retard !"}</p>
+              <p className="text-gray-600 text-xs mt-1">{lang === "en" ? "All tasks with deadlines are up to date." : "Toutes les tâches avec deadline sont à jour."}</p>
             </div>
           ) : (
             <div className="space-y-2">
-              <div className="text-xs text-red-400 mb-3 font-bold">{overdueTasks.length} tâche(s) en retard</div>
+              <div className="text-xs text-red-400 mb-3 font-bold">{lang === "en" ? `${overdueTasks.length} task(s) overdue` : `${overdueTasks.length} tâche(s) en retard`}</div>
               {overdueTasks.map(t => {
                 const dl = new Date(t.deadline as string);
                 const daysLate = Math.floor((now.getTime() - dl.getTime()) / (1000 * 60 * 60 * 24));
@@ -3173,14 +3191,14 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
                           <span className="px-1.5 py-0.5 rounded font-bold" style={{ color: PRIORITY_COLORS[(t.priority as string) || "medium"], background: (PRIORITY_COLORS[(t.priority as string) || "medium"]) + "20" }}>
                             {(t.priority as string || "medium").toUpperCase()}
                           </span>
-                          <span className="text-red-400 font-bold">+{daysLate}j de retard</span>
+                          <span className="text-red-400 font-bold">{lang === "en" ? `+${daysLate}d late` : `+${daysLate}j de retard`}</span>
                         </div>
                       </div>
                       {canWrite && <button
                         onClick={() => update(t.id as number, { status: "done" })}
                         className="text-xs px-2 py-1 rounded border border-green-700 text-green-400 hover:bg-green-900/20"
                       >
-                        Marquer fait
+                        {lang === "en" ? "Mark done" : "Marquer fait"}
                       </button>}
                       {canWrite && <button onClick={() => del(t.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>}
                     </div>
@@ -3219,9 +3237,9 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
           })()}
           {!tasks.length && (
             <div className="text-center py-8">
-              <p className="text-gray-600 text-xs mb-3">Aucune tâche. Initialisez avec les tâches standard.</p>
+              <p className="text-gray-600 text-xs mb-3">{lang === "en" ? "No tasks. Initialize with standard tasks." : "Aucune tâche. Initialisez avec les tâches standard."}</p>
               {canWrite && <button onClick={seedAll} className="btn-neon px-4 py-2 rounded text-xs">
-                Initialiser tâches logistiques
+                {lang === "en" ? "Initialize logistics tasks" : "Initialiser tâches logistiques"}
               </button>}
             </div>
           )}
@@ -3243,6 +3261,7 @@ interface TicketTypeRow {
 const TICKET_DEFAULT_FORM = { slug: "", nameFr: "", nameEn: "", priceFr: 0, priceEn: 0, color: "#00ff9d", isFeatured: false, isVisible: true, includesSessions: true, includesWorkshops: false, includesCTF: false, maxCapacity: 200, sortOrder: 0, perksFrArr: [] as string[], perksEnArr: [] as string[], netticketTicketId: "", stripeProductId: "" };
 
 function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
+  const { lang: adminLang } = useAdminT();
   const [tickets, setTickets] = useState<TicketTypeRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
@@ -3281,7 +3300,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer ce type de billet ?")) return;
+    if (!confirm(adminLang === "en" ? "Delete this ticket type?" : "Supprimer ce type de billet ?")) return;
     await fetch(`/api/admin/ticket-types/${id}`, { method: "DELETE" });
     load();
   };
@@ -3323,18 +3342,18 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-white">Billets & Tarifs</h1>
-          <p className="text-gray-500 text-xs mt-1">Gérez les types de billets affichés sur le portail d&apos;inscription</p>
+          <h1 className="text-2xl font-black text-white">{adminLang === "en" ? "Tickets & Pricing" : "Billets & Tarifs"}</h1>
+          <p className="text-gray-500 text-xs mt-1">{adminLang === "en" ? "Manage ticket types displayed on the registration portal" : "Gérez les types de billets affichés sur le portail d'inscription"}</p>
         </div>
-        {canWrite && <button onClick={() => setShowCreate(v => !v)} className="btn-neon px-4 py-2 rounded text-xs">+ Créer billet</button>}
+        {canWrite && <button onClick={() => setShowCreate(v => !v)} className="btn-neon px-4 py-2 rounded text-xs">{adminLang === "en" ? "+ Create ticket" : "+ Créer billet"}</button>}
       </div>
 
       {canWrite && showCreate && (
         <div className="cyber-card rounded-xl p-5 mb-6">
-          <h3 className="text-sm font-bold text-neon-green mb-4">Nouveau type de billet</h3>
+          <h3 className="text-sm font-bold text-neon-green mb-4">{adminLang === "en" ? "New ticket type" : "Nouveau type de billet"}</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Slug (identifiant unique)</label>
+              <label className="text-xs text-gray-500 block mb-1">{adminLang === "en" ? "Slug (unique identifier)" : "Slug (identifiant unique)"}</label>
               <input value={createForm.slug} onChange={e => setCreateForm(f => ({ ...f, slug: e.target.value }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" placeholder="ex: vip-ctf" />
             </div>
             <div>
@@ -3358,11 +3377,11 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
               <input type="number" value={createForm.priceEn} onChange={e => setCreateForm(f => ({ ...f, priceEn: parseInt(e.target.value) || 0 }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Capacité max</label>
+              <label className="text-xs text-gray-500 block mb-1">{adminLang === "en" ? "Max capacity" : "Capacité max"}</label>
               <input type="number" value={createForm.maxCapacity} onChange={e => setCreateForm(f => ({ ...f, maxCapacity: parseInt(e.target.value) || 200 }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Ordre d&apos;affichage</label>
+              <label className="text-xs text-gray-500 block mb-1">{adminLang === "en" ? "Display order" : "Ordre d'affichage"}</label>
               <input type="number" value={createForm.sortOrder} onChange={e => setCreateForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
             </div>
             <div>
@@ -3377,15 +3396,15 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
           <div className="flex items-center gap-4 mb-4 flex-wrap">
             <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
               <input type="checkbox" checked={createForm.isVisible} onChange={e => setCreateForm(f => ({ ...f, isVisible: e.target.checked }))} />
-              Visible sur le portail
+              {adminLang === "en" ? "Visible on portal" : "Visible sur le portail"}
             </label>
             <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
               <input type="checkbox" checked={createForm.isFeatured} onChange={e => setCreateForm(f => ({ ...f, isFeatured: e.target.checked }))} />
-              Recommandé
+              {adminLang === "en" ? "Featured" : "Recommandé"}
             </label>
             <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#00ff9d" }}>
               <input type="checkbox" checked={createForm.includesSessions} onChange={e => setCreateForm(f => ({ ...f, includesSessions: e.target.checked }))} />
-              📡 Sessions / Conférences
+              {adminLang === "en" ? "📡 Sessions / Conferences" : "📡 Sessions / Conférences"}
             </label>
             <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#a78bfa" }}>
               <input type="checkbox" checked={createForm.includesWorkshops} onChange={e => setCreateForm(f => ({ ...f, includesWorkshops: e.target.checked }))} />
@@ -3398,9 +3417,9 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
           </div>
           <div className="flex gap-3">
             <button onClick={createTicket} disabled={creating || !createForm.slug || !createForm.nameFr} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
-              {creating ? "Création…" : "Créer le billet"}
+              {creating ? (adminLang === "en" ? "Creating…" : "Création…") : (adminLang === "en" ? "Create ticket" : "Créer le billet")}
             </button>
-            <button onClick={() => setShowCreate(false)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
+            <button onClick={() => setShowCreate(false)} className="text-gray-500 text-xs hover:text-white">{adminLang === "en" ? "Cancel" : "Annuler"}</button>
           </div>
         </div>
       )}
@@ -3443,19 +3462,19 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                       <input type="number" value={editForm.earlyBirdPriceEn ?? ""} onChange={e => setEditForm(f => ({ ...f, earlyBirdPriceEn: e.target.value ? parseInt(e.target.value) : null }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" placeholder="0 = aucun" />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">Early Bird jusqu&apos;au</label>
+                      <label className="text-xs text-gray-500 block mb-1">{adminLang === "en" ? "Early Bird until" : "Early Bird jusqu'au"}</label>
                       <input type="date" value={editForm.earlyBirdUntil ? editForm.earlyBirdUntil.slice(0, 10) : ""} onChange={e => setEditForm(f => ({ ...f, earlyBirdUntil: e.target.value || null }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">Capacité max</label>
+                      <label className="text-xs text-gray-500 block mb-1">{adminLang === "en" ? "Max capacity" : "Capacité max"}</label>
                       <input type="number" value={editForm.maxCapacity ?? 200} onChange={e => setEditForm(f => ({ ...f, maxCapacity: parseInt(e.target.value) }))} className="cyber-input text-sm rounded px-3 py-1.5 w-full" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-6">
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <label className="text-xs text-gray-500">Avantages FR</label>
-                        <button onClick={() => addPerk("fr")} className="text-xs text-neon-green">+ Ajouter</button>
+                        <label className="text-xs text-gray-500">{adminLang === "en" ? "Perks FR" : "Avantages FR"}</label>
+                        <button onClick={() => addPerk("fr")} className="text-xs text-neon-green">{adminLang === "en" ? "+ Add" : "+ Ajouter"}</button>
                       </div>
                       {(editForm.perksFrArr || []).map((p, i) => (
                         <div key={i} className="flex gap-1 mb-1">
@@ -3466,7 +3485,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                     </div>
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <label className="text-xs text-gray-500">Avantages EN</label>
+                        <label className="text-xs text-gray-500">{adminLang === "en" ? "Perks EN" : "Avantages EN"}</label>
                         <button onClick={() => addPerk("en")} className="text-xs text-neon-green">+ Add</button>
                       </div>
                       {(editForm.perksEnArr || []).map((p, i) => (
@@ -3484,15 +3503,15 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                     </div>
                     <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
                       <input type="checkbox" checked={!!editForm.isFeatured} onChange={e => setEditForm(f => ({ ...f, isFeatured: e.target.checked }))} />
-                      Recommandé
+                      {adminLang === "en" ? "Featured" : "Recommandé"}
                     </label>
                     <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
                       <input type="checkbox" checked={!!editForm.isVisible} onChange={e => setEditForm(f => ({ ...f, isVisible: e.target.checked }))} />
-                      Visible sur le portail
+                      {adminLang === "en" ? "Visible on portal" : "Visible sur le portail"}
                     </label>
                     <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#00ff9d" }}>
                       <input type="checkbox" checked={editForm.includesSessions !== false} onChange={e => setEditForm(f => ({ ...f, includesSessions: e.target.checked }))} />
-                      📡 Sessions / Conférences
+                      {adminLang === "en" ? "📡 Sessions / Conferences" : "📡 Sessions / Conférences"}
                     </label>
                     <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#a78bfa" }}>
                       <input type="checkbox" checked={!!editForm.includesWorkshops} onChange={e => setEditForm(f => ({ ...f, includesWorkshops: e.target.checked }))} />
@@ -3503,7 +3522,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                       ⚡ CTF
                     </label>
                     <div className="flex items-center gap-2">
-                      <label className="text-xs text-gray-500">Ordre</label>
+                      <label className="text-xs text-gray-500">{adminLang === "en" ? "Order" : "Ordre"}</label>
                       <input type="number" value={editForm.sortOrder ?? 0} onChange={e => setEditForm(f => ({ ...f, sortOrder: parseInt(e.target.value) }))} className="cyber-input text-xs rounded px-2 py-1 w-16" />
                     </div>
                   </div>
@@ -3518,8 +3537,8 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                     </div>
                   </div>
                   <div className="flex gap-3">
-                    <button onClick={() => save(t.id)} className="btn-neon px-4 py-2 rounded text-xs">Enregistrer</button>
-                    <button onClick={() => setEditId(null)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
+                    <button onClick={() => save(t.id)} className="btn-neon px-4 py-2 rounded text-xs">{adminLang === "en" ? "Save" : "Enregistrer"}</button>
+                    <button onClick={() => setEditId(null)} className="text-gray-500 text-xs hover:text-white">{adminLang === "en" ? "Cancel" : "Annuler"}</button>
                   </div>
                 </div>
               ) : (
@@ -3530,8 +3549,8 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-white font-bold">{t.nameFr} / {t.nameEn}</span>
-                          {t.isFeatured && <span className="text-xs px-2 py-0.5 rounded" style={{ background: t.color + "20", color: t.color }}>★ Recommandé</span>}
-                          {!t.isVisible && <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-500">Masqué</span>}
+                          {t.isFeatured && <span className="text-xs px-2 py-0.5 rounded" style={{ background: t.color + "20", color: t.color }}>{adminLang === "en" ? "★ Featured" : "★ Recommandé"}</span>}
+                          {!t.isVisible && <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-500">{adminLang === "en" ? "Hidden" : "Masqué"}</span>}
                           {t.includesSessions && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>📡 Sessions</span>}
                           {t.includesWorkshops && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#a78bfa15", color: "#a78bfa", border: "1px solid #a78bfa30" }}>🛠 Workshops</span>}
                           {t.includesCTF && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}>⚡ CTF</span>}
@@ -3545,16 +3564,16 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                       </div>
                     </div>
                     {canWrite && <div className="flex gap-2 shrink-0">
-                      <button onClick={() => toggleVisible(t)} className="text-xs text-gray-500 hover:text-white transition-colors">{t.isVisible ? "Masquer" : "Afficher"}</button>
-                      <button onClick={() => startEdit(t)} className="text-xs text-gray-500 hover:text-white transition-colors">Modifier</button>
-                      <button onClick={() => del(t.id)} className="text-xs text-red-800 hover:text-red-400 transition-colors">Supprimer</button>
+                      <button onClick={() => toggleVisible(t)} className="text-xs text-gray-500 hover:text-white transition-colors">{t.isVisible ? (adminLang === "en" ? "Hide" : "Masquer") : (adminLang === "en" ? "Show" : "Afficher")}</button>
+                      <button onClick={() => startEdit(t)} className="text-xs text-gray-500 hover:text-white transition-colors">{adminLang === "en" ? "Edit" : "Modifier"}</button>
+                      <button onClick={() => del(t.id)} className="text-xs text-red-800 hover:text-red-400 transition-colors">{adminLang === "en" ? "Delete" : "Supprimer"}</button>
                     </div>}
                   </div>
                   <div className="flex items-center gap-3 mb-2">
                     <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
                       <div className="h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, background: pct > 90 ? "#ff4444" : t.color }} />
                     </div>
-                    <span className="text-xs font-mono shrink-0" style={{ color: t.color, fontFamily: "'Share Tech Mono', monospace" }}>{sold} / {max} vendus</span>
+                    <span className="text-xs font-mono shrink-0" style={{ color: t.color, fontFamily: "'Share Tech Mono', monospace" }}>{adminLang === "en" ? `${sold} / ${max} sold` : `${sold} / ${max} vendus`}</span>
                   </div>
                   <div className="flex gap-1 flex-wrap">
                     {(() => { try { return JSON.parse(t.perksFr) as string[]; } catch { return []; } })().map((p: string) => (
@@ -3567,7 +3586,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
           );
         })}
         {!tickets.length && !loading && (
-          <p className="text-gray-600 text-xs py-8 text-center">Les types de billets sont auto-seedés au démarrage (Student, Standard, VIP).</p>
+          <p className="text-gray-600 text-xs py-8 text-center">{adminLang === "en" ? "Ticket types are auto-seeded at startup (Student, Standard, VIP)." : "Les types de billets sont auto-seedés au démarrage (Student, Standard, VIP)."}</p>
         )}
       </div>
     </div>
@@ -3575,7 +3594,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
 }
 
 function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail: (r: Record<string, unknown>) => void; canManualValidate?: boolean }) {
-  const { t } = useAdminT();
+  const { t, lang } = useAdminT();
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
   const [fStatus, setFStatus] = useState("");
@@ -3604,14 +3623,14 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
   });
 
   const validate = async (r: Record<string, unknown>) => {
-    if (!confirm(`Valider le paiement de ${r.fname} ${r.lname} et envoyer le billet ?`)) return;
+    if (!confirm(lang === "en" ? `Validate payment for ${r.fname} ${r.lname} and send the ticket?` : `Valider le paiement de ${r.fname} ${r.lname} et envoyer le billet ?`)) return;
     setBusyId(r.id as number);
     const res = await fetch("/api/admin/submissions", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type: "registration", action: "validate", id: r.id }),
     });
     setBusyId(null);
-    if (res.ok) { setMsg(`Billet envoyé à ${r.fname} ${r.lname}`); load(); setTimeout(() => setMsg(null), 3000); }
+    if (res.ok) { setMsg(lang === "en" ? `Ticket sent to ${r.fname} ${r.lname}` : `Billet envoyé à ${r.fname} ${r.lname}`); load(); setTimeout(() => setMsg(null), 3000); }
   };
 
   const remind = async (r: Record<string, unknown>) => {
@@ -3621,7 +3640,7 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
       body: JSON.stringify({ type: "registration", action: "remind", id: r.id }),
     });
     setBusyId(null);
-    if (res.ok) { setMsg(`Relance envoyée à ${r.email}`); setTimeout(() => setMsg(null), 3000); }
+    if (res.ok) { setMsg(lang === "en" ? `Follow-up sent to ${r.email}` : `Relance envoyée à ${r.email}`); setTimeout(() => setMsg(null), 3000); }
   };
 
   const selectCls = "bg-black/40 border border-gray-800 rounded px-3 py-1.5 text-xs text-white focus:border-neon-green/50 outline-none";
@@ -3631,22 +3650,22 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black text-white">{t.registrationsTitle} ({filtered.length})</h1>
-          <p className="text-gray-500 text-xs mt-1">Validez le paiement pour envoyer le billet avec QR code</p>
+          <p className="text-gray-500 text-xs mt-1">{lang === "en" ? "Validate payment to send the ticket with QR code" : "Validez le paiement pour envoyer le billet avec QR code"}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <a href="/checkin/scan" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">📷 Scanner QR →</a>
           <a href="/admin/checkin" target="_blank" rel="noreferrer" className="px-4 py-2 rounded text-sm border border-gray-700 text-gray-300 hover:text-white transition-colors">📋 Liste check-in →</a>
           <button
             onClick={async () => {
-              if (!confirm("Générer et envoyer les liens d'accès online à tous les inscrits validés sans lien ?")) return;
+              if (!confirm(lang === "en" ? "Generate and send online access links to all validated registrants without a link?" : "Générer et envoyer les liens d'accès online à tous les inscrits validés sans lien ?")) return;
               const res = await fetch("/api/admin/registrations/generate-online-tokens", { method: "POST" });
               const data = await res.json();
-              setMsg(`🌐 ${data.generated} lien(s) généré(s) et envoyé(s).`);
+              setMsg(lang === "en" ? `🌐 ${data.generated} link(s) generated and sent.` : `🌐 ${data.generated} lien(s) généré(s) et envoyé(s).`);
               setTimeout(() => setMsg(null), 6000);
             }}
             className="px-4 py-2 rounded text-sm border border-cyan-700/40 text-cyan-400 hover:bg-cyan-500/10 transition-colors"
           >
-            🌐 Envoyer accès online
+            {lang === "en" ? "🌐 Send online access" : "🌐 Envoyer accès online"}
           </button>
         </div>
       </div>
@@ -3654,20 +3673,20 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
       {/* Filtres */}
       <div className="flex flex-wrap gap-3 mb-4">
         <select className={selectCls} value={fStatus} onChange={e => setFStatus(e.target.value)}>
-          <option value="">Tous les statuts</option>
+          <option value="">{lang === "en" ? "All statuses" : "Tous les statuts"}</option>
           {statuses.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <select className={selectCls} value={fTicket} onChange={e => setFTicket(e.target.value)}>
-          <option value="">Tous les billets</option>
+          <option value="">{lang === "en" ? "All tickets" : "Tous les billets"}</option>
           {ticketTypes.map(tt => <option key={tt} value={tt}>{tt}</option>)}
         </select>
         <select className={selectCls} value={fCheck} onChange={e => setFCheck(e.target.value)}>
-          <option value="">Check-in : tous</option>
-          <option value="checked">Check-in : présents</option>
-          <option value="unchecked">Check-in : absents</option>
+          <option value="">{lang === "en" ? "Check-in: all" : "Check-in : tous"}</option>
+          <option value="checked">{lang === "en" ? "Check-in: present" : "Check-in : présents"}</option>
+          <option value="unchecked">{lang === "en" ? "Check-in: absent" : "Check-in : absents"}</option>
         </select>
         {(fStatus || fTicket || fCheck) && (
-          <button onClick={() => { setFStatus(""); setFTicket(""); setFCheck(""); }} className="text-xs text-gray-500 hover:text-white px-2">Réinitialiser</button>
+          <button onClick={() => { setFStatus(""); setFTicket(""); setFCheck(""); }} className="text-xs text-gray-500 hover:text-white px-2">{lang === "en" ? "Reset" : "Réinitialiser"}</button>
         )}
       </div>
 
@@ -3707,13 +3726,13 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
                     {r.onlineCheckedInAt
                       ? <span className="text-cyan-400 text-xs">🌐 {new Date(r.onlineCheckedInAt as string).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
                       : r.onlineToken
-                        ? <span className="text-gray-600 text-xs">🔗 en attente</span>
+                        ? <span className="text-gray-600 text-xs">{lang === "en" ? "🔗 pending" : "🔗 en attente"}</span>
                         : <span className="text-gray-700 text-xs">—</span>}
                   </td>
                   <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleDateString("fr-FR")}</td>
                   <td className="py-2 px-3">
                     <div className="flex gap-2 flex-wrap items-center">
-                      <button onClick={() => onDetail(r)} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">Détails</button>
+                      <button onClick={() => onDetail(r)} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">{lang === "en" ? "Details" : "Détails"}</button>
                       {awaiting && (
                         <>
                           {/* Manual payment-bypass validation: root super-admin + QA currency mode only */}
@@ -3723,11 +3742,11 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
                             </button>
                           )}
                           <button disabled={busyId === r.id} onClick={() => remind(r)} className="text-xs px-3 py-1 rounded border border-yellow-600/40 text-yellow-400 hover:bg-yellow-500/10 transition-colors disabled:opacity-50">
-                            {busyId === r.id ? "…" : "✉ Relancer"}
+                            {busyId === r.id ? "…" : lang === "en" ? "✉ Follow up" : "✉ Relancer"}
                           </button>
                         </>
                       )}
-                      {done && <span className="text-xs text-neon-green/60 font-mono">Billet envoyé ✓</span>}
+                      {done && <span className="text-xs text-neon-green/60 font-mono">{lang === "en" ? "Ticket sent ✓" : "Billet envoyé ✓"}</span>}
                       {done && (
                         <button
                           disabled={busyId === r.id}
@@ -3737,7 +3756,7 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
                             setBusyId(null);
                           }}
                           className="text-xs px-2 py-1 rounded border border-cyan-700/40 text-cyan-400 hover:bg-cyan-500/10 transition-colors disabled:opacity-50"
-                          title="Renvoyer le lien d'accès online"
+                          title={lang === "en" ? "Resend online access link" : "Renvoyer le lien d'accès online"}
                         >
                           {t.resendOnline}
                         </button>
@@ -3749,7 +3768,7 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
             })}
           </tbody>
         </table>
-        {!filtered.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune inscription</p>}
+        {!filtered.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No registrations" : "Aucune inscription"}</p>}
       </div>
     </div>
   );
@@ -3764,6 +3783,7 @@ const CERT_TABS = [
 ] as const;
 
 function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
+  const { lang } = useAdminT();
   const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState<typeof CERT_TABS[number]["id"]>("participant");
   const [people, setPeople] = useState<Record<string, unknown>[]>([]);
@@ -3829,14 +3849,14 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
     });
     await load();
     setIssuingId(null);
-    setStatus(`Badge envoyé à ${tabDef.nameField(person)}`);
+    setStatus(lang === "en" ? `Badge sent to ${tabDef.nameField(person)}` : `Badge envoyé à ${tabDef.nameField(person)}`);
     setTimeout(() => setStatus(null), 3000);
   };
 
   const batchIssue = async () => {
     const targets = people.filter(p => !hasBadge(p));
     if (!targets.length) return;
-    if (!(await confirm({ message: `Émettre ${targets.length} badge(s) pour les non-reçus ?`, confirmLabel: "Émettre" }))) return;
+    if (!(await confirm({ message: lang === "en" ? `Issue ${targets.length} badge(s) for those who haven't received them?` : `Émettre ${targets.length} badge(s) pour les non-reçus ?`, confirmLabel: lang === "en" ? "Issue" : "Émettre" }))) return;
     setBatchIssuing(true);
     for (const p of targets) {
       await fetch("/api/admin/badges", {
@@ -3847,7 +3867,7 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
     }
     await load();
     setBatchIssuing(false);
-    setStatus(`${targets.length} badge(s) émis !`);
+    setStatus(lang === "en" ? `${targets.length} badge(s) issued!` : `${targets.length} badge(s) émis !`);
     setTimeout(() => setStatus(null), 4000);
   };
 
@@ -3858,8 +3878,8 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-white">🎖 Badges & Certificats</h1>
-          <p className="text-gray-500 text-xs mt-1">Émettez et suivez les badges par catégorie</p>
+          <h1 className="text-2xl font-black text-white">{lang === "en" ? "🎖 Badges & Certificates" : "🎖 Badges & Certificats"}</h1>
+          <p className="text-gray-500 text-xs mt-1">{lang === "en" ? "Issue and track badges by category" : "Émettez et suivez les badges par catégorie"}</p>
         </div>
         {canWrite && unreceived > 0 && (
           <button
@@ -3867,7 +3887,7 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
             disabled={batchIssuing}
             className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green disabled:opacity-50"
           >
-            {batchIssuing ? "Émission…" : `⚡ Émettre pour ${unreceived} non-reçus`}
+            {batchIssuing ? (lang === "en" ? "Issuing…" : "Émission…") : (lang === "en" ? `⚡ Issue for ${unreceived} not received` : `⚡ Émettre pour ${unreceived} non-reçus`)}
           </button>
         )}
       </div>
@@ -3893,14 +3913,14 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
           onClick={() => setFilterUnreceived(!filterUnreceived)}
           className={`text-xs px-3 py-1.5 rounded border transition-all ${filterUnreceived ? "border-orange-500/50 text-orange-400 bg-orange-500/10" : "border-gray-700 text-gray-500 hover:text-white"}`}
         >
-          {filterUnreceived ? "⬜ Non reçus seulement" : "📋 Tous"}
+          {filterUnreceived ? (lang === "en" ? "⬜ Not received only" : "⬜ Non reçus seulement") : (lang === "en" ? "📋 All" : "📋 Tous")}
         </button>
-        <span className="text-xs text-gray-600">{displayed.length} / {people.length} • {unreceived} sans badge</span>
+        <span className="text-xs text-gray-600">{lang === "en" ? `${displayed.length} / ${people.length} • ${unreceived} without badge` : `${displayed.length} / ${people.length} • ${unreceived} sans badge`}</span>
       </div>
 
       {/* Table */}
       {loading ? (
-        <p className="text-gray-600 text-xs py-8 text-center">Chargement…</p>
+        <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "Loading…" : "Chargement…"}</p>
       ) : (
         <div className="space-y-2">
           {displayed.map((p, i) => {
@@ -3918,11 +3938,11 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
                 <div className="shrink-0 text-center min-w-[120px]">
                   {received ? (
                     <div>
-                      <span className="text-neon-green text-xs">✅ Reçu</span>
+                      <span className="text-neon-green text-xs">{lang === "en" ? "✅ Received" : "✅ Reçu"}</span>
                       {date && <p className="text-gray-600 text-xs">{date}</p>}
                     </div>
                   ) : (
-                    <span className="text-gray-600 text-xs">⬜ Non reçu</span>
+                    <span className="text-gray-600 text-xs">{lang === "en" ? "⬜ Not received" : "⬜ Non reçu"}</span>
                   )}
                 </div>
                 {received && getBadgeUuid(p) && (
@@ -3944,12 +3964,12 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
                     ? { borderColor: "#ffffff20", color: "#888" }
                     : { borderColor: "#00ff9d40", color: "#00ff9d", background: "#00ff9d10" }}
                 >
-                  {isIssuing ? "…" : received ? "Renvoyer" : "Émettre"}
+                  {isIssuing ? "…" : received ? (lang === "en" ? "Resend" : "Renvoyer") : (lang === "en" ? "Issue" : "Émettre")}
                 </button>}
               </div>
             );
           })}
-          {!displayed.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun résultat</p>}
+          {!displayed.length && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No results" : "Aucun résultat"}</p>}
         </div>
       )}
     </div>
@@ -3963,6 +3983,7 @@ interface SponsorPkg {
 }
 
 function SponsorPackageEditor({ pkg, onSave, onDelete, canWrite = true }: { pkg: SponsorPkg; onSave: (data: Partial<SponsorPkg>) => Promise<void>; onDelete: () => Promise<void>; canWrite?: boolean }) {
+  const { lang } = useAdminT();
   const [draft, setDraft] = useState<SponsorPkg>({ ...pkg });
   const [perksFr, setPerksFr] = useState<string[]>(() => { try { return JSON.parse(pkg.perksFr || "[]"); } catch { return []; } });
   const [perksEn, setPerksEn] = useState<string[]>(() => { try { return JSON.parse(pkg.perksEn || "[]"); } catch { return []; } });
@@ -3989,8 +4010,8 @@ function SponsorPackageEditor({ pkg, onSave, onDelete, canWrite = true }: { pkg:
       <div className="flex items-center gap-3 p-4 cursor-pointer" onClick={() => setExpanded(e => !e)}>
         <span className="text-base font-black font-mono" style={{ color }}>{draft.tier}</span>
         <span className="text-white font-bold text-sm flex-1">{draft.nameFr} / <span className="text-gray-500">{draft.nameEn}</span></span>
-        <span className="text-neon-green font-mono text-sm">{draft.price > 0 ? `${draft.price.toLocaleString("fr-FR")} FCFA` : "Partenariat"}</span>
-        <span className={`text-xs px-2 py-0.5 rounded ${draft.isVisible ? "text-neon-green bg-neon-green/10" : "text-gray-600 bg-gray-800"}`}>{draft.isVisible ? "Visible" : "Masqué"}</span>
+        <span className="text-neon-green font-mono text-sm">{draft.price > 0 ? `${draft.price.toLocaleString("fr-FR")} FCFA` : lang === "en" ? "Partnership" : "Partenariat"}</span>
+        <span className={`text-xs px-2 py-0.5 rounded ${draft.isVisible ? "text-neon-green bg-neon-green/10" : "text-gray-600 bg-gray-800"}`}>{draft.isVisible ? "Visible" : lang === "en" ? "Hidden" : "Masqué"}</span>
         <span className="text-gray-500 text-xs ml-2">{expanded ? "▲" : "▼"}</span>
       </div>
 
@@ -3999,11 +4020,11 @@ function SponsorPackageEditor({ pkg, onSave, onDelete, canWrite = true }: { pkg:
           {/* Tier + colors */}
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Identifiant (tier)</label>
+              <label className="text-xs text-gray-500 mb-1 block">{lang === "en" ? "Identifier (tier)" : "Identifiant (tier)"}</label>
               <input className="cyber-input w-full px-2 py-1.5 rounded text-sm" value={draft.tier} onChange={e => setDraft(d => ({ ...d, tier: e.target.value }))} />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Couleur</label>
+              <label className="text-xs text-gray-500 mb-1 block">{lang === "en" ? "Color" : "Couleur"}</label>
               <div className="flex gap-2 items-center">
                 <input type="color" className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" value={draft.highlightColor} onChange={e => setDraft(d => ({ ...d, highlightColor: e.target.value }))} />
                 <input className="cyber-input flex-1 px-2 py-1.5 rounded text-sm font-mono" value={draft.highlightColor} onChange={e => setDraft(d => ({ ...d, highlightColor: e.target.value }))} />
@@ -4035,8 +4056,8 @@ function SponsorPackageEditor({ pkg, onSave, onDelete, canWrite = true }: { pkg:
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-500 uppercase">Avantages FR</p>
-                <button onClick={() => setPerksFr(p => [...p, ""])} className="text-xs text-neon-green hover:text-neon-green/70">+ Ajouter</button>
+                <p className="text-xs text-gray-500 uppercase">{lang === "en" ? "Perks FR" : "Avantages FR"}</p>
+                <button onClick={() => setPerksFr(p => [...p, ""])} className="text-xs text-neon-green hover:text-neon-green/70">{lang === "en" ? "+ Add" : "+ Ajouter"}</button>
               </div>
               <div className="space-y-1">
                 {perksFr.map((p, i) => (
@@ -4067,11 +4088,11 @@ function SponsorPackageEditor({ pkg, onSave, onDelete, canWrite = true }: { pkg:
           {canWrite && (
             <div className="flex items-center justify-between pt-2">
               <button onClick={() => onSave({ isVisible: !draft.isVisible }).then(() => setDraft(d => ({ ...d, isVisible: !d.isVisible })))} className={`text-xs px-3 py-1.5 rounded border ${draft.isVisible ? "border-neon-green/30 text-neon-green" : "border-gray-700 text-gray-500"}`}>
-                {draft.isVisible ? "Visible ✓" : "Masqué"}
+                {draft.isVisible ? "Visible ✓" : lang === "en" ? "Hidden" : "Masqué"}
               </button>
               <div className="flex gap-2">
-                <button onClick={() => { if (confirm("Supprimer ce package ?")) onDelete(); }} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10">Supprimer</button>
-                <button onClick={save} disabled={saving} className="btn-neon px-4 py-1.5 rounded text-xs">{saving ? "..." : "Enregistrer"}</button>
+                <button onClick={() => { if (confirm(lang === "en" ? "Delete this package?" : "Supprimer ce package ?")) onDelete(); }} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10">{lang === "en" ? "Delete" : "Supprimer"}</button>
+                <button onClick={save} disabled={saving} className="btn-neon px-4 py-1.5 rounded text-xs">{saving ? "..." : lang === "en" ? "Save" : "Enregistrer"}</button>
               </div>
             </div>
           )}
@@ -4082,6 +4103,7 @@ function SponsorPackageEditor({ pkg, onSave, onDelete, canWrite = true }: { pkg:
 }
 
 function SponsorPackagesPanel({ canWrite = true }: { canWrite?: boolean }) {
+  const { lang } = useAdminT();
   const [packages, setPackages] = useState<SponsorPkg[]>([]);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -4098,8 +4120,8 @@ function SponsorPackagesPanel({ canWrite = true }: { canWrite?: boolean }) {
 
   const seed = async () => {
     const res = await fetch("/api/admin/sponsor-packages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ seed: true }) });
-    if (res.status === 409) alert("Les packages sont déjà initialisés.");
-    else if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || "Échec de l'initialisation."); }
+    if (res.status === 409) alert(lang === "en" ? "Packages are already initialized." : "Les packages sont déjà initialisés.");
+    else if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || (lang === "en" ? "Initialization failed." : "Échec de l'initialisation.")); }
     load();
   };
 
@@ -4126,33 +4148,33 @@ function SponsorPackagesPanel({ canWrite = true }: { canWrite?: boolean }) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-white">Packages de Sponsoring</h1>
-          <p className="text-gray-500 text-xs mt-1">Cliquez sur un package pour le modifier. Les données sont stockées en base.</p>
+          <h1 className="text-2xl font-black text-white">{lang === "en" ? "Sponsorship Packages" : "Packages de Sponsoring"}</h1>
+          <p className="text-gray-500 text-xs mt-1">{lang === "en" ? "Click on a package to edit it. Data is stored in the database." : "Cliquez sur un package pour le modifier. Les données sont stockées en base."}</p>
         </div>
         {canWrite && (
           <div className="flex gap-2">
             {!packages.length && !loading && (
-              <button onClick={seed} className="btn-neon px-4 py-2 rounded text-sm">🌱 Initialiser packages standard</button>
+              <button onClick={seed} className="btn-neon px-4 py-2 rounded text-sm">{lang === "en" ? "🌱 Initialize standard packages" : "🌱 Initialiser packages standard"}</button>
             )}
-            <button onClick={() => setAdding(a => !a)} className="btn-neon px-4 py-2 rounded text-sm">+ Nouveau package</button>
+            <button onClick={() => setAdding(a => !a)} className="btn-neon px-4 py-2 rounded text-sm">{lang === "en" ? "+ New package" : "+ Nouveau package"}</button>
           </div>
         )}
       </div>
 
       {!canWrite && (
         <div className="mb-4 px-4 py-2 rounded text-xs border border-yellow-500/30 bg-yellow-500/5 text-yellow-400/90">
-          🔒 Accès en lecture seule — vous ne pouvez pas modifier les packages.
+          {lang === "en" ? "🔒 Read-only access — you cannot modify packages." : "🔒 Accès en lecture seule — vous ne pouvez pas modifier les packages."}
         </div>
       )}
 
       {adding && (
         <div className="cyber-card rounded-xl p-4 mb-4 flex gap-3 items-end">
           <div className="flex-1">
-            <label className="text-xs text-gray-500 mb-1 block">Identifiant du nouveau package (ex: STARTUP)</label>
+            <label className="text-xs text-gray-500 mb-1 block">{lang === "en" ? "New package identifier (e.g.: STARTUP)" : "Identifiant du nouveau package (ex: STARTUP)"}</label>
             <input autoFocus className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="STARTUP" value={newTier} onChange={e => setNewTier(e.target.value)} onKeyDown={e => e.key === "Enter" && createPackage()} />
           </div>
-          <button onClick={createPackage} className="btn-neon px-4 py-2 rounded text-sm">Créer</button>
-          <button onClick={() => setAdding(false)} className="text-gray-500 text-sm px-2">Annuler</button>
+          <button onClick={createPackage} className="btn-neon px-4 py-2 rounded text-sm">{lang === "en" ? "Create" : "Créer"}</button>
+          <button onClick={() => setAdding(false)} className="text-gray-500 text-sm px-2">{lang === "en" ? "Cancel" : "Annuler"}</button>
         </div>
       )}
 
@@ -4167,7 +4189,7 @@ function SponsorPackagesPanel({ canWrite = true }: { canWrite?: boolean }) {
           />
         ))}
         {!packages.length && !loading && (
-          <p className="text-gray-600 text-xs py-8 text-center">Aucun package configuré.</p>
+          <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No packages configured." : "Aucun package configuré."}</p>
         )}
       </div>
     </div>
@@ -4212,6 +4234,7 @@ const SETTINGS_FIELDS = [
 ] as const;
 
 function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
+  const { lang } = useAdminT();
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -4243,15 +4266,15 @@ function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-white">⚙ Paramètres Événement</h1>
-          <p className="text-gray-500 text-xs mt-1">Date, lieu et URLs utilisés sur tout le site et dans les communications</p>
+          <h1 className="text-2xl font-black text-white">{lang === "en" ? "⚙ Event Settings" : "⚙ Paramètres Événement"}</h1>
+          <p className="text-gray-500 text-xs mt-1">{lang === "en" ? "Date, location and URLs used across the site and in communications" : "Date, lieu et URLs utilisés sur tout le site et dans les communications"}</p>
         </div>
         {canWrite && <button
           onClick={save}
           disabled={saving}
           style={{ background: "#00ff9d", color: "#000", border: "none", borderRadius: "6px", padding: "10px 20px", fontWeight: "bold", cursor: "pointer", fontSize: "13px" }}
         >
-          {saving ? "Sauvegarde…" : saved ? "✓ Sauvegardé" : "Enregistrer"}
+          {saving ? (lang === "en" ? "Saving…" : "Sauvegarde…") : saved ? (lang === "en" ? "✓ Saved" : "✓ Sauvegardé") : (lang === "en" ? "Save" : "Enregistrer")}
         </button>}
       </div>
 
@@ -4298,14 +4321,14 @@ function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
 
       {/* Preview */}
       <div className="cyber-card rounded-xl p-5 mt-6">
-        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Aperçu — CTAs par type de contenu</h3>
+        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">{lang === "en" ? "Preview — CTAs by content type" : "Aperçu — CTAs par type de contenu"}</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {[
             { type: "inscriptions", icon: "🎟", label: "Inscriptions" },
             { type: "cfp", icon: "📝", label: "CFP" },
             { type: "ctf", icon: "🏆", label: "CTF" },
             { type: "speaker", icon: "🎤", label: "Speaker/Session" },
-            { type: "countdown", icon: "⏱", label: "Compte à rebours" },
+            { type: "countdown", icon: "⏱", label: lang === "en" ? "Countdown" : "Compte à rebours" },
             { type: "sponsor", icon: "🏢", label: "Sponsor" },
           ].map(({ type, icon, label }) => {
             const urlKey = type === "inscriptions" || type === "countdown" ? "url_inscription"
@@ -4330,7 +4353,7 @@ function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
 
 
 function SessionsPanel({ canWrite = true }: { canWrite?: boolean }) {
-  const { t } = useAdminT();
+  const { t, lang } = useAdminT();
   const [sessions, setSessions] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
@@ -4351,12 +4374,12 @@ function SessionsPanel({ canWrite = true }: { canWrite?: boolean }) {
   useEffect(() => { load(); }, []);
 
   const seed = async () => {
-    if (!confirm("Initialiser le programme avec les sessions standard ? (Annulé si des sessions existent déjà)")) return;
+    if (!confirm(lang === "en" ? "Initialize the program with standard sessions? (Cancelled if sessions already exist)" : "Initialiser le programme avec les sessions standard ? (Annulé si des sessions existent déjà)")) return;
     setSeeding(true);
     const r = await fetch("/api/admin/sessions/seed", { method: "POST" });
     const j = await r.json();
-    if (!r.ok) alert(j.error || "Erreur");
-    else { alert(`${j.seeded} sessions créées.`); load(); }
+    if (!r.ok) alert(j.error || (lang === "en" ? "Error" : "Erreur"));
+    else { alert(lang === "en" ? `${j.seeded} sessions created.` : `${j.seeded} sessions créées.`); load(); }
     setSeeding(false);
   };
 
@@ -4378,7 +4401,7 @@ function SessionsPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer cette session ?")) return;
+    if (!confirm(lang === "en" ? "Delete this session?" : "Supprimer cette session ?")) return;
     await fetch(`/api/admin/sessions/${id}`, { method: "DELETE" });
     load();
   };
@@ -4472,7 +4495,7 @@ function SessionsPanel({ canWrite = true }: { canWrite?: boolean }) {
       )}
 
       {loading ? (
-        <p className="text-gray-600 text-sm font-mono">Chargement…</p>
+        <p className="text-gray-600 text-sm font-mono">{t.loading}</p>
       ) : sessions.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-600 text-sm font-mono mb-4">{t.noSessions}</p>
@@ -4525,6 +4548,7 @@ function levenshtein(a: string, b: string): number {
 }
 
 function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
+  const { lang } = useAdminT();
   const [subTab, setSubTab] = useState<"config" | "challenges" | "participants">("config");
   const [config, setConfig] = useState({ ctfdUrl: "", ctfdApiKey: "", ctfDefaultPassword: "", ctfEnabled: "false" });
   const [configSaving, setConfigSaving] = useState(false);
@@ -4576,13 +4600,13 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const testConnection = async () => {
-    setTestResult("Test en cours…");
+    setTestResult(lang === "en" ? "Test in progress…" : "Test en cours…");
     try {
       const r = await fetch("/api/admin/ctf/test-connection");
       const data = await r.json();
-      setTestResult(data.ok ? "✓ Connexion CTFd réussie" : `✗ ${data.error || "Impossible de joindre CTFd"}`);
+      setTestResult(data.ok ? (lang === "en" ? "✓ CTFd connection successful" : "✓ Connexion CTFd réussie") : `✗ ${data.error || (lang === "en" ? "Cannot reach CTFd" : "Impossible de joindre CTFd")}`);
     } catch {
-      setTestResult("✗ Impossible de joindre CTFd");
+      setTestResult(lang === "en" ? "✗ Cannot reach CTFd" : "✗ Impossible de joindre CTFd");
     }
   };
 
@@ -4595,10 +4619,10 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const seedChallenges = async () => {
-    if (!confirm("Importer les 40 challenges de référence (WEB·CRYPTO·FORENSICS·REVERSE·PWN·OSINT·MISC) ?")) return;
+    if (!confirm(lang === "en" ? "Import the 40 reference challenges (WEB·CRYPTO·FORENSICS·REVERSE·PWN·OSINT·MISC)?" : "Importer les 40 challenges de référence (WEB·CRYPTO·FORENSICS·REVERSE·PWN·OSINT·MISC) ?")) return;
     const r = await fetch("/api/admin/seed", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "ctf" }) });
     if (r.ok) { loadChallenges(); }
-    else { const j = await r.json().catch(() => ({})); alert(j.error || "Échec de l'import (des challenges existent peut-être déjà)."); }
+    else { const j = await r.json().catch(() => ({})); alert(j.error || (lang === "en" ? "Import failed (challenges may already exist)." : "Échec de l'import (des challenges existent peut-être déjà).")); }
   };
 
   const moveChallenge = async (id: number, status: string) => {
@@ -4630,7 +4654,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const deleteChallenge = async (id: number) => {
-    if (!confirm("Supprimer ce challenge ?")) return;
+    if (!confirm(lang === "en" ? "Delete this challenge?" : "Supprimer ce challenge ?")) return;
     await fetch(`/api/admin/ctf/challenges/${id}`, { method: "DELETE" });
     loadChallenges();
   };
@@ -4641,7 +4665,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
     const j = await r.json();
     const ok = j.results?.filter((x: Record<string, unknown>) => x.success).length ?? 0;
     const fail = j.results?.filter((x: Record<string, unknown>) => !x.success).length ?? 0;
-    setSyncResult(r.ok ? `✓ ${ok} comptes créés${fail > 0 ? `, ${fail} erreurs` : ""}` : `✗ ${j.error}`);
+    setSyncResult(r.ok ? (lang === "en" ? `✓ ${ok} accounts created${fail > 0 ? `, ${fail} errors` : ""}` : `✓ ${ok} comptes créés${fail > 0 ? `, ${fail} erreurs` : ""}`) : `✗ ${j.error}`);
     setSyncing(false); loadParticipants();
   };
 
@@ -4694,37 +4718,37 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
       {subTab === "config" && (
         <div className="max-w-lg space-y-4">
           <div className="cyber-card rounded-xl p-5">
-            <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">Connexion CTFd</h3>
+            <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">{lang === "en" ? "CTFd Connection" : "Connexion CTFd"}</h3>
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-gray-500 block mb-1">URL CTFd</label>
                 <input value={config.ctfdUrl} onChange={e => setConfig(c => ({ ...c, ctfdUrl: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="https://ctf.eyesopensecurity.com" />
               </div>
               <div>
-                <label className="text-xs text-gray-500 block mb-1">Clé API CTFd</label>
+                <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "CTFd API Key" : "Clé API CTFd"}</label>
                 <input type="password" value={config.ctfdApiKey} onChange={e => setConfig(c => ({ ...c, ctfdApiKey: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="ctfd_…" />
               </div>
               <div className="flex items-center gap-3">
-                <button onClick={testConnection} className="px-3 py-1.5 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">Tester la connexion</button>
+                <button onClick={testConnection} className="px-3 py-1.5 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors">{lang === "en" ? "Test connection" : "Tester la connexion"}</button>
                 {testResult && <span className={`text-xs ${testResult.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{testResult}</span>}
               </div>
             </div>
           </div>
           <div className="cyber-card rounded-xl p-5">
-            <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">Paramètres CTF</h3>
+            <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase tracking-widest">{lang === "en" ? "CTF Settings" : "Paramètres CTF"}</h3>
             <div className="space-y-3">
-              <p className="text-xs text-gray-500">Les mots de passe sont générés automatiquement — 7 caractères uniques par compétiteur, 7 caractères uniques par équipe. Ils sont envoyés aux participants par email.</p>
+              <p className="text-xs text-gray-500">{lang === "en" ? "Passwords are automatically generated — 7 unique characters per competitor, 7 unique characters per team. They are sent to participants by email." : "Les mots de passe sont générés automatiquement — 7 caractères uniques par compétiteur, 7 caractères uniques par équipe. Ils sont envoyés aux participants par email."}</p>
               <label className="flex items-center gap-3 cursor-pointer">
                 <div className={`w-10 h-5 rounded-full transition-colors relative ${config.ctfEnabled === "true" ? "bg-neon-green/30" : "bg-gray-700"}`}>
                   <div className={`absolute top-0.5 w-4 h-4 rounded-full transition-all ${config.ctfEnabled === "true" ? "right-0.5 bg-neon-green" : "left-0.5 bg-gray-500"}`} />
                 </div>
                 <input type="checkbox" className="sr-only" checked={config.ctfEnabled === "true"} onChange={e => setConfig(c => ({ ...c, ctfEnabled: e.target.checked ? "true" : "false" }))} />
-                <span className="text-sm text-gray-300">CTF activé (scoreboard public visible)</span>
+                <span className="text-sm text-gray-300">{lang === "en" ? "CTF enabled (public scoreboard visible)" : "CTF activé (scoreboard public visible)"}</span>
               </label>
             </div>
           </div>
           {canWrite && <button onClick={saveConfig} disabled={configSaving} className="btn-neon px-4 py-2 rounded text-xs">
-            {configSaving ? "Sauvegarde…" : "Sauvegarder"}
+            {configSaving ? (lang === "en" ? "Saving…" : "Sauvegarde…") : (lang === "en" ? "Save" : "Sauvegarder")}
           </button>}
         </div>
       )}
@@ -4743,29 +4767,29 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
             })}
             <span className="text-xs px-2 py-1 rounded bg-gray-800 text-gray-400 font-mono">Total: {challenges.length}</span>
             <span className="text-xs px-2 py-1 rounded font-mono" style={{ background: "#00ff9d20", color: "#00ff9d" }}>
-              ✓ {challenges.filter(c => c.status === "validated" || c.status === "published").length} prêts
+              {lang === "en" ? `✓ ${challenges.filter(c => c.status === "validated" || c.status === "published").length} ready` : `✓ ${challenges.filter(c => c.status === "validated" || c.status === "published").length} prêts`}
             </span>
             {canWrite && challenges.length === 0 && (
-              <button onClick={seedChallenges} className="px-3 py-1 rounded text-xs border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition-colors ml-auto">⚡ Importer les 40 challenges</button>
+              <button onClick={seedChallenges} className="px-3 py-1 rounded text-xs border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition-colors ml-auto">{lang === "en" ? "⚡ Import 40 challenges" : "⚡ Importer les 40 challenges"}</button>
             )}
-            {canWrite && <button onClick={() => setShowAddForm(v => !v)} className={`btn-neon px-3 py-1 rounded text-xs ${challenges.length === 0 ? "" : "ml-auto"}`}>+ Ajouter challenge</button>}
+            {canWrite && <button onClick={() => setShowAddForm(v => !v)} className={`btn-neon px-3 py-1 rounded text-xs ${challenges.length === 0 ? "" : "ml-auto"}`}>{lang === "en" ? "+ Add challenge" : "+ Ajouter challenge"}</button>}
           </div>
 
           {canWrite && showAddForm && (
             <div className="cyber-card rounded-xl p-4 mb-5">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                 <div className="md:col-span-2">
-                  <label className="text-xs text-gray-500 block mb-1">Titre</label>
+                  <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Title" : "Titre"}</label>
                   <input value={addForm.title} onChange={e => setAddForm(f => ({ ...f, title: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">Catégorie</label>
+                  <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Category" : "Catégorie"}</label>
                   <select value={addForm.category} onChange={e => setAddForm(f => ({ ...f, category: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
                     {CTF_CATEGORIES.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">Difficulté</label>
+                  <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Difficulty" : "Difficulté"}</label>
                   <select value={addForm.difficulty} onChange={e => setAddForm(f => ({ ...f, difficulty: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
                     <option value="easy">Easy</option>
                     <option value="medium">Medium</option>
@@ -4777,13 +4801,13 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                   <input type="number" value={addForm.points} onChange={e => setAddForm(f => ({ ...f, points: parseInt(e.target.value) || 0 }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">Auteur</label>
+                  <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Author" : "Auteur"}</label>
                   <input value={addForm.author} onChange={e => setAddForm(f => ({ ...f, author: e.target.value }))} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
                 </div>
               </div>
               <div className="flex gap-2 mt-2">
-                <button onClick={addChallenge} className="btn-neon px-3 py-1.5 rounded text-xs">Ajouter</button>
-                <button onClick={() => setShowAddForm(false)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
+                <button onClick={addChallenge} className="btn-neon px-3 py-1.5 rounded text-xs">{lang === "en" ? "Add" : "Ajouter"}</button>
+                <button onClick={() => setShowAddForm(false)} className="text-gray-500 text-xs hover:text-white">{lang === "en" ? "Cancel" : "Annuler"}</button>
               </div>
             </div>
           )}
@@ -4797,7 +4821,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                   onDragOver={e => e.preventDefault()}
                   onDrop={() => { if (dragId !== null) { moveChallenge(dragId, stage.key); setDragId(null); } }}>
                   <div className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3 flex items-center justify-between">
-                    {stage.label} <span className="text-gray-600">{cards.length}</span>
+                    {lang === "en" ? ({ idea: "Idea", in_progress: "In progress", testing: "Testing", validated: "Validated", published: "Published CTFd" } as Record<string, string>)[stage.key] || stage.label : stage.label} <span className="text-gray-600">{cards.length}</span>
                   </div>
                   <div className="space-y-2 min-h-[80px]">
                     {cards.map(c => (
@@ -4813,9 +4837,9 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                         </div>
                         {!!c.author && <div className="text-xs text-gray-600 mt-1">{c.author as string}</div>}
                         <div className="text-xs mt-1" style={{ color: c.assigneeName ? "#00ccff" : "#555" }}>
-                          {c.assigneeName ? `👤 ${c.assigneeName as string}` : "👤 non assigné"}
+                          {c.assigneeName ? `👤 ${c.assigneeName as string}` : lang === "en" ? "👤 unassigned" : "👤 non assigné"}
                         </div>
-                        {canWrite && <button onClick={e => { e.stopPropagation(); deleteChallenge(c.id as number); }} className="text-red-800 hover:text-red-400 text-xs mt-1">✗ Supprimer</button>}
+                        {canWrite && <button onClick={e => { e.stopPropagation(); deleteChallenge(c.id as number); }} className="text-red-800 hover:text-red-400 text-xs mt-1">{lang === "en" ? "✗ Delete" : "✗ Supprimer"}</button>}
                       </div>
                     ))}
                   </div>
@@ -4829,22 +4853,22 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
             <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setEditChallenge(null)}>
               <div className="cyber-card rounded-xl p-5 max-w-lg w-full border-neon-green/30" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-white font-bold text-sm">Éditer le challenge</h3>
+                  <h3 className="text-white font-bold text-sm">{lang === "en" ? "Edit challenge" : "Éditer le challenge"}</h3>
                   <button onClick={() => setEditChallenge(null)} className="text-gray-500 hover:text-white">✕</button>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
-                    <label className="text-xs text-gray-500 block mb-1">Titre</label>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Title" : "Titre"}</label>
                     <input value={(editChallenge.title as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, title: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Catégorie</label>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Category" : "Catégorie"}</label>
                     <select value={(editChallenge.category as string) || "Web"} onChange={e => setEditChallenge(p => p ? { ...p, category: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
                       {CTF_CATEGORIES.map(c => <option key={c}>{c}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Difficulté</label>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Difficulty" : "Difficulté"}</label>
                     <select value={(editChallenge.difficulty as string) || "medium"} onChange={e => setEditChallenge(p => p ? { ...p, difficulty: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
                       <option value="easy">Easy</option>
                       <option value="medium">Medium</option>
@@ -4856,17 +4880,17 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                     <input type="number" value={(editChallenge.points as number) ?? 0} onChange={e => setEditChallenge(p => p ? { ...p, points: parseInt(e.target.value) || 0 } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Statut</label>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Status" : "Statut"}</label>
                     <select value={(editChallenge.status as string) || "idea"} onChange={e => setEditChallenge(p => p ? { ...p, status: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm">
-                      {CTF_STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+                      {CTF_STAGES.map(s => <option key={s.key} value={s.key}>{lang === "en" ? ({ idea: "Idea", in_progress: "In progress", testing: "Testing", validated: "Validated", published: "Published CTFd" } as Record<string, string>)[s.key] || s.label : s.label}</option>)}
                     </select>
                   </div>
                   <div className="col-span-2">
-                    <label className="text-xs text-gray-500 block mb-1">Auteur</label>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Author" : "Auteur"}</label>
                     <input value={(editChallenge.author as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, author: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
                   </div>
                   <div className="col-span-2">
-                    <label className="text-xs text-gray-500 block mb-1">Responsable (membre d&apos;équipe)</label>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Responsible (team member)" : "Responsable (membre d'équipe)"}</label>
                     <select
                       value={(editChallenge.assigneeEmail as string) || ""}
                       onChange={e => {
@@ -4875,12 +4899,12 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                       }}
                       className="cyber-input w-full px-3 py-1.5 rounded text-sm"
                     >
-                      <option value="">— Non assigné —</option>
+                      <option value="">{lang === "en" ? "— Unassigned —" : "— Non assigné —"}</option>
                       {teamMembers.filter(m => m.email).map(m => (
                         <option key={m.id} value={m.email!}>{m.name} ({m.role})</option>
                       ))}
                     </select>
-                    <p className="text-gray-600 text-xs mt-1">Le responsable reçoit un email de notification lors de l&apos;assignation.</p>
+                    <p className="text-gray-600 text-xs mt-1">{lang === "en" ? "The responsible person receives an email notification upon assignment." : "Le responsable reçoit un email de notification lors de l'assignation."}</p>
                   </div>
                   <div className="col-span-2">
                     <label className="text-xs text-gray-500 block mb-1">Notes</label>
@@ -4889,10 +4913,10 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                 </div>
                 <div className="flex gap-2 mt-4">
                   <button onClick={saveChallenge} disabled={savingChallenge} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
-                    {savingChallenge ? "Sauvegarde…" : "💾 Sauvegarder"}
+                    {savingChallenge ? (lang === "en" ? "Saving…" : "Sauvegarde…") : (lang === "en" ? "💾 Save" : "💾 Sauvegarder")}
                   </button>
-                  <button onClick={() => { deleteChallenge(editChallenge.id as number); setEditChallenge(null); }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>Supprimer</button>
-                  <button onClick={() => setEditChallenge(null)} className="text-xs text-gray-500 px-3 py-2 hover:text-gray-300">Annuler</button>
+                  <button onClick={() => { deleteChallenge(editChallenge.id as number); setEditChallenge(null); }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>{lang === "en" ? "Delete" : "Supprimer"}</button>
+                  <button onClick={() => setEditChallenge(null)} className="text-xs text-gray-500 px-3 py-2 hover:text-gray-300">{lang === "en" ? "Cancel" : "Annuler"}</button>
                 </div>
               </div>
             </div>
@@ -4903,25 +4927,25 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
       {subTab === "participants" && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <div className="text-xs text-gray-500">{participants.length} participant(s) CTF</div>
+            <div className="text-xs text-gray-500">{lang === "en" ? `${participants.length} CTF participant(s)` : `${participants.length} participant(s) CTF`}</div>
             <div className="flex gap-2 items-center">
               {syncResult && <span className={`text-xs ${syncResult.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{syncResult}</span>}
               {canWrite && <button onClick={syncAll} disabled={syncing} className="btn-neon px-3 py-1.5 rounded text-xs disabled:opacity-50">
-                {syncing ? "Sync…" : "⚡ Tout synchroniser sur CTFd"}
+                {syncing ? "Sync…" : lang === "en" ? "⚡ Sync all to CTFd" : "⚡ Tout synchroniser sur CTFd"}
               </button>}
             </div>
           </div>
 
           {teamConflicts.length > 0 && (
             <div className="cyber-card rounded-xl p-4 mb-4" style={{ border: "1px solid #ffaa0040", background: "#ffaa0008" }}>
-              <div className="text-xs font-bold text-yellow-400 mb-2">⚠ Conflits de noms d&apos;équipe détectés</div>
+              <div className="text-xs font-bold text-yellow-400 mb-2">{lang === "en" ? "⚠ Team name conflicts detected" : "⚠ Conflits de noms d'équipe détectés"}</div>
               {teamConflicts.map((c, i) => (
                 <div key={i} className="flex items-center gap-3 text-xs mb-2">
                   <span className="text-gray-300 font-mono">&quot;{c.team1}&quot;</span>
                   <span className="text-gray-600">≈</span>
                   <span className="text-gray-300 font-mono">&quot;{c.team2}&quot;</span>
                   {canWrite && <button onClick={() => { setReconcileTeam(c); setReconcileTo(c.team1); }} className="px-2 py-0.5 rounded text-xs border border-yellow-600 text-yellow-400 hover:bg-yellow-900/20">
-                    Réconcilier
+                    {lang === "en" ? "Reconcile" : "Réconcilier"}
                   </button>}
                 </div>
               ))}
@@ -4930,18 +4954,18 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
 
           {reconcileTeam && (
             <div className="cyber-card rounded-xl p-4 mb-4">
-              <div className="text-xs font-bold text-white mb-3">Réconcilier &quot;{reconcileTeam.team1}&quot; et &quot;{reconcileTeam.team2}&quot;</div>
+              <div className="text-xs font-bold text-white mb-3">{lang === "en" ? `Reconcile "${reconcileTeam.team1}" and "${reconcileTeam.team2}"` : `Réconcilier "${reconcileTeam.team1}" et "${reconcileTeam.team2}"`}</div>
               <div className="flex gap-2 mb-3">
                 {[reconcileTeam.team1, reconcileTeam.team2].map(name => (
                   <button key={name} onClick={() => setReconcileTo(name)}
                     className={`px-3 py-1.5 rounded text-xs border transition-all ${reconcileTo === name ? "border-neon-green text-neon-green bg-neon-green/10" : "border-gray-700 text-gray-400"}`}>
-                    Garder &quot;{name}&quot;
+                    {lang === "en" ? `Keep "${name}"` : `Garder "${name}"`}
                   </button>
                 ))}
               </div>
               <div className="flex gap-2">
-                <button onClick={reconcileTeams} className="btn-neon px-3 py-1.5 rounded text-xs">Confirmer</button>
-                <button onClick={() => setReconcileTeam(null)} className="text-gray-500 text-xs hover:text-white">Annuler</button>
+                <button onClick={reconcileTeams} className="btn-neon px-3 py-1.5 rounded text-xs">{lang === "en" ? "Confirm" : "Confirmer"}</button>
+                <button onClick={() => setReconcileTeam(null)} className="text-gray-500 text-xs hover:text-white">{lang === "en" ? "Cancel" : "Annuler"}</button>
               </div>
             </div>
           )}
@@ -4950,11 +4974,11 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-gray-800 text-gray-500">
-                  <th className="text-left py-2 px-3 font-normal">Participant</th>
-                  <th className="text-left py-2 px-3 font-normal">Pseudo CTF</th>
-                  <th className="text-left py-2 px-3 font-normal">Équipe</th>
-                  <th className="text-left py-2 px-3 font-normal">Ticket</th>
-                  <th className="text-left py-2 px-3 font-normal">Compte CTFd</th>
+                  <th className="text-left py-2 px-3 font-normal">{lang === "en" ? "Participant" : "Participant"}</th>
+                  <th className="text-left py-2 px-3 font-normal">{lang === "en" ? "CTF Username" : "Pseudo CTF"}</th>
+                  <th className="text-left py-2 px-3 font-normal">{lang === "en" ? "Team" : "Équipe"}</th>
+                  <th className="text-left py-2 px-3 font-normal">{lang === "en" ? "Ticket" : "Ticket"}</th>
+                  <th className="text-left py-2 px-3 font-normal">{lang === "en" ? "CTFd Account" : "Compte CTFd"}</th>
                   <th className="py-2 px-3" />
                 </tr>
               </thead>
@@ -4967,13 +4991,13 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                     <td className="py-2 px-3 text-gray-400">{p.ticketType as string}</td>
                     <td className="py-2 px-3">
                       {p.ctfAccountCreated
-                        ? <span className="text-neon-green text-xs">✓ Créé</span>
-                        : <span className="text-gray-600 text-xs">En attente</span>}
+                        ? <span className="text-neon-green text-xs">{lang === "en" ? "✓ Created" : "✓ Créé"}</span>
+                        : <span className="text-gray-600 text-xs">{lang === "en" ? "Pending" : "En attente"}</span>}
                     </td>
                     <td className="py-2 px-3">
                       {canWrite && !p.ctfAccountCreated && (
                         <button onClick={() => syncOne(p.id as number)} className="text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">
-                          Créer compte
+                          {lang === "en" ? "Create account" : "Créer compte"}
                         </button>
                       )}
                     </td>
@@ -4981,7 +5005,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                 ))}
               </tbody>
             </table>
-            {!participants.length && <p className="text-gray-600 text-xs py-8 text-center">Aucun participant CTF (inscriptions avec ticket CTF validées)</p>}
+            {!participants.length && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No CTF participants (registrations with validated CTF ticket)" : "Aucun participant CTF (inscriptions avec ticket CTF validées)"}</p>}
           </div>
         </div>
       )}
@@ -4991,6 +5015,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
 }
 
 function TransactionsPanel({ canWrite = true }: { canWrite?: boolean }) {
+  const { lang } = useAdminT();
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
   const [fState, setFState] = useState("");
@@ -5014,7 +5039,7 @@ function TransactionsPanel({ canWrite = true }: { canWrite?: boolean }) {
       body: JSON.stringify({ action: "resend", registrationId }),
     });
     setBusyId(null);
-    setMsg(res.ok ? "Billet renvoyé ✓" : "Échec de l'envoi");
+    setMsg(res.ok ? (lang === "en" ? "Ticket resent ✓" : "Billet renvoyé ✓") : (lang === "en" ? "Send failed" : "Échec de l'envoi"));
     if (res.ok) load();
     setTimeout(() => setMsg(null), 3000);
   };
@@ -5030,15 +5055,15 @@ function TransactionsPanel({ canWrite = true }: { canWrite?: boolean }) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black text-white">💳 Transactions ({filtered.length})</h1>
-          <p className="text-gray-500 text-xs mt-1">Toutes les tentatives de paiement (Mobile Money · Stripe)</p>
+          <p className="text-gray-500 text-xs mt-1">{lang === "en" ? "All payment attempts (Mobile Money · Stripe)" : "Toutes les tentatives de paiement (Mobile Money · Stripe)"}</p>
         </div>
-        <button onClick={load} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white transition-colors">↻ Rafraîchir</button>
+        <button onClick={load} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white transition-colors">{lang === "en" ? "↻ Refresh" : "↻ Rafraîchir"}</button>
       </div>
 
       <div className="flex gap-2 mb-4">
         {["", "success", "pending", "failed"].map(s => (
           <button key={s || "all"} onClick={() => setFState(s)} className={`text-xs px-3 py-1.5 rounded border transition-all ${fState === s ? "border-neon-green/40 text-neon-green bg-neon-green/10" : "border-gray-800 text-gray-500 hover:text-white"}`}>
-            {s === "" ? "Toutes" : s === "success" ? "Réussies" : s === "pending" ? "En attente" : "Échecs"}
+            {s === "" ? (lang === "en" ? "All" : "Toutes") : s === "success" ? (lang === "en" ? "Successful" : "Réussies") : s === "pending" ? (lang === "en" ? "Pending" : "En attente") : (lang === "en" ? "Failed" : "Échecs")}
           </button>
         ))}
       </div>
@@ -5049,7 +5074,7 @@ function TransactionsPanel({ canWrite = true }: { canWrite?: boolean }) {
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-neon-green/10 text-gray-500 text-left">
-              {["Inscrit", "Moyen / Devise", "Montant", "Réf. fournisseur", "État", "Réponse finale", "Ticket envoyé", "Date", "Actions"].map(h => (
+              {(lang === "en" ? ["Registrant", "Method / Currency", "Amount", "Provider ref.", "State", "Final response", "Ticket sent", "Date", "Actions"] : ["Inscrit", "Moyen / Devise", "Montant", "Réf. fournisseur", "État", "Réponse finale", "Ticket envoyé", "Date", "Actions"]).map(h => (
                 <th key={h} className="py-2 px-3 font-normal">{h}</th>
               ))}
             </tr>
@@ -5093,13 +5118,13 @@ function TransactionsPanel({ canWrite = true }: { canWrite?: boolean }) {
                   <td className="py-2 px-3">{stateBadge(r.state as string)}</td>
                   <td className="py-2 px-3 text-gray-500 max-w-[180px] truncate" title={r.message as string}>{(r.message as string) || "—"}</td>
                   <td className="py-2 px-3">
-                    {r.ticketEmailSent ? <span className="text-neon-green">✓ Oui</span> : <span className="text-gray-600">✗ Non</span>}
+                    {r.ticketEmailSent ? <span className="text-neon-green">{lang === "en" ? "✓ Yes" : "✓ Oui"}</span> : <span className="text-gray-600">{lang === "en" ? "✗ No" : "✗ Non"}</span>}
                   </td>
                   <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</td>
                   <td className="py-2 px-3">
                     {canWrite && !!r.registrationId && r.state === "success" && (
                       <button disabled={busyId === r.registrationId} onClick={() => resend(r.registrationId as number)} className="text-xs px-3 py-1 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-colors disabled:opacity-50">
-                        {busyId === r.registrationId ? "…" : "✉ Renvoyer"}
+                        {busyId === r.registrationId ? "…" : lang === "en" ? "✉ Resend" : "✉ Renvoyer"}
                       </button>
                     )}
                     {isStripe && !!r.providerRef && (
@@ -5117,7 +5142,7 @@ function TransactionsPanel({ canWrite = true }: { canWrite?: boolean }) {
             })}
           </tbody>
         </table>
-        {!filtered.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune transaction</p>}
+        {!filtered.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No transactions" : "Aucune transaction"}</p>}
       </div>
     </div>
   );
@@ -5125,6 +5150,7 @@ function TransactionsPanel({ canWrite = true }: { canWrite?: boolean }) {
 
 function TestimonyPanel({ canWrite = true }: { canWrite?: boolean }) {
   const confirm = useConfirm();
+  const { lang } = useAdminT();
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -5150,7 +5176,7 @@ function TestimonyPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const del = async (id: number) => {
-    if (!(await confirm({ message: "Supprimer ce témoignage ?", danger: true, confirmLabel: "Supprimer" }))) return;
+    if (!(await confirm({ message: lang === "en" ? "Delete this testimony?" : "Supprimer ce témoignage ?", danger: true, confirmLabel: lang === "en" ? "Delete" : "Supprimer" }))) return;
     await fetch(`/api/admin/testimonies/${id}`, { method: "DELETE" });
     load();
   };
@@ -5159,46 +5185,46 @@ function TestimonyPanel({ canWrite = true }: { canWrite?: boolean }) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-white">💬 Témoignages</h1>
-          <p className="text-gray-500 text-xs mt-1">Gérez les avis affichés dans la section &quot;What They Say&quot; du site</p>
+          <h1 className="text-2xl font-black text-white">{lang === "en" ? "💬 Testimonies" : "💬 Témoignages"}</h1>
+          <p className="text-gray-500 text-xs mt-1">{lang === "en" ? "Manage reviews displayed in the &quot;What They Say&quot; section of the site" : "Gérez les avis affichés dans la section &quot;What They Say&quot; du site"}</p>
         </div>
-        {canWrite && <button onClick={() => { resetForm(); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter</button>}
+        {canWrite && <button onClick={() => { resetForm(); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "+ Add" : "+ Ajouter"}</button>}
       </div>
 
       {canWrite && showForm && (
         <div className="cyber-card rounded-xl p-6 mb-6">
-          <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier le témoignage" : "Nouveau témoignage"}</h3>
+          <h3 className="text-neon-green text-sm mb-4">{editing ? (lang === "en" ? "Edit testimony" : "Modifier le témoignage") : (lang === "en" ? "New testimony" : "Nouveau témoignage")}</h3>
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
-              <label className="block text-xs text-gray-500 mb-1">Citation (EN) *</label>
+              <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Quote (EN) *" : "Citation (EN) *"}</label>
               <textarea rows={3} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.quoteEn as string) || ""} onChange={e => setForm({ ...form, quoteEn: e.target.value })} placeholder="Quote in English…" />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-xs text-gray-500 mb-1">Citation (FR) <span className="text-gray-700">— optionnel</span></label>
-              <textarea rows={3} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.quoteFr as string) || ""} onChange={e => setForm({ ...form, quoteFr: e.target.value })} placeholder="Citation en français… (si vide, la version EN sera utilisée)" />
+              <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Quote (FR)" : "Citation (FR)"} <span className="text-gray-700">— {lang === "en" ? "optional" : "optionnel"}</span></label>
+              <textarea rows={3} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.quoteFr as string) || ""} onChange={e => setForm({ ...form, quoteFr: e.target.value })} placeholder={lang === "en" ? "Quote in French… (if empty, EN version will be used)" : "Citation en français… (si vide, la version EN sera utilisée)"} />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Auteur *</label>
+              <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Author *" : "Auteur *"}</label>
               <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.author as string) || ""} onChange={e => setForm({ ...form, author: e.target.value })} placeholder="ex : EOCON 2024 Attendee" />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Ordre d&apos;affichage</label>
+              <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Display order" : "Ordre d'affichage"}</label>
               <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.sortOrder as number) || 0} onChange={e => setForm({ ...form, sortOrder: Number(e.target.value) })} />
             </div>
             <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
               <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
-              Visible sur le site
+              {lang === "en" ? "Visible on site" : "Visible sur le site"}
             </label>
           </div>
           <div className="flex gap-3 mt-4">
-            <button onClick={save} disabled={!(form.quoteEn as string)?.trim() || !(form.author as string)?.trim()} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green disabled:opacity-40">Sauvegarder</button>
-            <button onClick={resetForm} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+            <button onClick={save} disabled={!(form.quoteEn as string)?.trim() || !(form.author as string)?.trim()} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green disabled:opacity-40">{lang === "en" ? "Save" : "Sauvegarder"}</button>
+            <button onClick={resetForm} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "Cancel" : "Annuler"}</button>
           </div>
         </div>
       )}
 
-      {loading ? <p className="text-gray-600 text-xs">Chargement…</p> : items.length === 0 ? (
-        <p className="text-gray-600 text-xs text-center py-12">Aucun témoignage — le site affiche les textes par défaut de i18n.</p>
+      {loading ? <p className="text-gray-600 text-xs">{lang === "en" ? "Loading…" : "Chargement…"}</p> : items.length === 0 ? (
+        <p className="text-gray-600 text-xs text-center py-12">{lang === "en" ? "No testimonies — the site displays default i18n texts." : "Aucun témoignage — le site affiche les textes par défaut de i18n."}</p>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map(item => (
@@ -5211,7 +5237,7 @@ function TestimonyPanel({ canWrite = true }: { canWrite?: boolean }) {
               <div className="flex items-center justify-between pt-2 border-t border-neon-green/10">
                 <p className="text-neon-green/60 text-xs font-mono">— {item.author as string}</p>
                 <div className="flex items-center gap-2">
-                  {!item.isVisible && <span className="text-xs text-gray-600">Masqué</span>}
+                  {!item.isVisible && <span className="text-xs text-gray-600">{lang === "en" ? "Hidden" : "Masqué"}</span>}
                   <span className="text-xs text-gray-700">#{item.sortOrder as number}</span>
                   {canWrite && <>
                     <button onClick={() => { setForm({ ...item }); setEditing(item.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">✏</button>
@@ -5229,6 +5255,7 @@ function TestimonyPanel({ canWrite = true }: { canWrite?: boolean }) {
 
 function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
   const confirm = useConfirm();
+  const { lang } = useAdminT();
   const [videos, setVideos] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -5253,7 +5280,7 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const del = async (id: number) => {
-    if (!(await confirm({ message: "Supprimer cette vidéo ?", danger: true, confirmLabel: "Supprimer" }))) return;
+    if (!(await confirm({ message: lang === "en" ? "Delete this video?" : "Supprimer cette vidéo ?", danger: true, confirmLabel: lang === "en" ? "Delete" : "Supprimer" }))) return;
     await fetch(`/api/admin/videos/${id}`, { method: "DELETE" });
     load();
   };
@@ -5269,15 +5296,15 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-black text-white">📹 Vidéothèque</h1>
-          <p className="text-gray-500 text-xs mt-1">Gérez les vidéos des sessions des éditions passées</p>
+          <h1 className="text-2xl font-black text-white">{lang === "en" ? "📹 Video Library" : "📹 Vidéothèque"}</h1>
+          <p className="text-gray-500 text-xs mt-1">{lang === "en" ? "Manage session videos from past editions" : "Gérez les vidéos des sessions des éditions passées"}</p>
         </div>
-        {canWrite && <button onClick={() => { setForm({ isVisible: true, sortOrder: 0, edition: "2025" }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">+ Ajouter</button>}
+        {canWrite && <button onClick={() => { setForm({ isVisible: true, sortOrder: 0, edition: "2025" }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "+ Add" : "+ Ajouter"}</button>}
       </div>
 
       {canWrite && showForm && (
         <div className="cyber-card rounded-xl p-6 mb-6">
-          <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier la vidéo" : "Nouvelle vidéo"}</h3>
+          <h3 className="text-neon-green text-sm mb-4">{editing ? (lang === "en" ? "Edit video" : "Modifier la vidéo") : (lang === "en" ? "New video" : "Nouvelle vidéo")}</h3>
           <div className="grid sm:grid-cols-2 gap-3">
             {[
               { key: "title", label: "Titre (FR) *" },
@@ -5291,13 +5318,13 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
               </div>
             ))}
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Édition</label>
+              <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Edition" : "Édition"}</label>
               <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.edition as string) || "2025"} onChange={e => setForm({ ...form, edition: e.target.value })} />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Catégorie</label>
+              <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Category" : "Catégorie"}</label>
               <select className="cyber-input w-full px-3 py-2 rounded text-xs bg-transparent" value={(form.category as string) || ""} onChange={e => setForm({ ...form, category: e.target.value })}>
-                <option value="">— Aucune —</option>
+                <option value="">{lang === "en" ? "— None —" : "— Aucune —"}</option>
                 {CATEGORIES.map(c => <option key={c} value={c} className="bg-dark-800">{c}</option>)}
               </select>
             </div>
@@ -5306,22 +5333,22 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
               <textarea rows={2} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.description as string) || ""} onChange={e => setForm({ ...form, description: e.target.value })} />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Ordre</label>
+              <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Order" : "Ordre"}</label>
               <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.sortOrder as number) || 0} onChange={e => setForm({ ...form, sortOrder: Number(e.target.value) })} />
             </div>
             <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer mt-5">
               <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
-              Visible sur le site
+              {lang === "en" ? "Visible on site" : "Visible sur le site"}
             </label>
           </div>
           <div className="flex gap-3 mt-4">
-            <button onClick={save} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
-            <button onClick={() => { setShowForm(false); setEditing(null); }} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+            <button onClick={save} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">{lang === "en" ? "Save" : "Sauvegarder"}</button>
+            <button onClick={() => { setShowForm(false); setEditing(null); }} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "Cancel" : "Annuler"}</button>
           </div>
         </div>
       )}
 
-      {loading ? <p className="text-gray-600 text-xs">Chargement…</p> : (
+      {loading ? <p className="text-gray-600 text-xs">{lang === "en" ? "Loading…" : "Chargement…"}</p> : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {videos.map(v => {
             const thumb = getYoutubeThumbnail(v.youtubeUrl as string);
@@ -5336,7 +5363,7 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
                       <div className="flex gap-1.5 mt-1 flex-wrap">
                         <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "#00ff9d15", color: "#00ff9d" }}>EOCON {v.edition as string}</span>
                         {!!(v.category) && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-800 text-gray-400">{v.category as string}</span>}
-                        {!v.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-500">Masqué</span>}
+                        {!v.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-500">{lang === "en" ? "Hidden" : "Masqué"}</span>}
                       </div>
                     </div>
                     {canWrite && <div className="flex gap-1 shrink-0">
@@ -5348,7 +5375,7 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
               </div>
             );
           })}
-          {!videos.length && !loading && <p className="text-gray-600 text-xs py-8 text-center col-span-3">Aucune vidéo — cliquez sur + Ajouter</p>}
+          {!videos.length && !loading && <p className="text-gray-600 text-xs py-8 text-center col-span-3">{lang === "en" ? "No videos — click + Add" : "Aucune vidéo — cliquez sur + Ajouter"}</p>}
         </div>
       )}
     </div>
@@ -5425,7 +5452,7 @@ function AuditPanel() {
       </div>
 
       {loading ? (
-        <p className="text-gray-600 text-sm font-mono">Chargement…</p>
+        <p className="text-gray-600 text-sm font-mono">{t.loading}</p>
       ) : logs.length === 0 ? (
         <p className="text-gray-600 text-sm font-mono">{t.noEntries}</p>
       ) : (
@@ -5498,6 +5525,7 @@ function DomainCard({
   title: string; color: string; health: "green" | "orange" | "red" | "grey";
   onNavigate: () => void; children: React.ReactNode; borderTop?: boolean;
 }) {
+  const { lang } = useAdminT();
   return (
     <div
       className="cyber-card rounded-xl p-5"
@@ -5513,7 +5541,7 @@ function DomainCard({
           className="text-xs px-2 py-0.5 rounded border transition-all hover:brightness-125"
           style={{ color, borderColor: color + "50", background: color + "12" }}
         >
-          → Voir
+          {lang === "en" ? "→ View" : "→ Voir"}
         </button>
       </div>
       {children}
@@ -5538,6 +5566,7 @@ function DashboardHealthPanel({
   analyticsData: Record<string, unknown> | null;
   onNavigate: (tab: Tab) => void;
 }) {
+  const { lang } = useAdminT();
   // ── CFP ──
   const cfpTotal = stats.cfp || 0;
   const cfpAccepted = extra.cfpDetailed.filter(s => s.status === "accepted" || s.status === "onboarding" || s.status === "confirmed" || s.status === "scheduled").length;
@@ -5623,12 +5652,17 @@ function DashboardHealthPanel({
       <DomainCard title="CFP" color="#cc00ff" health={cfpHealth} onNavigate={() => onNavigate("cfp" as Tab)}>
         {/* Funnel */}
         <div className="flex items-center gap-1 mb-3">
-          {[
+          {(lang === "en" ? [
+            { label: "Submitted", val: cfpTotal },
+            { label: "Accepted", val: cfpAccepted },
+            { label: "Confirmed", val: cfpConfirmed },
+            { label: "Scheduled", val: cfpScheduled },
+          ] : [
             { label: "Soumis", val: cfpTotal },
             { label: "Acceptés", val: cfpAccepted },
             { label: "Confirmés", val: cfpConfirmed },
             { label: "Programmés", val: cfpScheduled },
-          ].map((step, i) => (
+          ]).map((step, i) => (
             <div key={step.label} className="flex items-center gap-1 flex-1">
               <div className="flex-1 rounded-lg p-1.5 text-center" style={{ background: "#cc00ff15", border: "1px solid #cc00ff30" }}>
                 <div className="text-base font-black font-mono" style={{ color: "#cc00ff", fontFamily: "'Share Tech Mono', monospace" }}>{step.val}</div>
@@ -5643,7 +5677,7 @@ function DashboardHealthPanel({
       {/* Programme */}
       <DomainCard title="Programme" color="#00ccff" health={sessHealth} onNavigate={() => onNavigate("pipeline")}>
         <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Programmées" value={sessScheduled} color="#00ccff" />
+          <MetricRow label={lang === "en" ? "Scheduled" : "Programmées"} value={sessScheduled} color="#00ccff" />
           <MetricRow label="Total sessions" value={sessTotal} color="#aaa" />
           <MetricRow label="Backlog" value={sessBacklog} color={sessBacklog > 0 ? "#ffaa00" : "#555"} />
         </div>
@@ -5654,17 +5688,17 @@ function DashboardHealthPanel({
       <DomainCard title="Speakers" color="#00ff9d" health={speakerHealth} onNavigate={() => onNavigate("pipeline")}>
         <div className="grid grid-cols-3 gap-3">
           <MetricRow label="Total" value={speakerTotal} color="#00ff9d" />
-          <MetricRow label="Visibles" value={speakerVisible} color="#aaa" />
-          <MetricRow label="Onboarding en attente" value={onboardingPending} color={onboardingPending > 0 ? "#ffaa00" : "#555"} />
+          <MetricRow label={lang === "en" ? "Visible" : "Visibles"} value={speakerVisible} color="#aaa" />
+          <MetricRow label={lang === "en" ? "Onboarding pending" : "Onboarding en attente"} value={onboardingPending} color={onboardingPending > 0 ? "#ffaa00" : "#555"} />
         </div>
       </DomainCard>
 
       {/* Inscriptions */}
-      <DomainCard title="Inscriptions" color="#ff6600" health={inscHealth} onNavigate={() => onNavigate("registrations")}>
+      <DomainCard title={lang === "en" ? "Registrations" : "Inscriptions"} color="#ff6600" health={inscHealth} onNavigate={() => onNavigate("registrations")}>
         <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Validées" value={validated} color="#ff6600" />
-          <MetricRow label="En attente" value={pendingPay} color="#ffaa00" />
-          <MetricRow label="Capacité" value={`${fillPct}%`} color={fillPct >= 80 ? "#00ff9d" : fillPct >= 50 ? "#ffaa00" : "#ff0066"} />
+          <MetricRow label={lang === "en" ? "Validated" : "Validées"} value={validated} color="#ff6600" />
+          <MetricRow label={lang === "en" ? "Pending" : "En attente"} value={pendingPay} color="#ffaa00" />
+          <MetricRow label={lang === "en" ? "Capacity" : "Capacité"} value={`${fillPct}%`} color={fillPct >= 80 ? "#00ff9d" : fillPct >= 50 ? "#ffaa00" : "#ff0066"} />
         </div>
         <MiniBar value={validated} total={capacity} color="#ff6600" />
       </DomainCard>
@@ -5672,9 +5706,9 @@ function DashboardHealthPanel({
       {/* Budget */}
       <DomainCard title="Budget" color="#ffaa00" health={budgetHealth} onNavigate={() => onNavigate("budget")}>
         <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Capital" value={capital > 0 ? `${fmt(Math.round(capital / 1000))}k` : "—"} color="#aaa" />
-          <MetricRow label="Dépenses réelles" value={depenses > 0 ? `${fmt(Math.round(depenses / 1000))}k` : "—"} color={depenses > capital ? "#ff0066" : "#ffaa00"} />
-          <MetricRow label="Solde net" value={capital > 0 ? `${solde >= 0 ? "+" : ""}${fmt(Math.round(solde / 1000))}k` : "—"} color={solde >= 0 ? "#00ff9d" : "#ff0066"} />
+          <MetricRow label={lang === "en" ? "Capital" : "Capital"} value={capital > 0 ? `${fmt(Math.round(capital / 1000))}k` : "—"} color="#aaa" />
+          <MetricRow label={lang === "en" ? "Actual expenses" : "Dépenses réelles"} value={depenses > 0 ? `${fmt(Math.round(depenses / 1000))}k` : "—"} color={depenses > capital ? "#ff0066" : "#ffaa00"} />
+          <MetricRow label={lang === "en" ? "Net balance" : "Solde net"} value={capital > 0 ? `${solde >= 0 ? "+" : ""}${fmt(Math.round(solde / 1000))}k` : "—"} color={solde >= 0 ? "#00ff9d" : "#ff0066"} />
         </div>
         <MiniBar value={depenses} total={Math.max(capital, 1)} color="#ffaa00" danger />
       </DomainCard>
@@ -5682,8 +5716,8 @@ function DashboardHealthPanel({
       {/* Sponsors */}
       <DomainCard title="Sponsors" color="#ffaa00" health={sponsorHealth} onNavigate={() => onNavigate("sponsors")}>
         <div className="grid grid-cols-2 gap-3 mb-3">
-          <MetricRow label="Confirmés" value={sponsorConfirmed} color="#ffaa00" />
-          <MetricRow label="Pipeline total" value={extra.sponsorProspects.length} color="#aaa" />
+          <MetricRow label={lang === "en" ? "Confirmed" : "Confirmés"} value={sponsorConfirmed} color="#ffaa00" />
+          <MetricRow label={lang === "en" ? "Pipeline total" : "Pipeline total"} value={extra.sponsorProspects.length} color="#aaa" />
         </div>
         <div className="flex flex-wrap gap-1">
           {["contacted", "meeting", "positive", "concluded"].map(stage => (
@@ -5697,20 +5731,20 @@ function DashboardHealthPanel({
       </DomainCard>
 
       {/* Bénévoles */}
-      <DomainCard title="Bénévoles" color="#0066ff" health={volHealth} onNavigate={() => onNavigate("volunteers")}>
+      <DomainCard title={lang === "en" ? "Volunteers" : "Bénévoles"} color="#0066ff" health={volHealth} onNavigate={() => onNavigate("volunteers")}>
         <div className="grid grid-cols-3 gap-3">
-          <MetricRow label="Candidatures" value={volTotal} color="#aaa" />
-          <MetricRow label="Acceptés" value={volAccepted} color="#0066ff" />
-          <MetricRow label="Rôles assignés" value={volWithRole} color="#00ff9d" />
+          <MetricRow label={lang === "en" ? "Applications" : "Candidatures"} value={volTotal} color="#aaa" />
+          <MetricRow label={lang === "en" ? "Accepted" : "Acceptés"} value={volAccepted} color="#0066ff" />
+          <MetricRow label={lang === "en" ? "Assigned roles" : "Rôles assignés"} value={volWithRole} color="#00ff9d" />
         </div>
       </DomainCard>
 
       {/* Logistique */}
-      <DomainCard title="Logistique" color="#ff6600" health={logHealth} onNavigate={() => onNavigate("logistics")}>
+      <DomainCard title={lang === "en" ? "Logistics" : "Logistique"} color="#ff6600" health={logHealth} onNavigate={() => onNavigate("logistics")}>
         <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Faites" value={taskDone} color="#00ff9d" />
+          <MetricRow label={lang === "en" ? "Done" : "Faites"} value={taskDone} color="#00ff9d" />
           <MetricRow label="Total" value={taskTotal} color="#aaa" />
-          <MetricRow label="En retard" value={taskOverdue} color={taskOverdue > 0 ? "#ff0066" : "#555"} />
+          <MetricRow label={lang === "en" ? "Late" : "En retard"} value={taskOverdue} color={taskOverdue > 0 ? "#ff0066" : "#555"} />
         </div>
         <MiniBar value={taskDone} total={Math.max(taskTotal, 1)} color="#ff6600" />
       </DomainCard>
@@ -5718,18 +5752,18 @@ function DashboardHealthPanel({
       {/* Communication */}
       <DomainCard title="Communication" color="#cc00ff" health={commHealth} onNavigate={() => onNavigate("communication")}>
         <div className="grid grid-cols-3 gap-3">
-          <MetricRow label="Planifiés" value={postsScheduled} color="#ffaa00" />
-          <MetricRow label="Publiés" value={postsPublished} color="#00ff9d" />
-          <MetricRow label="Échoués" value={postsFailed} color={postsFailed > 0 ? "#ff0066" : "#555"} />
+          <MetricRow label={lang === "en" ? "Scheduled" : "Planifiés"} value={postsScheduled} color="#ffaa00" />
+          <MetricRow label={lang === "en" ? "Published" : "Publiés"} value={postsPublished} color="#00ff9d" />
+          <MetricRow label={lang === "en" ? "Failed" : "Échoués"} value={postsFailed} color={postsFailed > 0 ? "#ff0066" : "#555"} />
         </div>
       </DomainCard>
 
       {/* Check-in */}
       <DomainCard title="Check-in" color="#00ccff" health="grey" onNavigate={() => onNavigate("registrations")}>
         <div className="grid grid-cols-3 gap-3 mb-2">
-          <MetricRow label="Enregistrés" value={checkedIn} color="#00ccff" />
-          <MetricRow label="Validés total" value={validated} color="#aaa" />
-          <MetricRow label="Taux" value={`${checkinRate}%`} color={checkinRate >= 50 ? "#00ff9d" : "#888"} />
+          <MetricRow label={lang === "en" ? "Checked in" : "Enregistrés"} value={checkedIn} color="#00ccff" />
+          <MetricRow label={lang === "en" ? "Total validated" : "Validés total"} value={validated} color="#aaa" />
+          <MetricRow label={lang === "en" ? "Rate" : "Taux"} value={`${checkinRate}%`} color={checkinRate >= 50 ? "#00ff9d" : "#888"} />
         </div>
         <MiniBar value={checkedIn} total={Math.max(validated, 1)} color="#00ccff" />
       </DomainCard>
@@ -6004,7 +6038,7 @@ export default function AdminDashboard() {
   };
 
   const del = async (endpoint: string, id: number) => {
-    if (!confirm("Supprimer ?")) return;
+    if (!confirm(lang === "en" ? "Delete?" : "Supprimer ?")) return;
     await fetch(`${endpoint}/${id}`, { method: "DELETE" });
     fetchData(tab);
     fetchStats();
@@ -6059,7 +6093,7 @@ export default function AdminDashboard() {
       icon: "🏠",
       tabs: [
         { id: "dashboard", label: t.dashboard, icon: "📊" },
-        { id: "pilotage", label: "Pilotage global", icon: "🎯" },
+        { id: "pilotage", label: t.pilotageGlobal, icon: "🎯" },
       ],
     },
     {
@@ -6108,7 +6142,7 @@ export default function AdminDashboard() {
       label: t.live,
       icon: "🔴",
       tabs: [
-        { id: "live", label: t.live, icon: "🔴" },
+        { id: "live", label: t.studio, icon: "🎬" },
       ],
     },
     {
@@ -6135,13 +6169,13 @@ export default function AdminDashboard() {
       ],
     },
     {
-      label: "Web Site",
+      label: t.webSiteGroup,
       icon: "🌐",
       tabs: [
         { id: "past-speakers", label: t.pastSpeakers, icon: "🎤" },
         { id: "team", label: t.team, icon: "👥", count: stats.team },
-        { id: "video", label: "Vidéothèque", icon: "📹" },
-        { id: "testimony", label: "Témoignages", icon: "💬" },
+        { id: "video", label: t.videoteque, icon: "🎞️" },
+        { id: "testimony", label: t.testimony, icon: "💬" },
         { id: "settings", label: t.eventSettings, icon: "⚙️" },
       ],
     },
@@ -6167,13 +6201,14 @@ export default function AdminDashboard() {
     const sessions = (data.sessions || []) as Record<string, unknown>[];
     const groups: Record<string, Record<string, unknown>[]> = {};
     for (const s of sessions) {
-      const key = (s.date as string) || "Sans date";
+      const key = (s.date as string) || (lang === "en" ? "No date" : "Sans date");
       if (!groups[key]) groups[key] = [];
       groups[key].push(s);
     }
     const sortedKeys = Object.keys(groups).sort((a, b) => {
-      if (a === "Sans date") return 1;
-      if (b === "Sans date") return -1;
+      const noDate = lang === "en" ? "No date" : "Sans date";
+      if (a === noDate) return 1;
+      if (b === noDate) return -1;
       return a.localeCompare(b);
     });
     return { groups, sortedKeys };
@@ -6207,13 +6242,13 @@ export default function AdminDashboard() {
           {/* Light / dark theme toggle */}
           <button
             onClick={toggleTheme}
-            title={theme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
+            title={theme === "dark" ? (lang === "en" ? "Switch to light mode" : "Passer en mode clair") : (lang === "en" ? "Switch to dark mode" : "Passer en mode sombre")}
             className="admin-theme-toggle flex items-center gap-1.5 text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-neon-green hover:border-neon-green/40 transition-all font-mono select-none"
           >
             {theme === "dark" ? (
-              <><span>☀</span><span className="hidden sm:inline">Clair</span></>
+              <><span>☀</span><span className="hidden sm:inline">{lang === "en" ? "Light" : "Clair"}</span></>
             ) : (
-              <><span>🌙</span><span className="hidden sm:inline">Sombre</span></>
+              <><span>🌙</span><span className="hidden sm:inline">{lang === "en" ? "Dark" : "Sombre"}</span></>
             )}
           </button>
           <button onClick={logout} className="text-xs text-red-400 hover:text-red-300 transition-colors">{t.logout}</button>
@@ -6226,7 +6261,7 @@ export default function AdminDashboard() {
           {/* Collapse toggle */}
           <button
             onClick={() => setSidebarCollapsed(c => !c)}
-            title={sidebarCollapsed ? "Développer" : "Réduire"}
+            title={sidebarCollapsed ? (lang === "en" ? "Expand" : "Développer") : (lang === "en" ? "Collapse" : "Réduire")}
             className="flex items-center justify-center h-8 border-b border-neon-green/10 text-neon-green/30 hover:text-neon-green hover:bg-neon-green/5 transition-all shrink-0 w-full"
           >
             <span className="text-sm font-mono">{sidebarCollapsed ? "»" : "«"}</span>
@@ -6336,16 +6371,16 @@ export default function AdminDashboard() {
 
               {can("sponsors") && showForm && (
                 <div className="cyber-card rounded-xl p-6 mb-6">
-                  <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier le Sponsor" : "Nouveau Sponsor"}</h3>
+                  <h3 className="text-neon-green text-sm mb-4">{editing ? (lang === "en" ? "Edit Sponsor" : "Modifier le Sponsor") : (lang === "en" ? "New Sponsor" : "Nouveau Sponsor")}</h3>
                   <div className="grid sm:grid-cols-2 gap-3">
-                    {[{ key: "name", label: "Nom du Sponsor *" }, { key: "website", label: "Site Web" }].map(f => (
+                    {(lang === "en" ? [{ key: "name", label: "Sponsor Name *" }, { key: "website", label: "Website" }] : [{ key: "name", label: "Nom du Sponsor *" }, { key: "website", label: "Site Web" }]).map(f => (
                       <div key={f.key}>
                         <label className="block text-xs text-gray-500 mb-1">{f.label}</label>
                         <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form[f.key] as string) || ""} onChange={e => setForm({ ...form, [f.key]: e.target.value })} />
                       </div>
                     ))}
                     <div className="sm:col-span-2">
-                      <label className="block text-xs text-gray-500 mb-1">Logo du Sponsor</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Sponsor Logo" : "Logo du Sponsor"}</label>
                       <PhotoUploadField
                         value={(form.logoUrl as string) || ""}
                         folder="sponsors"
@@ -6365,16 +6400,16 @@ export default function AdminDashboard() {
                     </div>
                     <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
                       <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
-                      Visible sur le site
+                      {lang === "en" ? "Visible on site" : "Visible sur le site"}
                     </label>
                     <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
                       <input type="checkbox" checked={!!form.showOnLive} onChange={e => setForm({ ...form, showOnLive: e.target.checked })} />
-                      🔴 Afficher logo sur la page <span className="text-neon-green">/live</span>
+                      {lang === "en" ? "🔴 Show logo on " : "🔴 Afficher logo sur la page "}<span className="text-neon-green">/live</span>
                     </label>
                   </div>
                   <div className="flex gap-3 mt-4">
-                    <button onClick={() => save("/api/admin/sponsors")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
-                    <button onClick={cancelForm} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+                    <button onClick={() => save("/api/admin/sponsors")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">{lang === "en" ? "Save" : "Sauvegarder"}</button>
+                    <button onClick={cancelForm} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "Cancel" : "Annuler"}</button>
                   </div>
                 </div>
               )}
@@ -6396,14 +6431,14 @@ export default function AdminDashboard() {
                             <p className="text-white font-bold text-sm">{s.name as string}</p>
                             {!!s.website && <p className="text-gray-500 text-xs truncate">{s.website as string}</p>}
                             <div className="flex gap-2 flex-wrap">
-                              {!s.isVisible && <span className="text-xs text-gray-600">Masqué</span>}
+                              {!s.isVisible && <span className="text-xs text-gray-600">{lang === "en" ? "Hidden" : "Masqué"}</span>}
                               {!!s.showOnLive && <span className="text-xs text-red-400">🔴 /live</span>}
                             </div>
                           </div>
                           <div className="flex gap-2 shrink-0">
-                            <button onClick={() => setDetail({ type: "sponsor", item: s })} className="text-xs text-gray-400 hover:text-white px-2 py-1 border border-gray-700 rounded">Détails</button>
-                            {can("sponsors") && <button onClick={() => { setForm({ ...s }); setEditing(s.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">Éditer</button>}
-                            {can("sponsors") && <button onClick={() => del("/api/admin/sponsors", s.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">Suppr.</button>}
+                            <button onClick={() => setDetail({ type: "sponsor", item: s })} className="text-xs text-gray-400 hover:text-white px-2 py-1 border border-gray-700 rounded">{lang === "en" ? "Details" : "Détails"}</button>
+                            {can("sponsors") && <button onClick={() => { setForm({ ...s }); setEditing(s.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">{lang === "en" ? "Edit" : "Éditer"}</button>}
+                            {can("sponsors") && <button onClick={() => del("/api/admin/sponsors", s.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">{lang === "en" ? "Del." : "Suppr."}</button>}
                           </div>
                         </div>
                       ))}
@@ -6411,7 +6446,7 @@ export default function AdminDashboard() {
                   </div>
                 );
               })}
-              {!data.sponsors?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucun sponsor</p>}
+              {!data.sponsors?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No sponsors" : "Aucun sponsor"}</p>}
             </div>
           )}
 
@@ -6423,7 +6458,7 @@ export default function AdminDashboard() {
                 <VolunteerKanban />
               </div>
               <div className="border-t border-gray-800 pt-6">
-                <h2 className="text-sm font-bold text-gray-400 font-mono mb-4 uppercase tracking-wider">Toutes les candidatures</h2>
+                <h2 className="text-sm font-bold text-gray-400 font-mono mb-4 uppercase tracking-wider">{lang === "en" ? "All applications" : "Toutes les candidatures"}</h2>
               {(() => {
                 const volunteerList = (data.volunteers || []) as Record<string, unknown>[];
                 const existingRoles = Array.from(new Set(volunteerList.map(v => v.role as string).filter(Boolean))).sort();
@@ -6434,12 +6469,12 @@ export default function AdminDashboard() {
                     <div className="flex items-start justify-between gap-4 mb-3">
                       <div>
                         <p className="text-white font-bold">{v.name as string} <span className="text-gray-500 font-normal text-sm">— {v.email as string}</span></p>
-                        {!!v.role && <p className="text-neon-green/70 text-sm">Rôle souhaité : {v.role as string}</p>}
+                        {!!v.role && <p className="text-neon-green/70 text-sm">{lang === "en" ? "Desired role" : "Rôle souhaité"} : {v.role as string}</p>}
                         {!!v.city && <p className="text-gray-500 text-xs">{v.city as string}</p>}
                         <p className="text-gray-400 text-xs mt-2 line-clamp-2">{v.motivation as string}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => setDetail({ type: "volunteer", item: v })} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">Détails</button>
+                        <button onClick={() => setDetail({ type: "volunteer", item: v })} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">{lang === "en" ? "Details" : "Détails"}</button>
                         <Badge status={v.status as string} />
                         <select className="cyber-input text-xs px-2 py-1 rounded bg-transparent" value={v.status as string}
                           onChange={e => updateStatus("volunteer", v.id as number, e.target.value)}>
@@ -6451,7 +6486,7 @@ export default function AdminDashboard() {
                     </div>
                     {v.status === "accepted" && (
                       <div className="border-t border-gray-800 pt-3 mt-2">
-                        <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">Affectation</p>
+                        <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">{lang === "en" ? "Assignment" : "Affectation"}</p>
                         <div className="flex gap-2 flex-wrap">
                           <select
                             className="cyber-input text-xs rounded px-2 py-1 flex-1 min-w-[140px]"
@@ -6464,7 +6499,7 @@ export default function AdminDashboard() {
                               });
                             }}
                           >
-                            <option value="">— Rôle assigné —</option>
+                            <option value="">{lang === "en" ? "— Assigned role —" : "— Rôle assigné —"}</option>
                             {existingRoles.map(r => (
                               <option key={r} value={r}>{r}</option>
                             ))}
@@ -6499,7 +6534,7 @@ export default function AdminDashboard() {
                     <p className="text-gray-600 text-xs mt-2">{new Date(v.createdAt as string).toLocaleDateString("fr-FR")}</p>
                   </div>
                 ))}
-                {!volunteerList.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucune candidature</p>}
+                {!volunteerList.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No applications" : "Aucune candidature"}</p>}
               </div>
                 );
               })()}
@@ -6513,14 +6548,14 @@ export default function AdminDashboard() {
           {/* NEWSLETTER */}
           {activeTab === "newsletter" && (
             <div>
-              <h1 className="text-2xl font-black text-white mb-6">Newsletter ({(data.newsletter || []).length} abonnés)</h1>
+              <h1 className="text-2xl font-black text-white mb-6">Newsletter ({(data.newsletter || []).length} {lang === "en" ? "subscribers" : "abonnés"})</h1>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-neon-green/10 text-gray-500 text-left">
                       <th className="py-2 px-3 font-normal">#</th>
                       <th className="py-2 px-3 font-normal">Email</th>
-                      <th className="py-2 px-3 font-normal">Date d&apos;inscription</th>
+                      <th className="py-2 px-3 font-normal">{lang === "en" ? "Registration date" : "Date d'inscription"}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -6533,7 +6568,7 @@ export default function AdminDashboard() {
                     ))}
                   </tbody>
                 </table>
-                {!data.newsletter?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucun abonné</p>}
+                {!data.newsletter?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No subscribers" : "Aucun abonné"}</p>}
               </div>
             </div>
           )}
@@ -6542,29 +6577,29 @@ export default function AdminDashboard() {
           {activeTab === "team" && (
             <div>
               <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-black text-white">Équipe d&apos;organisation</h1>
+                <h1 className="text-2xl font-black text-white">{lang === "en" ? "Organization team" : "Équipe d'organisation"}</h1>
                 {can("team") && <button
                   onClick={() => { setForm({ isVisible: true, sortOrder: 0 }); setEditing(null); setShowForm(true); }}
                   className="btn-neon px-4 py-2 rounded text-xs"
                 >
-                  + Ajouter
+                  {lang === "en" ? "+ Add" : "+ Ajouter"}
                 </button>}
               </div>
 
               {can("team") && showForm && (
                 <div className="cyber-card rounded-xl p-6 mb-6">
-                  <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier le Membre" : "Nouveau Membre"}</h3>
+                  <h3 className="text-neon-green text-sm mb-4">{editing ? (lang === "en" ? "Edit Member" : "Modifier le Membre") : (lang === "en" ? "New Member" : "Nouveau Membre")}</h3>
                   <div className="grid sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Nom *</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Name *" : "Nom *"}</label>
                       <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.name as string) || ""} onChange={e => setForm({ ...form, name: e.target.value })} />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Rôle *</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Role *" : "Rôle *"}</label>
                       <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.role as string) || ""} onChange={e => setForm({ ...form, role: e.target.value })} />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Email (pour le pilotage / rappels)</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Email (for management / reminders)" : "Email (pour le pilotage / rappels)"}</label>
                       <input type="email" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.email as string) || ""} onChange={e => setForm({ ...form, email: e.target.value })} />
                     </div>
                     <div>
@@ -6582,11 +6617,11 @@ export default function AdminDashboard() {
                     <div className="flex items-end pb-1">
                       <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
                         <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
-                        Visible sur le site
+                        {lang === "en" ? "Visible on site" : "Visible sur le site"}
                       </label>
                     </div>
                     <div className="sm:col-span-2">
-                      <label className="block text-xs text-gray-500 mb-1">Photo</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Photo" : "Photo"}</label>
                       <PhotoUploadField
                         value={(form.photoUrl as string) || ""}
                         folder="team"
@@ -6594,18 +6629,18 @@ export default function AdminDashboard() {
                       />
                     </div>
                     <div className="sm:col-span-2">
-                      <label className="block text-xs text-gray-500 mb-1">Biographie</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Biography" : "Biographie"}</label>
                       <textarea rows={3} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.bio as string) || ""} onChange={e => setForm({ ...form, bio: e.target.value })} />
                     </div>
                   </div>
                   <div className="flex gap-3 mt-4">
-                    <button onClick={() => save("/api/admin/team")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
-                    <button onClick={cancelForm} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+                    <button onClick={() => save("/api/admin/team")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">{lang === "en" ? "Save" : "Sauvegarder"}</button>
+                    <button onClick={cancelForm} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "Cancel" : "Annuler"}</button>
                   </div>
                 </div>
               )}
 
-              {loading ? <p className="text-gray-600 text-xs">Chargement...</p> : (
+              {loading ? <p className="text-gray-600 text-xs">{lang === "en" ? "Loading..." : "Chargement..."}</p> : (
                 <div className="space-y-2">
                   {((data.team || []) as Record<string, unknown>[]).map(m => (
                     <div key={m.id as number} className="cyber-card rounded-lg p-4 flex items-center gap-4">
@@ -6613,18 +6648,18 @@ export default function AdminDashboard() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-white font-bold text-sm">{m.name as string}</span>
-                          {!m.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">Masqué</span>}
+                          {!m.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">{lang === "en" ? "Hidden" : "Masqué"}</span>}
                         </div>
                         <p className="text-neon-green/70 text-xs">{m.role as string}</p>
                         {!!(m.bio as string) && <p className="text-gray-500 text-xs mt-0.5 truncate">{m.bio as string}</p>}
                       </div>
                       {can("team") && <div className="flex gap-2 shrink-0">
-                        <button onClick={() => { setForm({ ...m }); setEditing(m.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green transition-colors px-2 py-1 border border-gray-700 rounded">Éditer</button>
-                        <button onClick={() => del("/api/admin/team", m.id as number)} className="text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-1 border border-red-900 rounded">Suppr.</button>
+                        <button onClick={() => { setForm({ ...m }); setEditing(m.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green transition-colors px-2 py-1 border border-gray-700 rounded">{lang === "en" ? "Edit" : "Éditer"}</button>
+                        <button onClick={() => del("/api/admin/team", m.id as number)} className="text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-1 border border-red-900 rounded">{lang === "en" ? "Del." : "Suppr."}</button>
                       </div>}
                     </div>
                   ))}
-                  {!data.team?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucun membre — cliquez sur + Ajouter</p>}
+                  {!data.team?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No members — click + Add" : "Aucun membre — cliquez sur + Ajouter"}</p>}
                 </div>
               )}
             </div>
@@ -6634,37 +6669,37 @@ export default function AdminDashboard() {
           {activeTab === "past-speakers" && (
             <div>
               <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-black text-white">Anciens Intervenants</h1>
+                <h1 className="text-2xl font-black text-white">{lang === "en" ? "Past Speakers" : "Anciens Intervenants"}</h1>
                 {can("speakers") && <button
                   onClick={() => { setForm({ isVisible: true, sortOrder: 0, edition: "2024" }); setEditing(null); setShowForm(true); }}
                   className="btn-neon px-4 py-2 rounded text-xs"
                 >
-                  + Ajouter
+                  {lang === "en" ? "+ Add" : "+ Ajouter"}
                 </button>}
               </div>
 
               {can("speakers") && showForm && (
                 <div className="cyber-card rounded-xl p-6 mb-6">
-                  <h3 className="text-neon-green text-sm mb-4">{editing ? "Modifier l'Intervenant" : "Nouvel Ancien Intervenant"}</h3>
+                  <h3 className="text-neon-green text-sm mb-4">{editing ? (lang === "en" ? "Edit Speaker" : "Modifier l'Intervenant") : (lang === "en" ? "New Past Speaker" : "Nouvel Ancien Intervenant")}</h3>
                   <div className="grid sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Nom *</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Name *" : "Nom *"}</label>
                       <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.name as string) || ""} onChange={e => setForm({ ...form, name: e.target.value })} />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Rôle / Titre</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Role / Title" : "Rôle / Titre"}</label>
                       <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.role as string) || ""} onChange={e => setForm({ ...form, role: e.target.value })} />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Entreprise</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Company" : "Entreprise"}</label>
                       <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.company as string) || ""} onChange={e => setForm({ ...form, company: e.target.value })} />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Pays</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Country" : "Pays"}</label>
                       <CountrySelect value={(form.country as string) || ""} onChange={v => setForm({ ...form, country: v })} className="w-full text-xs" />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Édition (ex: 2024)</label>
+                      <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Edition (e.g.: 2024)" : "Édition (ex: 2024)"}</label>
                       <input type="text" className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.edition as string) || ""} onChange={e => setForm({ ...form, edition: e.target.value })} />
                     </div>
                     <div>
@@ -6682,18 +6717,18 @@ export default function AdminDashboard() {
                     <div className="flex items-center">
                       <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
                         <input type="checkbox" checked={!!form.isVisible} onChange={e => setForm({ ...form, isVisible: e.target.checked })} />
-                        Visible sur le site
+                        {lang === "en" ? "Visible on site" : "Visible sur le site"}
                       </label>
                     </div>
                   </div>
                   <div className="flex gap-3 mt-4">
-                    <button onClick={() => save("/api/admin/past-speakers")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">Sauvegarder</button>
-                    <button onClick={cancelForm} className="btn-neon px-4 py-2 rounded text-xs">Annuler</button>
+                    <button onClick={() => save("/api/admin/past-speakers")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">{lang === "en" ? "Save" : "Sauvegarder"}</button>
+                    <button onClick={cancelForm} className="btn-neon px-4 py-2 rounded text-xs">{lang === "en" ? "Cancel" : "Annuler"}</button>
                   </div>
                 </div>
               )}
 
-              {loading ? <p className="text-gray-600 text-xs">Chargement...</p> : (
+              {loading ? <p className="text-gray-600 text-xs">{lang === "en" ? "Loading..." : "Chargement..."}</p> : (
                 <div className="space-y-2">
                   {((data["past-speakers"] || []) as Record<string, unknown>[]).map(ps => (
                     <div key={ps.id as number} className="cyber-card rounded-lg p-4 flex items-center gap-4">
@@ -6704,7 +6739,7 @@ export default function AdminDashboard() {
                           {!!(ps.edition as string) && (
                             <span className="text-xs px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green/70">{ps.edition as string}</span>
                           )}
-                          {!ps.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">Masqué</span>}
+                          {!ps.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-400">{lang === "en" ? "Hidden" : "Masqué"}</span>}
                         </div>
                         <p className="text-gray-400 text-xs">
                           {(ps.role as string) || ""}
@@ -6713,12 +6748,12 @@ export default function AdminDashboard() {
                         </p>
                       </div>
                       {can("speakers") && <div className="flex gap-2 shrink-0">
-                        <button onClick={() => { setForm({ ...ps }); setEditing(ps.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green transition-colors px-2 py-1 border border-gray-700 rounded">Éditer</button>
-                        <button onClick={() => del("/api/admin/past-speakers", ps.id as number)} className="text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-1 border border-red-900 rounded">Suppr.</button>
+                        <button onClick={() => { setForm({ ...ps }); setEditing(ps.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green transition-colors px-2 py-1 border border-gray-700 rounded">{lang === "en" ? "Edit" : "Éditer"}</button>
+                        <button onClick={() => del("/api/admin/past-speakers", ps.id as number)} className="text-xs text-red-400 hover:text-red-300 transition-colors px-2 py-1 border border-red-900 rounded">{lang === "en" ? "Del." : "Suppr."}</button>
                       </div>}
                     </div>
                   ))}
-                  {!data["past-speakers"]?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">Aucun ancien intervenant — cliquez sur + Ajouter</p>}
+                  {!data["past-speakers"]?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No past speakers — click + Add" : "Aucun ancien intervenant — cliquez sur + Ajouter"}</p>}
                 </div>
               )}
             </div>
@@ -6858,9 +6893,10 @@ export default function AdminDashboard() {
 
 // ── Detail drawer ─────────────────────────────────────────────────────────────
 function DetailDrawer({ item, type, onClose }: { item: Record<string, unknown>; type: string; onClose: () => void }) {
+  const { lang } = useAdminT();
   const fmt = (v: unknown) => {
     if (v === null || v === undefined || v === "") return <span className="text-gray-600">—</span>;
-    if (typeof v === "boolean") return <span className={v ? "text-neon-green" : "text-gray-500"}>{v ? "Oui" : "Non"}</span>;
+    if (typeof v === "boolean") return <span className={v ? "text-neon-green" : "text-gray-500"}>{v ? (lang === "en" ? "Yes" : "Oui") : (lang === "en" ? "No" : "Non")}</span>;
     if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v)) return new Date(v).toLocaleString("fr-FR");
     if (typeof v === "string" && (v.startsWith("http://") || v.startsWith("https://")))
       return <a href={v} target="_blank" rel="noreferrer" className="text-cyan-400 underline break-all">{v}</a>;
@@ -6868,7 +6904,44 @@ function DetailDrawer({ item, type, onClose }: { item: Record<string, unknown>; 
     return <span className="text-white break-words">{String(v)}</span>;
   };
 
-  const sections: Record<string, { label: string; fields: { key: string; label: string }[] }[]> = {
+  const sections: Record<string, { label: string; fields: { key: string; label: string }[] }[]> = lang === "en" ? {
+    volunteer: [
+      { label: "Identity", fields: [{ key: "name", label: "Name" }, { key: "email", label: "Email" }, { key: "phone", label: "Phone" }, { key: "city", label: "City" }] },
+      { label: "Networks", fields: [{ key: "linkedin", label: "LinkedIn" }, { key: "twitter", label: "X / Twitter" }, { key: "whatsapp", label: "WhatsApp" }] },
+      { label: "Application", fields: [{ key: "role", label: "Desired role" }, { key: "hoursPerWeek", label: "Hours / week" }, { key: "langExpression", label: "Language" }, { key: "status", label: "Status" }] },
+      { label: "Motivation", fields: [{ key: "motivation", label: "Motivation" }, { key: "experience", label: "Experience" }] },
+      { label: "Assignment", fields: [{ key: "assignedRole", label: "Assigned role" }, { key: "shiftStart", label: "Shift start" }, { key: "shiftEnd", label: "Shift end" }] },
+      { label: "Meta", fields: [{ key: "createdAt", label: "Submitted on" }] },
+    ],
+    registration: [
+      { label: "Participant", fields: [{ key: "fname", label: "First name" }, { key: "lname", label: "Last name" }, { key: "email", label: "Email" }, { key: "org", label: "Organization" }, { key: "country", label: "Country" }] },
+      { label: "Networks", fields: [{ key: "linkedin", label: "LinkedIn" }, { key: "whatsapp", label: "WhatsApp" }] },
+      { label: "Ticket", fields: [{ key: "ticketType", label: "Ticket type" }, { key: "ticketRef", label: "Reference" }, { key: "status", label: "Status" }, { key: "langExpression", label: "Language" }] },
+      { label: "Check-in", fields: [{ key: "checkedInAt", label: "Check-in time" }, { key: "checkedInBy", label: "By" }] },
+      { label: "CTF", fields: [{ key: "ctfCompetitorName", label: "CTF username" }, { key: "ctfTeamName", label: "CTF team" }, { key: "ctfAccountCreated", label: "CTFd account created" }] },
+      { label: "Meta", fields: [{ key: "createdAt", label: "Registered on" }] },
+    ],
+    sponsor: [
+      { label: "Sponsor", fields: [{ key: "name", label: "Name" }, { key: "tier", label: "Tier" }, { key: "website", label: "Website" }, { key: "logoUrl", label: "Logo URL" }] },
+      { label: "Visibility", fields: [{ key: "isVisible", label: "Visible" }, { key: "sortOrder", label: "Order" }] },
+      { label: "Meta", fields: [{ key: "createdAt", label: "Created on" }] },
+    ],
+    cfp: [
+      { label: "Speaker", fields: [{ key: "name", label: "Name" }, { key: "email", label: "Email" }, { key: "org", label: "Organization" }, { key: "country", label: "Country" }] },
+      { label: "Networks", fields: [{ key: "linkedin", label: "LinkedIn" }, { key: "twitter", label: "X / Twitter" }, { key: "whatsapp", label: "WhatsApp" }] },
+      { label: "Proposal", fields: [{ key: "talkTitle", label: "Title" }, { key: "format", label: "Format" }, { key: "langPresentation", label: "Language" }, { key: "pipelineStage", label: "Stage" }, { key: "status", label: "Status" }] },
+      { label: "Abstract", fields: [{ key: "abstract", label: "Abstract" }] },
+      { label: "Bio", fields: [{ key: "bio", label: "Bio" }] },
+      { label: "AI Analysis", fields: [{ key: "aiScore", label: "AI Score" }, { key: "aiAnalysis", label: "AI Analysis" }] },
+      { label: "Meta", fields: [{ key: "createdAt", label: "Submitted on" }, { key: "decisionSentAt", label: "Decision sent" }, { key: "notes", label: "Admin notes" }] },
+    ],
+    session: [
+      { label: "Session", fields: [{ key: "title", label: "Title" }, { key: "type", label: "Type" }, { key: "speakerName", label: "Speaker" }, { key: "room", label: "Room" }] },
+      { label: "Schedule", fields: [{ key: "date", label: "Date" }, { key: "time", label: "Start" }, { key: "endTime", label: "End" }] },
+      { label: "Content", fields: [{ key: "description", label: "Description" }] },
+      { label: "Visibility", fields: [{ key: "isVisible", label: "Visible" }, { key: "sortOrder", label: "Order" }] },
+    ],
+  } : {
     volunteer: [
       { label: "Identité", fields: [{ key: "name", label: "Nom" }, { key: "email", label: "Email" }, { key: "phone", label: "Téléphone" }, { key: "city", label: "Ville" }] },
       { label: "Réseaux", fields: [{ key: "linkedin", label: "LinkedIn" }, { key: "twitter", label: "X / Twitter" }, { key: "whatsapp", label: "WhatsApp" }] },
@@ -6908,7 +6981,7 @@ function DetailDrawer({ item, type, onClose }: { item: Record<string, unknown>; 
   };
 
   const secs = sections[type] || Object.keys(item).map(key => ({ label: "", fields: [{ key, label: key }] }));
-  const typeLabels: Record<string, string> = { volunteer: "Bénévole", registration: "Inscription", sponsor: "Sponsor", cfp: "Soumission CFP", session: "Session" };
+  const typeLabels: Record<string, string> = lang === "en" ? { volunteer: "Volunteer", registration: "Registration", sponsor: "Sponsor", cfp: "CFP Submission", session: "Session" } : { volunteer: "Bénévole", registration: "Inscription", sponsor: "Sponsor", cfp: "Soumission CFP", session: "Session" };
 
   return (
     <>

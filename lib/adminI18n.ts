@@ -40,6 +40,18 @@ export const adminI18n = {
     eventSettings: "⚙ Paramètres Événement",
     ctf: "⚡ CTF",
 
+    // Navigation items missing from original list
+    pilotageGlobal: "Pilotage global",
+    studio: "Studio",
+    strategicPlan: "Plan stratégique",
+    campaigns: "Campagnes",
+    library: "Library",
+    cyberWatch: "Veille cyber",
+    webSiteGroup: "Web Site",
+    videoteque: "Vidéothèque",
+    testimony: "Témoignages",
+    transactions: "Transactions",
+
     // Dashboard
     dashboardTitle: "Dashboard",
     speakers: "Speakers",
@@ -529,7 +541,8 @@ export const adminI18n = {
     registrationsSubtitle: "Validez le paiement pour envoyer le billet avec QR code",
 
     // Live panel
-    live: "🔴 Live",
+    live: "LIVE STREAMING",
+    studio: "Studio",
     liveTitle: "Live Streaming",
     liveSubtitle: "Configurez les flux vidéo et le programme diffusé aux participants en ligne",
     liveStreamsTab: "📡 Flux vidéo",
@@ -589,6 +602,18 @@ export const adminI18n = {
     auditLog: "Audit Log",
     eventSettings: "⚙ Event Settings",
     ctf: "⚡ CTF",
+
+    // Navigation items missing from original list
+    pilotageGlobal: "Global Steering",
+    studio: "Studio",
+    strategicPlan: "Strategic Plan",
+    campaigns: "Campaigns",
+    library: "Library",
+    cyberWatch: "Cyber Watch",
+    webSiteGroup: "Web Site",
+    videoteque: "Video Library",
+    testimony: "Testimonials",
+    transactions: "Transactions",
 
     // Dashboard
     dashboardTitle: "Dashboard",
@@ -1079,7 +1104,8 @@ export const adminI18n = {
     registrationsSubtitle: "Validate payment to send ticket with QR code",
 
     // Live panel
-    live: "🔴 Live",
+    live: "LIVE STREAMING",
+    studio: "Studio",
     liveTitle: "Live Streaming",
     liveSubtitle: "Configure video streams and the programme shown to online participants",
     liveStreamsTab: "📡 Video streams",

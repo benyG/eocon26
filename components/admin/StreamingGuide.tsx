@@ -654,7 +654,7 @@ export default function StreamingGuide({ onClose }: { onClose: () => void }) {
       {/* Header */}
       <div style={{ background: "#07070e", borderBottom: "2px solid #00ff9d30", padding: "12px 24px", display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 9, color: "#00ff9d", letterSpacing: 3, fontFamily: "'Courier New', monospace" }}>EOCON 2026 · DOCUMENTATION OPÉRATEUR</div>
+          <div style={{ fontSize: 9, color: "#00ff9d", letterSpacing: 3, fontFamily: "'Courier New', monospace" }}>{isFr ? "EOCON 2026 · DOCUMENTATION OPÉRATEUR" : "EOCON 2026 · OPERATOR DOCUMENTATION"}</div>
           <div style={{ fontSize: 17, fontWeight: 900, color: "#fff", fontFamily: "'Courier New', monospace", marginTop: 2 }}>
             {isFr ? "Guide Streaming — Technicien & Modérateur" : "Streaming Guide — Technician & Moderator"}
           </div>

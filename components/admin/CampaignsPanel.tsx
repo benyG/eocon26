@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import EmailTemplatesPanel from "@/components/admin/EmailTemplatesPanel";
+import { useLang } from "@/lib/adminLangContext";
 
 // ── Contact / Subscriber types ─────────────────────────────────────────────────
 interface Subscriber {
@@ -86,11 +87,11 @@ function parseSeg(raw: string): Segment {
   return { audience: "registrations" };
 }
 
-const STATUS_BADGE: Record<string, { c: string; label: string }> = {
-  draft:   { c: "#888",    label: "Brouillon" },
-  sending: { c: "#ffaa00", label: "Envoi en cours" },
-  sent:    { c: "#00ff9d", label: "Envoyée" },
-  failed:  { c: "#ff0066", label: "Échec" },
+const STATUS_BADGE: Record<string, { c: string; label_fr: string; label_en: string }> = {
+  draft:   { c: "#888",    label_fr: "Brouillon",      label_en: "Draft" },
+  sending: { c: "#ffaa00", label_fr: "Envoi en cours", label_en: "Sending" },
+  sent:    { c: "#00ff9d", label_fr: "Envoyée",        label_en: "Sent" },
+  failed:  { c: "#ff0066", label_fr: "Échec",          label_en: "Failed" },
 };
 
 const STANDARD_HTML_FR = `<h1>Titre de l'email 🎉</h1>
@@ -109,6 +110,7 @@ const STANDARD_HTML_EN = `<h1>Email title 🎉</h1>
 
 // ── Main Panel ────────────────────────────────────────────────────────────────
 export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean }) {
+  const __ = useLang();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [facets, setFacets] = useState<Facets | null>(null);
@@ -136,7 +138,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
   }, []);
 
   const deleteSubscriber = async (id: number) => {
-    if (!confirm("Supprimer ce contact ?")) return;
+    if (!confirm(__("Supprimer ce contact ?", "Delete this contact?"))) return;
     await fetch("/api/admin/newsletter/subscribers", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
     setSubscribers(prev => prev.filter(s => s.id !== id));
   };
@@ -160,7 +162,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
       body: JSON.stringify({ csv: csvText }),
     });
     const data = await r.json();
-    if (!r.ok) { setImportError(data.error || "Erreur"); } else { setImportResult(data); loadSubscribers(); }
+    if (!r.ok) { setImportError(data.error || __("Erreur", "Error")); } else { setImportResult(data); loadSubscribers(); }
     setImporting(false);
   };
 
@@ -205,7 +207,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
   const openEdit = (c: Campaign) => { setEditing(c); setInitialTemplateId(null); setShowEditor(true); };
 
   const del = async (id: number) => {
-    if (!confirm("Supprimer cette campagne ?")) return;
+    if (!confirm(__("Supprimer cette campagne ?", "Delete this campaign?"))) return;
     await fetch(`/api/admin/campaigns/${id}`, { method: "DELETE" });
     load();
   };
@@ -236,7 +238,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
   };
 
   const deleteTpl = async (id: number) => {
-    if (!confirm("Supprimer ce modèle ? Les campagnes utilisant ce modèle ne seront pas affectées.")) return;
+    if (!confirm(__("Supprimer ce modèle ? Les campagnes utilisant ce modèle ne seront pas affectées.", "Delete this template? Campaigns using it will not be affected."))) return;
     await fetch(`/api/admin/email-templates/${id}`, { method: "DELETE" });
     loadTemplates();
   };
@@ -259,10 +261,10 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
   }
 
   const TABS = [
-    { key: "campaigns" as const, label: "📣 Campagnes", count: campaigns.length },
-    { key: "templates" as const, label: "📋 Modèles campagne", count: campaignTemplates.length },
-    { key: "contacts" as const, label: "📇 Contacts", count: subscribers.length || undefined },
-    { key: "system" as const, label: "📧 Templates système" },
+    { key: "campaigns" as const, label: __("📣 Campagnes", "📣 Campaigns"), count: campaigns.length },
+    { key: "templates" as const, label: __("📋 Modèles campagne", "📋 Campaign templates"), count: campaignTemplates.length },
+    { key: "contacts" as const, label: __("📇 Contacts", "📇 Contacts"), count: subscribers.length || undefined },
+    { key: "system" as const, label: __("📧 Templates système", "📧 System templates") },
   ];
 
   return (
@@ -288,43 +290,43 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
         <>
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-black text-white">📣 Campagnes email</h1>
-              <p className="text-gray-500 text-xs mt-1">Segmentez l&apos;audience, choisissez un modèle et envoyez · suivi des envois</p>
+              <h1 className="text-2xl font-black text-white">📣 {__("Campagnes email", "Email campaigns")}</h1>
+              <p className="text-gray-500 text-xs mt-1">{__("Segmentez l'audience, choisissez un modèle et envoyez · suivi des envois", "Segment the audience, pick a template and send · delivery tracking")}</p>
             </div>
             {canWrite && (
               <div className="flex gap-2">
                 {campaignTemplates.length === 0 && (
                   <button onClick={() => setSubTab("templates")} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white transition-colors">
-                    + Créer un modèle d&apos;abord
+                    {__("+ Créer un modèle d'abord", "+ Create a template first")}
                   </button>
                 )}
-                <button onClick={() => openNew()} className="btn-neon px-4 py-2 rounded text-xs">+ Nouvelle campagne</button>
+                <button onClick={() => openNew()} className="btn-neon px-4 py-2 rounded text-xs">{__("+ Nouvelle campagne", "+ New campaign")}</button>
               </div>
             )}
           </div>
 
           {loading ? (
-            <p className="text-gray-600 text-xs">Chargement…</p>
+            <p className="text-gray-600 text-xs">{__("Chargement…", "Loading…")}</p>
           ) : campaigns.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-600 text-xs gap-3">
               <span className="text-4xl">📭</span>
-              <span>Aucune campagne pour l&apos;instant.</span>
-              {canWrite && <button onClick={() => openNew()} className="text-neon-green text-xs underline">Créer votre première campagne</button>}
+              <span>{__("Aucune campagne pour l'instant.", "No campaigns yet.")}</span>
+              {canWrite && <button onClick={() => openNew()} className="text-neon-green text-xs underline">{__("Créer votre première campagne", "Create your first campaign")}</button>}
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-gray-500 border-b border-gray-800 text-left">
-                    <th className="py-2 px-3 font-medium">Nom</th>
-                    <th className="py-2 px-3 font-medium">Statut</th>
-                    <th className="py-2 px-3 font-medium">Destinataires</th>
-                    <th className="py-2 px-3 font-medium">Envoyés</th>
-                    <th className="py-2 px-3 font-medium">Délivrés</th>
-                    <th className="py-2 px-3 font-medium">Cliqués</th>
-                    <th className="py-2 px-3 font-medium">Échecs</th>
-                    <th className="py-2 px-3 font-medium">Date</th>
-                    <th className="py-2 px-3 font-medium text-right">Actions</th>
+                    <th className="py-2 px-3 font-medium">{__("Nom", "Name")}</th>
+                    <th className="py-2 px-3 font-medium">{__("Statut", "Status")}</th>
+                    <th className="py-2 px-3 font-medium">{__("Destinataires", "Recipients")}</th>
+                    <th className="py-2 px-3 font-medium">{__("Envoyés", "Sent")}</th>
+                    <th className="py-2 px-3 font-medium">{__("Délivrés", "Delivered")}</th>
+                    <th className="py-2 px-3 font-medium">{__("Cliqués", "Clicked")}</th>
+                    <th className="py-2 px-3 font-medium">{__("Échecs", "Failures")}</th>
+                    <th className="py-2 px-3 font-medium">{__("Date", "Date")}</th>
+                    <th className="py-2 px-3 font-medium text-right">{__("Actions", "Actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -339,7 +341,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
                           <p className="text-gray-600 truncate max-w-[240px]">{c.subject}</p>
                         </td>
                         <td className="py-2.5 px-3">
-                          <span className="px-2 py-0.5 rounded font-mono" style={{ background: badge.c + "20", color: badge.c }}>{badge.label}</span>
+                          <span className="px-2 py-0.5 rounded font-mono" style={{ background: badge.c + "20", color: badge.c }}>{__(badge.label_fr, badge.label_en)}</span>
                         </td>
                         <td className="py-2.5 px-3 text-gray-300 font-mono">{c.recipientCount || "—"}</td>
                         <td className="py-2.5 px-3 font-mono" style={{ color: "#888" }}>{isSent ? c.sentCount : "—"}</td>
@@ -356,7 +358,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
                         <td className="py-2.5 px-3 text-right">
                           <div className="flex gap-1.5 justify-end">
                             <button onClick={() => openEdit(c)} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">
-                              {c.status === "draft" && canWrite ? "Éditer" : "Voir"}
+                              {c.status === "draft" && canWrite ? __("Éditer", "Edit") : __("Voir", "View")}
                             </button>
                             {canWrite && c.status === "draft" && (
                               <button onClick={() => del(c.id)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">✕</button>
@@ -378,19 +380,19 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
         <div>
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-black text-white">📋 Modèles de campagne</h1>
-              <p className="text-gray-500 text-xs mt-1">Modèles bilingues FR/EN réutilisables pour vos campagnes email</p>
+              <h1 className="text-2xl font-black text-white">📋 {__("Modèles de campagne", "Campaign templates")}</h1>
+              <p className="text-gray-500 text-xs mt-1">{__("Modèles bilingues FR/EN réutilisables pour vos campagnes email", "Reusable FR/EN bilingual templates for your email campaigns")}</p>
             </div>
             {canWrite && (
-              <button onClick={openTplCreate} className="btn-neon px-4 py-2 rounded text-xs">+ Nouveau modèle</button>
+              <button onClick={openTplCreate} className="btn-neon px-4 py-2 rounded text-xs">{__("+ Nouveau modèle", "+ New template")}</button>
             )}
           </div>
 
           {campaignTemplates.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-gray-600 text-xs gap-3">
               <span className="text-4xl">📄</span>
-              <span>Aucun modèle de campagne.</span>
-              {canWrite && <button onClick={openTplCreate} className="text-neon-green text-xs underline">Créer votre premier modèle</button>}
+              <span>{__("Aucun modèle de campagne.", "No campaign templates.")}</span>
+              {canWrite && <button onClick={openTplCreate} className="text-neon-green text-xs underline">{__("Créer votre premier modèle", "Create your first template")}</button>}
             </div>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -423,11 +425,11 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
                         onClick={() => { openNew(t.id); }}
                         className="text-xs px-2 py-1 rounded border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition-colors"
                       >
-                        🚀 Utiliser
+                        🚀 {__("Utiliser", "Use")}
                       </button>
                       {canWrite && (
                         <>
-                          <button onClick={() => openTplEdit(t)} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-neon-green transition-colors ml-auto">Éditer</button>
+                          <button onClick={() => openTplEdit(t)} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-neon-green transition-colors ml-auto">{__("Éditer", "Edit")}</button>
                           <button onClick={() => deleteTpl(t.id)} className="text-xs px-2 py-1 rounded border border-red-900 text-red-400 hover:text-red-300 transition-colors">✕</button>
                         </>
                       )}
@@ -444,8 +446,8 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
       {subTab === "system" && (
         <div>
           <div className="mb-6">
-            <h1 className="text-2xl font-black text-white">📧 Templates système</h1>
-            <p className="text-gray-500 text-xs mt-1">Emails transactionnels automatiques : confirmation d&apos;inscription, billet, rappels CTF…</p>
+            <h1 className="text-2xl font-black text-white">📧 {__("Templates système", "System templates")}</h1>
+            <p className="text-gray-500 text-xs mt-1">{__("Emails transactionnels automatiques : confirmation d'inscription, billet, rappels CTF…", "Automatic transactional emails: registration confirmation, ticket, CTF reminders…")}</p>
           </div>
           <EmailTemplatesPanel canWrite={canWrite} />
         </div>
@@ -456,31 +458,31 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
         <div className="fixed inset-0 bg-black/90 flex items-start justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowTplModal(false)}>
           <div className="cyber-card rounded-xl p-6 max-w-4xl w-full mt-8 mb-8" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-white font-bold text-base">{editTpl ? "Éditer le modèle" : "Nouveau modèle de campagne"}</h2>
+              <h2 className="text-white font-bold text-base">{editTpl ? __("Éditer le modèle", "Edit template") : __("Nouveau modèle de campagne", "New campaign template")}</h2>
               <button onClick={() => setShowTplModal(false)} className="text-gray-500 hover:text-white">✕</button>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="text-xs text-gray-500 block mb-1">Nom du modèle *</label>
-                <input value={tplForm.name} onChange={e => setTplForm(f => ({ ...f, name: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder="ex : Rappel J-7 inscrits" />
+                <label className="text-xs text-gray-500 block mb-1">{__("Nom du modèle *", "Template name *")}</label>
+                <input value={tplForm.name} onChange={e => setTplForm(f => ({ ...f, name: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder={__("ex : Rappel J-7 inscrits", "e.g. D-7 reminder")} />
               </div>
 
               <div className="grid md:grid-cols-2 gap-5">
                 <div className="space-y-3">
-                  <p className="text-xs font-bold text-neon-green uppercase tracking-widest">Version FR</p>
+                  <p className="text-xs font-bold text-neon-green uppercase tracking-widest">{__("Version FR", "FR version")}</p>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Objet FR *</label>
-                    <input value={tplForm.subject} onChange={e => setTplForm(f => ({ ...f, subject: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-xs" placeholder="ex : EOCON 2026 — Votre billet" />
+                    <label className="text-xs text-gray-500 block mb-1">{__("Objet FR *", "Subject FR *")}</label>
+                    <input value={tplForm.subject} onChange={e => setTplForm(f => ({ ...f, subject: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-xs" placeholder={__("ex : EOCON 2026 — Votre billet", "e.g. EOCON 2026 — Your ticket")} />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Corps HTML FR *</label>
+                    <label className="text-xs text-gray-500 block mb-1">{__("Corps HTML FR *", "HTML body FR *")}</label>
                     <textarea rows={14} value={tplForm.htmlBody} onChange={e => setTplForm(f => ({ ...f, htmlBody: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-xs font-mono resize-y" />
                   </div>
                 </div>
 
                 <div className="space-y-3">
-                  <p className="text-xs font-bold text-cyan-400 uppercase tracking-widest">Version EN <span className="text-gray-600 font-normal normal-case">(optionnel)</span></p>
+                  <p className="text-xs font-bold text-cyan-400 uppercase tracking-widest">{__("Version EN", "EN version")} <span className="text-gray-600 font-normal normal-case">({__("optionnel", "optional")})</span></p>
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">Subject EN</label>
                     <input value={tplForm.subjectEn} onChange={e => setTplForm(f => ({ ...f, subjectEn: e.target.value }))} className="cyber-input w-full px-3 py-2 rounded text-xs" placeholder="ex : EOCON 2026 — Your ticket" />
@@ -492,13 +494,13 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
                 </div>
               </div>
 
-              <p className="text-gray-700 text-xs">Variables disponibles : {"{{fname}} {{lname}} {{org}} {{country}} {{ticketType}}"}</p>
+              <p className="text-gray-700 text-xs">{__("Variables disponibles", "Available variables")} : {"{{fname}} {{lname}} {{org}} {{country}} {{ticketType}}"}</p>
 
               <div className="flex gap-3 pt-2">
                 <button onClick={saveTpl} disabled={tplSaving || !tplForm.name || !tplForm.subject || !tplForm.htmlBody} className="btn-neon px-5 py-2 rounded text-xs disabled:opacity-40">
-                  {tplSaving ? "Sauvegarde…" : editTpl ? "Mettre à jour" : "Créer le modèle"}
+                  {tplSaving ? __("Sauvegarde…", "Saving…") : editTpl ? __("Mettre à jour", "Update") : __("Créer le modèle", "Create template")}
                 </button>
-                <button onClick={() => setShowTplModal(false)} className="text-gray-500 text-xs hover:text-white px-3 py-2">Annuler</button>
+                <button onClick={() => setShowTplModal(false)} className="text-gray-500 text-xs hover:text-white px-3 py-2">{__("Annuler", "Cancel")}</button>
               </div>
             </div>
           </div>
@@ -510,9 +512,9 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
         <div>
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-black text-white">📇 Contacts newsletter</h1>
+              <h1 className="text-2xl font-black text-white">📇 {__("Contacts newsletter", "Newsletter contacts")}</h1>
               <p className="text-gray-500 text-xs mt-1">
-                {subscribers.length} contact{subscribers.length !== 1 ? "s" : ""} · audience utilisée pour les campagnes &ldquo;Newsletter&rdquo;
+                {subscribers.length} {__("contact", "contact")}{subscribers.length !== 1 ? "s" : ""} · {__("audience utilisée pour les campagnes", "audience used for")} &ldquo;Newsletter&rdquo; {__("campagnes", "campaigns")}
               </p>
             </div>
             {canWrite && (
@@ -520,20 +522,20 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
                 onClick={() => { setShowImport(true); setCsvText(""); setImportResult(null); setImportError(null); }}
                 className="btn-neon px-4 py-2 rounded text-xs"
               >
-                ⬆ Importer CSV Mailchimp
+                ⬆ {__("Importer CSV Mailchimp", "Import Mailchimp CSV")}
               </button>
             )}
           </div>
 
           {subLoading ? (
-            <p className="text-gray-600 text-xs">Chargement…</p>
+            <p className="text-gray-600 text-xs">{__("Chargement…", "Loading…")}</p>
           ) : subscribers.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-600 text-xs gap-3">
               <span className="text-4xl">📭</span>
-              <span>Aucun contact pour l&apos;instant.</span>
+              <span>{__("Aucun contact pour l'instant.", "No contacts yet.")}</span>
               {canWrite && (
                 <button onClick={() => { setShowImport(true); setCsvText(""); setImportResult(null); setImportError(null); }} className="text-neon-green text-xs underline">
-                  Importer depuis Mailchimp
+                  {__("Importer depuis Mailchimp", "Import from Mailchimp")}
                 </button>
               )}
             </div>
@@ -543,13 +545,13 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
                 <thead>
                   <tr className="text-gray-500 border-b border-gray-800 text-left">
                     <th className="py-2 px-3 font-medium">Email</th>
-                    <th className="py-2 px-3 font-medium">Prénom</th>
-                    <th className="py-2 px-3 font-medium">Nom</th>
-                    <th className="py-2 px-3 font-medium">Téléphone</th>
-                    <th className="py-2 px-3 font-medium">Profession</th>
-                    <th className="py-2 px-3 font-medium">Entreprise</th>
-                    <th className="py-2 px-3 font-medium">Source</th>
-                    {canWrite && <th className="py-2 px-3 font-medium text-right">Actions</th>}
+                    <th className="py-2 px-3 font-medium">{__("Prénom", "First name")}</th>
+                    <th className="py-2 px-3 font-medium">{__("Nom", "Last name")}</th>
+                    <th className="py-2 px-3 font-medium">{__("Téléphone", "Phone")}</th>
+                    <th className="py-2 px-3 font-medium">{__("Profession", "Profession")}</th>
+                    <th className="py-2 px-3 font-medium">{__("Entreprise", "Company")}</th>
+                    <th className="py-2 px-3 font-medium">{__("Source", "Source")}</th>
+                    {canWrite && <th className="py-2 px-3 font-medium text-right">{__("Actions", "Actions")}</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -583,23 +585,23 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
             <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowImport(false)}>
               <div className="bg-[#0d0d0d] border border-gray-700 rounded-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800">
-                  <h2 className="text-white font-bold text-sm">⬆ Importer des contacts Mailchimp</h2>
+                  <h2 className="text-white font-bold text-sm">⬆ {__("Importer des contacts Mailchimp", "Import Mailchimp contacts")}</h2>
                   <button onClick={() => setShowImport(false)} className="text-gray-500 hover:text-white">✕</button>
                 </div>
 
                 <div className="p-5 overflow-y-auto flex flex-col gap-4">
                   {/* Format hint */}
                   <div className="bg-blue-950/40 border border-blue-800/40 rounded-lg p-3 text-xs text-blue-300">
-                    <p className="font-semibold mb-1">Format attendu (export Mailchimp CSV) :</p>
+                    <p className="font-semibold mb-1">{__("Format attendu (export Mailchimp CSV) :", "Expected format (Mailchimp CSV export):")}</p>
                     <code className="font-mono text-blue-200 text-[11px]">
                       Email Address,First Name,Last Name,Phone Number,Profession,Company,Twitter,Linkedin
                     </code>
-                    <p className="mt-1.5 text-blue-400">Les contacts déjà présents seront enrichis (données manquantes complétées) et non dupliqués.</p>
+                    <p className="mt-1.5 text-blue-400">{__("Les contacts déjà présents seront enrichis (données manquantes complétées) et non dupliqués.", "Existing contacts will be enriched (missing data filled in) and not duplicated.")}</p>
                   </div>
 
                   {/* File picker */}
                   <div>
-                    <p className="text-gray-400 text-xs mb-2">Choisir un fichier CSV :</p>
+                    <p className="text-gray-400 text-xs mb-2">{__("Choisir un fichier CSV :", "Choose a CSV file:")}</p>
                     <div className="flex gap-2 items-center">
                       <input
                         ref={fileInputRef}
@@ -612,15 +614,15 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
                         onClick={() => fileInputRef.current?.click()}
                         className="text-xs px-3 py-1.5 rounded border border-gray-600 text-gray-300 hover:border-neon-green hover:text-neon-green transition-colors"
                       >
-                        📂 Parcourir…
+                        📂 {__("Parcourir…", "Browse…")}
                       </button>
-                      {csvText && <span className="text-xs text-neon-green">✓ Fichier chargé ({csvText.split("\n").length - 1} lignes)</span>}
+                      {csvText && <span className="text-xs text-neon-green">✓ {__("Fichier chargé", "File loaded")} ({csvText.split("\n").length - 1} {__("lignes", "lines")})</span>}
                     </div>
                   </div>
 
                   {/* Or paste */}
                   <div>
-                    <p className="text-gray-400 text-xs mb-2">— ou coller le contenu CSV ici :</p>
+                    <p className="text-gray-400 text-xs mb-2">{__("— ou coller le contenu CSV ici :", "— or paste CSV content here:")}</p>
                     <textarea
                       value={csvText}
                       onChange={e => setCsvText(e.target.value)}
@@ -636,11 +638,11 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
 
                   {importResult && (
                     <div className="bg-neon-green/10 border border-neon-green/30 rounded-lg p-3 text-xs">
-                      <p className="text-neon-green font-bold mb-1">✓ Import terminé ({importResult.total} lignes traitées)</p>
+                      <p className="text-neon-green font-bold mb-1">✓ {__("Import terminé", "Import complete")} ({importResult.total} {__("lignes traitées", "lines processed")})</p>
                       <div className="flex gap-4 text-gray-300">
-                        <span><span className="text-neon-green font-mono">{importResult.imported}</span> nouveau{importResult.imported !== 1 ? "x" : ""}</span>
-                        <span><span className="text-blue-400 font-mono">{importResult.updated}</span> enrichi{importResult.updated !== 1 ? "s" : ""}</span>
-                        <span><span className="text-gray-500 font-mono">{importResult.skipped}</span> ignoré{importResult.skipped !== 1 ? "s" : ""}</span>
+                        <span><span className="text-neon-green font-mono">{importResult.imported}</span> {__("nouveau", "new")}{importResult.imported !== 1 ? "x" : ""}</span>
+                        <span><span className="text-blue-400 font-mono">{importResult.updated}</span> {__("enrichi", "enriched")}{importResult.updated !== 1 ? "s" : ""}</span>
+                        <span><span className="text-gray-500 font-mono">{importResult.skipped}</span> {__("ignoré", "skipped")}{importResult.skipped !== 1 ? "s" : ""}</span>
                       </div>
                     </div>
                   )}
@@ -652,9 +654,9 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
                     disabled={importing || !csvText.trim()}
                     className="btn-neon px-5 py-2 rounded text-xs disabled:opacity-40"
                   >
-                    {importing ? "Import en cours…" : "Importer"}
+                    {importing ? __("Import en cours…", "Importing…") : __("Importer", "Import")}
                   </button>
-                  <button onClick={() => setShowImport(false)} className="text-gray-500 text-xs hover:text-white px-3 py-2">Fermer</button>
+                  <button onClick={() => setShowImport(false)} className="text-gray-500 text-xs hover:text-white px-3 py-2">{__("Fermer", "Close")}</button>
                 </div>
               </div>
             </div>
@@ -667,7 +669,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4" onClick={() => setPreviewTpl(null)}>
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[88vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 py-2 bg-gray-900 shrink-0">
-              <span className="text-white text-xs font-mono">Aperçu {previewTpl.lang.toUpperCase()}</span>
+              <span className="text-white text-xs font-mono">{__("Aperçu", "Preview")} {previewTpl.lang.toUpperCase()}</span>
               <button onClick={() => setPreviewTpl(null)} className="text-gray-400 hover:text-white text-lg">✕</button>
             </div>
             <iframe title="preview" srcDoc={previewTpl.html} className="w-full flex-1 bg-white" style={{ minHeight: "60vh" }} />
@@ -680,6 +682,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
 
 // ── Campaign Editor / composer ────────────────────────────────────────────────
 function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClose }: { campaign: Campaign | null; templates: EmailTemplate[]; facets: Facets | null; initialTemplateId?: number | null; onClose: () => void }) {
+  const __ = useLang();
   const readOnly = !!campaign && campaign.status !== "draft";
   const [name, setName] = useState(campaign?.name || "");
   const [templateId, setTemplateId] = useState<number | null>(campaign?.templateId ?? initialTemplateId ?? null);
@@ -716,8 +719,8 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
 
   const doResend = async (mode: "undelivered" | "unclicked") => {
     if (!campaign) return;
-    const label = mode === "undelivered" ? "non-délivrés" : "non-cliqués";
-    if (!confirm(`Renvoyer la campagne aux destinataires ${label} ?`)) return;
+    const label = mode === "undelivered" ? __("non-délivrés", "undelivered") : __("non-cliqués", "unclicked");
+    if (!confirm(`${__("Renvoyer la campagne aux destinataires", "Resend the campaign to")} ${label} ?`)) return;
     setResending(mode); setMsg(null);
     const r = await fetch(`/api/admin/campaigns/${campaign.id}/resend`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode }),
@@ -725,11 +728,11 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
     setResending(null);
     if (r.ok) {
       const d = await r.json();
-      setMsg(`✓ Renvoi ${label} : ${d.sent} envoyés, ${d.failed} échec(s)`);
+      setMsg(`✓ ${__("Renvoi", "Resend")} ${label} : ${d.sent} ${__("envoyés", "sent")}, ${d.failed} ${__("échec(s)", "failure(s)")}`);
       fetch(`/api/admin/campaigns/${campaign.id}`).then(res => res.ok ? res.json() : null).then(dd => { if (dd) setMetrics(dd); }).catch(() => {});
     } else {
       const e = await r.json().catch(() => ({}));
-      setMsg(`✗ ${e.error || "Échec du renvoi"}`);
+      setMsg(`✗ ${e.error || __("Échec du renvoi", "Resend failed")}`);
     }
   };
 
@@ -777,20 +780,20 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
     const subject = testLang === "en" ? content.subjectEn : content.subject;
     const htmlBody = testLang === "en" ? content.htmlBodyEn : content.htmlBody;
     const r = await fetch("/api/admin/campaigns/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: testEmail, subject, htmlBody }) });
-    setMsg(r.ok ? `✓ Email de test (${testLang.toUpperCase()}) envoyé à ${testEmail}` : "✗ Échec de l'envoi du test");
+    setMsg(r.ok ? `✓ ${__("Email de test", "Test email")} (${testLang.toUpperCase()}) ${__("envoyé à", "sent to")} ${testEmail}` : `✗ ${__("Échec de l'envoi du test", "Test send failed")}`);
   };
 
   const sendCampaign = async () => {
-    if (!tpl) { setMsg("✗ Choisissez un modèle d'email"); return; }
-    if (!count) { setMsg("✗ Aucun destinataire pour ce segment"); return; }
-    if (!confirm(`Envoyer la campagne « ${name || "Sans titre"} » à ${count} destinataire(s) ? Cette action est définitive.`)) return;
+    if (!tpl) { setMsg(`✗ ${__("Choisissez un modèle d'email", "Choose an email template")}`); return; }
+    if (!count) { setMsg(`✗ ${__("Aucun destinataire pour ce segment", "No recipients for this segment")}`); return; }
+    if (!confirm(`${__("Envoyer la campagne", "Send the campaign")} « ${name || "Sans titre"} » ${__("à", "to")} ${count} ${__("destinataire(s) ? Cette action est définitive.", "recipient(s)? This action is permanent.")}`)) return;
     setSending(true); setMsg(null);
     const cid = await persist();
-    if (!cid) { setSending(false); setMsg("✗ Échec de l'enregistrement"); return; }
+    if (!cid) { setSending(false); setMsg(`✗ ${__("Échec de l'enregistrement", "Save failed")}`); return; }
     const r = await fetch(`/api/admin/campaigns/${cid}/send`, { method: "POST" });
     setSending(false);
-    if (r.ok) { const d = await r.json(); setMsg(`✓ Campagne envoyée : ${d.sent} envoyés, ${d.failed} échec(s)`); setTimeout(onClose, 1500); }
-    else { const e = await r.json().catch(() => ({})); setMsg(`✗ ${e.error || "Échec de l'envoi"}`); }
+    if (r.ok) { const d = await r.json(); setMsg(`✓ ${__("Campagne envoyée", "Campaign sent")} : ${d.sent} ${__("envoyés", "sent")}, ${d.failed} ${__("échec(s)", "failure(s)")}`); setTimeout(onClose, 1500); }
+    else { const e = await r.json().catch(() => ({})); setMsg(`✗ ${e.error || __("Échec de l'envoi", "Send failed")}`); }
   };
 
   const toggle = (field: "statuses" | "ticketTypes" | "countries" | "langs", val: string) => {
@@ -831,10 +834,10 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
     <div>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <button onClick={onClose} className="text-gray-500 hover:text-white text-sm">← Retour</button>
-          <h1 className="text-xl font-black text-white">{readOnly ? "📣 Détail campagne" : campaign ? "📣 Éditer la campagne" : "📣 Nouvelle campagne"}</h1>
-          {saving && <span className="text-gray-600 text-xs">enregistrement…</span>}
-          {readOnly && <span className="text-xs text-yellow-500 bg-yellow-500/10 rounded px-2 py-0.5">Lecture seule (envoyée)</span>}
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-sm">← {__("Retour", "Back")}</button>
+          <h1 className="text-xl font-black text-white">{readOnly ? `📣 ${__("Détail campagne", "Campaign detail")}` : campaign ? `📣 ${__("Éditer la campagne", "Edit campaign")}` : `📣 ${__("Nouvelle campagne", "New campaign")}`}</h1>
+          {saving && <span className="text-gray-600 text-xs">{__("enregistrement…", "saving…")}</span>}
+          {readOnly && <span className="text-xs text-yellow-500 bg-yellow-500/10 rounded px-2 py-0.5">{__("Lecture seule (envoyée)", "Read-only (sent)")}</span>}
         </div>
       </div>
 
@@ -843,19 +846,19 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
         <div className="space-y-4">
           <div className="cyber-card rounded-xl p-5 space-y-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Nom interne de la campagne</label>
-              <input disabled={readOnly} value={name} onChange={e => setName(e.target.value)} className="cyber-input w-full px-3 py-2 rounded text-xs" placeholder="ex : Rappel J-7 inscrits" />
+              <label className="block text-xs text-gray-500 mb-1">{__("Nom interne de la campagne", "Internal campaign name")}</label>
+              <input disabled={readOnly} value={name} onChange={e => setName(e.target.value)} className="cyber-input w-full px-3 py-2 rounded text-xs" placeholder={__("ex : Rappel J-7 inscrits", "e.g. D-7 reminder")} />
             </div>
 
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Modèle d&apos;email (bilingue FR / EN) *</label>
+              <label className="block text-xs text-gray-500 mb-1">{__("Modèle d'email (bilingue FR / EN) *", "Email template (bilingual FR / EN) *")}</label>
               {readOnly ? (
                 <div className="cyber-input w-full px-3 py-2 rounded text-xs text-gray-300">
                   {tpl?.name || campaign?.subject || "—"}
                 </div>
               ) : templates.length === 0 ? (
                 <p className="text-yellow-500/80 text-xs py-2">
-                  Aucun modèle disponible. <button onClick={onClose} className="underline">Créez-en un dans l&apos;onglet Modèles campagne</button>.
+                  {__("Aucun modèle disponible.", "No templates available.")} <button onClick={onClose} className="underline">{__("Créez-en un dans l'onglet Modèles campagne", "Create one in the Campaign templates tab")}</button>.
                 </p>
               ) : (
                 <select
@@ -863,9 +866,9 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
                   onChange={e => setTemplateId(e.target.value ? parseInt(e.target.value) : null)}
                   className="cyber-input w-full px-3 py-2 rounded text-xs"
                 >
-                  <option value="">— Choisir un modèle —</option>
+                  <option value="">— {__("Choisir un modèle", "Choose a template")} —</option>
                   {templates.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}{t.subjectEn && t.htmlBodyEn ? "  (FR + EN)" : "  (FR seul)"}</option>
+                    <option key={t.id} value={t.id}>{t.name}{t.subjectEn && t.htmlBodyEn ? "  (FR + EN)" : `  (${__("FR seul", "FR only")})`}</option>
                   ))}
                 </select>
               )}
@@ -874,25 +877,25 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
             {tpl && (
               <div className="rounded-lg border border-gray-800 p-3 space-y-2">
                 <div>
-                  <p className="text-gray-600 text-xs">Sujet FR</p>
+                  <p className="text-gray-600 text-xs">{__("Sujet FR", "Subject FR")}</p>
                   <p className="text-white text-xs">{content.subject || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-gray-600 text-xs">Sujet EN</p>
-                  <p className={`text-xs ${hasEn ? "text-white" : "text-yellow-500/80"}`}>{content.subjectEn || "— (version EN manquante)"}</p>
+                  <p className="text-gray-600 text-xs">{__("Sujet EN", "Subject EN")}</p>
+                  <p className={`text-xs ${hasEn ? "text-white" : "text-yellow-500/80"}`}>{content.subjectEn || `— (${__("version EN manquante", "EN version missing")})`}</p>
                 </div>
                 <div className="flex gap-2 pt-1">
-                  <button onClick={() => doPreview("fr")} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-300 hover:border-neon-green hover:text-neon-green">👁 Aperçu FR</button>
-                  <button onClick={() => doPreview("en")} disabled={!hasEn} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-300 hover:border-neon-blue hover:text-neon-blue disabled:opacity-40">👁 Aperçu EN</button>
+                  <button onClick={() => doPreview("fr")} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-300 hover:border-neon-green hover:text-neon-green">👁 {__("Aperçu FR", "Preview FR")}</button>
+                  <button onClick={() => doPreview("en")} disabled={!hasEn} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-300 hover:border-neon-blue hover:text-neon-blue disabled:opacity-40">👁 {__("Aperçu EN", "Preview EN")}</button>
                 </div>
               </div>
             )}
-            <p className="text-gray-700 text-xs">Variables : {"{{fname}} {{lname}} {{org}} {{country}} {{ticketType}}"}</p>
+            <p className="text-gray-700 text-xs">{__("Variables", "Variables")} : {"{{fname}} {{lname}} {{org}} {{country}} {{ticketType}}"}</p>
           </div>
 
           {!readOnly && tpl && (
             <div className="cyber-card rounded-xl p-5">
-              <label className="block text-xs text-gray-500 mb-2">✉️ Envoyer un email de test</label>
+              <label className="block text-xs text-gray-500 mb-2">✉️ {__("Envoyer un email de test", "Send a test email")}</label>
               <div className="flex gap-2 mb-2">
                 {(["fr", "en"] as const).map(l => (
                   <button key={l} onClick={() => setTestLang(l)} disabled={l === "en" && !hasEn}
@@ -903,7 +906,7 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
               </div>
               <div className="flex gap-2">
                 <input value={testEmail} onChange={e => setTestEmail(e.target.value)} className="cyber-input flex-1 px-3 py-2 rounded text-xs" placeholder="votre@email.com" />
-                <button onClick={sendTest} disabled={!testEmail.trim()} className="text-xs px-4 py-2 rounded border border-gray-700 text-gray-300 hover:border-neon-green hover:text-neon-green disabled:opacity-40">Tester</button>
+                <button onClick={sendTest} disabled={!testEmail.trim()} className="text-xs px-4 py-2 rounded border border-gray-700 text-gray-300 hover:border-neon-green hover:text-neon-green disabled:opacity-40">{__("Tester", "Test")}</button>
               </div>
             </div>
           )}
@@ -912,10 +915,10 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
         {/* RIGHT — audience + send */}
         <div className="space-y-4">
           <div className="cyber-card rounded-xl p-5 space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-neon-green">Segment / Audience</h3>
+            <h3 className="text-xs font-bold uppercase tracking-widest text-neon-green">{__("Segment / Audience", "Segment / Audience")}</h3>
 
             <div>
-              <label className="block text-xs text-gray-500 mb-1.5">Base</label>
+              <label className="block text-xs text-gray-500 mb-1.5">{__("Base", "Base")}</label>
               <div className="flex flex-wrap gap-1.5">
                 {AUDIENCES.map(a => (
                   <button key={a.key} disabled={readOnly} onClick={() => setSeg({ audience: a.key })}
@@ -929,29 +932,29 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
             {isReg && facets && (
               <>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1.5">Statut d&apos;inscription</label>
+                  <label className="block text-xs text-gray-500 mb-1.5">{__("Statut d'inscription", "Registration status")}</label>
                   <FilterChips field="statuses" values={facets.statuses} />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1.5">Type de billet</label>
+                  <label className="block text-xs text-gray-500 mb-1.5">{__("Type de billet", "Ticket type")}</label>
                   <FilterChips field="ticketTypes" values={facets.ticketTypes} />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1.5">Pays</label>
+                  <label className="block text-xs text-gray-500 mb-1.5">{__("Pays", "Country")}</label>
                   <FilterChips field="countries" values={facets.countries} />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1.5">Langue</label>
+                  <label className="block text-xs text-gray-500 mb-1.5">{__("Langue", "Language")}</label>
                   <FilterChips field="langs" values={facets.langs} />
                 </div>
                 <div className="flex gap-2">
                   <button disabled={readOnly} onClick={() => triState("hasCtf")}
                     className={`text-xs px-3 py-1.5 rounded border transition-all disabled:opacity-50 ${seg.hasCtf === undefined ? "border-gray-700 text-gray-500" : seg.hasCtf ? "border-neon-green text-neon-green bg-neon-green/10" : "border-red-700 text-red-400 bg-red-500/10"}`}>
-                    CTF : {seg.hasCtf === undefined ? "tous" : seg.hasCtf ? "oui" : "non"}
+                    CTF : {seg.hasCtf === undefined ? __("tous", "all") : seg.hasCtf ? __("oui", "yes") : __("non", "no")}
                   </button>
                   <button disabled={readOnly} onClick={() => triState("checkedIn")}
                     className={`text-xs px-3 py-1.5 rounded border transition-all disabled:opacity-50 ${seg.checkedIn === undefined ? "border-gray-700 text-gray-500" : seg.checkedIn ? "border-neon-green text-neon-green bg-neon-green/10" : "border-red-700 text-red-400 bg-red-500/10"}`}>
-                    Check-in : {seg.checkedIn === undefined ? "tous" : seg.checkedIn ? "oui" : "non"}
+                    Check-in : {seg.checkedIn === undefined ? __("tous", "all") : seg.checkedIn ? __("oui", "yes") : __("non", "no")}
                   </button>
                 </div>
               </>
@@ -959,7 +962,7 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
 
             {isVol && facets && facets.volunteerRoles?.length > 0 && (
               <div>
-                <label className="block text-xs text-gray-500 mb-1.5">Affectation (rôle)</label>
+                <label className="block text-xs text-gray-500 mb-1.5">{__("Affectation (rôle)", "Assignment (role)")}</label>
                 <div className="flex flex-wrap gap-1.5">
                   {facets.volunteerRoles.map(v => {
                     const on = (seg.roles || []).includes(v);
@@ -981,7 +984,7 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
             )}
 
             <div className="border-t border-gray-800 pt-3">
-              <p className="text-xs text-gray-500">Destinataires correspondants</p>
+              <p className="text-xs text-gray-500">{__("Destinataires correspondants", "Matching recipients")}</p>
               <p className="text-3xl font-black" style={{ color: count ? "#00ff9d" : "#555" }}>{count ?? "…"}</p>
               {sample.length > 0 && (
                 <p className="text-gray-700 text-xs mt-1 truncate">{sample.join(", ")}{count && count > sample.length ? "…" : ""}</p>
@@ -992,9 +995,9 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
           {!readOnly && (
             <div className="cyber-card rounded-xl p-5">
               <button onClick={sendCampaign} disabled={sending || !count || !tpl} className="btn-neon-solid w-full py-3 rounded text-sm border-2 border-neon-green disabled:opacity-40">
-                {sending ? "Envoi en cours…" : `🚀 Envoyer à ${count ?? 0} destinataire(s)`}
+                {sending ? __("Envoi en cours…", "Sending…") : `🚀 ${__("Envoyer à", "Send to")} ${count ?? 0} ${__("destinataire(s)", "recipient(s)")}`}
               </button>
-              {!tpl && <p className="text-gray-600 text-xs mt-2 text-center">Choisissez un modèle d&apos;email pour activer l&apos;envoi.</p>}
+              {!tpl && <p className="text-gray-600 text-xs mt-2 text-center">{__("Choisissez un modèle d'email pour activer l'envoi.", "Choose an email template to enable sending.")}</p>}
               {msg && <p className={`text-xs mt-3 text-center ${msg.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{msg}</p>}
             </div>
           )}
@@ -1018,27 +1021,27 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
             return (
               <div className="cyber-card rounded-xl p-5 space-y-4">
                 <div className="text-xs text-gray-400">
-                  Envoyée le <span className="text-white">{campaign.sentAt ? new Date(campaign.sentAt).toLocaleString("fr-FR") : "—"}</span>
+                  {__("Envoyée le", "Sent on")} <span className="text-white">{campaign.sentAt ? new Date(campaign.sentAt).toLocaleString("fr-FR") : "—"}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  {stat("Envoyés", sent, `${m.recipientCount} ciblés`, "#888")}
-                  {stat("Délivrés", delivered, `${pct(delivered)}%`, "#00ff9d")}
-                  {stat("Ouverts", opened, `${pct(opened)}%`, "#ffaa00")}
-                  {stat("Cliqués", clicked, `${pct(clicked)}%`, "#00d4ff")}
+                  {stat(__("Envoyés", "Sent"), sent, `${m.recipientCount} ${__("ciblés", "targeted")}`, "#888")}
+                  {stat(__("Délivrés", "Delivered"), delivered, `${pct(delivered)}%`, "#00ff9d")}
+                  {stat(__("Ouverts", "Opened"), opened, `${pct(opened)}%`, "#ffaa00")}
+                  {stat(__("Cliqués", "Clicked"), clicked, `${pct(clicked)}%`, "#00d4ff")}
                 </div>
-                {m.failedCount > 0 && <p className="text-xs text-red-400">Échecs d&apos;envoi : {m.failedCount}</p>}
+                {m.failedCount > 0 && <p className="text-xs text-red-400">{__("Échecs d'envoi", "Send failures")} : {m.failedCount}</p>}
                 <p className="text-gray-700 text-xs leading-relaxed">
-                  Le suivi des délivrances et clics est alimenté par les webhooks Resend.
+                  {__("Le suivi des délivrances et clics est alimenté par les webhooks Resend.", "Delivery and click tracking is powered by Resend webhooks.")}
                 </p>
                 <div className="border-t border-gray-800 pt-4 space-y-2">
-                  <p className="text-xs font-bold uppercase tracking-widest text-neon-green">Renvoi ciblé</p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-neon-green">{__("Renvoi ciblé", "Targeted resend")}</p>
                   <button onClick={() => doResend("undelivered")} disabled={!!resending || undelivered === 0}
                     className="w-full text-xs px-3 py-2 rounded border border-gray-700 text-gray-300 hover:border-neon-green hover:text-neon-green disabled:opacity-40 text-left">
-                    {resending === "undelivered" ? "Renvoi en cours…" : `↻ Renvoyer aux non-délivrés (${undelivered})`}
+                    {resending === "undelivered" ? __("Renvoi en cours…", "Resending…") : `↻ ${__("Renvoyer aux non-délivrés", "Resend to undelivered")} (${undelivered})`}
                   </button>
                   <button onClick={() => doResend("unclicked")} disabled={!!resending || unclicked === 0}
                     className="w-full text-xs px-3 py-2 rounded border border-gray-700 text-gray-300 hover:border-neon-blue hover:text-neon-blue disabled:opacity-40 text-left">
-                    {resending === "unclicked" ? "Renvoi en cours…" : `↻ Renvoyer aux non-cliqués (${unclicked})`}
+                    {resending === "unclicked" ? __("Renvoi en cours…", "Resending…") : `↻ ${__("Renvoyer aux non-cliqués", "Resend to unclicked")} (${unclicked})`}
                   </button>
                   {msg && <p className={`text-xs mt-1 ${msg.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{msg}</p>}
                 </div>
@@ -1052,7 +1055,7 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4" onClick={() => setShowPreview(false)}>
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[88vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 py-2 bg-gray-900 shrink-0">
-              <span className="text-white text-xs font-mono">Aperçu {previewLang.toUpperCase()} — {(previewLang === "en" ? content.subjectEn : content.subject) || "(sans sujet)"}</span>
+              <span className="text-white text-xs font-mono">{__("Aperçu", "Preview")} {previewLang.toUpperCase()} — {(previewLang === "en" ? content.subjectEn : content.subject) || `(${__("sans sujet", "no subject")})`}</span>
               <button onClick={() => setShowPreview(false)} className="text-gray-400 hover:text-white text-lg">✕</button>
             </div>
             <iframe title="preview" srcDoc={previewHtml} className="w-full flex-1 bg-white" style={{ minHeight: "60vh" }} />

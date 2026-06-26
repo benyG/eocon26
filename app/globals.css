@@ -9,6 +9,38 @@
   --neon-pink: #ff0066;
   --neon-blue: #0066ff;
   --dark: #050505;
+
+  /* ── Theme-aware design tokens (used via var() in inline styles) ─────────── */
+  --ac:       #00ff9d;          /* accent green — text / icon */
+  --ac-bg:    rgba(0,255,157,0.08); /* accent tint background */
+  --ac-bdr:   rgba(0,255,157,0.25); /* accent border */
+  --panel:    #0a0a0f;          /* panel / section background */
+  --card:     #111111;          /* card / input background */
+  --card2:    #1a1a2e;          /* card secondary / nested */
+  --txt:      #ffffff;          /* primary text */
+  --txt-2:    #cccccc;          /* secondary text */
+  --txt-dim:  #888888;          /* dim / placeholder text */
+  --txt-mute: #555555;          /* muted label text */
+  --bdr:      #1a1a2e;          /* default border */
+  --bdr-2:    #333333;          /* input border */
+  --bdr-3:    #222222;          /* subtle border */
+}
+
+/* Override tokens in light mode */
+[data-theme="light"] {
+  --ac:       #007d48;
+  --ac-bg:    rgba(0,125,72,0.08);
+  --ac-bdr:   rgba(0,125,72,0.28);
+  --panel:    #ffffff;
+  --card:     #f4f6fa;
+  --card2:    #eef0f6;
+  --txt:      #0f1729;
+  --txt-2:    #253050;
+  --txt-dim:  #627492;
+  --txt-mute: #8494aa;
+  --bdr:      #d5dbe8;
+  --bdr-2:    #c9d0e0;
+  --bdr-3:    #e2e6ed;
 }
 
 * {
@@ -547,3 +579,52 @@ select option {
   color: #007d48;
   border-color: rgba(0,100,56,0.5);
 }
+
+/* ── Broad inline-style overrides for dark-themed sub-panels ─────────────── */
+/* These panels use inline styles (no Tailwind classes) so selectors must     */
+/* target element types or known structural patterns.                          */
+
+/* All <input>, <select>, <textarea> that carry their own inline bg/color.    */
+/* Important: only fire inside the admin light wrapper.                        */
+[data-theme="light"] input:not([type="color"]),
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+  background-color: #ffffff !important;
+  color: #0f1729 !important;
+  border-color: #c9d0e0 !important;
+}
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder { color: #9aa5bc !important; }
+
+/* Panels / cards that use a very dark hex inline background.
+   Since inline `style` beats all selectors we can only add a *hint* via
+   color-scheme so the UA renders form controls in light mode. */
+[data-theme="light"] { color-scheme: light; }
+
+/* Any element whose computed background is very dark but which carries no   */
+/* Tailwind class (covered above) — we can't target by style value in CSS.   */
+/* Instead, set a sensible inherited text color as a fallback for any element */
+/* that doesn't have an explicit inline color.                                 */
+[data-theme="light"] [style] {
+  color-scheme: light;
+}
+
+/* ── Extra arbitrary-hex backgrounds used in inline styles ───────────────── */
+/* Tailwind's JIT generates these class names when used with bg-[#hex].       */
+[data-theme="light"] .bg-\[\#0a0a16\]  { background-color: #ffffff !important; }
+[data-theme="light"] .bg-\[\#07070e\]  { background-color: #f8fafc !important; }
+[data-theme="light"] .bg-\[\#050510\]  { background-color: #f0f2f6 !important; }
+[data-theme="light"] .bg-\[\#1a1a2e\]  { background-color: #eef0f6 !important; }
+[data-theme="light"] .bg-\[\#111111\]  { background-color: #f4f6fa !important; }
+[data-theme="light"] .bg-\[\#111\]     { background-color: #f4f6fa !important; }
+
+/* ── Neon-pink / neon-blue text darken for legibility ────────────────────── */
+[data-theme="light"] .text-\[\#ff0066\] { color: #b00044 !important; }
+[data-theme="light"] .text-\[\#0066ff\] { color: #0044bb !important; }
+[data-theme="light"] .text-\[\#00ff9d\] { color: #007d48 !important; }
+
+/* ── Neon-blue accent class (parallel to neon-green treatment) ───────────── */
+[data-theme="light"] .text-neon-blue  { color: #0044bb !important; }
+[data-theme="light"] .text-neon-pink  { color: #b00044 !important; }
+[data-theme="light"] .border-neon-blue { border-color: #0044bb !important; }
+[data-theme="light"] .border-neon-pink { border-color: #b00044 !important; }

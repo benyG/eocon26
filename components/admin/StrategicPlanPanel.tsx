@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useLang } from "@/lib/adminLangContext";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -143,25 +144,26 @@ const HASHTAGS = [
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const PRIORITY_LABELS: Record<Priority, { label: string; color: string }> = {
-  1: { label: "Haute", color: "#ff0066" },
-  2: { label: "Moyenne", color: "#ffaa00" },
-  3: { label: "Basse", color: "#888" },
+const PRIORITY_LABELS: Record<Priority, { label_fr: string; label_en: string; color: string }> = {
+  1: { label_fr: "Haute",   label_en: "High",   color: "#ff0066" },
+  2: { label_fr: "Moyenne", label_en: "Medium", color: "#ffaa00" },
+  3: { label_fr: "Basse",   label_en: "Low",    color: "#888" },
 };
 
 const STATUS_OPTIONS = [
-  { value: "todo" as ChannelStatus, label: "À faire", color: "#555", icon: "○" },
-  { value: "in-progress" as ChannelStatus, label: "En cours", color: "#ffaa00", icon: "◑" },
-  { value: "done" as ChannelStatus, label: "Fait", color: "#00ff9d", icon: "●" },
+  { value: "todo" as ChannelStatus, label_fr: "À faire",  label_en: "To do",       color: "#555",    icon: "○" },
+  { value: "in-progress" as ChannelStatus, label_fr: "En cours", label_en: "In progress", color: "#ffaa00", icon: "◑" },
+  { value: "done" as ChannelStatus, label_fr: "Fait",     label_en: "Done",        color: "#00ff9d", icon: "●" },
 ];
 
 // ─── PriorityBadge ───────────────────────────────────────────────────────────
 
 function PriorityBadge({ p }: { p: Priority }) {
-  const { label, color } = PRIORITY_LABELS[p];
+  const __ = useLang();
+  const { label_fr, label_en, color } = PRIORITY_LABELS[p];
   return (
     <span className="text-xs px-2 py-0.5 rounded shrink-0" style={{ background: color + "20", color, fontFamily: "'Share Tech Mono', monospace" }}>
-      P{p} {label}
+      P{p} {__(label_fr, label_en)}
     </span>
   );
 }
@@ -189,6 +191,7 @@ function ChannelCard({
   onStatusChange, onUrlSave, onDelete, canWrite,
   aiResult, onGenerate, isGenerating, anyGenerating,
 }: ChannelCardProps) {
+  const __ = useLang();
   const [localUrl, setLocalUrl] = useState(url);
   const [aiLang, setAiLang] = useState<"fr" | "en">("fr");
   const [edits, setEdits] = useState<Record<string, string>>({});
@@ -251,14 +254,14 @@ function ChannelCard({
             style={{ background: statusOpt.color + "20", color: statusOpt.color, border: `1px solid ${statusOpt.color}50` }}
           >
             {STATUS_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.icon} {o.label}</option>
+              <option key={o.value} value={o.value}>{o.icon} {__(o.label_fr, o.label_en)}</option>
             ))}
           </select>
 
           <button
             onClick={() => { onGenerate(); if (!expanded) onToggle(); }}
             disabled={anyGenerating}
-            title="Générer contenu avec IA"
+            title={__("Générer contenu avec IA", "Generate content with AI")}
             className="text-xs px-2.5 py-1 rounded font-mono transition-all shrink-0"
             style={{
               background: isGenerating ? "#cc00ff20" : aiResult ? "#00ff9d10" : "#1a1a1a",
@@ -278,20 +281,20 @@ function ChannelCard({
                   className="text-xs px-2 py-1 rounded"
                   style={{ background: "#ff006620", color: "#ff0066", border: "1px solid #ff006640" }}
                 >
-                  Oui
+                  {__("Oui", "Yes")}
                 </button>
                 <button
                   onClick={() => setDeleteConfirm(false)}
                   className="text-xs px-2 py-1 rounded"
                   style={{ background: "#1a1a1a", color: "#555" }}
                 >
-                  Non
+                  {__("Non", "No")}
                 </button>
               </div>
             ) : (
               <button
                 onClick={e => { e.stopPropagation(); setDeleteConfirm(true); }}
-                title="Supprimer ce canal"
+                title={__("Supprimer ce canal", "Delete this channel")}
                 className="text-xs w-6 h-6 flex items-center justify-center rounded transition-colors opacity-30 hover:opacity-100"
                 style={{ color: "#ff0066" }}
               >
@@ -307,22 +310,22 @@ function ChannelCard({
         <div className="px-4 pb-4 space-y-4" style={{ borderTop: "1px solid #1a1a1a" }}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3 text-xs">
             <div>
-              <div className="text-gray-600 mb-1">Objectif</div>
+              <div className="text-gray-600 mb-1">{__("Objectif", "Objective")}</div>
               <div className="text-gray-400 leading-relaxed">{channel.objective}</div>
             </div>
             <div>
-              <div className="text-gray-600 mb-1">Quoi publier</div>
+              <div className="text-gray-600 mb-1">{__("Quoi publier", "What to publish")}</div>
               <div className="text-gray-400 leading-relaxed">{channel.what}</div>
             </div>
             <div>
-              <div className="text-gray-600 mb-1">Action</div>
+              <div className="text-gray-600 mb-1">{__("Action", "Action")}</div>
               <div className="text-gray-400 leading-relaxed">{channel.action}</div>
             </div>
           </div>
 
           {/* URL */}
           <div>
-            <div className="text-xs text-gray-600 mb-1.5">URL de la plateforme</div>
+            <div className="text-xs text-gray-600 mb-1.5">{__("URL de la plateforme", "Platform URL")}</div>
             <div className="flex gap-2">
               <input
                 type="url"
@@ -340,7 +343,7 @@ function ChannelCard({
                   rel="noopener noreferrer"
                   className="text-xs px-3 py-2 rounded-lg shrink-0 flex items-center"
                   style={{ background: "#0a0a0a", color: "#555", border: "1px solid #222" }}
-                  title="Ouvrir"
+                  title={__("Ouvrir", "Open")}
                 >
                   ↗
                 </a>
@@ -360,7 +363,7 @@ function ChannelCard({
               cursor: anyGenerating ? "not-allowed" : "pointer",
             }}
           >
-            {isGenerating ? "Génération en cours..." : aiResult ? "↺ Régénérer le contenu IA" : "◉ Générer le contenu avec l'IA"}
+            {isGenerating ? __("Génération en cours...", "Generating...") : aiResult ? __("↺ Régénérer le contenu IA", "↺ Regenerate AI content") : __("◉ Générer le contenu avec l'IA", "◉ Generate content with AI")}
           </button>
 
           {/* AI result */}
@@ -388,7 +391,7 @@ function ChannelCard({
                   className="text-xs px-3 py-1 rounded transition-colors"
                   style={{ background: copied ? "#00ff9d20" : "#1a1a1a", color: copied ? "#00ff9d" : "#666", border: "1px solid #333" }}
                 >
-                  {copied ? "Copié !" : "Copier"}
+                  {copied ? __("Copié !", "Copied!") : __("Copier", "Copy")}
                 </button>
               </div>
               <div className="p-4">
@@ -401,7 +404,7 @@ function ChannelCard({
                 />
                 {aiResult.notes && (
                   <div className="mt-3 text-xs rounded-lg p-3" style={{ background: "#ffaa0010", border: "1px solid #ffaa0020", color: "#ffaa00" }}>
-                    <div className="font-medium mb-1 opacity-70">Notes & conseils</div>
+                    <div className="font-medium mb-1 opacity-70">{__("Notes & conseils", "Notes & tips")}</div>
                     {aiResult.notes}
                   </div>
                 )}
@@ -421,6 +424,7 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
   onClose: () => void;
   existingCategories: string[];
 }) {
+  const __ = useLang();
   const [form, setForm] = useState<{ category: string; platform: string; objective: string; what: string; action: string; priority: Priority; defaultUrl: string }>({
     category: "", platform: "", objective: "", what: "", action: "", priority: 2, defaultUrl: "",
   });
@@ -445,30 +449,30 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.85)" }}>
       <div className="w-full max-w-lg rounded-xl overflow-hidden" style={{ background: "#0d0d0d", border: "1px solid #00ff9d30" }}>
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid #1a1a1a" }}>
-          <div className="text-white font-bold">Ajouter un canal</div>
+          <div className="text-white font-bold">{__("Ajouter un canal", "Add a channel")}</div>
           <button onClick={onClose} className="text-gray-500 hover:text-white text-lg">✕</button>
         </div>
         <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-gray-500 mb-1.5 block">Plateforme *</label>
+              <label className="text-xs text-gray-500 mb-1.5 block">{__("Plateforme *", "Platform *")}</label>
               <input
                 type="text"
                 value={form.platform}
                 onChange={e => setForm(f => ({ ...f, platform: e.target.value }))}
-                placeholder="ex: Substack, Medium..."
+                placeholder={__("ex: Substack, Medium...", "e.g. Substack, Medium...")}
                 className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
                 style={{ background: "#111", border: "1px solid #222" }}
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1.5 block">Catégorie *</label>
+              <label className="text-xs text-gray-500 mb-1.5 block">{__("Catégorie *", "Category *")}</label>
               <input
                 type="text"
                 list="cat-options"
                 value={form.category}
                 onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                placeholder="ex: Réseaux sociaux..."
+                placeholder={__("ex: Réseaux sociaux...", "e.g. Social networks...")}
                 className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
                 style={{ background: "#111", border: "1px solid #222" }}
               />
@@ -478,34 +482,34 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
             </div>
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1.5 block">Objectif *</label>
+            <label className="text-xs text-gray-500 mb-1.5 block">{__("Objectif *", "Objective *")}</label>
             <input
               type="text"
               value={form.objective}
               onChange={e => setForm(f => ({ ...f, objective: e.target.value }))}
-              placeholder="ex: Attirer sponsors B2B francophones"
+              placeholder={__("ex: Attirer sponsors B2B francophones", "e.g. Attract B2B sponsors")}
               className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
               style={{ background: "#111", border: "1px solid #222" }}
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1.5 block">Quoi publier</label>
+            <label className="text-xs text-gray-500 mb-1.5 block">{__("Quoi publier", "What to publish")}</label>
             <input
               type="text"
               value={form.what}
               onChange={e => setForm(f => ({ ...f, what: e.target.value }))}
-              placeholder="ex: Annonce générale + CTA inscription"
+              placeholder={__("ex: Annonce générale + CTA inscription", "e.g. General announcement + registration CTA")}
               className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
               style={{ background: "#111", border: "1px solid #222" }}
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1.5 block">Action</label>
+            <label className="text-xs text-gray-500 mb-1.5 block">{__("Action", "Action")}</label>
             <input
               type="text"
               value={form.action}
               onChange={e => setForm(f => ({ ...f, action: e.target.value }))}
-              placeholder="ex: Envoyer communiqué presse"
+              placeholder={__("ex: Envoyer communiqué presse", "e.g. Send press release")}
               className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
               style={{ background: "#111", border: "1px solid #222" }}
             />
@@ -523,29 +527,29 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1.5 block">Priorité</label>
+              <label className="text-xs text-gray-500 mb-1.5 block">{__("Priorité", "Priority")}</label>
               <select
                 value={form.priority}
                 onChange={e => setForm(f => ({ ...f, priority: Number(e.target.value) as Priority }))}
                 className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
                 style={{ background: "#111", border: "1px solid #222" }}
               >
-                <option value={1}>P1 — Haute</option>
-                <option value={2}>P2 — Moyenne</option>
-                <option value={3}>P3 — Basse</option>
+                <option value={1}>{__("P1 — Haute", "P1 — High")}</option>
+                <option value={2}>{__("P2 — Moyenne", "P2 — Medium")}</option>
+                <option value={3}>{__("P3 — Basse", "P3 — Low")}</option>
               </select>
             </div>
           </div>
         </div>
         <div className="px-5 py-3 flex justify-end gap-2" style={{ borderTop: "1px solid #1a1a1a" }}>
-          <button onClick={onClose} className="text-sm px-4 py-2 rounded" style={{ background: "#1a1a1a", color: "#888" }}>Annuler</button>
+          <button onClick={onClose} className="text-sm px-4 py-2 rounded" style={{ background: "#1a1a1a", color: "#888" }}>{__("Annuler", "Cancel")}</button>
           <button
             onClick={submit}
             disabled={!valid}
             className="text-sm px-4 py-2 rounded font-medium"
             style={{ background: valid ? "#00ff9d20" : "#111", color: valid ? "#00ff9d" : "#444", border: `1px solid ${valid ? "#00ff9d40" : "#222"}` }}
           >
-            Ajouter
+            {__("Ajouter", "Add")}
           </button>
         </div>
       </div>
@@ -556,6 +560,7 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boolean }) {
+  const __ = useLang();
   const [activeTab, setActiveTab] = useState<SubTab>("channels");
   const [db, setDb] = useState<DbData>({ statuses: {}, urls: {}, custom: [], hidden: [] });
   const [search, setSearch] = useState("");
@@ -679,10 +684,10 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
   const total = allChannels.length;
   const progressPct = total > 0 ? Math.round((done / total) * 100) : 0;
 
-  const SUB_TABS: { id: SubTab; label: string; icon: string }[] = [
-    { id: "channels", label: "Canaux & Plateformes", icon: "◉" },
-    { id: "phases", label: "Plan d'exécution", icon: "◎" },
-    { id: "hashtags", label: "Hashtags", icon: "#" },
+  const SUB_TABS: { id: SubTab; label_fr: string; label_en: string; icon: string }[] = [
+    { id: "channels", label_fr: "Canaux & Plateformes", label_en: "Channels & Platforms", icon: "◉" },
+    { id: "phases", label_fr: "Plan d'exécution", label_en: "Execution plan", icon: "◎" },
+    { id: "hashtags", label_fr: "Hashtags", label_en: "Hashtags", icon: "#" },
   ];
 
   return (
@@ -691,13 +696,13 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-white" style={{ fontFamily: "'Share Tech Mono', monospace" }}>STRATEGIC PLAN</h1>
-          <p className="text-gray-500 text-sm mt-1">Plan de diffusion & communication EOCON 2026</p>
+          <p className="text-gray-500 text-sm mt-1">{__("Plan de diffusion & communication EOCON 2026", "EOCON 2026 distribution & communication plan")}</p>
         </div>
         <div className="text-right shrink-0">
           <div className="text-3xl font-black" style={{ color: progressPct >= 70 ? "#00ff9d" : progressPct >= 30 ? "#ffaa00" : "#ff0066", fontFamily: "'Share Tech Mono', monospace" }}>
             {progressPct}%
           </div>
-          <div className="text-xs text-gray-500">{done} / {total} canaux activés</div>
+          <div className="text-xs text-gray-500">{done} / {total} {__("canaux activés", "channels activated")}</div>
         </div>
       </div>
 
@@ -709,13 +714,13 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: "Fait", value: done, color: "#00ff9d" },
-          { label: "En cours", value: inProgress, color: "#ffaa00" },
-          { label: "À faire", value: total - done - inProgress, color: "#555" },
+          { label_fr: "Fait",     label_en: "Done",        value: done,                        color: "#00ff9d" },
+          { label_fr: "En cours", label_en: "In progress", value: inProgress,                  color: "#ffaa00" },
+          { label_fr: "À faire",  label_en: "To do",       value: total - done - inProgress,   color: "#555" },
         ].map(s => (
-          <div key={s.label} className="rounded-xl p-4 text-center" style={{ background: "#111", border: "1px solid #1a1a1a" }}>
+          <div key={s.label_fr} className="rounded-xl p-4 text-center" style={{ background: "#111", border: "1px solid #1a1a1a" }}>
             <div className="text-2xl font-black mb-1" style={{ color: s.color, fontFamily: "'Share Tech Mono', monospace" }}>{s.value}</div>
-            <div className="text-xs text-gray-500 uppercase tracking-wider">{s.label}</div>
+            <div className="text-xs text-gray-500 uppercase tracking-wider">{__(s.label_fr, s.label_en)}</div>
           </div>
         ))}
       </div>
@@ -733,7 +738,7 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
               borderBottom: activeTab === tab.id ? "2px solid #00ff9d" : "2px solid transparent",
             }}
           >
-            <span className="mr-1.5 opacity-70">{tab.icon}</span>{tab.label}
+            <span className="mr-1.5 opacity-70">{tab.icon}</span>{__(tab.label_fr, tab.label_en)}
           </button>
         ))}
       </div>
@@ -744,7 +749,7 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
           <div className="flex gap-3 flex-wrap">
             <input
               type="text"
-              placeholder="Rechercher une plateforme..."
+              placeholder={__("Rechercher une plateforme...", "Search a platform...")}
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="flex-1 min-w-40 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none"
@@ -756,10 +761,10 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
               className="rounded-lg px-3 py-2 text-sm text-white outline-none"
               style={{ background: "#111", border: "1px solid #222" }}
             >
-              <option value={0}>Toutes priorités</option>
-              <option value={1}>P1 — Haute</option>
-              <option value={2}>P2 — Moyenne</option>
-              <option value={3}>P3 — Basse</option>
+              <option value={0}>{__("Toutes priorités", "All priorities")}</option>
+              <option value={1}>{__("P1 — Haute", "P1 — High")}</option>
+              <option value={2}>{__("P2 — Moyenne", "P2 — Medium")}</option>
+              <option value={3}>{__("P3 — Basse", "P3 — Low")}</option>
             </select>
             <select
               value={categoryFilter}
@@ -767,7 +772,7 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
               className="rounded-lg px-3 py-2 text-sm text-white outline-none"
               style={{ background: "#111", border: "1px solid #222" }}
             >
-              <option value="">Toutes catégories</option>
+              <option value="">{__("Toutes catégories", "All categories")}</option>
               {categories.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             {canWrite && (
@@ -776,12 +781,12 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
                 className="px-4 py-2 rounded-lg text-sm font-medium shrink-0 transition-colors"
                 style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}
               >
-                + Ajouter
+                + {__("Ajouter", "Add")}
               </button>
             )}
           </div>
 
-          <div className="text-xs text-gray-600">{filteredChannels.length} canaux</div>
+          <div className="text-xs text-gray-600">{filteredChannels.length} {__("canaux", "channels")}</div>
 
           <div className="space-y-2">
             {filteredChannels.map((ch, i) => (
@@ -837,7 +842,7 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
       {/* ── HASHTAGS ── */}
       {activeTab === "hashtags" && (
         <div className="space-y-4">
-          <div className="text-xs text-gray-500">Cliquez sur un hashtag pour le copier.</div>
+          <div className="text-xs text-gray-500">{__("Cliquez sur un hashtag pour le copier.", "Click a hashtag to copy it.")}</div>
           {HASHTAGS.map(grp => (
             <div key={grp.group} className="rounded-xl p-4" style={{ background: "#111", border: `1px solid ${grp.color}25` }}>
               <div className="flex items-center justify-between mb-3">
@@ -847,7 +852,7 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
                   className="text-xs px-3 py-1 rounded"
                   style={{ background: grp.color + "15", color: grp.color, border: `1px solid ${grp.color}30` }}
                 >
-                  Copier tout
+                  {__("Copier tout", "Copy all")}
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -870,7 +875,7 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
               className="text-xs px-4 py-2 rounded-lg w-full"
               style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}
             >
-              Copier tous les hashtags ({HASHTAGS.flatMap(g => g.tags).length})
+              {__("Copier tous les hashtags", "Copy all hashtags")} ({HASHTAGS.flatMap(g => g.tags).length})
             </button>
           </div>
         </div>

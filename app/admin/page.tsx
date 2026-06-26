@@ -1903,7 +1903,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                     onClick={savePosts}
                     disabled={saving || !scheduleDate}
                     className="py-2 rounded text-xs font-bold transition-all"
-                    style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d40" }}
+                    style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "1px solid var(--ac-bdr)" }}
                   >
                     {saving ? "..." : t.schedulePostBtn}
                   </button>
@@ -1993,7 +1993,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                             href={post.platform === "twitter"
                               ? `https://x.com/i/web/status/${post.linkedinPostId as string}`
                               : `https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`}
-                            target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded" style={{ color: "#00ff9d" }}
+                            target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded" style={{ color: "var(--ac)" }}
                           >↗ Voir</a>
                         )}
                         {canWrite && post.status === "failed" && (
@@ -2281,7 +2281,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                 <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-xs font-bold text-gray-400">{e.lang}</span>
-                    <button onClick={() => navigator.clipboard.writeText(`${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>{lang === "en" ? "Copy" : "Copier"}</button>
+                    <button onClick={() => navigator.clipboard.writeText(`${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "var(--ac)" }}>{lang === "en" ? "Copy" : "Copier"}</button>
                   </div>
                   <p className="text-white text-xs font-bold mb-2">{lang === "en" ? "Subject:" : "Objet:"} {e.subject}</p>
                   <p className="text-gray-400 text-xs whitespace-pre-wrap">{e.body}</p>
@@ -2290,14 +2290,14 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                     disabled={!aiEmailTarget.email || sendingLang !== null}
                     title={!aiEmailTarget.email ? (lang === "en" ? "No email address for this prospect" : "Ce prospect n'a pas d'email") : undefined}
                     className="mt-3 w-full text-xs px-3 py-2 rounded border transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                    style={{ background: "#00ff9d15", color: "#00ff9d", borderColor: "#00ff9d40" }}
+                    style={{ background: "var(--ac-bg)", color: "var(--ac)", borderColor: "var(--ac-bdr)" }}
                   >
                     {sendingLang === e.lang ? "…" : (lang === "en" ? `Send this email (${e.lang})` : `Envoyer ce courriel (${e.lang})`)}
                   </button>}
                 </div>
               ))}
             </div>
-            {sentMsg && <p className="text-xs text-center mt-3" style={{ color: "#00ff9d" }}>{sentMsg}</p>}
+            {sentMsg && <p className="text-xs text-center mt-3" style={{ color: "var(--ac)" }}>{sentMsg}</p>}
             <div className="mt-4 pt-4 border-t border-gray-800">
               {canWrite && <button
                 onClick={() => markContacted(aiEmailTarget.id)}
@@ -2640,7 +2640,7 @@ function BudgetPanel({ items, onRefresh, canWrite = true }: { items: Record<stri
       {/* Auto-revenues from ticket sales + sponsors */}
       {autoRevenues.length > 0 && (
         <div className="cyber-card rounded-xl p-5 mb-6">
-          <h3 className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: "#00ff9d" }}>
+          <h3 className="text-sm font-bold uppercase tracking-widest mb-3" style={{ color: "var(--ac)" }}>
             {t.autoRevenues}
             <span className="ml-2 text-xs font-normal text-gray-500">{t.autoRevenuesHint}</span>
           </h3>
@@ -2966,10 +2966,10 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
         <div className="cyber-card rounded-xl p-4 mb-4">
           <div className="flex justify-between text-xs text-gray-500 mb-2">
             <span>{lang === "en" ? "Overall progress" : "Progression globale"}</span>
-            <span className="font-bold" style={{ color: "#00ff9d" }}>{totalDone}/{total} ({pct}%)</span>
+            <span className="font-bold" style={{ color: "var(--ac)" }}>{totalDone}/{total} ({pct}%)</span>
           </div>
           <div className="h-3 bg-gray-900 rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pct === 100 ? "#00ff9d" : "#0066ff" }} />
+            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pct === 100 ? "var(--ac)" : "#0066ff" }} />
           </div>
         </div>
       )}
@@ -3141,10 +3141,10 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
                 <div className="cyber-card rounded-xl p-3 mb-4">
                   <div className="flex justify-between text-xs text-gray-500 mb-1">
                     <span>Phase {activePhase}</span>
-                    <span className="font-bold" style={{ color: "#00ff9d" }}>{phDone}/{phTasks.length} ({phPct}%)</span>
+                    <span className="font-bold" style={{ color: "var(--ac)" }}>{phDone}/{phTasks.length} ({phPct}%)</span>
                   </div>
                   <div className="h-2 bg-gray-900 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${phPct}%`, background: phPct === 100 ? "#00ff9d" : "#0066ff" }} />
+                    <div className="h-full rounded-full transition-all" style={{ width: `${phPct}%`, background: phPct === 100 ? "var(--ac)" : "#0066ff" }} />
                   </div>
                 </div>
                 <div className="space-y-4">
@@ -3402,7 +3402,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
               <input type="checkbox" checked={createForm.isFeatured} onChange={e => setCreateForm(f => ({ ...f, isFeatured: e.target.checked }))} />
               {adminLang === "en" ? "Featured" : "Recommandé"}
             </label>
-            <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#00ff9d" }}>
+            <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "var(--ac)" }}>
               <input type="checkbox" checked={createForm.includesSessions} onChange={e => setCreateForm(f => ({ ...f, includesSessions: e.target.checked }))} />
               {adminLang === "en" ? "📡 Sessions / Conferences" : "📡 Sessions / Conférences"}
             </label>
@@ -3509,7 +3509,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                       <input type="checkbox" checked={!!editForm.isVisible} onChange={e => setEditForm(f => ({ ...f, isVisible: e.target.checked }))} />
                       {adminLang === "en" ? "Visible on portal" : "Visible sur le portail"}
                     </label>
-                    <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#00ff9d" }}>
+                    <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "var(--ac)" }}>
                       <input type="checkbox" checked={editForm.includesSessions !== false} onChange={e => setEditForm(f => ({ ...f, includesSessions: e.target.checked }))} />
                       {adminLang === "en" ? "📡 Sessions / Conferences" : "📡 Sessions / Conférences"}
                     </label>
@@ -3551,7 +3551,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                           <span className="text-white font-bold">{t.nameFr} / {t.nameEn}</span>
                           {t.isFeatured && <span className="text-xs px-2 py-0.5 rounded" style={{ background: t.color + "20", color: t.color }}>{adminLang === "en" ? "★ Featured" : "★ Recommandé"}</span>}
                           {!t.isVisible && <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-500">{adminLang === "en" ? "Hidden" : "Masqué"}</span>}
-                          {t.includesSessions && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>📡 Sessions</span>}
+                          {t.includesSessions && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "1px solid var(--ac-bdr)" }}>📡 Sessions</span>}
                           {t.includesWorkshops && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#a78bfa15", color: "#a78bfa", border: "1px solid #a78bfa30" }}>🛠 Workshops</span>}
                           {t.includesCTF && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}>⚡ CTF</span>}
                         </div>
@@ -4272,7 +4272,7 @@ function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
         {canWrite && <button
           onClick={save}
           disabled={saving}
-          style={{ background: "#00ff9d", color: "#000", border: "none", borderRadius: "6px", padding: "10px 20px", fontWeight: "bold", cursor: "pointer", fontSize: "13px" }}
+          style={{ background: "var(--ac)", color: "var(--panel)", border: "none", borderRadius: "6px", padding: "10px 20px", fontWeight: "bold", cursor: "pointer", fontSize: "13px" }}
         >
           {saving ? (lang === "en" ? "Saving…" : "Sauvegarde…") : saved ? (lang === "en" ? "✓ Saved" : "✓ Sauvegardé") : (lang === "en" ? "Save" : "Enregistrer")}
         </button>}
@@ -4766,7 +4766,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
               ) : null;
             })}
             <span className="text-xs px-2 py-1 rounded bg-gray-800 text-gray-400 font-mono">Total: {challenges.length}</span>
-            <span className="text-xs px-2 py-1 rounded font-mono" style={{ background: "#00ff9d20", color: "#00ff9d" }}>
+            <span className="text-xs px-2 py-1 rounded font-mono" style={{ background: "var(--ac-bg)", color: "var(--ac)" }}>
               {lang === "en" ? `✓ ${challenges.filter(c => c.status === "validated" || c.status === "published").length} ready` : `✓ ${challenges.filter(c => c.status === "validated" || c.status === "published").length} prêts`}
             </span>
             {canWrite && challenges.length === 0 && (
@@ -4836,7 +4836,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                           <span className="text-xs text-gray-400 ml-auto">{c.points as number}pts</span>
                         </div>
                         {!!c.author && <div className="text-xs text-gray-600 mt-1">{c.author as string}</div>}
-                        <div className="text-xs mt-1" style={{ color: c.assigneeName ? "#00ccff" : "#555" }}>
+                        <div className="text-xs mt-1" style={{ color: c.assigneeName ? "#00ccff" : "var(--txt-mute)" }}>
                           {c.assigneeName ? `👤 ${c.assigneeName as string}` : lang === "en" ? "👤 unassigned" : "👤 non assigné"}
                         </div>
                         {canWrite && <button onClick={e => { e.stopPropagation(); deleteChallenge(c.id as number); }} className="text-red-800 hover:text-red-400 text-xs mt-1">{lang === "en" ? "✗ Delete" : "✗ Supprimer"}</button>}
@@ -5109,7 +5109,7 @@ function TransactionsPanel({ canWrite = true }: { canWrite?: boolean }) {
                     </div>
                     <span className="text-[10px] text-gray-600 font-mono mt-0.5 block">{currency}</span>
                   </td>
-                  <td className="py-2 px-3 text-gray-300 font-mono font-bold" style={{ color: isStripe ? "#00ccff" : "#aaa" }}>{fmtAmount}</td>
+                  <td className="py-2 px-3 text-gray-300 font-mono font-bold" style={{ color: isStripe ? "#00ccff" : "var(--txt-2)" }}>{fmtAmount}</td>
                   <td className="py-2 px-3">
                     {r.providerRef
                       ? <span className="text-gray-500 font-mono text-[10px] max-w-[120px] block truncate" title={r.providerRef as string}>{r.providerRef as string}</span>
@@ -5361,7 +5361,7 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
                       <p className="text-white text-sm font-bold truncate">{v.title as string}</p>
                       {!!(v.speaker) && <p className="text-gray-500 text-xs">{v.speaker as string}</p>}
                       <div className="flex gap-1.5 mt-1 flex-wrap">
-                        <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "#00ff9d15", color: "#00ff9d" }}>EOCON {v.edition as string}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--ac-bg)", color: "var(--ac)" }}>EOCON {v.edition as string}</span>
                         {!!(v.category) && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-800 text-gray-400">{v.category as string}</span>}
                         {!v.isVisible && <span className="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-500">{lang === "en" ? "Hidden" : "Masqué"}</span>}
                       </div>
@@ -5552,7 +5552,7 @@ function DomainCard({
 function MetricRow({ label, value, color }: { label: string; value: string | number; color?: string }) {
   return (
     <div className="text-center">
-      <div className="text-lg font-black font-mono" style={{ color: color || "#aaa", fontFamily: "'Share Tech Mono', monospace" }}>{value}</div>
+      <div className="text-lg font-black font-mono" style={{ color: color || "var(--txt-2)", fontFamily: "'Share Tech Mono', monospace" }}>{value}</div>
       <div className="text-gray-600 text-xs mt-0.5 uppercase tracking-wider leading-tight">{label}</div>
     </div>
   );
@@ -6341,7 +6341,7 @@ export default function AdminDashboard() {
                     target="_blank"
                     rel="noreferrer"
                     className="flex items-center gap-2 px-4 py-2 rounded text-sm font-bold transition-all"
-                    style={{ background: "#00ff9d15", color: "#00ff9d", border: "2px solid #00ff9d", letterSpacing: "0.1em" }}
+                    style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "2px solid var(--ac)", letterSpacing: "0.1em" }}
                   >
                     <span>▣</span> SCANNER QR <span>→</span>
                   </a>

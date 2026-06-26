@@ -108,7 +108,7 @@ const INPUT_STYLE = {
 };
 
 const SAVE_BTN_STYLE = (disabled: boolean) => ({
-  background: "#00ff9d", color: "#000", padding: "8px 20px", borderRadius: 6,
+  background: "var(--ac)", color: "var(--panel)", padding: "8px 20px", borderRadius: 6,
   fontSize: 12, fontWeight: 900, cursor: disabled ? "not-allowed" as const : "pointer" as const,
   letterSpacing: 1, border: "none", opacity: disabled ? 0.6 : 1,
 });
@@ -913,13 +913,13 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
 
           <ArchBox color="#4488ff" icon="📡" title={__("COMMENT ÇA MARCHE", "HOW IT WORKS")}>
             <p style={{ margin: "0 0 8px" }}>
-              {__("Pour les", "For")} <strong style={{ color: "#fff" }}>{__("talks, panels et keynotes", "talks, panels and keynotes")}</strong>, {__("les participants voient un", "participants see a")} <strong style={{ color: "#fff" }}>{__("embed YouTube", "YouTube embed")}</strong> {__("sur", "on")} <code style={{ color: "#4488ff" }}>/live</code>.
+              {__("Pour les", "For")} <strong style={{ color: "var(--txt)" }}>{__("talks, panels et keynotes", "talks, panels and keynotes")}</strong>, {__("les participants voient un", "participants see a")} <strong style={{ color: "var(--txt)" }}>{__("embed YouTube", "YouTube embed")}</strong> {__("sur", "on")} <code style={{ color: "#4488ff" }}>/live</code>.
             </p>
             <p style={{ margin: "0 0 8px" }}>
-              {__("Le speaker peut utiliser", "The speaker can use")} <strong style={{ color: "#fff" }}>{__("n'importe quel outil", "any tool")}</strong> {__("pour sa salle privée — Zoom, Google Meet, Teams, Jitsi,", "for their private room — Zoom, Google Meet, Teams, Jitsi,")} <strong style={{ color: "#fff" }}>Restream</strong>, OBS — {__("tant que l'outil envoie le flux vers YouTube via RTMP.", "as long as the tool sends the stream to YouTube via RTMP.")}
+              {__("Le speaker peut utiliser", "The speaker can use")} <strong style={{ color: "var(--txt)" }}>{__("n'importe quel outil", "any tool")}</strong> {__("pour sa salle privée — Zoom, Google Meet, Teams, Jitsi,", "for their private room — Zoom, Google Meet, Teams, Jitsi,")} <strong style={{ color: "var(--txt)" }}>Restream</strong>, OBS — {__("tant que l'outil envoie le flux vers YouTube via RTMP.", "as long as the tool sends the stream to YouTube via RTMP.")}
             </p>
-            <p style={{ margin: 0, color: "#666" }}>
-              👉 {__("Dans le", "In the")} <strong style={{ color: "#aaa" }}>{__("Pipeline speakers", "Speakers Pipeline")}</strong>, {__("chaque session a un champ", "each session has a field")} <code style={{ color: "#4488ff" }}>{__("Lien live", "Live link")}</code> : {__("collez-y l'URL d'embed YouTube de cette session.", "paste the YouTube embed URL for that session.")}
+            <p style={{ margin: 0, color: "var(--txt-dim)" }}>
+              👉 {__("Dans le", "In the")} <strong style={{ color: "var(--txt-2)" }}>{__("Pipeline speakers", "Speakers Pipeline")}</strong>, {__("chaque session a un champ", "each session has a field")} <code style={{ color: "#4488ff" }}>{__("Lien live", "Live link")}</code> : {__("collez-y l'URL d'embed YouTube de cette session.", "paste the YouTube embed URL for that session.")}
             </p>
           </ArchBox>
 
@@ -941,7 +941,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
               {restreamStatus?.configured ? (
                 <>
-                  <span style={{ fontSize: 11, color: "#00ff9d", background: "#00ff9d10", border: "1px solid #00ff9d30", padding: "6px 12px", borderRadius: 6, letterSpacing: 1 }}>
+                  <span style={{ fontSize: 11, color: "var(--ac)", background: "var(--ac-bg)", border: "1px solid var(--ac-bdr)", padding: "6px 12px", borderRadius: 6, letterSpacing: 1 }}>
                     ✓ {__("Connecté via OAuth", "Connected via OAuth")}
                   </span>
                   {canWrite && (
@@ -1012,7 +1012,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                             <span style={{ fontSize: 12, color: "var(--txt)", fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ch.displayName}</span>
                             {ch.isLive && <span style={{ fontSize: 9, background: "#ff4444", color: "#fff", borderRadius: 4, padding: "1px 5px", letterSpacing: 1 }}>LIVE</span>}
                           </div>
-                          <div style={{ fontSize: 10, color: ch.isActive ? "#00ff9d" : "#555" }}>{ch.isActive ? `● ${__("Actif", "Active")}` : `○ ${__("Inactif", "Inactive")}`}</div>
+                          <div style={{ fontSize: 10, color: ch.isActive ? "var(--ac)" : "var(--txt-mute)" }}>{ch.isActive ? `● ${__("Actif", "Active")}` : `○ ${__("Inactif", "Inactive")}`}</div>
                           {ch.embedUrl && (
                             <button
                               onClick={() => navigator.clipboard.writeText(ch.embedUrl!).catch(() => {})}
@@ -1064,7 +1064,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                   const hasLink = !!s.liveUrl;
                   return (
                     <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid var(--bdr)" }}>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: hasLink ? "#00ff9d" : "#ff4444", flexShrink: 0 }} />
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: hasLink ? "var(--ac)" : "#ff4444", flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, color: "var(--txt)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</div>
                         <div style={{ fontSize: 10, color: "var(--txt-mute)", marginTop: 2 }}>
@@ -1075,7 +1075,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                       </div>
                       <div style={{ fontSize: 11, flexShrink: 0 }}>
                         {hasLink ? (
-                          <span style={{ color: "#00ff9d", display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ color: "var(--ac)", display: "flex", alignItems: "center", gap: 4 }}>
                             <span>✓</span>
                             <a href={s.liveUrl!} target="_blank" rel="noopener noreferrer" style={{ color: "#00ff9d50", fontSize: 10, textDecoration: "none", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", display: "inline-block", whiteSpace: "nowrap" }}>{s.liveUrl}</a>
                           </span>
@@ -1140,10 +1140,10 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
 
           <ArchBox color="#ff6b35" icon="🎨" title={__("COMMENT ÇA MARCHE", "HOW IT WORKS")}>
             <p style={{ margin: "0 0 8px" }}>
-              {__("Les", "The")} <strong style={{ color: "#fff" }}>Captions</strong> {__("affichent le nom + titre du speaker en bas de l'écran dans Restream Studio.", "display the speaker's name + title at the bottom of the screen in Restream Studio.")}
-              {" "}{__("Les", "The")} <strong style={{ color: "#fff" }}>Tickers</strong> {__("font défiler le titre de la session en bandeau.", "scroll the session title as a banner.")}
+              {__("Les", "The")} <strong style={{ color: "var(--txt)" }}>Captions</strong> {__("affichent le nom + titre du speaker en bas de l'écran dans Restream Studio.", "display the speaker's name + title at the bottom of the screen in Restream Studio.")}
+              {" "}{__("Les", "The")} <strong style={{ color: "var(--txt)" }}>Tickers</strong> {__("font défiler le titre de la session en bandeau.", "scroll the session title as a banner.")}
             </p>
-            <p style={{ margin: 0, color: "#666" }}>
+            <p style={{ margin: 0, color: "var(--txt-dim)" }}>
               {__("Créez-les ici en un clic par speaker ou en masse — sans doublons. Activez/désactivez depuis cette page ou directement dans Restream Studio.", "Create them here in one click per speaker or in bulk — without duplicates. Enable/disable from this page or directly in Restream Studio.")}
             </p>
           </ArchBox>
@@ -1166,12 +1166,12 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                     await loadOverlays();
                   } finally { setOverlaysBulking(false); }
                 }}
-                style={{ fontSize: 11, color: overlaysBulking ? "#555" : "#ff6b35", background: "#ff6b3510", border: "1px solid #ff6b3540", padding: "6px 16px", borderRadius: 6, cursor: overlaysBulking ? "not-allowed" : "pointer", fontWeight: 700 }}>
+                style={{ fontSize: 11, color: overlaysBulking ? "var(--txt-mute)" : "#ff6b35", background: "#ff6b3510", border: "1px solid #ff6b3540", padding: "6px 16px", borderRadius: 6, cursor: overlaysBulking ? "not-allowed" : "pointer", fontWeight: 700 }}>
                 {overlaysBulking ? __("Création en cours…", "Creating…") : `⚡ ${__("Tout créer automatiquement (sans doublons)", "Create all automatically (no duplicates)")}`}
               </button>
             )}
             {overlaysBulkResult && (
-              <span style={{ fontSize: 11, color: overlaysBulkResult.startsWith("✓") ? "#00ff9d" : "#ff4444" }}>{overlaysBulkResult}</span>
+              <span style={{ fontSize: 11, color: overlaysBulkResult.startsWith("✓") ? "var(--ac)" : "#ff4444" }}>{overlaysBulkResult}</span>
             )}
           </div>
 
@@ -1287,7 +1287,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                             await loadOverlays();
                             setOverlayPerSpeaker(s => ({ ...s, [sp.id]: false }));
                           }}
-                          style={{ fontSize: 10, color: loading ? "#555" : "#00ff9d", background: loading ? "transparent" : "#00ff9d10", border: `1px solid ${loading ? "#333" : "#00ff9d30"}`, padding: "4px 10px", borderRadius: 5, cursor: loading ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
+                          style={{ fontSize: 10, color: loading ? "var(--txt-mute)" : "var(--ac)", background: loading ? "transparent" : "var(--ac-bg)", border: `1px solid ${loading ? "var(--bdr-2)" : "var(--ac-bdr)"}`, padding: "4px 10px", borderRadius: 5, cursor: loading ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
                           {loading ? "…" : `⚡ ${__("Les deux", "Both")}`}
                         </button>
                       </div>
@@ -1303,13 +1303,13 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
 
           <ArchBox color="#9b59ff" icon="🎓" title={__("COMMENT ÇA MARCHE", "HOW IT WORKS")}>
             <p style={{ margin: "0 0 8px" }}>
-              {__("Pour les", "For")} <strong style={{ color: "#fff" }}>{__("ateliers / workshops", "workshops")}</strong>, {__("les participants rejoignent", "participants join")} <strong style={{ color: "#fff" }}>{__("directement", "directly")}</strong> {__("la salle JaaS — pas de YouTube.", "the JaaS room — no YouTube.")}
+              {__("Pour les", "For")} <strong style={{ color: "var(--txt)" }}>{__("ateliers / workshops", "workshops")}</strong>, {__("les participants rejoignent", "participants join")} <strong style={{ color: "var(--txt)" }}>{__("directement", "directly")}</strong> {__("la salle JaaS — pas de YouTube.", "the JaaS room — no YouTube.")}
             </p>
             <p style={{ margin: "0 0 8px" }}>
               {__("Le participant clique", "The participant clicks")} <em>{__("Rejoindre", "Join")}</em> {__("sur", "on")} <code style={{ color: "#9b59ff" }}>/live</code> {__("et se retrouve dans la room vidéo avec le formateur, en pair-à-pair (WebRTC).", "and enters the video room with the trainer, peer-to-peer (WebRTC).")}
             </p>
-            <p style={{ margin: 0, color: "#666" }}>
-              {__("Contrairement aux sessions,", "Unlike sessions,")} <strong style={{ color: "#aaa" }}>{__("les ateliers ont besoin de JaaS", "workshops need JaaS")}</strong> {__("car les participants interagissent directement (Zoom/Meet ne peuvent pas être embarqués pour un usage à grande échelle sans licences par participant).", "because participants interact directly (Zoom/Meet cannot be embedded for large-scale use without per-participant licences).")}
+            <p style={{ margin: 0, color: "var(--txt-dim)" }}>
+              {__("Contrairement aux sessions,", "Unlike sessions,")} <strong style={{ color: "var(--txt-2)" }}>{__("les ateliers ont besoin de JaaS", "workshops need JaaS")}</strong> {__("car les participants interagissent directement (Zoom/Meet ne peuvent pas être embarqués pour un usage à grande échelle sans licences par participant).", "because participants interact directly (Zoom/Meet cannot be embedded for large-scale use without per-participant licences).")}
             </p>
           </ArchBox>
 
@@ -1400,7 +1400,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                 />
               </div>
             ))}
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#888", marginBottom: 20, cursor: "pointer" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--txt-dim)", marginBottom: 20, cursor: "pointer" }}>
               <input type="checkbox" checked={editWs.active} onChange={e => setEditWs(w => w ? { ...w, active: (e.target as HTMLInputElement).checked } : w)} style={{ accentColor: "#9b59ff" }} />
               {__("Workshop actif (visible aux participants)", "Active workshop (visible to participants)")}
             </label>
@@ -1409,7 +1409,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                 style={{ ...SAVE_BTN_STYLE(wsSaving || !editWs.title || !editWs.room), background: "#9b59ff", color: "#fff" }}>
                 {wsSaved ? "✓" : wsSaving ? "…" : __("Enregistrer", "Save")}
               </button>
-              <button onClick={() => setEditWs(null)} style={{ background: "transparent", border: "1px solid #ffffff20", color: "#888", padding: "8px 16px", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>{__("Annuler", "Cancel")}</button>
+              <button onClick={() => setEditWs(null)} style={{ background: "transparent", border: "1px solid var(--bdr)", color: "var(--txt-dim)", padding: "8px 16px", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>{__("Annuler", "Cancel")}</button>
             </div>
           </div>
         </div>

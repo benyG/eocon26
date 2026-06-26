@@ -247,6 +247,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
   const [overlaysBulking, setOverlaysBulking] = useState(false);
   const [overlaysBulkResult, setOverlaysBulkResult] = useState<string | null>(null);
   const [overlayPerSpeaker, setOverlayPerSpeaker] = useState<Record<number, boolean>>({});
+  const [selectedOverlaySpeakerId, setSelectedOverlaySpeakerId] = useState<number | null>(null);
 
   // ── Workshops & JaaS ──────────────────────────────────────────────────────
   const [workshops, setWorkshops] = useState<Workshop[]>([]);
@@ -466,8 +467,8 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
 
   useEffect(() => { loadSettings(); }, [loadSettings]);
   useEffect(() => { loadDashboard(); loadQuestions(); loadRestreamStatus(); }, [loadDashboard, loadQuestions, loadRestreamStatus]);
-  useEffect(() => { if (mode === "config") { loadWorkshops(); loadStreamingTeam(); loadOverlays(); loadRooms(); } }, [mode, loadWorkshops, loadStreamingTeam, loadOverlays, loadRooms]);
-  useEffect(() => { if (mode === "planning") { loadAllSessions(); loadRooms(); loadStreamingTeam(); } }, [mode, loadAllSessions, loadRooms, loadStreamingTeam]);
+  useEffect(() => { if (mode === "config") { loadOverlays(); loadRooms(); loadWorkshops(); } }, [mode, loadOverlays, loadRooms, loadWorkshops]);
+  useEffect(() => { if (mode === "planning") { loadAllSessions(); loadRooms(); } }, [mode, loadAllSessions, loadRooms]);
 
   useEffect(() => {
     if (mode !== "live") return;
@@ -1169,7 +1170,10 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
         <div>
 
           {/* ── SALLES ────────────────────────────────────────────────────────── */}
-          <StepHeader n={0} label={__("Salles de streaming", "Streaming rooms")} color="#00cc88" />
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, marginTop: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--txt)", letterSpacing: 1 }}>🏠 {__("Salles de streaming", "Streaming rooms")}</div>
+            <div style={{ flex: 1, height: 1, background: "#00cc8815" }} />
+          </div>
 
           <div style={{ background: "var(--card)", border: "1px solid #00cc8820", borderRadius: 10, padding: 20, marginBottom: 32 }}>
             <div style={{ fontSize: 10, color: "#00cc88", letterSpacing: 3, marginBottom: 16 }}>🏠 {__("SALLES CONFIGURÉES", "CONFIGURED ROOMS")}</div>
@@ -1250,196 +1254,12 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
             )}
           </div>
 
-          {/* ── ÉTAPE 1 · ÉQUIPE & INVITATIONS ────────────────────────────── */}
-          <StepHeader n={1} label={__("Équipe streaming & invitations", "Streaming team & invitations")} color="#ffaa00" />
 
-          <div style={{ background: "var(--card)", border: "1px solid #ffaa0020", borderRadius: 10, padding: 20, marginBottom: 32 }}>
-            <div style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 3, marginBottom: 16 }}>👥 {__("CONSTITUER L'ÉQUIPE POUR LA SESSION", "BUILD THE SESSION TEAM")}</div>
-
-            {/* Session info */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 140px", gap: 10, marginBottom: 16 }}>
-              <div>
-                <label style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 2, display: "block", marginBottom: 4 }}>{__("TITRE DE LA SESSION", "SESSION TITLE")}</label>
-                <select
-                  value={streamingTeam.sessionId ?? ""}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                    const sid = parseInt((e.target as HTMLSelectElement).value);
-                    const sess = sessions.find((s: Session) => s.id === sid);
-                    if (sess) setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, sessionId: sid, sessionTitle: sess.title, sessionTime: sess.time || "" }));
-                  }}
-                  style={{ ...INPUT_STYLE, cursor: "pointer" }}
-                  disabled={!canWrite}
-                >
-                  <option value="">— {__("Sélectionner une session", "Select a session")} —</option>
-                  {sessions.map((s: Session) => <option key={s.id} value={s.id}>{s.time ? `${s.time} · ` : ""}{s.title}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 2, display: "block", marginBottom: 4 }}>{__("HEURE", "TIME")}</label>
-                <input value={streamingTeam.sessionTime} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, sessionTime: (e.target as HTMLInputElement).value }))} placeholder="09:00" disabled={!canWrite} style={INPUT_STYLE} />
-              </div>
-            </div>
-
-            {/* Lien cockpit modérateur */}
-            {streamingTeam.sessionId && canWrite && (
-              <div style={{ background: "var(--card2)", border: "1px solid #4488ff20", borderRadius: 8, padding: 12, marginBottom: 16 }}>
-                <div style={{ fontSize: 10, color: "#4488ff", letterSpacing: 2, marginBottom: 8 }}>🔑 {__("LIEN COCKPIT MODÉRATEUR (valable 48 h)", "MODERATOR COCKPIT LINK (valid 48 h)")}</div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  <button
-                    disabled={modTokenLoading}
-                    onClick={async () => {
-                      setModTokenLoading(true); setModTokenUrl(null);
-                      try {
-                        const res = await fetch("/api/admin/sessions/moderator-token", {
-                          method: "POST", headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ sessionId: streamingTeam.sessionId }),
-                        });
-                        const data = await res.json();
-                        if (data.url) setModTokenUrl(data.url);
-                      } finally { setModTokenLoading(false); }
-                    }}
-                    style={{ fontSize: 11, color: modTokenLoading ? "var(--txt-mute)" : "#4488ff", background: "#4488ff10", border: "1px solid #4488ff30", padding: "6px 14px", borderRadius: 6, cursor: modTokenLoading ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
-                    {modTokenLoading ? __("Génération…", "Generating…") : modTokenUrl ? `↺ ${__("Régénérer", "Regenerate")}` : __("Générer le lien", "Generate link")}
-                  </button>
-                  {modTokenUrl && (
-                    <>
-                      <code style={{ flex: 1, fontSize: 10, color: "#4488ff", background: "var(--card)", border: "1px solid #4488ff15", borderRadius: 5, padding: "5px 10px", wordBreak: "break-all" as const, minWidth: 0 }}>
-                        {modTokenUrl}
-                      </code>
-                      <button
-                        onClick={() => { navigator.clipboard.writeText(modTokenUrl).catch(() => {}); setModTokenCopied(true); setTimeout(() => setModTokenCopied(false), 2000); }}
-                        style={{ fontSize: 10, color: modTokenCopied ? "var(--ac)" : "#4488ff", background: modTokenCopied ? "var(--ac-bg)" : "transparent", border: `1px solid ${modTokenCopied ? "var(--ac-bdr)" : "#4488ff30"}`, padding: "5px 10px", borderRadius: 5, cursor: "pointer", whiteSpace: "nowrap" as const }}>
-                        {modTokenCopied ? `✓ ${__("Copié", "Copied")}` : `📋 ${__("Copier", "Copy")}`}
-                      </button>
-                      <a href={modTokenUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: "var(--txt-dim)", background: "transparent", border: "1px solid var(--bdr-2)", padding: "5px 10px", borderRadius: 5, textDecoration: "none", whiteSpace: "nowrap" as const }}>
-                        → {__("Ouvrir", "Open")}
-                      </a>
-                    </>
-                  )}
-                </div>
-                <div style={{ fontSize: 10, color: "var(--txt-mute)", marginTop: 6 }}>{__("À envoyer au modérateur · donne accès au cockpit (speaker, script d'intro, Q&A, runsheet) sans login admin.", "Send to the moderator · grants access to the cockpit (speaker, intro script, Q&A, runsheet) without admin login.")}</div>
-              </div>
-            )}
-
-            {/* Studio link */}
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 2, display: "block", marginBottom: 4 }}>{__("LIEN RESTREAM STUDIO (guest invite link)", "RESTREAM STUDIO LINK (guest invite link)")}</label>
-              <input value={streamingTeam.studioLink} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, studioLink: (e.target as HTMLInputElement).value }))} placeholder="https://studio.restream.io/guest/…" disabled={!canWrite} style={INPUT_STYLE} />
-              <div style={{ fontSize: 10, color: "var(--txt-mute)", marginTop: 4 }}>{__("Généré dans Restream Studio → + Inviter → Guest link", "Generated in Restream Studio → + Invite → Guest link")}</div>
-            </div>
-
-            {/* Tech contact */}
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 2, display: "block", marginBottom: 4 }}>{__("CONTACT TECHNICIEN (nom ou téléphone)", "TECH CONTACT (name or phone)")}</label>
-              <input value={streamingTeam.techContact} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, techContact: (e.target as HTMLInputElement).value }))} placeholder={__("ex: Jean Dupont — +237 6XX XXX XXX", "e.g. Jean Dupont — +237 6XX XXX XXX")} disabled={!canWrite} style={INPUT_STYLE} />
-            </div>
-
-            {/* Moderator */}
-            <div style={{ background: "var(--card2)", border: "1px solid #4488ff20", borderRadius: 8, padding: 14, marginBottom: 12 }}>
-              <div style={{ fontSize: 10, color: "#4488ff", letterSpacing: 2, marginBottom: 10 }}>🎙 {__("MODÉRATEUR", "MODERATOR")}</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 80px auto", gap: 8, alignItems: "flex-end" }}>
-                <div>
-                  <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>{__("Nom", "Name")}</label>
-                  <select
-                    value={streamingTeam.moderator?.name ?? ""}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                      const val = (e.target as HTMLSelectElement).value;
-                      const member = teamMembers.find((m: TeamMember) => m.name === val);
-                      if (member) setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, moderator: { name: member.name, email: member.email || "", lang: t.moderator?.lang || "fr" } }));
-                      else setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, moderator: t.moderator ? { ...t.moderator, name: val } : { name: val, email: "", lang: "fr" } }));
-                    }}
-                    style={{ ...INPUT_STYLE, cursor: "pointer" }}
-                    disabled={!canWrite}
-                  >
-                    <option value="">— {__("Équipe EOCON", "EOCON Team")} —</option>
-                    {teamMembers.map((m: TeamMember) => <option key={m.id} value={m.name}>{m.name} ({m.role})</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>Email</label>
-                  <input value={streamingTeam.moderator?.email ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, moderator: t.moderator ? { ...t.moderator, email: (e.target as HTMLInputElement).value } : { name: "", email: (e.target as HTMLInputElement).value, lang: "fr" } }))} placeholder="email@exemple.com" disabled={!canWrite} style={INPUT_STYLE} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>{__("Langue", "Language")}</label>
-                  <select value={streamingTeam.moderator?.lang ?? "fr"} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, moderator: t.moderator ? { ...t.moderator, lang: (e.target as HTMLSelectElement).value as "fr" | "en" } : { name: "", email: "", lang: (e.target as HTMLSelectElement).value as "fr" | "en" } }))} style={{ ...INPUT_STYLE, cursor: "pointer" }} disabled={!canWrite}>
-                    <option value="fr">FR</option>
-                    <option value="en">EN</option>
-                  </select>
-                </div>
-                {canWrite && streamingTeam.moderator?.email && (
-                  <button
-                    onClick={() => sendInvite("moderator", "moderator", streamingTeam.moderator!.email, streamingTeam.moderator!.name, streamingTeam.moderator!.lang)}
-                    disabled={inviteSending["moderator"]}
-                    style={{ background: inviteSent["moderator"] ? "var(--ac-bg)" : "#4488ff20", border: `1px solid ${inviteSent["moderator"] ? "var(--ac-bdr)" : "#4488ff40"}`, color: inviteSent["moderator"] ? "var(--ac)" : "#4488ff", padding: "8px 12px", borderRadius: 6, fontSize: 10, cursor: "pointer", letterSpacing: 1, whiteSpace: "nowrap" as const }}>
-                    {inviteSent["moderator"] ? `✓ ${__("Envoyé", "Sent")}` : inviteSending["moderator"] ? "…" : `📨 ${__("Briefing", "Briefing")}`}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Speakers */}
-            <div style={{ background: "var(--card2)", border: "1px solid #ffaa0020", borderRadius: 8, padding: 14, marginBottom: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <div style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 2 }}>👤 SPEAKER(S)</div>
-                {canWrite && (
-                  <button onClick={() => setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, speakers: [...t.speakers, { name: "", email: "", lang: "fr" }] }))} style={{ fontSize: 10, color: "#ffaa00", background: "transparent", border: "1px solid #ffaa0030", padding: "3px 10px", borderRadius: 4, cursor: "pointer" }}>+ Speaker</button>
-                )}
-              </div>
-              {streamingTeam.speakers.length === 0 && <p style={{ fontSize: 11, color: "var(--txt-mute)" }}>{__("Aucun speaker sélectionné.", "No speaker selected.")}</p>}
-              {streamingTeam.speakers.map((sp: { name: string; email: string; lang: "fr" | "en" }, idx: number) => (
-                <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 80px auto auto", gap: 8, alignItems: "flex-end", marginBottom: 8 }}>
-                  <div>
-                    {idx === 0 && <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>{__("Nom", "Name")}</label>}
-                    <select
-                      value={sp.name}
-                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                        const val = (e.target as HTMLSelectElement).value;
-                        const found = acceptedSpeakers.find((s: AcceptedSpeaker) => s.name === val);
-                        const email = found?.cfpSubmission?.email || "";
-                        setStreamingTeam((t: StreamingTeamConfig) => { const sps = [...t.speakers]; sps[idx] = { ...sps[idx], name: val, email: email || sps[idx].email }; return { ...t, speakers: sps }; });
-                      }}
-                      style={{ ...INPUT_STYLE, cursor: "pointer" }}
-                      disabled={!canWrite}
-                    >
-                      <option value="">— {__("Speakers acceptés", "Accepted speakers")} —</option>
-                      {acceptedSpeakers.map((s: AcceptedSpeaker) => <option key={s.id} value={s.name}>{s.name}{s.title ? ` (${s.title})` : ""}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    {idx === 0 && <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>Email</label>}
-                    <input value={sp.email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStreamingTeam((t: StreamingTeamConfig) => { const sps = [...t.speakers]; sps[idx] = { ...sps[idx], email: (e.target as HTMLInputElement).value }; return { ...t, speakers: sps }; })} placeholder="email@exemple.com" disabled={!canWrite} style={INPUT_STYLE} />
-                  </div>
-                  <div>
-                    {idx === 0 && <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>{__("Langue", "Language")}</label>}
-                    <select value={sp.lang} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStreamingTeam((t: StreamingTeamConfig) => { const sps = [...t.speakers]; sps[idx] = { ...sps[idx], lang: (e.target as HTMLSelectElement).value as "fr" | "en" }; return { ...t, speakers: sps }; })} style={{ ...INPUT_STYLE, cursor: "pointer" }} disabled={!canWrite}>
-                      <option value="fr">FR</option>
-                      <option value="en">EN</option>
-                    </select>
-                  </div>
-                  {canWrite && sp.email && (
-                    <button
-                      onClick={() => sendInvite(`speaker-${idx}`, "speaker", sp.email, sp.name || `Speaker ${idx + 1}`, sp.lang)}
-                      disabled={inviteSending[`speaker-${idx}`]}
-                      style={{ background: inviteSent[`speaker-${idx}`] ? "var(--ac-bg)" : "#ffaa0015", border: `1px solid ${inviteSent[`speaker-${idx}`] ? "var(--ac-bdr)" : "#ffaa0040"}`, color: inviteSent[`speaker-${idx}`] ? "var(--ac)" : "#ffaa00", padding: "8px 10px", borderRadius: 6, fontSize: 10, cursor: "pointer", whiteSpace: "nowrap" as const }}>
-                      {inviteSent[`speaker-${idx}`] ? "✓" : inviteSending[`speaker-${idx}`] ? "…" : "📨"}
-                    </button>
-                  )}
-                  {canWrite && (
-                    <button onClick={() => setStreamingTeam((t: StreamingTeamConfig) => ({ ...t, speakers: t.speakers.filter((_: unknown, i: number) => i !== idx) }))} style={{ background: "transparent", border: "1px solid #ff000030", color: "#ff6b6b", padding: "8px 10px", borderRadius: 6, fontSize: 10, cursor: "pointer" }}>✕</button>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {canWrite && (
-              <button onClick={saveStreamingTeam} disabled={teamSaving} style={SAVE_BTN_STYLE(teamSaving)}>
-                {teamSaved ? `✓ ${__("Sauvegardé", "Saved")}` : teamSaving ? __("Sauvegarde…", "Saving…") : __("Sauvegarder l'équipe", "Save team")}
-              </button>
-            )}
+          {/* ── CONNEXION RESTREAM ─────────────────────────────────────────────── */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, marginTop: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--txt)", letterSpacing: 1 }}>🎬 {__("Connexion Restream (OAuth)", "Restream connection (OAuth)")}</div>
+            <div style={{ flex: 1, height: 1, background: "#ff444415" }} />
           </div>
-
-          {/* ── ÉTAPE 2 · SESSIONS ─────────────────────────────────────────── */}
-          <StepHeader n={2} label={__("Sessions — Diffusion YouTube", "Sessions — YouTube Broadcast")} color="#4488ff" />
 
           <ArchBox color="#4488ff" icon="📡" title={__("COMMENT ÇA MARCHE", "HOW IT WORKS")}>
             <p style={{ margin: "0 0 8px" }}>
@@ -1449,7 +1269,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
               {__("Le speaker peut utiliser", "The speaker can use")} <strong style={{ color: "var(--txt)" }}>{__("n'importe quel outil", "any tool")}</strong> {__("pour sa salle privée — Zoom, Google Meet, Teams, Jitsi,", "for their private room — Zoom, Google Meet, Teams, Jitsi,")} <strong style={{ color: "var(--txt)" }}>Restream</strong>, OBS — {__("tant que l'outil envoie le flux vers YouTube via RTMP.", "as long as the tool sends the stream to YouTube via RTMP.")}
             </p>
             <p style={{ margin: 0, color: "var(--txt-dim)" }}>
-              👉 {__("Dans le", "In the")} <strong style={{ color: "var(--txt-2)" }}>{__("Pipeline speakers", "Speakers Pipeline")}</strong>, {__("chaque session a un champ", "each session has a field")} <code style={{ color: "#4488ff" }}>{__("Lien live", "Live link")}</code> : {__("collez-y l'URL d'embed YouTube de cette session.", "paste the YouTube embed URL for that session.")}
+              👉 {__("Configurez le lien live YouTube et le lien studio invité dans l'onglet", "Configure the YouTube live link and the studio guest link in the tab")} <strong style={{ color: "var(--txt-2)" }}>{__("Planification session", "Session planning")}</strong>.
             </p>
           </ArchBox>
 
@@ -1575,98 +1395,12 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
             )}
           </div>
 
-          {/* Today's sessions status */}
-          {loading ? (
-            <p style={{ color: "var(--txt-mute)", fontSize: 12, marginBottom: 16 }}>{__("Chargement des sessions…", "Loading sessions…")}</p>
-          ) : (
-            <div style={{ background: "var(--card)", border: "1px solid #4488ff20", borderRadius: 10, padding: 20, marginBottom: 20 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                <div style={{ fontSize: 10, color: "#4488ff", letterSpacing: 3 }}>{__("SESSIONS DU JOUR", "TODAY'S SESSIONS")} — {today}</div>
-                <a href="#pipeline" style={{ fontSize: 11, color: "#4488ff", border: "1px solid #4488ff30", padding: "4px 10px", borderRadius: 5, textDecoration: "none", letterSpacing: 1 }}
-                   onClick={e => { e.preventDefault(); document.querySelector("[data-tab='cfp']")?.dispatchEvent(new MouseEvent("click", { bubbles: true })); }}>
-                  → {__("Pipeline speakers", "Speakers Pipeline")}
-                </a>
-              </div>
-              {sessions.length === 0 ? (
-                <p style={{ color: "var(--txt-mute)", fontSize: 12 }}>{__("Aucune session programmée aujourd'hui", "No session scheduled today")} ({today}).</p>
-              ) : (
-                sessions.map(s => {
-                  const hasLink = !!s.liveUrl;
-                  return (
-                    <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid var(--bdr)" }}>
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: hasLink ? "var(--ac)" : "#ff4444", flexShrink: 0 }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, color: "var(--txt)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</div>
-                        <div style={{ fontSize: 10, color: "var(--txt-mute)", marginTop: 2 }}>
-                          {s.time && <span style={{ marginRight: 10 }}>🕐 {s.time}</span>}
-                          {s.speakerName && <span style={{ marginRight: 10 }}>👤 {s.speakerName}</span>}
-                          {s.type && <span style={{ color: "var(--txt-dim)" }}>{s.type}</span>}
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 11, flexShrink: 0 }}>
-                        {hasLink ? (
-                          <span style={{ color: "var(--ac)", display: "flex", alignItems: "center", gap: 4 }}>
-                            <span>✓</span>
-                            <a href={s.liveUrl!} target="_blank" rel="noopener noreferrer" style={{ color: "#00ff9d50", fontSize: 10, textDecoration: "none", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", display: "inline-block", whiteSpace: "nowrap" }}>{s.liveUrl}</a>
-                          </span>
-                        ) : (
-                          <span style={{ color: "#ff6b6b" }}>⚠ {__("Lien manquant", "Link missing")}</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-              {sessions.length > 0 && (
-                <div style={{ marginTop: 12, fontSize: 11, color: "var(--txt-mute)" }}>
-                  {sessions.filter(s => s.liveUrl).length}/{sessions.length} {__("sessions avec lien live configuré", "sessions with live link configured")}
-                </div>
-              )}
-            </div>
-          )}
 
-          {/* Extra streams */}
-          <div style={{ background: "var(--card)", border: "1px solid #4488ff15", borderRadius: 10, padding: 20, marginBottom: 32 }}>
-            <div style={{ fontSize: 10, color: "#4488ff", letterSpacing: 3, marginBottom: 4 }}>{__("FLUX SUPPLÉMENTAIRES", "ADDITIONAL STREAMS")}</div>
-            <p style={{ fontSize: 11, color: "var(--txt-mute)", marginBottom: 16 }}>{__("Streams additionnels affichés sur /live (multi-salle, stream de secours, plénière parallèle…)", "Additional streams displayed on /live (multi-room, backup stream, parallel plenary…)")}</p>
-
-            {settings.streams.length === 0 && <p style={{ color: "var(--txt-mute)", fontSize: 12, marginBottom: 12 }}>{__("Aucun flux supplémentaire.", "No additional streams.")}</p>}
-
-            {settings.streams.map(st => (
-              <div key={st.id} style={{ background: "var(--card2)", border: "1px solid #4488ff15", borderRadius: 8, padding: 16, marginBottom: 12 }}>
-                <div style={{ display: "flex", gap: 12, marginBottom: 10 }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: 10, color: "#4488ff", letterSpacing: 2, display: "block", marginBottom: 4 }}>{__("TITRE", "TITLE")}</label>
-                    <input value={st.title} onChange={e => updateStream(st.id, { title: (e.target as HTMLInputElement).value })} placeholder={__("Salle B — Ateliers", "Room B — Workshops")} disabled={!canWrite} style={INPUT_STYLE} />
-                  </div>
-                  {canWrite && <button onClick={() => removeStream(st.id)} style={{ alignSelf: "flex-end", background: "transparent", border: "1px solid #ff000030", color: "#ff6b6b", borderRadius: 6, padding: "8px 12px", fontSize: 11, cursor: "pointer" }}>✕</button>}
-                </div>
-                <div style={{ marginBottom: 10 }}>
-                  <label style={{ fontSize: 10, color: "#4488ff", letterSpacing: 2, display: "block", marginBottom: 4 }}>{__("URL EMBED YOUTUBE / RESTREAM", "YOUTUBE / RESTREAM EMBED URL")}</label>
-                  <input value={st.url} onChange={e => updateStream(st.id, { url: (e.target as HTMLInputElement).value })} placeholder="https://www.youtube.com/embed/XXXXXXXXXX" disabled={!canWrite} style={INPUT_STYLE} />
-                </div>
-                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: canWrite ? "pointer" : "default", fontSize: 12, color: "var(--txt-dim)" }}>
-                  <input type="checkbox" checked={st.active} onChange={e => updateStream(st.id, { active: (e.target as HTMLInputElement).checked })} disabled={!canWrite} style={{ accentColor: "#4488ff" }} />
-                  {__("Flux actif (visible par les participants)", "Active stream (visible to participants)")}
-                </label>
-                {st.url && (
-                  <div style={{ marginTop: 14, aspectRatio: "16/9", background: "var(--card)", borderRadius: 8, overflow: "hidden" }}>
-                    <iframe src={st.url} style={{ width: "100%", height: "100%", border: "none" }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {canWrite && (
-              <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
-                <button onClick={addStream} style={{ background: "transparent", border: "1px solid #4488ff40", color: "#4488ff", padding: "8px 16px", borderRadius: 6, fontSize: 12, cursor: "pointer", letterSpacing: 1 }}>+ {__("Ajouter un flux", "Add a stream")}</button>
-                <button onClick={saveStreams} disabled={saving} style={SAVE_BTN_STYLE(saving)}>{saved ? `✓ ${__("Sauvegardé", "Saved")}` : saving ? __("Sauvegarde…", "Saving…") : __("Sauvegarder", "Save")}</button>
-              </div>
-            )}
+          {/* ── OVERLAYS ──────────────────────────────────────────────────────── */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, marginTop: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--txt)", letterSpacing: 1 }}>🎨 {__("Overlays Restream — Captions & Tickers", "Restream Overlays — Captions & Tickers")}</div>
+            <div style={{ flex: 1, height: 1, background: "#ff6b3515" }} />
           </div>
-
-          {/* ── ÉTAPE 3 · OVERLAYS RESTREAM ────────────────────────────────── */}
-          <StepHeader n={3} label={__("Overlays Restream — Captions & Tickers", "Restream Overlays — Captions & Tickers")} color="#ff6b35" />
 
           <ArchBox color="#ff6b35" icon="🎨" title={__("COMMENT ÇA MARCHE", "HOW IT WORKS")}>
             <p style={{ margin: "0 0 8px" }}>
@@ -1770,66 +1504,81 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
             ))}
           </div>
 
-          {/* Créer par speaker */}
+          {/* Créer pour un speaker (combobox) */}
           {acceptedSpeakers.length > 0 && (
             <div style={{ background: "var(--card)", border: "1px solid #ff6b3520", borderRadius: 10, padding: 16, marginBottom: 32 }}>
-              <div style={{ fontSize: 10, color: "#ff6b35", letterSpacing: 3, marginBottom: 14 }}>👤 {__("CRÉER PAR SPEAKER", "CREATE PER SPEAKER")}</div>
-              {acceptedSpeakers.map(sp => {
-                const captionText = [sp.name, sp.title].filter(Boolean).join(", ");
-                const tickerText  = sp.talkTitle || sp.name;
-                const loading     = overlayPerSpeaker[sp.id] ?? false;
+              <div style={{ fontSize: 10, color: "#ff6b35", letterSpacing: 3, marginBottom: 12 }}>👤 {__("CRÉER POUR UN SPEAKER", "CREATE FOR A SPEAKER")}</div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: selectedOverlaySpeakerId != null ? 10 : 0 }}>
+                <select
+                  value={selectedOverlaySpeakerId ?? ""}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedOverlaySpeakerId(parseInt((e.target as HTMLSelectElement).value) || null)}
+                  style={{ ...INPUT_STYLE, flex: 1, minWidth: 200, cursor: "pointer" }}
+                >
+                  <option value="">— {__("Sélectionner un speaker", "Select a speaker")} —</option>
+                  {acceptedSpeakers.map((sp: AcceptedSpeaker) => (
+                    <option key={sp.id} value={sp.id}>{sp.name}{sp.title ? ` (${sp.title})` : ""}</option>
+                  ))}
+                </select>
+                {selectedOverlaySpeakerId != null && canWrite && (() => {
+                  const sp = acceptedSpeakers.find((s: AcceptedSpeaker) => s.id === selectedOverlaySpeakerId);
+                  if (!sp) return null;
+                  const captionText = [sp.name, sp.title].filter(Boolean).join(", ");
+                  const tickerText  = sp.talkTitle || sp.name;
+                  const busy        = overlayPerSpeaker[sp.id] ?? false;
+                  return (
+                    <>
+                      <button disabled={busy}
+                        onClick={async () => {
+                          setOverlayPerSpeaker((s: Record<number, boolean>) => ({ ...s, [sp.id]: true }));
+                          await overlayAction("create_caption", { text: captionText, secondaryText: sp.talkTitle || undefined });
+                          await loadOverlays();
+                          setOverlayPerSpeaker((s: Record<number, boolean>) => ({ ...s, [sp.id]: false }));
+                        }}
+                        style={{ fontSize: 10, color: "#ff6b35", background: "#ff6b3510", border: "1px solid #ff6b3530", padding: "6px 12px", borderRadius: 5, cursor: busy ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                        + Caption
+                      </button>
+                      <button disabled={busy}
+                        onClick={async () => {
+                          setOverlayPerSpeaker((s: Record<number, boolean>) => ({ ...s, [sp.id]: true }));
+                          await overlayAction("create_ticker", { text: tickerText });
+                          await loadOverlays();
+                          setOverlayPerSpeaker((s: Record<number, boolean>) => ({ ...s, [sp.id]: false }));
+                        }}
+                        style={{ fontSize: 10, color: "#ff6b35", background: "#ff6b3510", border: "1px solid #ff6b3530", padding: "6px 12px", borderRadius: 5, cursor: busy ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                        + Ticker
+                      </button>
+                      <button disabled={busy}
+                        onClick={async () => {
+                          setOverlayPerSpeaker((s: Record<number, boolean>) => ({ ...s, [sp.id]: true }));
+                          await overlayAction("bulk_speaker", { speakerId: sp.id });
+                          await loadOverlays();
+                          setOverlayPerSpeaker((s: Record<number, boolean>) => ({ ...s, [sp.id]: false }));
+                        }}
+                        style={{ fontSize: 10, color: busy ? "var(--txt-mute)" : "var(--ac)", background: busy ? "transparent" : "var(--ac-bg)", border: `1px solid ${busy ? "var(--bdr-2)" : "var(--ac-bdr)"}`, padding: "6px 12px", borderRadius: 5, cursor: busy ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                        {busy ? "…" : `⚡ ${__("Les deux", "Both")}`}
+                      </button>
+                    </>
+                  );
+                })()}
+              </div>
+              {selectedOverlaySpeakerId != null && (() => {
+                const sp = acceptedSpeakers.find((s: AcceptedSpeaker) => s.id === selectedOverlaySpeakerId);
+                if (!sp) return null;
                 return (
-                  <div key={sp.id} style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 10, background: "var(--card)", border: "1px solid var(--bdr)", borderRadius: 6, padding: "10px 12px" }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, color: "var(--txt)", fontWeight: 700 }}>{sp.name}</div>
-                      {sp.title && <div style={{ fontSize: 11, color: "var(--txt-dim)" }}>{sp.title}</div>}
-                      <div style={{ fontSize: 11, color: "var(--txt-mute)", marginTop: 4 }}>
-                        Caption : <span style={{ color: "var(--txt-2)" }}>&quot;{captionText}&quot;</span>
-                        {sp.talkTitle && <> · Ticker : <span style={{ color: "var(--txt-2)" }}>&quot;{tickerText}&quot;</span></>}
-                      </div>
-                    </div>
-                    {canWrite && (
-                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                        <button disabled={loading}
-                          onClick={async () => {
-                            setOverlayPerSpeaker((s: Record<number, boolean>) => ({ ...s, [sp.id]: true }));
-                            await overlayAction("create_caption", { text: captionText, secondaryText: sp.talkTitle || undefined });
-                            await loadOverlays();
-                            setOverlayPerSpeaker((s: Record<number, boolean>) => ({ ...s, [sp.id]: false }));
-                          }}
-                          style={{ fontSize: 10, color: "#ff6b35", background: "#ff6b3510", border: "1px solid #ff6b3530", padding: "4px 10px", borderRadius: 5, cursor: loading ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
-                          + Caption
-                        </button>
-                        <button disabled={loading}
-                          onClick={async () => {
-                            setOverlayPerSpeaker((s: Record<number, boolean>) => ({ ...s, [sp.id]: true }));
-                            await overlayAction("create_ticker", { text: tickerText });
-                            await loadOverlays();
-                            setOverlayPerSpeaker((s: Record<number, boolean>) => ({ ...s, [sp.id]: false }));
-                          }}
-                          style={{ fontSize: 10, color: "#ff6b35", background: "#ff6b3510", border: "1px solid #ff6b3530", padding: "4px 10px", borderRadius: 5, cursor: loading ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
-                          + Ticker
-                        </button>
-                        <button disabled={loading}
-                          onClick={async () => {
-                            setOverlayPerSpeaker((s: Record<number, boolean>) => ({ ...s, [sp.id]: true }));
-                            await overlayAction("bulk_speaker", { speakerId: sp.id });
-                            await loadOverlays();
-                            setOverlayPerSpeaker((s: Record<number, boolean>) => ({ ...s, [sp.id]: false }));
-                          }}
-                          style={{ fontSize: 10, color: loading ? "var(--txt-mute)" : "var(--ac)", background: loading ? "transparent" : "var(--ac-bg)", border: `1px solid ${loading ? "var(--bdr-2)" : "var(--ac-bdr)"}`, padding: "4px 10px", borderRadius: 5, cursor: loading ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
-                          {loading ? "…" : `⚡ ${__("Les deux", "Both")}`}
-                        </button>
-                      </div>
-                    )}
+                  <div style={{ fontSize: 11, color: "var(--txt-mute)" }}>
+                    Caption : <span style={{ color: "var(--txt-2)" }}>&quot;{[sp.name, sp.title].filter(Boolean).join(", ")}&quot;</span>
+                    {sp.talkTitle && <> · Ticker : <span style={{ color: "var(--txt-2)" }}>&quot;{sp.talkTitle}&quot;</span></>}
                   </div>
                 );
-              })}
+              })()}
             </div>
           )}
 
-          {/* ── ÉTAPE 4 · ATELIERS JAAS ────────────────────────────────────── */}
-          <StepHeader n={4} label={__("Ateliers — Rooms JaaS", "Workshops — JaaS Rooms")} color="#9b59ff" />
+          {/* ── CREDENTIALS JAAS ────────────────────────────────────────────── */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, marginTop: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--txt)", letterSpacing: 1 }}>🔑 {__("JaaS Rooms (8x8.vc)", "JaaS Rooms (8x8.vc)")}</div>
+            <div style={{ flex: 1, height: 1, background: "#9b59ff15" }} />
+          </div>
 
           <ArchBox color="#9b59ff" icon="🎓" title={__("COMMENT ÇA MARCHE", "HOW IT WORKS")}>
             <p style={{ margin: "0 0 8px" }}>
@@ -1864,83 +1613,18 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                 style={{ width: "100%", background: "var(--card)", border: "1px solid #9b59ff20", borderRadius: 6, color: "var(--txt)", padding: "10px 12px", fontSize: 11, fontFamily: "'Courier New', monospace", boxSizing: "border-box" as const, resize: "vertical" as const, outline: "none" }} />
             </div>
             {canWrite && (
-              <button onClick={saveJaas} disabled={jaasSaving} style={{ ...SAVE_BTN_STYLE(jaasSaving), background: "#9b59ff", color: "#fff" }}>
-                {jaasSaved ? `✓ ${__("Sauvegardé", "Saved")}` : jaasSaving ? __("Sauvegarde…", "Saving…") : __("Sauvegarder config JaaS", "Save JaaS config")}
-              </button>
-            )}
-          </div>
-
-          {/* Workshop list */}
-          <div style={{ background: "var(--card)", border: "1px solid #9b59ff15", borderRadius: 10, padding: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-              <div style={{ fontSize: 10, color: "#9b59ff", letterSpacing: 3 }}>WORKSHOPS ({workshops.length})</div>
-              {canWrite && (
-                <button onClick={addWorkshop} style={{ background: "transparent", border: "1px solid #9b59ff40", color: "#9b59ff", padding: "6px 14px", borderRadius: 6, fontSize: 11, cursor: "pointer", letterSpacing: 1 }}>
-                  + {__("Ajouter workshop", "Add workshop")}
+              <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                <button onClick={saveJaas} disabled={jaasSaving} style={{ ...SAVE_BTN_STYLE(jaasSaving), background: "#9b59ff", color: "#fff" }}>
+                  {jaasSaved ? `✓ ${__("Sauvegardé", "Saved")}` : jaasSaving ? __("Sauvegarde…", "Saving…") : __("Sauvegarder config JaaS", "Save JaaS config")}
                 </button>
-              )}
-            </div>
-
-            {wsLoading ? (
-              <p style={{ color: "var(--txt-mute)", fontSize: 12 }}>{__("Chargement…", "Loading…")}</p>
-            ) : workshops.length === 0 ? (
-              <p style={{ color: "var(--txt-mute)", fontSize: 12 }}>{__("Aucun workshop configuré.", "No workshop configured.")}</p>
-            ) : (
-              workshops.map(ws => (
-                <div key={ws.id} style={{ background: "var(--card2)", border: `1px solid ${ws.active ? "#9b59ff30" : "var(--bdr)"}`, borderRadius: 8, padding: 14, marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, color: "var(--txt)", fontWeight: 600, marginBottom: 2 }}>{ws.title || `(${__("sans titre", "no title")})`}</div>
-                    {ws.titleEn && <div style={{ fontSize: 11, color: "var(--txt-dim)" }}>EN: {ws.titleEn}</div>}
-                    <div style={{ fontSize: 10, color: "var(--txt-mute)", marginTop: 4, fontFamily: "'Courier New', monospace" }}>room: {ws.room || "—"}</div>
-                    <span style={{ fontSize: 10, color: ws.active ? "#9b59ff" : "var(--txt-dim)", marginTop: 4, display: "inline-block" }}>{ws.active ? `🟣 ${__("Actif", "Active")}` : `● ${__("Inactif", "Inactive")}`}</span>
-                  </div>
-                  {canWrite && (
-                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                      <button onClick={() => setEditWs(ws)} style={{ background: "transparent", border: "1px solid var(--bdr)", color: "var(--txt-dim)", padding: "4px 10px", borderRadius: 5, fontSize: 11, cursor: "pointer" }}>{__("Éditer", "Edit")}</button>
-                      <button onClick={() => removeWorkshop(ws.id)} style={{ background: "transparent", border: "1px solid #ff000030", color: "#ff6b6b", padding: "4px 10px", borderRadius: 5, fontSize: 11, cursor: "pointer" }}>✕</button>
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Workshop edit modal */}
-      {editWs && (
-        <div style={{ position: "fixed", inset: 0, background: "#000000cc", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-          <div style={{ background: "var(--card)", border: "1px solid #9b59ff30", borderRadius: 12, padding: 28, width: 480, maxWidth: "90vw" }}>
-            <div style={{ fontSize: 10, color: "#9b59ff", letterSpacing: 3, marginBottom: 14 }}>
-              {workshops.some(w => w.id === editWs.id) ? __("MODIFIER WORKSHOP", "EDIT WORKSHOP") : __("NOUVEAU WORKSHOP", "NEW WORKSHOP")}
-            </div>
-            {[
-              { field: "title",         label: "Titre FR *" },
-              { field: "titleEn",       label: "Title EN *" },
-              { field: "room",          label: "Room ID (JaaS room name)" },
-              { field: "description",   label: "Description FR" },
-              { field: "descriptionEn", label: "Description EN" },
-            ].map(({ field, label }) => (
-              <div key={field} style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 10, color: "#9b59ff", letterSpacing: 1, display: "block", marginBottom: 4 }}>{label}</label>
-                <input
-                  value={(editWs as unknown as Record<string, string>)[field] ?? ""}
-                  onChange={e => setEditWs(w => w ? { ...w, [field]: (e.target as HTMLInputElement).value } : w)}
-                  style={INPUT_STYLE}
-                />
+                {jaas.appId && (
+                  <a href={`https://8x8.vc/${jaas.appId}/EOCON-TEST`} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: 11, color: "#9b59ff", background: "#9b59ff10", border: "1px solid #9b59ff30", padding: "8px 16px", borderRadius: 6, textDecoration: "none", letterSpacing: 1 }}>
+                    🧪 {__("Tester la room", "Test room")}
+                  </a>
+                )}
               </div>
-            ))}
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--txt-dim)", marginBottom: 20, cursor: "pointer" }}>
-              <input type="checkbox" checked={editWs.active} onChange={e => setEditWs(w => w ? { ...w, active: (e.target as HTMLInputElement).checked } : w)} style={{ accentColor: "#9b59ff" }} />
-              {__("Workshop actif (visible aux participants)", "Active workshop (visible to participants)")}
-            </label>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => saveEditedWorkshop(editWs)} disabled={wsSaving || !editWs.title || !editWs.room}
-                style={{ ...SAVE_BTN_STYLE(wsSaving || !editWs.title || !editWs.room), background: "#9b59ff", color: "#fff" }}>
-                {wsSaved ? "✓" : wsSaving ? "…" : __("Enregistrer", "Save")}
-              </button>
-              <button onClick={() => setEditWs(null)} style={{ background: "transparent", border: "1px solid var(--bdr)", color: "var(--txt-dim)", padding: "8px 16px", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>{__("Annuler", "Cancel")}</button>
-            </div>
+            )}
           </div>
         </div>
       )}

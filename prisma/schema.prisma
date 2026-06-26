@@ -92,6 +92,9 @@ model Registration {
   onlineCheckedInAt  DateTime?
   onlineAccessSentAt DateTime?
   onlineSessions     OnlineSession[]
+  // Live presence tracking (CPE)
+  liveToken          String?   @unique
+  livePresence       LivePresence?
   createdAt          DateTime  @default(now())
 
   @@map("registrations")
@@ -178,6 +181,7 @@ model ConferenceSession {
   displayFrom  DateTime? // show on frontend only from this date
   displayUntil DateTime? // hide after this date
   createdAt    DateTime  @default(now())
+  planning     SessionPlanning?
 
   @@map("sessions")
 }
@@ -700,4 +704,52 @@ model SessionQuestion {
   askedAt      DateTime @default(now())
 
   @@map("session_questions")
+}
+
+// ── Live presence & CPE ────────────────────────────────────────────────────────
+model LivePresence {
+  id             Int          @id @default(autoincrement())
+  liveToken      String       @unique
+  registrationId Int          @unique
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  totalMinutes   Int          @default(0)
+  lastHeartbeat  DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("live_presences")
+}
+
+// ── Streaming rooms (conf = Restream, workshop = JaaS) ────────────────────────
+model StreamingRoom {
+  id        Int               @id @default(autoincrement())
+  name      String
+  type      String            // "conference" | "workshop"
+  guestLink String?           // Restream guest invite link (conference rooms)
+  jaasRoom  String?           // JaaS room name, e.g. EOCON-NomSalle (workshop rooms)
+  sortOrder Int               @default(0)
+  createdAt DateTime          @default(now())
+  plannings SessionPlanning[]
+
+  @@map("streaming_rooms")
+}
+
+// ── Session planning (filled by streaming team) ────────────────────────────────
+model SessionPlanning {
+  id              Int            @id @default(autoincrement())
+  sessionId       Int            @unique
+  session         ConferenceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  roomId          Int?
+  room            StreamingRoom? @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  lienWebinaire   String?        // Zoom / Jitsi / Restream webinar link for speakers
+  lienLive        String?        // Public YouTube / broadcast link shown on /live
+  restreamEventId String?        // Restream event id (from API, optional)
+  technicienIds   Json           @default("[]") // Int[] — TeamMember ids
+  moderateurIds   Json           @default("[]") // Int[] — TeamMember ids
+  panelistesExtra Json           @default("[]") // {name,email,lang}[]
+  notifiedAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@map("session_plannings")
 }

@@ -6,6 +6,7 @@ import { generateQrPayload } from "@/lib/qr";
 import { formatTicketRef } from "@/lib/ticketRef";
 import { logAction } from "@/lib/auditLog";
 import { getEventSettings } from "@/lib/settings";
+import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -73,9 +74,16 @@ export async function PATCH(req: NextRequest) {
     const reg = await prisma.registration.findUnique({ where: { id } });
     if (!reg) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const qrCode = reg.qrCode || generateQrPayload(reg.id);
+    const liveToken = reg.liveToken || crypto.randomUUID();
     const updated = await prisma.registration.update({
       where: { id },
-      data: { status: "validated", qrCode },
+      data: { status: "validated", qrCode, liveToken },
+    });
+    // Create LivePresence record if it doesn't exist yet
+    await prisma.livePresence.upsert({
+      where: { registrationId: id },
+      create: { liveToken, registrationId: id },
+      update: {},
     });
     logAction(req, "VALIDATE", "registration", id, { email: reg.email, ticketType: reg.ticketType });
     const ticketRef = formatTicketRef(reg.ticketRef || String(reg.id).padStart(5, "0"));

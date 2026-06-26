@@ -3782,6 +3782,12 @@ const CERT_TABS = [
   { id: "organizer", label: "Organisateurs", icon: "👥", apiPath: "/api/admin/team", nameField: (r: Record<string,unknown>) => r.name as string, emailField: "email" },
 ] as const;
 
+function computeCPE(m: number): number {
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return h + (r >= 50 ? 1 : r > 0 ? 0.5 : 0);
+}
+
 function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
   const { lang } = useAdminT();
   const confirm = useConfirm();
@@ -3793,6 +3799,7 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [batchIssuing, setBatchIssuing] = useState(false);
   const [filterUnreceived, setFilterUnreceived] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [presenceStats, setPresenceStats] = useState<Map<number, { totalMinutes: number; cpe: number }> | null>(null);
 
   const tabDef = CERT_TABS.find(t => t.id === activeTab)!;
 
@@ -3800,16 +3807,29 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
     setLoading(true);
     setPeople([]);
     setBadges([]);
+    setPresenceStats(null);
     try {
-      const [pRes, bRes] = await Promise.all([
+      const fetches: Promise<Response>[] = [
         fetch(tabDef.apiPath),
         fetch(`/api/admin/badges?type=${activeTab}`),
-      ]);
+      ];
+      if (activeTab === "participant") {
+        fetches.push(fetch("/api/admin/live/presence-stats"));
+      }
+      const [pRes, bRes, psRes] = await Promise.all(fetches);
       if (pRes.ok) {
         const raw = await pRes.json();
         setPeople(Array.isArray(raw) ? raw : raw.registrations || raw.volunteers || []);
       }
       if (bRes.ok) setBadges(await bRes.json());
+      if (psRes?.ok) {
+        const statsArr = await psRes.json() as { registrationId: number; totalMinutes: number }[];
+        const map = new Map<number, { totalMinutes: number; cpe: number }>();
+        for (const s of statsArr) {
+          map.set(s.registrationId, { totalMinutes: s.totalMinutes, cpe: computeCPE(s.totalMinutes) });
+        }
+        setPresenceStats(map);
+      }
     } finally {
       setLoading(false);
     }

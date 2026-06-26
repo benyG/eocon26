@@ -38,7 +38,7 @@ export default function CheckinTokenPage() {
     success: { bg: "#001a0d", border: "#00ff9d", color: "#00ff9d", icon: "✓", title: "CHECK-IN VALIDÉ" },
     duplicate: { bg: "#1a0d00", border: "#ff6600", color: "#ff6600", icon: "⚠", title: "DÉJÀ ENREGISTRÉ" },
     error: { bg: "#1a0000", border: "#ff0066", color: "#ff0066", icon: "✗", title: "ERREUR" },
-  }[status];
+  }[status as "loading" | "success" | "duplicate" | "error"];
 
   return (
     <div style={{ minHeight: "100vh", background: "#050a0e", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", fontFamily: "'Share Tech Mono', monospace" }}>

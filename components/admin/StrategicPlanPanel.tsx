@@ -793,9 +793,9 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
               <ChannelCard
                 key={`${ch.platform}-${i}`}
                 channel={ch}
-                status={db.statuses[ch.platform] as ChannelStatus || "todo"}
-                url={db.urls[ch.platform] || ch.defaultUrl || ""}
-                expanded={expandedChannels.has(ch.platform)}
+                status={(db.statuses[ch.platform] as ChannelStatus) || "todo"}
+                url={(db.urls[ch.platform] || ch.defaultUrl || "") as string}
+                expanded={expandedChannels.has(ch.platform) as boolean}
                 onToggle={() => toggleExpand(ch.platform)}
                 onStatusChange={(s: ChannelStatus) => updateStatus(ch.platform, s)}
                 onUrlSave={(url: string) => updateUrl(ch.platform, url)}

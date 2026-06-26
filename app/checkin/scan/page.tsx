@@ -64,7 +64,7 @@ export default function QRScannerPage() {
       });
       const json: CheckinResult = await res.json();
       setResult(json);
-      if (res.ok && json.success) { setState("success"); setScanCount(c => c + 1); }
+      if (res.ok && json.success) { setState("success"); setScanCount((c: number) => c + 1); }
       else if (res.status === 409) setState("duplicate");
       else setState("error");
     } catch {
@@ -98,7 +98,7 @@ export default function QRScannerPage() {
 
   const stopCamera = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
-    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current?.getTracks().forEach((t: MediaStreamTrack) => t.stop());
     streamRef.current = null;
     setState("idle");
   }, []);
@@ -144,7 +144,7 @@ export default function QRScannerPage() {
     success:   { bg: "#001a0d", border: "#00ff9d",   color: "#00ff9d", icon: "✓", title: "CHECK-IN VALIDÉ" },
     duplicate: { bg: "#1a0000", border: "#ff0066",   color: "#ff0066", icon: "🚨", title: "DÉJÀ ENREGISTRÉ" },
     error:     { bg: "#1a0000", border: "#ff0066",   color: "#ff0066", icon: "✗", title: "QR INVALIDE" },
-  }[state];
+  }[state as ScanState];
 
   if (authState === "loading") return (
     <div style={{ minHeight: "100vh", background: "#050a0e", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", color: "#00ff9d", fontSize: 13, letterSpacing: 2 }}>

@@ -344,14 +344,14 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
                           <span className="px-2 py-0.5 rounded font-mono" style={{ background: badge.c + "20", color: badge.c }}>{__(badge.label_fr, badge.label_en)}</span>
                         </td>
                         <td className="py-2.5 px-3 text-gray-300 font-mono">{c.recipientCount || "—"}</td>
-                        <td className="py-2.5 px-3 font-mono" style={{ color: "#888" }}>{isSent ? c.sentCount : "—"}</td>
-                        <td className="py-2.5 px-3 font-mono" style={{ color: "#00ff9d" }}>
+                        <td className="py-2.5 px-3 font-mono" style={{ color: "var(--txt-dim)" }}>{isSent ? c.sentCount : "—"}</td>
+                        <td className="py-2.5 px-3 font-mono" style={{ color: "var(--ac)" }}>
                           {isSent ? `${c.deliveredCount ?? 0} (${pct(c.deliveredCount ?? 0)}%)` : "—"}
                         </td>
                         <td className="py-2.5 px-3 font-mono" style={{ color: "#00d4ff" }}>
                           {isSent ? `${c.clickedCount ?? 0} (${pct(c.clickedCount ?? 0)}%)` : "—"}
                         </td>
-                        <td className="py-2.5 px-3 font-mono" style={{ color: c.failedCount ? "#ff0066" : "#555" }}>{c.failedCount || "—"}</td>
+                        <td className="py-2.5 px-3 font-mono" style={{ color: c.failedCount ? "#ff0066" : "var(--txt-mute)" }}>{c.failedCount || "—"}</td>
                         <td className="py-2.5 px-3 text-gray-500">
                           {c.sentAt ? new Date(c.sentAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }) : new Date(c.createdAt).toLocaleDateString("fr-FR")}
                         </td>
@@ -406,7 +406,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
                         <p className="text-gray-500 text-xs truncate mt-0.5">{t.subject || "—"}</p>
                       </div>
                       <div className="flex gap-1 shrink-0">
-                        <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d30" }}>FR</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "1px solid var(--ac-bdr)" }}>FR</span>
                         {hasEn
                           ? <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: "#00ccff20", color: "#00ccff", border: "1px solid #00ccff30" }}>EN</span>
                           : <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: "#ff006620", color: "#ff0066", border: "1px solid #ff006630" }}>EN ✗</span>
@@ -583,7 +583,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
           {/* ── IMPORT MODAL ──────────────────────────────────────────────── */}
           {showImport && (
             <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowImport(false)}>
-              <div className="bg-[#0d0d0d] border border-gray-700 rounded-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="border border-gray-700 rounded-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden" style={{ background: "var(--card)" }} onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800">
                   <h2 className="text-white font-bold text-sm">⬆ {__("Importer des contacts Mailchimp", "Import Mailchimp contacts")}</h2>
                   <button onClick={() => setShowImport(false)} className="text-gray-500 hover:text-white">✕</button>
@@ -985,7 +985,7 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
 
             <div className="border-t border-gray-800 pt-3">
               <p className="text-xs text-gray-500">{__("Destinataires correspondants", "Matching recipients")}</p>
-              <p className="text-3xl font-black" style={{ color: count ? "#00ff9d" : "#555" }}>{count ?? "…"}</p>
+              <p className="text-3xl font-black" style={{ color: count ? "var(--ac)" : "var(--txt-mute)" }}>{count ?? "…"}</p>
               {sample.length > 0 && (
                 <p className="text-gray-700 text-xs mt-1 truncate">{sample.join(", ")}{count && count > sample.length ? "…" : ""}</p>
               )}
@@ -1024,8 +1024,8 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
                   {__("Envoyée le", "Sent on")} <span className="text-white">{campaign.sentAt ? new Date(campaign.sentAt).toLocaleString("fr-FR") : "—"}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  {stat(__("Envoyés", "Sent"), sent, `${m.recipientCount} ${__("ciblés", "targeted")}`, "#888")}
-                  {stat(__("Délivrés", "Delivered"), delivered, `${pct(delivered)}%`, "#00ff9d")}
+                  {stat(__("Envoyés", "Sent"), sent, `${m.recipientCount} ${__("ciblés", "targeted")}`, "var(--txt-dim)")}
+                  {stat(__("Délivrés", "Delivered"), delivered, `${pct(delivered)}%`, "var(--ac)")}
                   {stat(__("Ouverts", "Opened"), opened, `${pct(opened)}%`, "#ffaa00")}
                   {stat(__("Cliqués", "Clicked"), clicked, `${pct(clicked)}%`, "#00d4ff")}
                 </div>

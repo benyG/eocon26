@@ -132,7 +132,7 @@ export default function VolunteerKanban() {
                     onDragEnd={() => { setDragId(null); setDropTarget(null); }}
                     onClick={() => { setSelected(card); setAssignRole(card.assignedRole || card.role || ""); }}
                     className={`rounded p-2 cursor-pointer border transition-all hover:border-opacity-60 ${dragId === card.id ? "opacity-40" : ""}`}
-                    style={{ borderColor: `${stage.color}40`, backgroundColor: "#0d0d0d" }}
+                    style={{ borderColor: `${stage.color}40`, backgroundColor: "var(--card)" }}
                   >
                     <p className="text-xs font-bold text-white font-mono truncate">{card.name}</p>
                     <p className="text-xs text-gray-500 truncate">{card.role || "—"}</p>

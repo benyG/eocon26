@@ -327,7 +327,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
         </div>
         <div className="cyber-card rounded-lg p-3">
           <p className="text-xs text-gray-500 font-mono">{__("Jalons à risque", "Milestones at risk")}</p>
-          <p className="text-2xl font-black" style={{ color: kpi.milestonesAtRisk ? "#ff3333" : "#00ff9d" }}>{kpi.milestonesAtRisk}</p>
+          <p className="text-2xl font-black" style={{ color: kpi.milestonesAtRisk ? "#ff3333" : "var(--ac)" }}>{kpi.milestonesAtRisk}</p>
           <p className="text-xs text-gray-600">{__("en retard ou < 7 j", "overdue or < 7 d")}</p>
         </div>
         <div className="cyber-card rounded-lg p-3">
@@ -382,7 +382,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
             )}
             <label className="flex items-center gap-1 text-gray-400 cursor-pointer"><input type="checkbox" checked={fLate} onChange={(e) => setFLate(e.target.checked)} /> {__("En retard", "Overdue")}</label>
             <label className="flex items-center gap-1 text-gray-400 cursor-pointer"><input type="checkbox" checked={fSoon} onChange={(e) => setFSoon(e.target.checked)} /> {__("30 prochains jours", "Next 30 days")}</label>
-            <label className="flex items-center gap-1 cursor-pointer" style={{ color: fThisWeekAndBefore ? "#00ff9d" : "#9ca3af" }}>
+            <label className="flex items-center gap-1 cursor-pointer" style={{ color: fThisWeekAndBefore ? "var(--ac)" : "#9ca3af" }}>
               <input
                 type="checkbox"
                 checked={fThisWeekAndBefore}
@@ -419,15 +419,15 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
                           onDragEnd={canWrite ? () => { setDragId(null); setDropTarget(null); } : undefined}
                           onClick={() => openDetail(card)}
                           className={`rounded p-2 cursor-pointer border-l-4 border border-gray-800 transition-all hover:border-gray-600 ${dragId === card.id ? "opacity-40" : ""}`}
-                          style={{ borderLeftColor: phaseColor(card.phase), backgroundColor: "#0d0d0d" }}
+                          style={{ borderLeftColor: phaseColor(card.phase), backgroundColor: "var(--card)" }}
                         >
                           <p className="text-xs font-bold text-white leading-snug">
                             {card.isMilestone && <span title={__("Jalon", "Milestone")}>⚠️ </span>}{card.title}
                           </p>
                           <p className="text-xs text-gray-500 mt-1 truncate">{card.pole}</p>
                           <div className="flex items-center justify-between mt-1">
-                            <span className="text-xs truncate" style={{ color: card.assigneeName ? "#00ccff" : "#555" }}>{card.assigneeName || __("non assigné", "unassigned")}</span>
-                            <span className="text-xs font-mono" style={{ color: isOverdue(card) ? "#ff3333" : "#888" }}>{fmtDate(card.dueDate)}</span>
+                            <span className="text-xs truncate" style={{ color: card.assigneeName ? "#00ccff" : "var(--txt-mute)" }}>{card.assigneeName || __("non assigné", "unassigned")}</span>
+                            <span className="text-xs font-mono" style={{ color: isOverdue(card) ? "#ff3333" : "var(--txt-dim)" }}>{fmtDate(card.dueDate)}</span>
                           </div>
                         </div>
                       ))}
@@ -706,7 +706,7 @@ function MeetingsView({
             <div className="flex items-start gap-3">
               {/* Date badge */}
               <div className="shrink-0 text-center w-16 pt-0.5">
-                <p className="text-xs font-mono mb-0.5" style={{ color: m.type === "collective" ? "#00ff9d" : "#00ccff" }}>
+                <p className="text-xs font-mono mb-0.5" style={{ color: m.type === "collective" ? "var(--ac)" : "#00ccff" }}>
                   {m.type === "collective" ? __("Collectif", "Collective") : __("Sous-éq.", "Sub-team")}
                 </p>
                 <p className="text-xs text-gray-400 font-mono">{fmtDayOfWeek(m.scheduledAt)}</p>

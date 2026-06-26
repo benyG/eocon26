@@ -190,7 +190,7 @@ function AccountModal({
           <button onClick={changePassword} disabled={pwSaving || !curPw || newPw.length < 8} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
             {pwSaving ? "…" : (lang === "en" ? "Change password" : "Changer le mot de passe")}
           </button>
-          {pwMsg && <p className="text-xs" style={{ color: pwMsg.startsWith("✓") ? "#00ff9d" : "#ff6666" }}>{pwMsg}</p>}
+          {pwMsg && <p className="text-xs" style={{ color: pwMsg.startsWith("✓") ? "var(--ac)" : "#ff6666" }}>{pwMsg}</p>}
         </div>
 
         {/* MFA */}
@@ -220,7 +220,7 @@ function AccountModal({
               {lang === "en" ? "Disable MFA" : "Désactiver le MFA"}
             </button>
           )}
-          {mfaMsg && <p className="text-xs" style={{ color: mfaMsg.startsWith("✓") ? "#00ff9d" : "#ff6666" }}>{mfaMsg}</p>}
+          {mfaMsg && <p className="text-xs" style={{ color: mfaMsg.startsWith("✓") ? "var(--ac)" : "#ff6666" }}>{mfaMsg}</p>}
         </div>
       </div>
     </div>
@@ -484,7 +484,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
             <div className="bg-black/50 border border-neon-green/30 rounded-lg p-4 mb-4">
               <p className="text-xs text-gray-500 mb-1">{lang === "en" ? "Temporary password" : "Mot de passe temporaire"}</p>
               <div className="flex items-center justify-between">
-                <span className="text-xl font-black font-mono" style={{ color: "#00ff9d", fontFamily: "'Share Tech Mono', monospace" }}>{created.tempPassword}</span>
+                <span className="text-xl font-black font-mono" style={{ color: "var(--ac)", fontFamily: "'Share Tech Mono', monospace" }}>{created.tempPassword}</span>
                 <button onClick={() => navigator.clipboard.writeText(created.tempPassword)} className="text-xs text-gray-500 hover:text-white transition-colors px-2">{lang === "en" ? "Copy" : "Copier"}</button>
               </div>
             </div>
@@ -570,7 +570,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
               <p className="text-xs text-gray-500 mb-2">{lang === "en" ? "Included access" : "Accès inclus"}</p>
               <div className="flex flex-wrap gap-1">
                 {Object.entries(selectedProfile.permissions).map(([k, v]) => (
-                  <span key={k} className="text-xs px-2 py-0.5 rounded" style={{ background: v === "write" ? "#00ff9d15" : "#0066ff15", color: v === "write" ? "#00ff9d" : "#0066ff" }}>
+                  <span key={k} className="text-xs px-2 py-0.5 rounded" style={{ background: v === "write" ? "var(--ac-bg)" : "#0066ff15", color: v === "write" ? "var(--ac)" : "#0066ff" }}>
                     {k}: {v}
                   </span>
                 ))}
@@ -887,7 +887,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
             <div className="flex items-center justify-between p-6 pb-4 border-b border-gray-800 shrink-0">
               <div>
                 <h3 className="text-white font-bold">{emailTarget.org as string}</h3>
-                <p className="text-gray-500 text-xs">{emailTarget.sector as string} · {t.package} : <span style={{ color: "#00ff9d" }}>{(emailTarget.recommendedPackage as string) || "—"}</span></p>
+                <p className="text-gray-500 text-xs">{emailTarget.sector as string} · {t.package} : <span style={{ color: "var(--ac)" }}>{(emailTarget.recommendedPackage as string) || "—"}</span></p>
               </div>
               <button onClick={() => { setEmailTarget(null); setEmailResult(null); }} className="text-gray-500 hover:text-white text-xl">✕</button>
             </div>
@@ -902,7 +902,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                   <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-gray-400 uppercase">{e.lang}</span>
-                      <button onClick={() => navigator.clipboard.writeText(`${t.emailSubjectField} : ${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>{t.close}</button>
+                      <button onClick={() => navigator.clipboard.writeText(`${t.emailSubjectField} : ${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "var(--ac)" }}>{t.close}</button>
                     </div>
                     <p className="text-white text-xs font-bold mb-2">{t.emailSubjectField} : {e.subject}</p>
                     <p className="text-gray-400 text-xs whitespace-pre-wrap leading-relaxed">{e.body}</p>
@@ -911,7 +911,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                 {canWrite && <button
                   onClick={() => addToPipeline(emailTarget)}
                   className="w-full py-2 rounded text-sm font-bold transition-all"
-                  style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }}
+                  style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "1px solid var(--ac-bdr)" }}
                 >
                   {t.addToPipeline}
                 </button>}
@@ -944,7 +944,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                   <p className="text-xs font-bold uppercase tracking-widest mb-2 text-gray-400">{lang === "en" ? "Concrete value" : "Valeur concrète"}</p>
                   <ul className="space-y-1">
                     {pitchResult.valeur.map((v, i) => (
-                      <li key={i} className="text-gray-300 text-sm flex gap-2"><span style={{ color: "#00ff9d" }}>▸</span>{v}</li>
+                      <li key={i} className="text-gray-300 text-sm flex gap-2"><span style={{ color: "var(--ac)" }}>▸</span>{v}</li>
                     ))}
                   </ul>
                 </div>
@@ -960,7 +960,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                 <div className="border border-gray-800 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs font-bold uppercase tracking-widest text-gray-400">{lang === "en" ? "Full brief" : "Brief complet"}</p>
-                    <button onClick={() => navigator.clipboard.writeText(pitchResult!.brief_complet)} className="text-xs hover:underline" style={{ color: "#00ff9d" }}>📋 {lang === "en" ? "Copy" : "Copier"}</button>
+                    <button onClick={() => navigator.clipboard.writeText(pitchResult!.brief_complet)} className="text-xs hover:underline" style={{ color: "var(--ac)" }}>📋 {lang === "en" ? "Copy" : "Copier"}</button>
                   </div>
                   <p className="text-gray-300 text-xs whitespace-pre-wrap leading-relaxed">{pitchResult.brief_complet}</p>
                 </div>
@@ -972,7 +972,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
       )}
 
       <div className="cyber-card rounded-xl p-5 mb-5">
-        <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#00ff9d" }}>
+        <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "var(--ac)" }}>
           {t.prospectionStep1}
         </h2>
         <div className="flex gap-2 mb-4">
@@ -1057,13 +1057,13 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                     <p className="text-gray-500 text-xs mt-0.5">{lead.sector as string}{lead.city ? ` · ${lead.city}` : ""}</p>
                   )}
                   <div className="flex gap-1.5 flex-wrap mt-1.5">
-                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.contactEmail ? "#00ff9d20" : "#ff006615", color: lead.contactEmail ? "#00ff9d" : "#ff0066" }}>📧 email</span>
-                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.phone ? "#00ff9d20" : "#ff006615", color: lead.phone ? "#00ff9d" : "#ff0066" }}>📞 tel</span>
-                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.contactName ? "#00ff9d20" : "#ff006615", color: lead.contactName ? "#00ff9d" : "#ff0066" }}>👤 contact</span>
-                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.website ? "#00ff9d20" : "#ff006615", color: lead.website ? "#00ff9d" : "#ff0066" }}>🌐 web</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.contactEmail ? "var(--ac-bg)" : "#ff006615", color: lead.contactEmail ? "var(--ac)" : "#ff0066" }}>📧 email</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.phone ? "var(--ac-bg)" : "#ff006615", color: lead.phone ? "var(--ac)" : "#ff0066" }}>📞 tel</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.contactName ? "var(--ac-bg)" : "#ff006615", color: lead.contactName ? "var(--ac)" : "#ff0066" }}>👤 contact</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: lead.website ? "var(--ac-bg)" : "#ff006615", color: lead.website ? "var(--ac)" : "#ff0066" }}>🌐 web</span>
                   </div>
                   {!!lead.contactName && (
-                    <p className="text-xs mt-1" style={{ color: "#00ff9d" }}>
+                    <p className="text-xs mt-1" style={{ color: "var(--ac)" }}>
                       👤 {lead.contactName as string}{lead.contactTitle ? ` — ${lead.contactTitle}` : ""}
                     </p>
                   )}
@@ -1948,7 +1948,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                     <div key={post.id as number} className="border border-gray-800 rounded-lg p-3 space-y-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={{ background: platformColor + "20", color: platformColor }}>{post.platform as string}</span>
-                        <span className="text-xs px-1.5 py-0.5 rounded font-mono uppercase" style={{ background: "#ffffff10", color: "#aaa" }}>{post.lang as string}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded font-mono uppercase" style={{ background: "var(--bdr)", color: "var(--txt-2)" }}>{post.lang as string}</span>
                         <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={{ background: color + "20", color }}>{post.status as string}</span>
                         {!!post.scheduledAt && <span className="text-xs text-gray-600">📅 {new Date(post.scheduledAt as string).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>}
                       </div>
@@ -2844,7 +2844,7 @@ function TaskCard({
           </div>
           <div className="flex flex-wrap items-center gap-1 text-xs">
             {showPhase && !!t.phase && (
-              <span className="px-1.5 py-0.5 rounded" style={{ background: "#ffffff10", color: "#aaa" }}>{t.phase as string}</span>
+              <span className="px-1.5 py-0.5 rounded" style={{ background: "var(--bdr)", color: "var(--txt-2)" }}>{t.phase as string}</span>
             )}
             {!!t.category && (
               <span className="text-gray-500">{t.category as string}</span>
@@ -3047,7 +3047,7 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
                             {t.title as string}
                           </div>
                           <div className="flex flex-wrap items-center gap-1 text-xs mb-1">
-                            <span className="px-1.5 py-0.5 rounded" style={{ background: "#ffffff10", color: "#aaa" }}>{t.phase as string}</span>
+                            <span className="px-1.5 py-0.5 rounded" style={{ background: "var(--bdr)", color: "var(--txt-2)" }}>{t.phase as string}</span>
                             <span className="px-1.5 py-0.5 rounded font-bold" style={{ color: PRIORITY_COLORS[(t.priority as string) || "medium"], background: (PRIORITY_COLORS[(t.priority as string) || "medium"]) + "20" }}>
                               {(t.priority as string || "medium").toUpperCase()}
                             </span>
@@ -4337,7 +4337,7 @@ function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
               : type === "sponsor" ? "url_sponsor"
               : "url_programme";
             return (
-              <div key={type} className="rounded p-2" style={{ background: "#111", border: "1px solid #1a1a2e" }}>
+              <div key={type} className="rounded p-2" style={{ background: "var(--card)", border: "1px solid var(--bdr)" }}>
                 <div className="text-xs text-gray-400 mb-1">{icon} {label}</div>
                 <div className="text-xs font-mono text-neon-green truncate" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
                   {settings[urlKey] || "—"}

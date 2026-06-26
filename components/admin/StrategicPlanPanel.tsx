@@ -147,13 +147,13 @@ const HASHTAGS = [
 const PRIORITY_LABELS: Record<Priority, { label_fr: string; label_en: string; color: string }> = {
   1: { label_fr: "Haute",   label_en: "High",   color: "#ff0066" },
   2: { label_fr: "Moyenne", label_en: "Medium", color: "#ffaa00" },
-  3: { label_fr: "Basse",   label_en: "Low",    color: "#888" },
+  3: { label_fr: "Basse",   label_en: "Low",    color: "var(--txt-dim)" },
 };
 
 const STATUS_OPTIONS = [
-  { value: "todo" as ChannelStatus, label_fr: "À faire",  label_en: "To do",       color: "#555",    icon: "○" },
+  { value: "todo" as ChannelStatus, label_fr: "À faire",  label_en: "To do",       color: "var(--txt-mute)",    icon: "○" },
   { value: "in-progress" as ChannelStatus, label_fr: "En cours", label_en: "In progress", color: "#ffaa00", icon: "◑" },
-  { value: "done" as ChannelStatus, label_fr: "Fait",     label_en: "Done",        color: "#00ff9d", icon: "●" },
+  { value: "done" as ChannelStatus, label_fr: "Fait",     label_en: "Done",        color: "var(--ac)", icon: "●" },
 ];
 
 // ─── PriorityBadge ───────────────────────────────────────────────────────────
@@ -227,7 +227,7 @@ function ChannelCard({
   const displayUrl = localUrl || channel.defaultUrl || "";
 
   return (
-    <div className="rounded-xl overflow-hidden transition-all" style={{ background: "#111", border: `1px solid ${expanded ? "#00ff9d25" : "#1a1a1a"}` }}>
+    <div className="rounded-xl overflow-hidden transition-all" style={{ background: "var(--card)", border: `1px solid ${expanded ? "var(--ac-bdr)" : "var(--bdr)"}` }}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3" style={{ cursor: "pointer" }} onClick={onToggle}>
         <span className="text-gray-600 shrink-0 text-xs select-none">{expanded ? "▼" : "▶"}</span>
@@ -264,9 +264,9 @@ function ChannelCard({
             title={__("Générer contenu avec IA", "Generate content with AI")}
             className="text-xs px-2.5 py-1 rounded font-mono transition-all shrink-0"
             style={{
-              background: isGenerating ? "#cc00ff20" : aiResult ? "#00ff9d10" : "#1a1a1a",
-              color: isGenerating ? "#cc00ff" : aiResult ? "#00ff9d" : "#666",
-              border: `1px solid ${isGenerating ? "#cc00ff50" : aiResult ? "#00ff9d30" : "#333"}`,
+              background: isGenerating ? "#cc00ff20" : aiResult ? "var(--ac-bg)" : "var(--card2)",
+              color: isGenerating ? "#cc00ff" : aiResult ? "var(--ac)" : "var(--txt-dim)",
+              border: `1px solid ${isGenerating ? "#cc00ff50" : aiResult ? "var(--ac-bdr)" : "var(--bdr-2)"}`,
               cursor: anyGenerating ? "not-allowed" : "pointer",
             }}
           >
@@ -286,7 +286,7 @@ function ChannelCard({
                 <button
                   onClick={() => setDeleteConfirm(false)}
                   className="text-xs px-2 py-1 rounded"
-                  style={{ background: "#1a1a1a", color: "#555" }}
+                  style={{ background: "var(--card2)", color: "var(--txt-mute)" }}
                 >
                   {__("Non", "No")}
                 </button>
@@ -307,7 +307,7 @@ function ChannelCard({
 
       {/* Expanded body */}
       {expanded && (
-        <div className="px-4 pb-4 space-y-4" style={{ borderTop: "1px solid #1a1a1a" }}>
+        <div className="px-4 pb-4 space-y-4" style={{ borderTop: "1px solid var(--bdr)" }}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3 text-xs">
             <div>
               <div className="text-gray-600 mb-1">{__("Objectif", "Objective")}</div>
@@ -334,7 +334,7 @@ function ChannelCard({
                 placeholder={channel.defaultUrl || "https://..."}
                 disabled={!canWrite}
                 className="flex-1 text-xs rounded-lg px-3 py-2 text-white placeholder-gray-700 outline-none"
-                style={{ background: "#0a0a0a", border: "1px solid #222" }}
+                style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
               />
               {displayUrl && (
                 <a
@@ -342,7 +342,7 @@ function ChannelCard({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs px-3 py-2 rounded-lg shrink-0 flex items-center"
-                  style={{ background: "#0a0a0a", color: "#555", border: "1px solid #222" }}
+                  style={{ background: "var(--card)", color: "var(--txt-mute)", border: "1px solid var(--bdr-3)" }}
                   title={__("Ouvrir", "Open")}
                 >
                   ↗
@@ -357,9 +357,9 @@ function ChannelCard({
             disabled={anyGenerating}
             className="w-full py-2.5 rounded-lg text-sm font-medium transition-all"
             style={{
-              background: isGenerating ? "#cc00ff10" : "#0a0a0a",
-              color: isGenerating ? "#cc00ff" : "#888",
-              border: `1px solid ${isGenerating ? "#cc00ff40" : "#222"}`,
+              background: isGenerating ? "#cc00ff10" : "var(--card)",
+              color: isGenerating ? "#cc00ff" : "var(--txt-dim)",
+              border: `1px solid ${isGenerating ? "#cc00ff40" : "var(--bdr-3)"}`,
               cursor: anyGenerating ? "not-allowed" : "pointer",
             }}
           >
@@ -368,8 +368,8 @@ function ChannelCard({
 
           {/* AI result */}
           {aiResult && (
-            <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #00ff9d20", background: "#0a0a0a" }}>
-              <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: "1px solid #1a1a1a" }}>
+            <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--ac-bdr)", background: "var(--card)" }}>
+              <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: "1px solid var(--bdr)" }}>
                 <div className="flex gap-1">
                   {(["fr", "en"] as const).map(lang => (
                     <button
@@ -377,8 +377,8 @@ function ChannelCard({
                       onClick={() => setAiLang(lang)}
                       className="text-xs px-3 py-1 rounded uppercase tracking-wider"
                       style={{
-                        background: aiLang === lang ? "#00ff9d20" : "transparent",
-                        color: aiLang === lang ? "#00ff9d" : "#555",
+                        background: aiLang === lang ? "var(--ac-bg)" : "transparent",
+                        color: aiLang === lang ? "var(--ac)" : "var(--txt-mute)",
                         border: `1px solid ${aiLang === lang ? "#00ff9d40" : "transparent"}`,
                       }}
                     >
@@ -389,7 +389,7 @@ function ChannelCard({
                 <button
                   onClick={copy}
                   className="text-xs px-3 py-1 rounded transition-colors"
-                  style={{ background: copied ? "#00ff9d20" : "#1a1a1a", color: copied ? "#00ff9d" : "#666", border: "1px solid #333" }}
+                  style={{ background: copied ? "var(--ac-bg)" : "var(--card2)", color: copied ? "var(--ac)" : "var(--txt-dim)", border: "1px solid var(--bdr-2)" }}
                 >
                   {copied ? __("Copié !", "Copied!") : __("Copier", "Copy")}
                 </button>
@@ -447,8 +447,8 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.85)" }}>
-      <div className="w-full max-w-lg rounded-xl overflow-hidden" style={{ background: "#0d0d0d", border: "1px solid #00ff9d30" }}>
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid #1a1a1a" }}>
+      <div className="w-full max-w-lg rounded-xl overflow-hidden" style={{ background: "var(--card)", border: "1px solid var(--ac-bdr)" }}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--bdr)" }}>
           <div className="text-white font-bold">{__("Ajouter un canal", "Add a channel")}</div>
           <button onClick={onClose} className="text-gray-500 hover:text-white text-lg">✕</button>
         </div>
@@ -462,7 +462,7 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
                 onChange={e => setForm(f => ({ ...f, platform: e.target.value }))}
                 placeholder={__("ex: Substack, Medium...", "e.g. Substack, Medium...")}
                 className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
-                style={{ background: "#111", border: "1px solid #222" }}
+                style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
               />
             </div>
             <div>
@@ -474,7 +474,7 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
                 onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
                 placeholder={__("ex: Réseaux sociaux...", "e.g. Social networks...")}
                 className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
-                style={{ background: "#111", border: "1px solid #222" }}
+                style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
               />
               <datalist id="cat-options">
                 {existingCategories.map(c => <option key={c} value={c} />)}
@@ -489,7 +489,7 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
               onChange={e => setForm(f => ({ ...f, objective: e.target.value }))}
               placeholder={__("ex: Attirer sponsors B2B francophones", "e.g. Attract B2B sponsors")}
               className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
-              style={{ background: "#111", border: "1px solid #222" }}
+              style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
             />
           </div>
           <div>
@@ -500,7 +500,7 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
               onChange={e => setForm(f => ({ ...f, what: e.target.value }))}
               placeholder={__("ex: Annonce générale + CTA inscription", "e.g. General announcement + registration CTA")}
               className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
-              style={{ background: "#111", border: "1px solid #222" }}
+              style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
             />
           </div>
           <div>
@@ -511,7 +511,7 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
               onChange={e => setForm(f => ({ ...f, action: e.target.value }))}
               placeholder={__("ex: Envoyer communiqué presse", "e.g. Send press release")}
               className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
-              style={{ background: "#111", border: "1px solid #222" }}
+              style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -523,7 +523,7 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
                 onChange={e => setForm(f => ({ ...f, defaultUrl: e.target.value }))}
                 placeholder="https://..."
                 className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
-                style={{ background: "#111", border: "1px solid #222" }}
+                style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
               />
             </div>
             <div>
@@ -532,7 +532,7 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
                 value={form.priority}
                 onChange={e => setForm(f => ({ ...f, priority: Number(e.target.value) as Priority }))}
                 className="w-full text-sm rounded-lg px-3 py-2 text-white outline-none"
-                style={{ background: "#111", border: "1px solid #222" }}
+                style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
               >
                 <option value={1}>{__("P1 — Haute", "P1 — High")}</option>
                 <option value={2}>{__("P2 — Moyenne", "P2 — Medium")}</option>
@@ -541,13 +541,13 @@ function AddChannelModal({ onAdd, onClose, existingCategories }: {
             </div>
           </div>
         </div>
-        <div className="px-5 py-3 flex justify-end gap-2" style={{ borderTop: "1px solid #1a1a1a" }}>
-          <button onClick={onClose} className="text-sm px-4 py-2 rounded" style={{ background: "#1a1a1a", color: "#888" }}>{__("Annuler", "Cancel")}</button>
+        <div className="px-5 py-3 flex justify-end gap-2" style={{ borderTop: "1px solid var(--bdr)" }}>
+          <button onClick={onClose} className="text-sm px-4 py-2 rounded" style={{ background: "var(--card2)", color: "var(--txt-dim)" }}>{__("Annuler", "Cancel")}</button>
           <button
             onClick={submit}
             disabled={!valid}
             className="text-sm px-4 py-2 rounded font-medium"
-            style={{ background: valid ? "#00ff9d20" : "#111", color: valid ? "#00ff9d" : "#444", border: `1px solid ${valid ? "#00ff9d40" : "#222"}` }}
+            style={{ background: valid ? "var(--ac-bg)" : "var(--card)", color: valid ? "var(--ac)" : "var(--txt-mute)", border: `1px solid ${valid ? "#00ff9d40" : "var(--bdr-3)"}` }}
           >
             {__("Ajouter", "Add")}
           </button>
@@ -699,7 +699,7 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
           <p className="text-gray-500 text-sm mt-1">{__("Plan de diffusion & communication EOCON 2026", "EOCON 2026 distribution & communication plan")}</p>
         </div>
         <div className="text-right shrink-0">
-          <div className="text-3xl font-black" style={{ color: progressPct >= 70 ? "#00ff9d" : progressPct >= 30 ? "#ffaa00" : "#ff0066", fontFamily: "'Share Tech Mono', monospace" }}>
+          <div className="text-3xl font-black" style={{ color: progressPct >= 70 ? "var(--ac)" : progressPct >= 30 ? "#ffaa00" : "#ff0066", fontFamily: "'Share Tech Mono', monospace" }}>
             {progressPct}%
           </div>
           <div className="text-xs text-gray-500">{done} / {total} {__("canaux activés", "channels activated")}</div>
@@ -707,8 +707,8 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
       </div>
 
       {/* Progress bar */}
-      <div className="rounded-lg overflow-hidden" style={{ height: 6, background: "#1a1a1a" }}>
-        <div className="h-full transition-all duration-500" style={{ width: `${progressPct}%`, background: progressPct >= 70 ? "#00ff9d" : progressPct >= 30 ? "#ffaa00" : "#ff0066" }} />
+      <div className="rounded-lg overflow-hidden" style={{ height: 6, background: "var(--card2)" }}>
+        <div className="h-full transition-all duration-500" style={{ width: `${progressPct}%`, background: progressPct >= 70 ? "var(--ac)" : progressPct >= 30 ? "#ffaa00" : "#ff0066" }} />
       </div>
 
       {/* Stats */}
@@ -716,9 +716,9 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
         {[
           { label_fr: "Fait",     label_en: "Done",        value: done,                        color: "#00ff9d" },
           { label_fr: "En cours", label_en: "In progress", value: inProgress,                  color: "#ffaa00" },
-          { label_fr: "À faire",  label_en: "To do",       value: total - done - inProgress,   color: "#555" },
+          { label_fr: "À faire",  label_en: "To do",       value: total - done - inProgress,   color: "var(--txt-mute)" },
         ].map(s => (
-          <div key={s.label_fr} className="rounded-xl p-4 text-center" style={{ background: "#111", border: "1px solid #1a1a1a" }}>
+          <div key={s.label_fr} className="rounded-xl p-4 text-center" style={{ background: "var(--card)", border: "1px solid var(--bdr)" }}>
             <div className="text-2xl font-black mb-1" style={{ color: s.color, fontFamily: "'Share Tech Mono', monospace" }}>{s.value}</div>
             <div className="text-xs text-gray-500 uppercase tracking-wider">{__(s.label_fr, s.label_en)}</div>
           </div>
@@ -726,15 +726,15 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 flex-wrap" style={{ borderBottom: "1px solid #1a1a1a" }}>
+      <div className="flex gap-1 flex-wrap" style={{ borderBottom: "1px solid var(--bdr)" }}>
         {SUB_TABS.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className="px-4 py-2.5 text-sm font-medium transition-all rounded-t-lg"
             style={{
-              background: activeTab === tab.id ? "#0d0d0d" : "transparent",
-              color: activeTab === tab.id ? "#00ff9d" : "#555",
+              background: activeTab === tab.id ? "var(--card2)" : "transparent",
+              color: activeTab === tab.id ? "var(--ac)" : "var(--txt-mute)",
               borderBottom: activeTab === tab.id ? "2px solid #00ff9d" : "2px solid transparent",
             }}
           >
@@ -753,13 +753,13 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="flex-1 min-w-40 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none"
-              style={{ background: "#111", border: "1px solid #222" }}
+              style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
             />
             <select
               value={priorityFilter}
               onChange={e => setPriorityFilter(Number(e.target.value) as Priority | 0)}
               className="rounded-lg px-3 py-2 text-sm text-white outline-none"
-              style={{ background: "#111", border: "1px solid #222" }}
+              style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
             >
               <option value={0}>{__("Toutes priorités", "All priorities")}</option>
               <option value={1}>{__("P1 — Haute", "P1 — High")}</option>
@@ -770,7 +770,7 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
               value={categoryFilter}
               onChange={e => setCategoryFilter(e.target.value)}
               className="rounded-lg px-3 py-2 text-sm text-white outline-none"
-              style={{ background: "#111", border: "1px solid #222" }}
+              style={{ background: "var(--card)", border: "1px solid var(--bdr-3)" }}
             >
               <option value="">{__("Toutes catégories", "All categories")}</option>
               {categories.map(c => <option key={c} value={c}>{c}</option>)}
@@ -779,7 +779,7 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
               <button
                 onClick={() => setShowAddModal(true)}
                 className="px-4 py-2 rounded-lg text-sm font-medium shrink-0 transition-colors"
-                style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}
+                style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "1px solid var(--ac-bdr)" }}
               >
                 + {__("Ajouter", "Add")}
               </button>
@@ -818,7 +818,7 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
             const colors = ["#00ff9d", "#cc00ff", "#ffaa00", "#ff6600", "#00ccff", "#0066ff", "#ff0066", "#888"];
             const color = colors[ph.phase - 1];
             return (
-              <div key={ph.phase} className="flex gap-4 rounded-xl p-4" style={{ background: "#111", border: `1px solid ${color}25` }}>
+              <div key={ph.phase} className="flex gap-4 rounded-xl p-4" style={{ background: "var(--card)", border: `1px solid ${color}25` }}>
                 <div className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-black text-sm" style={{ background: color + "20", color, border: `1px solid ${color}50`, fontFamily: "'Share Tech Mono', monospace" }}>
                   {ph.phase}
                 </div>
@@ -829,7 +829,7 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
                   </div>
                   <div className="text-xs text-gray-500 flex flex-wrap gap-1">
                     {ph.platforms.split(", ").map(p => (
-                      <span key={p} className="px-2 py-0.5 rounded" style={{ background: "#1a1a1a", border: "1px solid #2a2a2a" }}>{p}</span>
+                      <span key={p} className="px-2 py-0.5 rounded" style={{ background: "var(--card2)", border: "1px solid var(--bdr-2)" }}>{p}</span>
                     ))}
                   </div>
                 </div>
@@ -844,7 +844,7 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
         <div className="space-y-4">
           <div className="text-xs text-gray-500">{__("Cliquez sur un hashtag pour le copier.", "Click a hashtag to copy it.")}</div>
           {HASHTAGS.map(grp => (
-            <div key={grp.group} className="rounded-xl p-4" style={{ background: "#111", border: `1px solid ${grp.color}25` }}>
+            <div key={grp.group} className="rounded-xl p-4" style={{ background: "var(--card)", border: `1px solid ${grp.color}25` }}>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-sm font-bold" style={{ color: grp.color }}>{grp.group}</span>
                 <button
@@ -869,11 +869,11 @@ export default function StrategicPlanPanel({ canWrite = true }: { canWrite?: boo
               </div>
             </div>
           ))}
-          <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #1a1a1a" }}>
+          <div className="rounded-xl p-4" style={{ background: "var(--card)", border: "1px solid var(--bdr)" }}>
             <button
               onClick={() => navigator.clipboard.writeText(HASHTAGS.flatMap(g => g.tags).join(" "))}
               className="text-xs px-4 py-2 rounded-lg w-full"
-              style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}
+              style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "1px solid var(--ac-bdr)" }}
             >
               {__("Copier tous les hashtags", "Copy all hashtags")} ({HASHTAGS.flatMap(g => g.tags).length})
             </button>

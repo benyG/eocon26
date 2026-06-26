@@ -74,7 +74,7 @@ SET @__fk2 = (
     AND CONSTRAINT_NAME = 'session_plannings_session_id_fkey'
 );
 SET @__sql2 = IF(@__fk2 = 0,
-  'ALTER TABLE `session_plannings` ADD CONSTRAINT `session_plannings_session_id_fkey` FOREIGN KEY (`session_id`) REFERENCES `conference_sessions`(`id`) ON DELETE CASCADE ON UPDATE CASCADE',
+  'ALTER TABLE `session_plannings` ADD CONSTRAINT `session_plannings_session_id_fkey` FOREIGN KEY (`session_id`) REFERENCES `sessions`(`id`) ON DELETE CASCADE ON UPDATE CASCADE',
   'SELECT 1'
 );
 PREPARE __stmt2 FROM @__sql2;

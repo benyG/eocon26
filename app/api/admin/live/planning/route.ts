@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
 import { logAction } from "@/lib/auditLog";
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
       restreamEventId: body.restreamEventId ?? null,
       technicienIds: body.technicienIds ?? [],
       moderateurIds: body.moderateurIds ?? [],
-      panelistesExtra: body.panelistesExtra ?? [],
+      panelistesExtra: (body.panelistesExtra ?? []) as Prisma.InputJsonValue[],
     },
     update: {
       ...(body.roomId          !== undefined ? { roomId:          body.roomId          } : {}),
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
       ...(body.restreamEventId !== undefined ? { restreamEventId: body.restreamEventId } : {}),
       ...(body.technicienIds   !== undefined ? { technicienIds:   body.technicienIds   } : {}),
       ...(body.moderateurIds   !== undefined ? { moderateurIds:   body.moderateurIds   } : {}),
-      ...(body.panelistesExtra !== undefined ? { panelistesExtra: body.panelistesExtra } : {}),
+      ...(body.panelistesExtra !== undefined ? { panelistesExtra: body.panelistesExtra as Prisma.InputJsonValue[] } : {}),
     },
     include: {
       session: { select: { id: true, title: true, date: true, time: true, type: true, speakerName: true } },

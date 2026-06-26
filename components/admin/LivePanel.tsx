@@ -151,9 +151,47 @@ interface StreamingTeamConfig {
 }
 const EMPTY_TEAM: StreamingTeamConfig = { sessionTitle: "", sessionTime: "", studioLink: "", moderator: null, speakers: [], techContact: "" };
 
+interface StreamingRoom {
+  id: string;
+  name: string;
+  type: "conference" | "workshop";
+  guestLink: string;
+  jaasRoom: string;
+  sortOrder: number;
+}
+
+interface PanelisteExtra {
+  name: string;
+  email: string;
+  lang: "fr" | "en";
+}
+
+interface SessionPlanning {
+  id?: number;
+  sessionId: number;
+  roomId: string | null;
+  lienWebinaire: string;
+  lienLive: string;
+  restreamEventId: string | null;
+  technicienIds: number[];
+  moderateurIds: number[];
+  panelistesExtra: PanelisteExtra[];
+  notifiedAt?: string | null;
+}
+
+interface AllSession {
+  id: number;
+  title: string;
+  time: string | null;
+  date: string | null;
+  type: string | null;
+  speakerName: string | null;
+  liveUrl: string | null;
+}
+
 export default function LivePanel({ canWrite }: { canWrite: boolean }) {
   const __ = useLang();
-  const [mode, setMode] = useState<"live" | "config">("live");
+  const [mode, setMode] = useState<"live" | "planning" | "config">("live");
   const [qaFilter, setQaFilter] = useState<"pending" | "approved" | "answered">("pending");
   const [showGuide, setShowGuide] = useState(false);
 
@@ -218,6 +256,23 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
   const [jaas, setJaas]           = useState<JaasConfig>({ appId: "", apiKey: "", privateKey: "" });
   const [jaasSaving, setJaasSaving] = useState(false);
   const [jaasSaved, setJaasSaved] = useState(false);
+
+  // ── Planification session ─────────────────────────────────────────────────
+  const [allSessions, setAllSessions]         = useState<AllSession[]>([]);
+  const [rooms, setRooms]                     = useState<StreamingRoom[]>([]);
+  const [selectedPlanSession, setSelectedPlanSession] = useState<AllSession | null>(null);
+  const [planning, setPlanning]               = useState<SessionPlanning>({ sessionId: 0, roomId: null, lienWebinaire: "", lienLive: "", restreamEventId: null, technicienIds: [], moderateurIds: [], panelistesExtra: [] });
+  const [planningSaving, setPlanningSaving]   = useState(false);
+  const [planningSaved, setPlanningSaved]     = useState(false);
+  const [planningLoading, setPlanningLoading] = useState(false);
+  const [notifying, setNotifying]             = useState(false);
+  const [notifyResult, setNotifyResult]       = useState<string | null>(null);
+  const [creatingLiveUrl, setCreatingLiveUrl] = useState(false);
+
+  // ── Rooms config ──────────────────────────────────────────────────────────
+  const [roomsLoading, setRoomsLoading]       = useState(false);
+  const [newRoom, setNewRoom]                 = useState<{ name: string; type: "conference" | "workshop"; guestLink: string }>({ name: "", type: "conference", guestLink: "" });
+  const [roomSaving, setRoomSaving]           = useState(false);
 
   // ── Loaders ───────────────────────────────────────────────────────────────
   const loadSettings = useCallback(async () => {
@@ -364,6 +419,38 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
     } finally { setWsLoading(false); }
   }, []);
 
+  const loadAllSessions = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/sessions");
+      if (res.ok) setAllSessions(await res.json());
+    } catch { /* non-blocking */ }
+  }, []);
+
+  const loadRooms = useCallback(async () => {
+    setRoomsLoading(true);
+    try {
+      const res = await fetch("/api/admin/live/rooms");
+      if (res.ok) setRooms(await res.json());
+    } finally { setRoomsLoading(false); }
+  }, []);
+
+  const loadPlanningForSession = useCallback(async (sessionId: number) => {
+    setPlanningLoading(true);
+    setNotifyResult(null);
+    try {
+      const res = await fetch("/api/admin/live/planning");
+      if (res.ok) {
+        const all: SessionPlanning[] = await res.json();
+        const found = all.find(p => p.sessionId === sessionId);
+        if (found) {
+          setPlanning(found);
+        } else {
+          setPlanning({ sessionId, roomId: null, lienWebinaire: "", lienLive: "", restreamEventId: null, technicienIds: [], moderateurIds: [], panelistesExtra: [] });
+        }
+      }
+    } finally { setPlanningLoading(false); }
+  }, []);
+
   const loadDashboard = useCallback(async () => {
     setStatsLoading(true);
     try {
@@ -378,7 +465,8 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
 
   useEffect(() => { loadSettings(); }, [loadSettings]);
   useEffect(() => { loadDashboard(); loadQuestions(); loadRestreamStatus(); }, [loadDashboard, loadQuestions, loadRestreamStatus]);
-  useEffect(() => { if (mode === "config") { loadWorkshops(); loadStreamingTeam(); loadOverlays(); } }, [mode, loadWorkshops, loadStreamingTeam, loadOverlays]);
+  useEffect(() => { if (mode === "config") { loadWorkshops(); loadStreamingTeam(); loadOverlays(); loadRooms(); } }, [mode, loadWorkshops, loadStreamingTeam, loadOverlays, loadRooms]);
+  useEffect(() => { if (mode === "planning") { loadAllSessions(); loadRooms(); loadStreamingTeam(); } }, [mode, loadAllSessions, loadRooms, loadStreamingTeam]);
 
   useEffect(() => {
     if (mode !== "live") return;
@@ -430,6 +518,71 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
       });
       if (res.ok) { setJaasSaved(true); setTimeout(() => setJaasSaved(false), 2000); }
     } finally { setJaasSaving(false); }
+  };
+
+  const savePlanning = async () => {
+    setPlanningSaving(true); setPlanningSaved(false);
+    try {
+      const method = planning.id ? "PATCH" : "POST";
+      const url = planning.id ? `/api/admin/live/planning/${planning.id}` : "/api/admin/live/planning";
+      const res = await fetch(url, {
+        method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(planning),
+      });
+      if (res.ok) {
+        const saved = await res.json();
+        setPlanning(p => ({ ...p, id: saved.id ?? p.id }));
+        setPlanningSaved(true);
+        setTimeout(() => setPlanningSaved(false), 2000);
+      }
+    } finally { setPlanningSaving(false); }
+  };
+
+  const notifyTeam = async () => {
+    if (!planning.id) return;
+    setNotifying(true); setNotifyResult(null);
+    try {
+      const res = await fetch(`/api/admin/live/planning/${planning.id}/notify`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (res.ok) setNotifyResult(data?.message ?? __("Notifications envoyées ✓", "Notifications sent ✓"));
+      else setNotifyResult(`❌ ${data?.error ?? "Erreur"}`);
+    } finally { setNotifying(false); }
+  };
+
+  const createRestreamLiveUrl = async () => {
+    if (!selectedPlanSession) return;
+    setCreatingLiveUrl(true);
+    try {
+      const res = await fetch("/api/admin/live/restream/create-event", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionTitle: selectedPlanSession.title }),
+      });
+      const data = await res.json().catch(() => null);
+      if (data?.liveUrl) setPlanning(p => ({ ...p, lienLive: data.liveUrl }));
+    } finally { setCreatingLiveUrl(false); }
+  };
+
+  const addRoom = async () => {
+    if (!newRoom.name) return;
+    setRoomSaving(true);
+    try {
+      const jaasRoom = newRoom.type === "workshop"
+        ? `EOCON-${newRoom.name.toUpperCase().replace(/\s+/g, "-")}`
+        : "";
+      const res = await fetch("/api/admin/live/rooms", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...newRoom, jaasRoom, sortOrder: rooms.length }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setRooms(r => [...r, created]);
+        setNewRoom({ name: "", type: "conference", guestLink: "" });
+      }
+    } finally { setRoomSaving(false); }
+  };
+
+  const deleteRoom = async (id: string) => {
+    const res = await fetch(`/api/admin/live/rooms/${id}`, { method: "DELETE" });
+    if (res.ok) setRooms(r => r.filter(rm => rm.id !== id));
   };
 
   const addWorkshop        = () => setEditWs({ ...EMPTY_WORKSHOP, id: Date.now().toString() });
@@ -492,7 +645,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
       {showGuide && <StreamingGuide onClose={() => setShowGuide(false)} />}
 
       {/* Mode toggle */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 32, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 32, alignItems: "center", flexWrap: "wrap" }}>
         <button style={MODE_BTN(mode === "live", "#ff4444")} onClick={() => setMode("live")}>
           🔴 {__("En direct", "Live")}
           {(stats?.onlineCount ?? 0) > 0 && (
@@ -501,6 +654,9 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
           {pendingCount > 0 && (
             <span style={{ marginLeft: 4, background: "#ffaa00", color: "#000", borderRadius: 10, padding: "1px 6px", fontSize: 10 }}>{pendingCount} Q</span>
           )}
+        </button>
+        <button style={MODE_BTN(mode === "planning", "#00cc88")} onClick={() => setMode("planning")}>
+          📅 {__("Planification session", "Session planning")}
         </button>
         <button style={MODE_BTN(mode === "config", "#4488ff")} onClick={() => setMode("config")}>
           ⚙️ {__("Configuration", "Configuration")}
@@ -716,12 +872,385 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
         </div>
       )}
 
+      {/* ══ MODE PLANIFICATION SESSION ══════════════════════════════════════ */}
+      {mode === "planning" && (
+        <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 24, alignItems: "flex-start" }}>
+
+          {/* ── Left: Session list ─────────────────────────────────────────── */}
+          <div>
+            <div style={{ fontSize: 10, color: "#00cc88", letterSpacing: 3, marginBottom: 12 }}>📋 {__("SESSIONS", "SESSIONS")}</div>
+            {allSessions.length === 0 ? (
+              <p style={{ fontSize: 12, color: "var(--txt-mute)" }}>{__("Aucune session.", "No sessions.")}</p>
+            ) : (
+              allSessions.map(sess => {
+                const isSelected = selectedPlanSession?.id === sess.id;
+                const typeColor = sess.type === "keynote" ? "#ffaa00" : sess.type === "workshop" ? "#9b59ff" : sess.type === "talk" ? "#4488ff" : "#888";
+                return (
+                  <div
+                    key={sess.id}
+                    onClick={() => {
+                      setSelectedPlanSession(sess);
+                      loadPlanningForSession(sess.id);
+                    }}
+                    style={{
+                      background: isSelected ? "#00cc8812" : "var(--card)",
+                      border: `1px solid ${isSelected ? "#00cc8840" : "var(--bdr)"}`,
+                      borderRadius: 8, padding: "10px 14px", marginBottom: 8,
+                      cursor: "pointer", transition: "all .15s",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      {sess.time && <span style={{ fontSize: 10, color: "var(--txt-dim)", fontFamily: "'Courier New', monospace", flexShrink: 0 }}>{sess.time}</span>}
+                      {sess.type && <span style={{ fontSize: 9, color: typeColor, background: `${typeColor}20`, borderRadius: 4, padding: "1px 6px", letterSpacing: 1, textTransform: "uppercase" }}>{sess.type}</span>}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--txt)", fontWeight: 600, lineHeight: 1.3, marginBottom: 2 }}>{sess.title}</div>
+                    {sess.speakerName && <div style={{ fontSize: 10, color: "var(--txt-mute)" }}>👤 {sess.speakerName}</div>}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* ── Right: Planning form ───────────────────────────────────────── */}
+          <div>
+            {!selectedPlanSession ? (
+              <div style={{ background: "var(--card)", border: "1px solid var(--bdr)", borderRadius: 10, padding: 32, textAlign: "center" }}>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>📅</div>
+                <p style={{ fontSize: 13, color: "var(--txt-mute)" }}>{__("Sélectionnez une session pour configurer sa planification.", "Select a session to configure its planning.")}</p>
+              </div>
+            ) : planningLoading ? (
+              <p style={{ fontSize: 12, color: "var(--txt-mute)" }}>{__("Chargement…", "Loading…")}</p>
+            ) : (
+              <div style={{ background: "var(--card)", border: "1px solid #00cc8820", borderRadius: 10, padding: 24 }}>
+                <div style={{ fontSize: 10, color: "#00cc88", letterSpacing: 3, marginBottom: 16 }}>📅 {__("PLANIFICATION — ", "PLANNING — ")}{selectedPlanSession.title}</div>
+
+                {/* Read-only session info */}
+                <div style={{ background: "var(--card2)", border: "1px solid var(--bdr)", borderRadius: 8, padding: 14, marginBottom: 20 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                    <div>
+                      <div style={{ fontSize: 10, color: "var(--txt-mute)", marginBottom: 2 }}>{__("Titre", "Title")}</div>
+                      <div style={{ fontSize: 12, color: "var(--txt)", fontWeight: 600 }}>{selectedPlanSession.title}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: "var(--txt-mute)", marginBottom: 2 }}>{__("Date / Heure", "Date / Time")}</div>
+                      <div style={{ fontSize: 12, color: "var(--txt)", fontFamily: "'Courier New', monospace" }}>
+                        {selectedPlanSession.date ?? "—"} {selectedPlanSession.time ?? ""}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: "var(--txt-mute)", marginBottom: 2 }}>Speaker</div>
+                      <div style={{ fontSize: 12, color: "var(--txt)" }}>{selectedPlanSession.speakerName ?? "—"}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Salle */}
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 10, color: "#00cc88", letterSpacing: 2, display: "block", marginBottom: 6 }}>{__("SALLE", "ROOM")}</label>
+                  {rooms.length === 0 ? (
+                    <p style={{ fontSize: 11, color: "var(--txt-mute)" }}>{__("Aucune salle configurée. Allez dans ⚙️ Configuration pour en ajouter.", "No rooms configured. Go to ⚙️ Configuration to add some.")}</p>
+                  ) : (
+                    <select
+                      value={planning.roomId ?? ""}
+                      onChange={e => setPlanning(p => ({ ...p, roomId: (e.target as HTMLSelectElement).value || null }))}
+                      disabled={!canWrite}
+                      style={{ ...INPUT_STYLE, cursor: "pointer" }}
+                    >
+                      <option value="">— {__("Choisir une salle", "Choose a room")} —</option>
+                      {rooms
+                        .filter(r => selectedPlanSession.type === "workshop" ? r.type === "workshop" : r.type === "conference")
+                        .map(r => (
+                          <option key={r.id} value={r.id}>{r.name}</option>
+                        ))
+                      }
+                    </select>
+                  )}
+                </div>
+
+                {/* Lien webinaire */}
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 10, color: "#00cc88", letterSpacing: 2, display: "block", marginBottom: 6 }}>{__("LIEN WEBINAIRE", "WEBINAR LINK")}</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      value={planning.lienWebinaire}
+                      onChange={e => setPlanning(p => ({ ...p, lienWebinaire: (e.target as HTMLInputElement).value }))}
+                      disabled={!canWrite}
+                      placeholder="https://…"
+                      style={{ ...INPUT_STYLE, flex: 1 }}
+                    />
+                    {canWrite && (() => {
+                      const selectedRoom = rooms.find(r => r.id === planning.roomId);
+                      return (
+                        <>
+                          {selectedRoom?.jaasRoom && (
+                            <button
+                              onClick={() => setPlanning(p => ({ ...p, lienWebinaire: `https://8x8.vc/${selectedRoom.jaasRoom}` }))}
+                              title={__("Remplir avec le lien JaaS de la salle", "Fill with room JaaS link")}
+                              style={{ background: "#4488ff15", border: "1px solid #4488ff40", color: "#4488ff", padding: "6px 10px", borderRadius: 6, cursor: "pointer", fontSize: 14, flexShrink: 0 }}>
+                              📹
+                            </button>
+                          )}
+                          {selectedRoom?.guestLink && (
+                            <button
+                              onClick={() => setPlanning(p => ({ ...p, lienWebinaire: selectedRoom.guestLink }))}
+                              title={__("Remplir avec le lien invité Restream", "Fill with Restream guest link")}
+                              style={{ background: "#ff444415", border: "1px solid #ff444440", color: "#ff6b6b", padding: "6px 10px", borderRadius: 6, cursor: "pointer", fontSize: 14, flexShrink: 0 }}>
+                              🔴
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--txt-mute)", marginTop: 4 }}>
+                    📹 = {__("JaaS (salle)", "JaaS (room)")} · 🔴 = {__("Restream guest invite", "Restream guest invite")}
+                  </div>
+                </div>
+
+                {/* Lien live */}
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 10, color: "#00cc88", letterSpacing: 2, display: "block", marginBottom: 6 }}>🔴 {__("LIEN LIVE", "LIVE LINK")} <span style={{ color: "var(--txt-mute)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>({__("affiché aux participants sur /live", "shown to participants on /live")})</span></label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      value={planning.lienLive}
+                      onChange={e => setPlanning(p => ({ ...p, lienLive: (e.target as HTMLInputElement).value }))}
+                      disabled={!canWrite}
+                      placeholder="https://…"
+                      style={{ ...INPUT_STYLE, flex: 1 }}
+                    />
+                    {canWrite && (
+                      <button
+                        onClick={createRestreamLiveUrl}
+                        disabled={creatingLiveUrl}
+                        title={__("Créer un événement Restream et récupérer l'URL live", "Create a Restream event and get the live URL")}
+                        style={{ background: "#ff444415", border: "1px solid #ff444440", color: creatingLiveUrl ? "var(--txt-mute)" : "#ff6b6b", padding: "6px 10px", borderRadius: 6, cursor: creatingLiveUrl ? "not-allowed" : "pointer", fontSize: 14, flexShrink: 0 }}>
+                        {creatingLiveUrl ? "…" : "🔴"}
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--txt-mute)", marginTop: 4 }}>🔴 = {__("Créer événement Restream et récupérer l'URL", "Create Restream event and get URL")}</div>
+                </div>
+
+                {/* Modérateurs */}
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 10, color: "#00cc88", letterSpacing: 2, display: "block", marginBottom: 6 }}>{__("MODÉRATEUR(S)", "MODERATOR(S)")}</label>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {teamMembers.map(m => {
+                      const selected = planning.moderateurIds.includes(m.id);
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => canWrite && setPlanning(p => ({
+                            ...p,
+                            moderateurIds: selected
+                              ? p.moderateurIds.filter(id => id !== m.id)
+                              : [...p.moderateurIds, m.id],
+                          }))}
+                          style={{
+                            padding: "4px 10px", borderRadius: 6, fontSize: 11, cursor: canWrite ? "pointer" : "default",
+                            background: selected ? "#00cc8820" : "transparent",
+                            border: `1px solid ${selected ? "#00cc8860" : "var(--bdr-2)"}`,
+                            color: selected ? "#00cc88" : "var(--txt-dim)",
+                          }}>
+                          {m.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Techniciens */}
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 10, color: "#00cc88", letterSpacing: 2, display: "block", marginBottom: 6 }}>{__("TECHNICIEN(S)", "TECHNICIAN(S)")}</label>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {teamMembers.map(m => {
+                      const selected = planning.technicienIds.includes(m.id);
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => canWrite && setPlanning(p => ({
+                            ...p,
+                            technicienIds: selected
+                              ? p.technicienIds.filter(id => id !== m.id)
+                              : [...p.technicienIds, m.id],
+                          }))}
+                          style={{
+                            padding: "4px 10px", borderRadius: 6, fontSize: 11, cursor: canWrite ? "pointer" : "default",
+                            background: selected ? "#4488ff20" : "transparent",
+                            border: `1px solid ${selected ? "#4488ff60" : "var(--bdr-2)"}`,
+                            color: selected ? "#4488ff" : "var(--txt-dim)",
+                          }}>
+                          {m.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Panelistes supplémentaires */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                    <label style={{ fontSize: 10, color: "#00cc88", letterSpacing: 2 }}>{__("PANÉLISTES SUPPLÉMENTAIRES", "EXTRA PANELISTS")}</label>
+                    {canWrite && (
+                      <button
+                        onClick={() => setPlanning(p => ({ ...p, panelistesExtra: [...p.panelistesExtra, { name: "", email: "", lang: "fr" }] }))}
+                        style={{ fontSize: 10, color: "#00cc88", background: "transparent", border: "1px solid #00cc8830", padding: "3px 10px", borderRadius: 4, cursor: "pointer" }}>
+                        + {__("Ajouter", "Add")}
+                      </button>
+                    )}
+                  </div>
+                  {planning.panelistesExtra.length === 0 && (
+                    <p style={{ fontSize: 11, color: "var(--txt-mute)" }}>{__("Aucun panéliste supplémentaire.", "No extra panelists.")}</p>
+                  )}
+                  {planning.panelistesExtra.map((pan, idx) => (
+                    <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 60px auto", gap: 8, marginBottom: 8, alignItems: "flex-end" }}>
+                      <input
+                        value={pan.name}
+                        onChange={e => setPlanning(p => { const arr = [...p.panelistesExtra]; arr[idx] = { ...arr[idx], name: (e.target as HTMLInputElement).value }; return { ...p, panelistesExtra: arr }; })}
+                        placeholder={__("Nom", "Name")}
+                        disabled={!canWrite}
+                        style={{ ...INPUT_STYLE, padding: "6px 10px" }}
+                      />
+                      <input
+                        value={pan.email}
+                        onChange={e => setPlanning(p => { const arr = [...p.panelistesExtra]; arr[idx] = { ...arr[idx], email: (e.target as HTMLInputElement).value }; return { ...p, panelistesExtra: arr }; })}
+                        placeholder="email@…"
+                        disabled={!canWrite}
+                        style={{ ...INPUT_STYLE, padding: "6px 10px" }}
+                      />
+                      <select
+                        value={pan.lang}
+                        onChange={e => setPlanning(p => { const arr = [...p.panelistesExtra]; arr[idx] = { ...arr[idx], lang: (e.target as HTMLSelectElement).value as "fr" | "en" }; return { ...p, panelistesExtra: arr }; })}
+                        disabled={!canWrite}
+                        style={{ ...INPUT_STYLE, cursor: "pointer", padding: "6px 8px" }}>
+                        <option value="fr">FR</option>
+                        <option value="en">EN</option>
+                      </select>
+                      {canWrite && (
+                        <button onClick={() => setPlanning(p => ({ ...p, panelistesExtra: p.panelistesExtra.filter((_, i) => i !== idx) }))} style={{ background: "transparent", border: "1px solid #ff000030", color: "#ff6b6b", padding: "6px 10px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>✕</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Save + Notify */}
+                <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                  {canWrite && (
+                    <button onClick={savePlanning} disabled={planningSaving} style={SAVE_BTN_STYLE(planningSaving)}>
+                      {planningSaved ? `✓ ${__("Sauvegardé", "Saved")}` : planningSaving ? __("Sauvegarde…", "Saving…") : __("Sauvegarder", "Save")}
+                    </button>
+                  )}
+                  {canWrite && planning.id && (
+                    <button
+                      onClick={notifyTeam}
+                      disabled={notifying}
+                      style={{ background: "#ffaa0015", border: "1px solid #ffaa0040", color: "#ffaa00", padding: "8px 18px", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: notifying ? "not-allowed" : "pointer", letterSpacing: 1 }}>
+                      {notifying ? "…" : `📨 ${__("Notifier l'équipe", "Notify team")}`}
+                    </button>
+                  )}
+                  {planning.notifiedAt && (
+                    <span style={{ fontSize: 11, color: "var(--txt-mute)" }}>
+                      ✓ {__("Notifié le", "Notified on")} {new Date(planning.notifiedAt).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
+                    </span>
+                  )}
+                  {notifyResult && (
+                    <span style={{ fontSize: 11, color: notifyResult.startsWith("❌") ? "#ff6b6b" : "var(--ac)" }}>{notifyResult}</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ══ MODE CONFIGURATION ══════════════════════════════════════════════ */}
       {mode === "config" && (
         <div>
 
-          {/* ── ÉTAPE 0 · ÉQUIPE & INVITATIONS ────────────────────────────── */}
-          <StepHeader n={0} label={__("Équipe streaming & invitations", "Streaming team & invitations")} color="#ffaa00" />
+          {/* ── SALLES ────────────────────────────────────────────────────────── */}
+          <StepHeader n={0} label={__("Salles de streaming", "Streaming rooms")} color="#00cc88" />
+
+          <div style={{ background: "var(--card)", border: "1px solid #00cc8820", borderRadius: 10, padding: 20, marginBottom: 32 }}>
+            <div style={{ fontSize: 10, color: "#00cc88", letterSpacing: 3, marginBottom: 16 }}>🏠 {__("SALLES CONFIGURÉES", "CONFIGURED ROOMS")}</div>
+
+            {/* Room list */}
+            {roomsLoading ? (
+              <p style={{ fontSize: 12, color: "var(--txt-mute)", marginBottom: 16 }}>{__("Chargement…", "Loading…")}</p>
+            ) : rooms.length === 0 ? (
+              <p style={{ fontSize: 12, color: "var(--txt-mute)", marginBottom: 16 }}>{__("Aucune salle configurée.", "No rooms configured.")}</p>
+            ) : (
+              <div style={{ marginBottom: 20 }}>
+                {rooms.map(rm => (
+                  <div key={rm.id} style={{ background: "var(--card2)", border: "1px solid var(--bdr)", borderRadius: 8, padding: "12px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontSize: 12, color: "var(--txt)", fontWeight: 700 }}>{rm.name}</span>
+                        <span style={{ fontSize: 9, color: rm.type === "conference" ? "#4488ff" : "#9b59ff", background: rm.type === "conference" ? "#4488ff15" : "#9b59ff15", borderRadius: 4, padding: "1px 6px", letterSpacing: 1, textTransform: "uppercase" }}>{rm.type}</span>
+                      </div>
+                      {rm.guestLink && <div style={{ fontSize: 10, color: "var(--txt-mute)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🔴 {rm.guestLink}</div>}
+                      {rm.jaasRoom && <div style={{ fontSize: 10, color: "var(--txt-mute)", fontFamily: "'Courier New', monospace" }}>📹 {rm.jaasRoom}</div>}
+                    </div>
+                    {canWrite && (
+                      <button onClick={() => deleteRoom(rm.id)} style={{ background: "transparent", border: "1px solid #ff000030", color: "#ff6b6b", padding: "5px 10px", borderRadius: 5, fontSize: 11, cursor: "pointer", flexShrink: 0 }}>✕</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add room form */}
+            {canWrite && (
+              <div style={{ background: "var(--card2)", border: "1px solid #00cc8815", borderRadius: 8, padding: 16 }}>
+                <div style={{ fontSize: 10, color: "#00cc88", letterSpacing: 2, marginBottom: 12 }}>+ {__("AJOUTER UNE SALLE", "ADD A ROOM")}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 140px", gap: 10, marginBottom: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>{__("Nom de la salle", "Room name")} *</label>
+                    <input
+                      value={newRoom.name}
+                      onChange={e => setNewRoom(r => ({ ...r, name: (e.target as HTMLInputElement).value }))}
+                      placeholder={__("ex: Salle Principale", "e.g. Main Hall")}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>{__("Type", "Type")}</label>
+                    <select
+                      value={newRoom.type}
+                      onChange={e => setNewRoom(r => ({ ...r, type: (e.target as HTMLSelectElement).value as "conference" | "workshop" }))}
+                      style={{ ...INPUT_STYLE, cursor: "pointer" }}>
+                      <option value="conference">{__("Conférence", "Conference")}</option>
+                      <option value="workshop">Workshop</option>
+                    </select>
+                  </div>
+                </div>
+                {newRoom.type === "conference" && (
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>{__("Lien invité Restream (guestLink)", "Restream guest link (guestLink)")}</label>
+                    <input
+                      value={newRoom.guestLink}
+                      onChange={e => setNewRoom(r => ({ ...r, guestLink: (e.target as HTMLInputElement).value }))}
+                      placeholder="https://studio.restream.io/guest/…"
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                )}
+                {newRoom.type === "workshop" && newRoom.name && (
+                  <div style={{ marginBottom: 12, fontSize: 11, color: "var(--txt-dim)", background: "#9b59ff10", border: "1px solid #9b59ff20", borderRadius: 6, padding: "8px 12px" }}>
+                    📹 JaaS room : <code style={{ color: "#9b59ff", fontFamily: "'Courier New', monospace" }}>EOCON-{newRoom.name.toUpperCase().replace(/\s+/g, "-")}</code>
+                  </div>
+                )}
+                <button
+                  onClick={addRoom}
+                  disabled={roomSaving || !newRoom.name}
+                  style={SAVE_BTN_STYLE(roomSaving || !newRoom.name)}>
+                  {roomSaving ? __("Création…", "Creating…") : __("Créer la salle", "Create room")}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* ── ÉTAPE 1 · ÉQUIPE & INVITATIONS ────────────────────────────── */}
+          <StepHeader n={1} label={__("Équipe streaming & invitations", "Streaming team & invitations")} color="#ffaa00" />
 
           <div style={{ background: "var(--card)", border: "1px solid #ffaa0020", borderRadius: 10, padding: 20, marginBottom: 32 }}>
             <div style={{ fontSize: 10, color: "#ffaa00", letterSpacing: 3, marginBottom: 16 }}>👥 {__("CONSTITUER L'ÉQUIPE POUR LA SESSION", "BUILD THE SESSION TEAM")}</div>
@@ -908,8 +1437,8 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
             )}
           </div>
 
-          {/* ── ÉTAPE 1 · SESSIONS ─────────────────────────────────────────── */}
-          <StepHeader n={1} label={__("Sessions — Diffusion YouTube", "Sessions — YouTube Broadcast")} color="#4488ff" />
+          {/* ── ÉTAPE 2 · SESSIONS ─────────────────────────────────────────── */}
+          <StepHeader n={2} label={__("Sessions — Diffusion YouTube", "Sessions — YouTube Broadcast")} color="#4488ff" />
 
           <ArchBox color="#4488ff" icon="📡" title={__("COMMENT ÇA MARCHE", "HOW IT WORKS")}>
             <p style={{ margin: "0 0 8px" }}>
@@ -1135,8 +1664,8 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
             )}
           </div>
 
-          {/* ── ÉTAPE 2 · OVERLAYS RESTREAM ────────────────────────────────── */}
-          <StepHeader n={2} label={__("Overlays Restream — Captions & Tickers", "Restream Overlays — Captions & Tickers")} color="#ff6b35" />
+          {/* ── ÉTAPE 3 · OVERLAYS RESTREAM ────────────────────────────────── */}
+          <StepHeader n={3} label={__("Overlays Restream — Captions & Tickers", "Restream Overlays — Captions & Tickers")} color="#ff6b35" />
 
           <ArchBox color="#ff6b35" icon="🎨" title={__("COMMENT ÇA MARCHE", "HOW IT WORKS")}>
             <p style={{ margin: "0 0 8px" }}>
@@ -1298,8 +1827,8 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
             </div>
           )}
 
-          {/* ── ÉTAPE 3 · ATELIERS JAAS ────────────────────────────────────── */}
-          <StepHeader n={3} label={__("Ateliers — Rooms JaaS", "Workshops — JaaS Rooms")} color="#9b59ff" />
+          {/* ── ÉTAPE 4 · ATELIERS JAAS ────────────────────────────────────── */}
+          <StepHeader n={4} label={__("Ateliers — Rooms JaaS", "Workshops — JaaS Rooms")} color="#9b59ff" />
 
           <ArchBox color="#9b59ff" icon="🎓" title={__("COMMENT ÇA MARCHE", "HOW IT WORKS")}>
             <p style={{ margin: "0 0 8px" }}>

@@ -102,6 +102,22 @@ const PLATFORM_ICON: Record<string, string> = {
   twitter: "🐦", kick: "🟢", tiktok: "🎵", instagram: "📸",
 };
 
+const GUEST_LINK_SERVICES = [
+  { value: "restream", label: "Restream Studio", placeholder: "https://studio.restream.io/guest/…", icon: "🔴" },
+  { value: "zoom",     label: "Zoom",            placeholder: "https://zoom.us/j/XXXXXXXXXX?pwd=…", icon: "🎥" },
+  { value: "teams",    label: "Microsoft Teams",  placeholder: "https://teams.microsoft.com/l/meetup-join/…", icon: "💼" },
+  { value: "meet",     label: "Google Meet",      placeholder: "https://meet.google.com/xxx-yyyy-zzz", icon: "📹" },
+] as const;
+
+function guestLinkIcon(url: string): string {
+  if (!url) return "🔗";
+  if (url.includes("restream.io")) return "🔴";
+  if (url.includes("zoom.us"))     return "🎥";
+  if (url.includes("teams.microsoft.com")) return "💼";
+  if (url.includes("meet.google.com"))     return "📹";
+  return "🔗";
+}
+
 const INPUT_STYLE = {
   width: "100%", background: "var(--card)", border: "1px solid #00ff9d20",
   borderRadius: 6, color: "var(--txt)", padding: "8px 12px", fontSize: 13,
@@ -159,6 +175,13 @@ interface StreamingRoom {
   guestLink: string;
   jaasRoom: string;
   sortOrder: number;
+}
+
+interface NewRoom {
+  name: string;
+  type: "conference" | "workshop";
+  guestLink: string;
+  service: string;
 }
 
 interface PanelisteExtra {
@@ -273,7 +296,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
 
   // ── Rooms config ──────────────────────────────────────────────────────────
   const [roomsLoading, setRoomsLoading]       = useState(false);
-  const [newRoom, setNewRoom]                 = useState<{ name: string; type: "conference" | "workshop"; guestLink: string }>({ name: "", type: "conference", guestLink: "" });
+  const [newRoom, setNewRoom]                 = useState<NewRoom>({ name: "", type: "conference", guestLink: "", service: "restream" });
   const [roomSaving, setRoomSaving]           = useState(false);
 
   // ── Loaders ───────────────────────────────────────────────────────────────
@@ -577,7 +600,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
       if (res.ok) {
         const created = await res.json();
         setRooms((r: StreamingRoom[]) => [...r, created]);
-        setNewRoom({ name: "", type: "conference", guestLink: "" });
+        setNewRoom({ name: "", type: "conference", guestLink: "", service: "restream" });
       }
     } finally { setRoomSaving(false); }
   };
@@ -969,45 +992,34 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                   )}
                 </div>
 
-                {/* Lien webinaire */}
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ fontSize: 10, color: "#00cc88", letterSpacing: 2, display: "block", marginBottom: 6 }}>{__("LIEN WEBINAIRE", "WEBINAR LINK")}</label>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <input
-                      value={planning.lienWebinaire}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPlanning((p: SessionPlanning) => ({ ...p, lienWebinaire: (e.target as HTMLInputElement).value }))}
-                      disabled={!canWrite}
-                      placeholder="https://…"
-                      style={{ ...INPUT_STYLE, flex: 1 }}
-                    />
-                    {canWrite && (() => {
-                      const selectedRoom = rooms.find((r: StreamingRoom) => r.id === planning.roomId);
-                      return (
-                        <>
-                          {selectedRoom?.jaasRoom && (
-                            <button
-                              onClick={() => setPlanning((p: SessionPlanning) => ({ ...p, lienWebinaire: `https://8x8.vc/${selectedRoom.jaasRoom}` }))}
-                              title={__("Remplir avec le lien JaaS de la salle", "Fill with room JaaS link")}
-                              style={{ background: "#4488ff15", border: "1px solid #4488ff40", color: "#4488ff", padding: "6px 10px", borderRadius: 6, cursor: "pointer", fontSize: 14, flexShrink: 0 }}>
-                              📹
-                            </button>
-                          )}
-                          {selectedRoom?.guestLink && (
-                            <button
-                              onClick={() => setPlanning((p: SessionPlanning) => ({ ...p, lienWebinaire: selectedRoom.guestLink }))}
-                              title={__("Remplir avec le lien invité Restream", "Fill with Restream guest link")}
-                              style={{ background: "#ff444415", border: "1px solid #ff444440", color: "#ff6b6b", padding: "6px 10px", borderRadius: 6, cursor: "pointer", fontSize: 14, flexShrink: 0 }}>
-                              🔴
-                            </button>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
-                  <div style={{ fontSize: 10, color: "var(--txt-mute)", marginTop: 4 }}>
-                    📹 = {__("JaaS (salle)", "JaaS (room)")} · 🔴 = {__("Restream guest invite", "Restream guest invite")}
-                  </div>
-                </div>
+                {/* Lien studio (hérité de la salle) */}
+                {(() => {
+                  const selectedRoom = rooms.find((r: StreamingRoom) => r.id === planning.roomId);
+                  const studioLink = selectedRoom?.jaasRoom
+                    ? `https://8x8.vc/${selectedRoom.jaasRoom}`
+                    : selectedRoom?.guestLink || null;
+                  if (!selectedRoom) return null;
+                  return (
+                    <div style={{ marginBottom: 16, background: "var(--card2)", border: "1px solid #00cc8820", borderRadius: 8, padding: "10px 14px" }}>
+                      <div style={{ fontSize: 10, color: "#00cc88", letterSpacing: 2, marginBottom: 6 }}>{__("LIEN STUDIO — HÉRITÉ DE LA SALLE", "STUDIO LINK — INHERITED FROM ROOM")}</div>
+                      {studioLink ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ fontSize: 16 }}>{selectedRoom.jaasRoom ? "📹" : guestLinkIcon(selectedRoom.guestLink)}</span>
+                          <code style={{ flex: 1, fontSize: 11, color: "var(--txt-2)", wordBreak: "break-all" as const }}>{studioLink}</code>
+                          <button
+                            onClick={() => navigator.clipboard.writeText(studioLink).catch(() => {})}
+                            style={{ fontSize: 10, color: "var(--txt-dim)", background: "transparent", border: "1px solid var(--bdr-2)", padding: "4px 10px", borderRadius: 5, cursor: "pointer", flexShrink: 0 }}>
+                            📋
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 11, color: "var(--txt-mute)" }}>
+                          {__("Aucun lien studio configuré sur cette salle. Éditez la salle dans ⚙️ Configuration.", "No studio link configured for this room. Edit the room in ⚙️ Configuration.")}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Lien live */}
                 <div style={{ marginBottom: 16 }}>
@@ -1192,7 +1204,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                         <span style={{ fontSize: 12, color: "var(--txt)", fontWeight: 700 }}>{rm.name}</span>
                         <span style={{ fontSize: 9, color: rm.type === "conference" ? "#4488ff" : "#9b59ff", background: rm.type === "conference" ? "#4488ff15" : "#9b59ff15", borderRadius: 4, padding: "1px 6px", letterSpacing: 1, textTransform: "uppercase" }}>{rm.type}</span>
                       </div>
-                      {rm.guestLink && <div style={{ fontSize: 10, color: "var(--txt-mute)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🔴 {rm.guestLink}</div>}
+                      {rm.guestLink && <div style={{ fontSize: 10, color: "var(--txt-mute)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{guestLinkIcon(rm.guestLink)} {rm.guestLink}</div>}
                       {rm.jaasRoom && <div style={{ fontSize: 10, color: "var(--txt-mute)", fontFamily: "'Courier New', monospace" }}>📹 {rm.jaasRoom}</div>}
                     </div>
                     {canWrite && (
@@ -1212,7 +1224,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                     <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>{__("Nom de la salle", "Room name")} *</label>
                     <input
                       value={newRoom.name}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewRoom((r: { name: string; type: "conference" | "workshop"; guestLink: string }) => ({ ...r, name: (e.target as HTMLInputElement).value }))}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewRoom((r: NewRoom) => ({ ...r, name: (e.target as HTMLInputElement).value }))}
                       placeholder={__("ex: Salle Principale", "e.g. Main Hall")}
                       style={INPUT_STYLE}
                     />
@@ -1221,24 +1233,41 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                     <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>{__("Type", "Type")}</label>
                     <select
                       value={newRoom.type}
-                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewRoom((r: { name: string; type: "conference" | "workshop"; guestLink: string }) => ({ ...r, type: (e.target as HTMLSelectElement).value as "conference" | "workshop" }))}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewRoom((r: NewRoom) => ({ ...r, type: (e.target as HTMLSelectElement).value as "conference" | "workshop" }))}
                       style={{ ...INPUT_STYLE, cursor: "pointer" }}>
                       <option value="conference">{__("Conférence", "Conference")}</option>
                       <option value="workshop">Workshop</option>
                     </select>
                   </div>
                 </div>
-                {newRoom.type === "conference" && (
-                  <div style={{ marginBottom: 12 }}>
-                    <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>{__("Lien invité Restream (guestLink)", "Restream guest link (guestLink)")}</label>
-                    <input
-                      value={newRoom.guestLink}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewRoom((r: { name: string; type: "conference" | "workshop"; guestLink: string }) => ({ ...r, guestLink: (e.target as HTMLInputElement).value }))}
-                      placeholder="https://studio.restream.io/guest/…"
-                      style={INPUT_STYLE}
-                    />
-                  </div>
-                )}
+                {newRoom.type === "conference" && (() => {
+                  const svc = GUEST_LINK_SERVICES.find(s => s.value === newRoom.service) ?? GUEST_LINK_SERVICES[0];
+                  return (
+                    <div style={{ marginBottom: 12 }}>
+                      <label style={{ fontSize: 10, color: "var(--txt-dim)", display: "block", marginBottom: 4 }}>{__("Lien d'accès studio (guest link)", "Studio access link (guest link)")}</label>
+                      <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 8 }}>
+                        <select
+                          value={newRoom.service}
+                          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewRoom((r: NewRoom) => ({ ...r, service: (e.target as HTMLSelectElement).value, guestLink: "" }))}
+                          style={{ ...INPUT_STYLE, cursor: "pointer" }}
+                        >
+                          {GUEST_LINK_SERVICES.map(s => (
+                            <option key={s.value} value={s.value}>{s.icon} {s.label}</option>
+                          ))}
+                        </select>
+                        <input
+                          value={newRoom.guestLink}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewRoom((r: NewRoom) => ({ ...r, guestLink: (e.target as HTMLInputElement).value }))}
+                          placeholder={svc.placeholder}
+                          style={INPUT_STYLE}
+                        />
+                      </div>
+                      <div style={{ fontSize: 10, color: "var(--txt-mute)", marginTop: 4 }}>
+                        {__("Lien partagé aux speakers pour rejoindre la session", "Link shared with speakers to join the session")}
+                      </div>
+                    </div>
+                  );
+                })()}
                 {newRoom.type === "workshop" && newRoom.name && (
                   <div style={{ marginBottom: 12, fontSize: 11, color: "var(--txt-dim)", background: "#9b59ff10", border: "1px solid #9b59ff20", borderRadius: 6, padding: "8px 12px" }}>
                     📹 JaaS room : <code style={{ color: "#9b59ff", fontFamily: "'Courier New', monospace" }}>EOCON-{newRoom.name.toUpperCase().replace(/\s+/g, "-")}</code>

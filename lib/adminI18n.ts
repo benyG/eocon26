@@ -250,7 +250,7 @@ export const adminI18n = {
 
     // Communication panel
     communicationTitle: "Communication",
-    socialTabLabel: "📱 Réseaux Sociaux",
+    socialTabLabel: "Réseaux Sociaux",
     emailTabLabel: "✉ Emails & Templates",
     contentTypeLabel: "Type de contenu",
     platformsLabel: "Plateformes",
@@ -813,7 +813,7 @@ export const adminI18n = {
 
     // Communication panel
     communicationTitle: "Communication",
-    socialTabLabel: "📱 Social Media",
+    socialTabLabel: "Social Media",
     emailTabLabel: "✉ Emails & Templates",
     contentTypeLabel: "Content type",
     platformsLabel: "Platforms",

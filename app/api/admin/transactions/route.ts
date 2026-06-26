@@ -11,14 +11,17 @@ export async function GET() {
   const transactions = await prisma.paymentTransaction.findMany({ orderBy: { createdAt: "desc" }, take: 500 });
 
   // Join the registrant name + current ticket-email state for display.
-  const regIds = Array.from(new Set(transactions.map(t => t.registrationId).filter((v): v is number => v != null)));
-  const regs = regIds.length
-    ? await prisma.registration.findMany({ where: { id: { in: regIds } }, select: { id: true, fname: true, lname: true, status: true } })
+  type TxRow = { id: number; registrationId: number | null; [key: string]: unknown };
+  type RegRow = { id: number; fname: string; lname: string; status: string };
+  const txRows = transactions as TxRow[];
+  const regIds = Array.from(new Set(txRows.map((t: TxRow) => t.registrationId).filter((v: number | null): v is number => v != null)));
+  const regs: RegRow[] = regIds.length
+    ? (await prisma.registration.findMany({ where: { id: { in: regIds } }, select: { id: true, fname: true, lname: true, status: true } })) as RegRow[]
     : [];
-  const regMap = new Map(regs.map(r => [r.id, r]));
+  const regMap = new Map(regs.map((r: RegRow) => [r.id, r]));
 
-  return NextResponse.json(transactions.map(t => {
-    const reg = t.registrationId != null ? regMap.get(t.registrationId) : undefined;
+  return NextResponse.json(txRows.map((t: TxRow) => {
+    const reg: RegRow | undefined = t.registrationId != null ? regMap.get(t.registrationId) : undefined;
     return { ...t, registrantName: reg ? `${reg.fname} ${reg.lname}` : null, registrationStatus: reg?.status ?? null };
   }));
 }

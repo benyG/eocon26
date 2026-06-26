@@ -1,9 +1,23 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
 import { computeCPE } from "@/lib/livePresence";
 
-type PresenceWithReg = Awaited<ReturnType<typeof prisma.livePresence.findMany>>[number];
+type PresenceWithReg = Prisma.LivePresenceGetPayload<{
+  include: {
+    registration: {
+      select: {
+        fname: true;
+        lname: true;
+        email: true;
+        status: true;
+        checkedInAt: true;
+        paidAt: true;
+      };
+    };
+  };
+}>;
 
 export const dynamic = "force-dynamic";
 

@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { prisma } from "@/lib/db";
 
 const RESTREAM_BASE = "https://api.restream.io/v2";
@@ -52,7 +53,7 @@ export async function getValidRestreamToken(): Promise<string> {
   const rows = await prisma.eventSetting.findMany({
     where: { key: { in: ["restream_access_token", "restream_refresh_token", "restream_token_expires_at"] } },
   });
-  const get = (k: string) => rows.find(r => r.key === k)?.value ?? "";
+  const get = (k: string) => rows.find((r: { key: string; value: string }) => r.key === k)?.value ?? "";
   const accessToken  = get("restream_access_token");
   const refreshToken = get("restream_refresh_token");
   const expiresAt    = Number(get("restream_token_expires_at") || "0");

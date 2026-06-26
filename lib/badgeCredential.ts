@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { createPrivateKey, createPublicKey, sign, verify } from "crypto";
 import { generateBadgeSvg, svgToDataUrl, BadgeType } from "./badgeSvg";
 

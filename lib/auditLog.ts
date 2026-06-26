@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
-import { Prisma } from "@prisma/client";
 
 const RETENTION_DAYS = 60;
 
@@ -33,17 +32,17 @@ export function logAction(
         action,
         resource,
         resourceId: resourceId != null ? String(resourceId) : null,
-        details: details as Prisma.InputJsonValue ?? Prisma.DbNull,
+        details: details as unknown as Record<string, unknown> | undefined,
       },
     })
-    .catch(e => console.error("[AuditLog]", e));
+    .catch((e: unknown) => console.error("[AuditLog]", e));
 
   if (Math.random() < 0.05) {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - RETENTION_DAYS);
     prisma.auditLog
       .deleteMany({ where: { createdAt: { lt: cutoff } } })
-      .catch(e => console.error("[AuditLog cleanup]", e));
+      .catch((e: unknown) => console.error("[AuditLog cleanup]", e));
   }
 }
 

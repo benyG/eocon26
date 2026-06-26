@@ -58,7 +58,7 @@ export function parseSegment(raw: string | null | undefined): CampaignSegment {
 export async function resolveRecipients(seg: CampaignSegment): Promise<Recipient[]> {
   if (seg.audience === "newsletter") {
     const subs = await prisma.newsletterSubscriber.findMany({ select: { email: true } });
-    return dedupe(subs.map(s => ({ email: s.email })));
+    return dedupe(subs.map((s: { email: string }) => ({ email: s.email })));
   }
   // Speaker (CFP) pools — share the same shape, differ only by pipeline stage.
   // NB: the distinguishing field is `pipelineStage` (the `status` column stays
@@ -80,17 +80,17 @@ export async function resolveRecipients(seg: CampaignSegment): Promise<Recipient
     // "Programmé" template can auto-fill {{date}} {{time}} {{mode}} {{zoomLink}} {{slidesDeadline}}.
     let sessionsBySpeaker = new Map<number, { date: string | null; time: string; endTime: string | null; mode: string | null; zoomLink: string | null; slidesDeadline: string | null }>();
     if (seg.audience === "cfp_scheduled") {
-      const speakerIds = cfps.map(c => c.speakerId).filter((v): v is number => v != null);
+      const speakerIds = cfps.map((c: { speakerId: number | null }) => c.speakerId).filter((v: number | null): v is number => v != null);
       if (speakerIds.length) {
         const sessions = await prisma.conferenceSession.findMany({
           where: { speakerId: { in: speakerIds }, date: { not: null } },
           select: { speakerId: true, date: true, time: true, endTime: true, mode: true, zoomLink: true, slidesDeadline: true },
         });
-        sessionsBySpeaker = new Map(sessions.filter(s => s.speakerId != null).map(s => [s.speakerId as number, s]));
+        sessionsBySpeaker = new Map(sessions.filter((s: { speakerId: number | null }) => s.speakerId != null).map((s: { speakerId: number | null; date: string | null; time: string; endTime: string | null; mode: string | null; zoomLink: string | null; slidesDeadline: string | null }) => [s.speakerId as number, s]));
       }
     }
 
-    return dedupe(cfps.map(c => {
+    return dedupe(cfps.map((c: { email: string; name: string | null; talkTitle: string | null; langPresentation: string | null; speakerId: number | null }) => {
       const sess = c.speakerId != null ? sessionsBySpeaker.get(c.speakerId) : undefined;
       return {
         email: c.email,
@@ -110,7 +110,7 @@ export async function resolveRecipients(seg: CampaignSegment): Promise<Recipient
     const where: Record<string, unknown> = { status: "accepted" };
     if (seg.roles?.length) where.role = { in: seg.roles };
     const vols = await prisma.volunteerApplication.findMany({ where, select: { email: true, name: true, langExpression: true } });
-    return dedupe(vols.map(v => ({ email: v.email, fname: v.name || undefined, lang: normLang(v.langExpression) })));
+    return dedupe(vols.map((v: { email: string; name: string | null; langExpression: string | null }) => ({ email: v.email, fname: v.name || undefined, lang: normLang(v.langExpression) })));
   }
 
   // registrations + granular filters
@@ -128,7 +128,7 @@ export async function resolveRecipients(seg: CampaignSegment): Promise<Recipient
     where,
     select: { email: true, fname: true, lname: true, org: true, country: true, ticketType: true, langExpression: true },
   });
-  return dedupe(regs.map(r => ({
+  return dedupe(regs.map((r: { email: string; fname: string; lname: string; org: string | null; country: string | null; ticketType: string; langExpression: string | null }) => ({
     email: r.email, fname: r.fname, lname: r.lname, org: r.org, country: r.country, ticketType: r.ticketType, lang: normLang(r.langExpression),
   })));
 }
@@ -223,11 +223,11 @@ export async function audienceFacets() {
   const uniq = (arr: (string | null)[]) =>
     Array.from(new Set(arr.filter((v): v is string => !!v))).sort();
   return {
-    statuses: uniq(regs.map(r => r.status)),
-    ticketTypes: uniq(regs.map(r => r.ticketType)),
-    countries: uniq(regs.map(r => r.country)),
-    langs: uniq(regs.map(r => r.langExpression)),
-    volunteerRoles: uniq(vols.map(v => v.role)),
+    statuses: uniq(regs.map((r: { status: string; ticketType: string; country: string | null; langExpression: string | null }) => r.status)),
+    ticketTypes: uniq(regs.map((r: { status: string; ticketType: string; country: string | null; langExpression: string | null }) => r.ticketType)),
+    countries: uniq(regs.map((r: { status: string; ticketType: string; country: string | null; langExpression: string | null }) => r.country)),
+    langs: uniq(regs.map((r: { status: string; ticketType: string; country: string | null; langExpression: string | null }) => r.langExpression)),
+    volunteerRoles: uniq(vols.map((v: { role: string | null }) => v.role)),
     total: regs.length,
   };
 }

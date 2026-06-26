@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { Resend } from "resend";
 import QRCode from "qrcode";
 import PDFDocument from "pdfkit";

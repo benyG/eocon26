@@ -8,7 +8,7 @@ interface CtfdEntry { name: string; score: number; solves?: number; members?: Ar
 export async function GET() {
   const settings = await prisma.eventSetting.findMany({ where: { key: { in: ["ctfdUrl", "ctfdApiKey", "ctfEnabled"] } } });
   const map: Record<string, string> = {};
-  settings.forEach(s => { map[s.key] = s.value; });
+  settings.forEach((s: { key: string; value: string }) => { map[s.key] = s.value; });
 
   if (map.ctfEnabled !== "true") return NextResponse.json({ enabled: false });
 
@@ -17,10 +17,8 @@ export async function GET() {
   if (!ctfdUrl || !apiKey) return NextResponse.json({ enabled: true, error: "CTFd non configuré" });
 
   try {
-    const res = await fetch(`${ctfdUrl}/api/v1/scoreboard/top/10`, {
-      headers: { "Authorization": `Token ${apiKey}` },
-      next: { revalidate: 0 },
-    });
+    const fetchOpts = { headers: { "Authorization": `Token ${apiKey}` }, next: { revalidate: 0 } } as unknown as RequestInit;
+    const res = await fetch(`${ctfdUrl}/api/v1/scoreboard/top/10`, fetchOpts);
     if (!res.ok) return NextResponse.json({ enabled: true, error: "Erreur CTFd" });
 
     const raw = await res.json() as { success: boolean; data: Record<string, CtfdEntry> };

@@ -8,7 +8,7 @@ export async function GET() {
     where: { key: { in: ["ctfdUrl", "ctfdApiKey"] } },
   });
   const map: Record<string, string> = {};
-  settings.forEach(s => { map[s.key] = s.value; });
+  settings.forEach((s: { key: string; value: string }) => { map[s.key] = s.value; });
 
   const ctfdUrl = (map.ctfdUrl || "").replace(/\/$/, "");
   const apiKey = map.ctfdApiKey || "";
@@ -18,10 +18,8 @@ export async function GET() {
   }
 
   try {
-    const res = await fetch(`${ctfdUrl}/api/v1/scoreboard/top/10`, {
-      headers: apiKey ? { "Authorization": `Token ${apiKey}` } : {},
-      next: { revalidate: 30 },
-    });
+    const fetchOpts = { headers: apiKey ? { "Authorization": `Token ${apiKey}` } : {}, next: { revalidate: 30 } } as unknown as RequestInit;
+    const res = await fetch(`${ctfdUrl}/api/v1/scoreboard/top/10`, fetchOpts);
 
     if (!res.ok) {
       return NextResponse.json({ configured: true, error: "CTFd unreachable", scores: [] });

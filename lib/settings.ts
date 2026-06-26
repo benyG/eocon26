@@ -8,7 +8,7 @@ export async function getEventSettings(): Promise<Record<string, string>> {
   if (_cache && Date.now() - _cacheTime < 60_000) return _cache;
   const settings = await prisma.eventSetting.findMany();
   const map: Record<string, string> = {};
-  settings.forEach(s => { map[s.key] = s.value; });
+  settings.forEach((s: { key: string; value: string }) => { map[s.key] = s.value; });
   _cache = map;
   _cacheTime = Date.now();
   return map;

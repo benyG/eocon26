@@ -5835,7 +5835,7 @@ export default function AdminDashboard() {
   const [userInfo, setUserInfo] = useState<{ isLegacy: boolean; id?: number; name: string; email?: string; mfaEnabled?: boolean; mfaRequired?: boolean; isRoot?: boolean; currencySelectorEnabled?: boolean; permissions: Record<string, string> } | null>(null);
   const [showAccount, setShowAccount] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
   const refreshMe = useCallback(() => {
     fetch("/api/admin/me").then(r => r.ok ? r.json() : null).then(info => {
@@ -6269,7 +6269,7 @@ export default function AdminDashboard() {
 
           <nav className="flex-1 py-2">
             {visibleTabGroups.map(group => {
-              const isGroupCollapsed = collapsedGroups.has(group.label);
+              const isGroupCollapsed = !openGroups.has(group.label) && !groupHasActive;
               const groupHasActive = group.tabs.some(tabItem => tabItem.id === tab);
               return (
                 <div key={group.label} className="mb-1">
@@ -6279,7 +6279,7 @@ export default function AdminDashboard() {
                       if (sidebarCollapsed) {
                         setSidebarCollapsed(false);
                       } else {
-                        setCollapsedGroups(prev => {
+                        setOpenGroups(prev => {
                           const next = new Set(Array.from(prev));
                           if (next.has(group.label)) next.delete(group.label);
                           else next.add(group.label);

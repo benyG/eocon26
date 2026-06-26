@@ -14,7 +14,7 @@ import StrategicPlanPanel from "@/components/admin/StrategicPlanPanel";
 import LivePanel from "@/components/admin/LivePanel";
 import RegistrationsChart from "@/components/admin/RegistrationsChart";
 import { adminI18n } from "@/lib/adminI18n";
-import { AdminLangContext, useAdminT } from "@/lib/adminLangContext";
+import { AdminLangContext, useAdminT, type AdminLang } from "@/lib/adminLangContext";
 
 const AdminThemeContext = createContext<{ theme: "dark" | "light"; toggleTheme: () => void }>({
   theme: "dark",

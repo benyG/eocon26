@@ -491,7 +491,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
   useEffect(() => { loadSettings(); }, [loadSettings]);
   useEffect(() => { loadDashboard(); loadQuestions(); loadRestreamStatus(); }, [loadDashboard, loadQuestions, loadRestreamStatus]);
   useEffect(() => { if (mode === "config") { loadOverlays(); loadRooms(); loadWorkshops(); } }, [mode, loadOverlays, loadRooms, loadWorkshops]);
-  useEffect(() => { if (mode === "planning") { loadAllSessions(); loadRooms(); } }, [mode, loadAllSessions, loadRooms]);
+  useEffect(() => { if (mode === "planning") { loadAllSessions(); loadRooms(); loadStreamingTeam(); } }, [mode, loadAllSessions, loadRooms, loadStreamingTeam]);
 
   useEffect(() => {
     if (mode !== "live") return;

@@ -10,9 +10,26 @@ import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 
+const TYPE_READ_MODULE: Record<string, string> = {
+  cfp: "cfp",
+  volunteer: "volunteers",
+  registration: "registrations",
+  newsletter: "newsletter",
+};
+
+const TYPE_WRITE_MODULE: Record<string, string> = {
+  cfp: "cfp",
+  "volunteer-assign": "volunteers",
+  volunteer: "volunteers",
+  registration: "registrations",
+  "ctf-team": "registrations",
+  newsletter: "newsletter",
+};
+
 export async function GET(req: NextRequest) {
-  if (!(await hasPermission("cfp", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const type = req.nextUrl.searchParams.get("type") || "cfp";
+  const module = TYPE_READ_MODULE[type] || "cfp";
+  if (!(await hasPermission(module, "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   if (type === "cfp") {
     return NextResponse.json(await prisma.cFPSubmission.findMany({ orderBy: { createdAt: "desc" } }));
@@ -30,9 +47,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!(await hasPermission("cfp", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json();
   const { type, id, status, notes, action, assignedRole, shiftStart, shiftEnd, ctfTeamName } = body;
+  const module = TYPE_WRITE_MODULE[type as string] || "cfp";
+  if (!(await hasPermission(module, "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   if (type === "ctf-team") {
     await prisma.registration.update({ where: { id }, data: { ctfTeamName } });

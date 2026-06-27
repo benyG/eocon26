@@ -57,6 +57,7 @@ JSON uniquement: {"score": <0-10>, "reason": "<1 phrase>", "package": "<PLATINUM
     const lead = await prisma.prospectLead.create({
       data: {
         source: "google_places",
+        searchQuery: query,
         org: place.name,
         city: "Douala",
         website: website || null,

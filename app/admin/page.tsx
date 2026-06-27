@@ -1032,8 +1032,15 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
           </p>
         )}
 
-        <div className="space-y-3">
-          {filtered.sort((a, b) => ((b.aiScore as number) || 0) - ((a.aiScore as number) || 0)).map(lead => (
+        {(() => {
+          const sorted = [...filtered].sort((a, b) => ((b.aiScore as number) || 0) - ((a.aiScore as number) || 0));
+          const byQuery: Record<string, Record<string, unknown>[]> = {};
+          for (const lead of sorted) {
+            const q = (lead.searchQuery as string) || (lang === "en" ? "No search query" : "Sans requête");
+            if (!byQuery[q]) byQuery[q] = [];
+            byQuery[q].push(lead);
+          }
+          const renderLead = (lead: Record<string, unknown>) => (
             <div key={lead.id as number} className={`border rounded-xl p-4 transition-all ${lead.addedToPipeline ? "border-gray-800 opacity-60" : "border-gray-700 hover:border-gray-500"}`}>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
@@ -1128,8 +1135,25 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                 )}
               </div>
             </div>
-          ))}
-        </div>
+          );
+          if (Object.keys(byQuery).length <= 1) {
+            return <div className="space-y-3">{sorted.map(renderLead)}</div>;
+          }
+          return (
+            <div className="space-y-6">
+              {Object.entries(byQuery).map(([q, qLeads]) => (
+                <div key={q}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--ac)" }}>🔍 {q}</span>
+                    <span className="text-xs text-gray-600">({qLeads.length})</span>
+                    <div className="flex-1 h-px bg-gray-800" />
+                  </div>
+                  <div className="space-y-3">{qLeads.map(renderLead)}</div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </div>
 
       {packages.length > 0 && (
@@ -2869,9 +2893,70 @@ function TaskCard({
   );
 }
 
+const SUPPLIER_DOMAINS = [
+  "Lieu/venue/salles", "Mobilier", "Signalétique", "Impression",
+  "Badges & supports participants", "Goodies & kits participants",
+  "Transport & logistique matériel", "Stockage", "Installation/manutention/démontage",
+  "Restauration/coffee break/eau", "Hébergement", "Audio/vidéo/streaming",
+  "Photo/vidéo/couverture média", "Internet/connectivité", "Sécurité",
+  "Santé/premiers secours", "Nettoyage", "Animation/DJ/networking",
+  "Location matériel divers", "Services d'urgence/backup fournisseurs",
+];
+
+const SUPPLIER_FORM_DEFAULT = { supplier: "", domain: SUPPLIER_DOMAINS[0], description: "", amount: "", paymentTerms: "", pdfUrl: "", advantages: "", risks: "", comment: "" };
+
 function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<string, unknown>[]; onRefresh: () => void; canWrite?: boolean }) {
   const { lang } = useAdminT();
-  const [activeTab, setActiveTab] = useState<"kanban" | "phase" | "overdue" | "all">("kanban");
+  const [activeTab, setActiveTab] = useState<"kanban" | "phase" | "overdue" | "all" | "suppliers">("kanban");
+  const [suppliers, setSuppliers] = useState<Record<string, unknown>[]>([]);
+  const [supplierForm, setSupplierForm] = useState<Record<string, string>>(SUPPLIER_FORM_DEFAULT);
+  const [showSupplierForm, setShowSupplierForm] = useState(false);
+  const [editSupplierId, setEditSupplierId] = useState<number | null>(null);
+  const [supplierFilter, setSupplierFilter] = useState<string>("all");
+
+  const loadSuppliers = () => {
+    fetch("/api/admin/logistics/suppliers").then(r => r.json()).then(setSuppliers).catch(() => {});
+  };
+
+  useEffect(() => { if (activeTab === "suppliers") loadSuppliers(); }, [activeTab]);
+
+  const saveSupplier = async () => {
+    const body = {
+      ...supplierForm,
+      amount: supplierForm.amount !== "" ? Number(supplierForm.amount) : null,
+    };
+    if (editSupplierId !== null) {
+      await fetch(`/api/admin/logistics/suppliers/${editSupplierId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    } else {
+      await fetch("/api/admin/logistics/suppliers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    }
+    setShowSupplierForm(false);
+    setEditSupplierId(null);
+    setSupplierForm(SUPPLIER_FORM_DEFAULT);
+    loadSuppliers();
+  };
+
+  const editSupplier = (s: Record<string, unknown>) => {
+    setEditSupplierId(s.id as number);
+    setSupplierForm({
+      supplier: (s.supplier as string) || "",
+      domain: (s.domain as string) || SUPPLIER_DOMAINS[0],
+      description: (s.description as string) || "",
+      amount: s.amount != null ? String(s.amount) : "",
+      paymentTerms: (s.paymentTerms as string) || "",
+      pdfUrl: (s.pdfUrl as string) || "",
+      advantages: (s.advantages as string) || "",
+      risks: (s.risks as string) || "",
+      comment: (s.comment as string) || "",
+    });
+    setShowSupplierForm(true);
+  };
+
+  const deleteSupplier = async (id: number) => {
+    if (!confirm(lang === "en" ? "Delete this offer?" : "Supprimer cette offre ?")) return;
+    await fetch(`/api/admin/logistics/suppliers/${id}`, { method: "DELETE" });
+    loadSuppliers();
+  };
   const [activePhase, setActivePhase] = useState<Phase>("J-90");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ status: "todo", priority: "medium", phase: "J-30" });
@@ -2929,6 +3014,7 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
     { id: "phase" as const, label: lang === "en" ? "Phase View" : "Vue Phase" },
     { id: "overdue" as const, label: lang === "en" ? "Overdue View" : "Vue Retards" },
     { id: "all" as const, label: lang === "en" ? "All" : "Toutes" },
+    { id: "suppliers" as const, label: lang === "en" ? "Supplier Offers" : "Offres Fournisseurs" },
   ];
 
   return (
@@ -3242,6 +3328,170 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
               {canWrite && <button onClick={seedAll} className="btn-neon px-4 py-2 rounded text-xs">
                 {lang === "en" ? "Initialize logistics tasks" : "Initialiser tâches logistiques"}
               </button>}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* SUPPLIERS TAB */}
+      {activeTab === "suppliers" && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-xs text-gray-500">
+                {lang === "en" ? `${suppliers.length} offer(s) logged` : `${suppliers.length} offre(s) consignée(s)`}
+              </p>
+            </div>
+            {canWrite && (
+              <button
+                onClick={() => { setEditSupplierId(null); setSupplierForm(SUPPLIER_FORM_DEFAULT); setShowSupplierForm(true); }}
+                className="btn-neon px-4 py-2 rounded text-xs"
+              >
+                {lang === "en" ? "+ Add offer" : "+ Ajouter offre"}
+              </button>
+            )}
+          </div>
+
+          {/* Domain filter */}
+          <div className="flex gap-1.5 flex-wrap mb-4">
+            <button
+              onClick={() => setSupplierFilter("all")}
+              className={`text-xs px-3 py-1 rounded transition-all ${supplierFilter === "all" ? "bg-white/10 text-white" : "text-gray-600 hover:text-gray-400 border border-gray-800"}`}
+            >
+              {lang === "en" ? "All" : "Tous"} ({suppliers.length})
+            </button>
+            {SUPPLIER_DOMAINS.filter(d => suppliers.some(s => s.domain === d)).map(d => (
+              <button
+                key={d}
+                onClick={() => setSupplierFilter(d)}
+                className={`text-xs px-3 py-1 rounded transition-all ${supplierFilter === d ? "bg-white/10 text-white" : "text-gray-600 hover:text-gray-400 border border-gray-800"}`}
+              >
+                {d} ({suppliers.filter(s => s.domain === d).length})
+              </button>
+            ))}
+          </div>
+
+          {/* Add / Edit form */}
+          {canWrite && showSupplierForm && (
+            <div className="cyber-card rounded-xl p-5 mb-5">
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "var(--ac)" }}>
+                {editSupplierId !== null ? (lang === "en" ? "Edit offer" : "Modifier l'offre") : (lang === "en" ? "New supplier offer" : "Nouvelle offre fournisseur")}
+              </h3>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Supplier *" : "Fournisseur *"}</label>
+                  <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={supplierForm.supplier} onChange={e => setSupplierForm(p => ({ ...p, supplier: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Domain *" : "Domaine *"}</label>
+                  <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={supplierForm.domain} onChange={e => setSupplierForm(p => ({ ...p, domain: e.target.value }))}>
+                    {SUPPLIER_DOMAINS.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Amount (FCFA)" : "Montant (FCFA)"}</label>
+                  <input type="number" className="cyber-input w-full px-3 py-2 rounded text-xs" value={supplierForm.amount} onChange={e => setSupplierForm(p => ({ ...p, amount: e.target.value }))} placeholder="0" />
+                </div>
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Description *" : "Description de l'offre *"}</label>
+                  <textarea className="cyber-input w-full px-3 py-2 rounded text-xs" rows={2} value={supplierForm.description} onChange={e => setSupplierForm(p => ({ ...p, description: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Payment terms" : "Conditions de paiement"}</label>
+                  <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={supplierForm.paymentTerms} onChange={e => setSupplierForm(p => ({ ...p, paymentTerms: e.target.value }))} placeholder={lang === "en" ? "e.g. 50% upfront" : "ex. 50% à la commande"} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">PDF URL ({lang === "en" ? "optional" : "optionnel"})</label>
+                  <input className="cyber-input w-full px-3 py-2 rounded text-xs" value={supplierForm.pdfUrl} onChange={e => setSupplierForm(p => ({ ...p, pdfUrl: e.target.value }))} placeholder="https://..." />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Advantages" : "Avantages"}</label>
+                  <textarea className="cyber-input w-full px-3 py-2 rounded text-xs" rows={2} value={supplierForm.advantages} onChange={e => setSupplierForm(p => ({ ...p, advantages: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Risks" : "Risques"}</label>
+                  <textarea className="cyber-input w-full px-3 py-2 rounded text-xs" rows={2} value={supplierForm.risks} onChange={e => setSupplierForm(p => ({ ...p, risks: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Comment" : "Commentaire"}</label>
+                  <textarea className="cyber-input w-full px-3 py-2 rounded text-xs" rows={2} value={supplierForm.comment} onChange={e => setSupplierForm(p => ({ ...p, comment: e.target.value }))} />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={saveSupplier}
+                  disabled={!supplierForm.supplier.trim() || !supplierForm.description.trim()}
+                  className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-40"
+                >
+                  {editSupplierId !== null ? (lang === "en" ? "Update" : "Mettre à jour") : (lang === "en" ? "Add" : "Ajouter")}
+                </button>
+                <button onClick={() => { setShowSupplierForm(false); setEditSupplierId(null); setSupplierForm(SUPPLIER_FORM_DEFAULT); }} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">
+                  {lang === "en" ? "Cancel" : "Annuler"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Suppliers list */}
+          {suppliers.length === 0 ? (
+            <div className="text-center py-12 cyber-card rounded-xl">
+              <p className="text-gray-600 text-xs">{lang === "en" ? "No supplier offers yet." : "Aucune offre fournisseur pour l'instant."}</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {suppliers
+                .filter(s => supplierFilter === "all" || s.domain === supplierFilter)
+                .map(s => (
+                  <div key={s.id as number} className="cyber-card rounded-xl p-4 border border-gray-800 hover:border-gray-700 transition-all">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: "#0066ff15", color: "#0066ff" }}>{s.domain as string}</span>
+                          {s.amount != null && (
+                            <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "var(--ac-bg)", color: "var(--ac)" }}>
+                              {(s.amount as number).toLocaleString("fr-FR")} FCFA
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-white font-bold text-sm">{s.supplier as string}</p>
+                        <p className="text-gray-400 text-xs mt-1 leading-relaxed">{s.description as string}</p>
+                        {!!(s.paymentTerms as string) && (
+                          <p className="text-xs text-gray-500 mt-1">💳 {s.paymentTerms as string}</p>
+                        )}
+                        {!!(s.advantages as string) && (
+                          <p className="text-xs mt-1"><span className="text-green-400 font-bold">+ </span><span className="text-gray-400">{s.advantages as string}</span></p>
+                        )}
+                        {!!(s.risks as string) && (
+                          <p className="text-xs mt-1"><span className="text-red-400 font-bold">- </span><span className="text-gray-400">{s.risks as string}</span></p>
+                        )}
+                        {!!(s.comment as string) && (
+                          <p className="text-xs text-gray-600 italic mt-1">{s.comment as string}</p>
+                        )}
+                        {!!(s.pdfUrl as string) && (
+                          <a href={s.pdfUrl as string} target="_blank" rel="noreferrer" className="text-xs mt-1 inline-block hover:underline" style={{ color: "#0066ff" }}>
+                            📎 {lang === "en" ? "View PDF" : "Voir PDF"}
+                          </a>
+                        )}
+                      </div>
+                      {canWrite && (
+                        <div className="flex flex-col gap-1.5 shrink-0">
+                          <button
+                            onClick={() => editSupplier(s)}
+                            className="text-xs px-3 py-1 rounded border border-gray-700 text-gray-400 hover:text-white transition-colors"
+                          >
+                            {lang === "en" ? "Edit" : "Modifier"}
+                          </button>
+                          <button
+                            onClick={() => deleteSupplier(s.id as number)}
+                            className="text-xs px-3 py-1 rounded border border-red-900 text-red-400 hover:bg-red-900/20 transition-colors"
+                          >
+                            {lang === "en" ? "Delete" : "Supprimer"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
             </div>
           )}
         </div>

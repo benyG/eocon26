@@ -556,6 +556,7 @@ model SocialPost {
 model ProspectLead {
   id                 Int      @id @default(autoincrement())
   source             String   @default("manual") // apollo | google_places | manual
+  searchQuery        String?  // keyword string or places query used to generate this lead
   org                String
   sector             String?
   city               String?
@@ -573,7 +574,26 @@ model ProspectLead {
   emailJson          String?  @db.Text // cached AI prospecting email (JSON)
   createdAt          DateTime @default(now())
 
+  @@index([searchQuery])
   @@map("prospect_leads")
+}
+
+model SupplierOffer {
+  id           Int      @id @default(autoincrement())
+  supplier     String
+  domain       String
+  description  String   @db.Text
+  amount       Float?
+  paymentTerms String?  @db.Text
+  pdfUrl       String?
+  advantages   String?  @db.Text
+  risks        String?  @db.Text
+  comment      String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([domain])
+  @@map("supplier_offers")
 }
 
 model EventSetting {

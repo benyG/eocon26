@@ -106,10 +106,10 @@ function ChapterOverview({ isFr }: { isFr: boolean }) {
 
       <Section title={isFr ? "CHRONOLOGIE TYPE (J-0)" : "TYPICAL TIMELINE (D-0)"}>
         {[
-          { time: "H-2h",    col: "#666",     txt: isFr ? "Vérification Restream, canaux YouTube actifs" : "Check Restream, YouTube channels active" },
-          { time: "H-1h",    col: "#666",     txt: isFr ? "Ouvrir Restream Studio, ajouter le speaker" : "Open Restream Studio, add speaker" },
-          { time: "H-30min", col: "#ffaa00",  txt: isFr ? "Test stream en preview, valider audio/vidéo" : "Test stream in preview, validate audio/video" },
-          { time: "H-15min", col: "#ffaa00",  txt: isFr ? "Coller l'embed YouTube dans la session admin" : "Paste YouTube embed in admin session" },
+          { time: "H-2h",    col: "#666",     txt: isFr ? "Vérification token Restream + canaux YouTube actifs" : "Check Restream token + YouTube channels active" },
+          { time: "H-1h",    col: "#666",     txt: isFr ? "Ouvrir Studio, ajouter le speaker, vérifier équipe (📅 Planification)" : "Open Studio, add speaker, check team (📅 Planning)" },
+          { time: "H-30min", col: "#ffaa00",  txt: isFr ? "Test stream en Preview, valider audio/vidéo" : "Test stream in Preview, validate audio/video" },
+          { time: "H-15min", col: "#ffaa00",  txt: isFr ? "↗ Récupérer le lien embed YouTube dans Planification → Sauvegarder" : "↗ Fetch YouTube embed link in Planning → Save" },
           { time: "H-10min", col: "#ff6b6b",  txt: isFr ? "Tester page /live (navigation privée) + Q&A test" : "Test /live page (incognito) + test Q&A" },
           { time: "H-5min",  col: "#ff6b6b",  txt: isFr ? "Overlays préparés, speaker prêt, modérateur en ligne" : "Overlays ready, speaker ready, moderator online" },
           { time: "H-0",     col: "#00ff9d",  txt: isFr ? "🔴 Go Live → broadcast annonce participants" : "🔴 Go Live → broadcast announcement to participants" },
@@ -172,43 +172,49 @@ function ChapterTeam({ isFr }: { isFr: boolean }) {
         {isFr ? "2 · Constituer l'équipe streaming" : "2 · Assemble the streaming team"}
       </h2>
       <p style={{ color: "#666", fontSize: 12, marginBottom: 24 }}>
-        {isFr ? "Désigner le modérateur, les speakers et le contact technique pour chaque session." : "Assign the moderator, speakers, and tech contact for each session."}
+        {isFr ? "Désigner le modérateur, les techniciens et les speakers pour chaque session — dans l'onglet Planification." : "Assign the moderator, technicians and speakers for each session — in the Planning tab."}
       </p>
 
-      <Step n={1} title={isFr ? "Ouvrir la section Équipe streaming" : "Open the Streaming Team section"}>
+      <Step n={1} title={isFr ? "Ouvrir l'onglet Planification session" : "Open the Session planning tab"}>
         {isFr
-          ? <><Code>Admin → Live Streaming → ⚙️ Configuration → Étape 0 : Équipe & Invitations</Code><br/>Cette section liste les sessions du jour et permet de constituer l&apos;équipe.</>
-          : <><Code>Admin → Live Streaming → ⚙️ Configuration → Step 0: Team & Invitations</Code><br/>This section lists today&apos;s sessions and lets you assemble the team.</>}
+          ? <><Code>Admin → Live Streaming → 📅 Planification session</Code><br/>Cet onglet liste toutes les sessions et permet de configurer l&apos;équipe, les liens live et le lien studio pour chaque session.</>
+          : <><Code>Admin → Live Streaming → 📅 Session planning</Code><br/>This tab lists all sessions and lets you configure the team, live links, and studio link for each session.</>}
       </Step>
 
       <Step n={2} title={isFr ? "Sélectionner la session cible" : "Select the target session"}>
         {isFr
-          ? <>Choisissez la session dans la liste déroulante ou entrez manuellement le titre et l&apos;heure.<br/>Cette information apparaîtra dans les emails d&apos;invitation.</>
-          : <>Select the session from the dropdown or enter the title and time manually.<br/>This info will appear in the invitation emails.</>}
+          ? <>Choisissez la session dans la liste déroulante.<br/>La fiche de planification se charge automatiquement avec les données sauvegardées (si déjà configurée).</>
+          : <>Select the session from the dropdown.<br/>The planning form loads automatically with saved data (if already configured).</>}
       </Step>
 
-      <Step n={3} title={isFr ? "Désigner le modérateur" : "Designate the moderator"}>
+      <Step n={3} title={isFr ? "Désigner le ou les modérateurs" : "Designate the moderator(s)"}>
         {isFr
-          ? <>Choisissez un membre de l&apos;équipe dans la liste <strong style={{ color: "#fff" }}>Équipe EOCON</strong>.<br/>Vérifiez que son email est renseigné (éditable si nécessaire).<br/>Choisissez sa langue de communication (FR/EN).</>
-          : <>Select a team member from the <strong style={{ color: "#fff" }}>EOCON Team</strong> list.<br/>Verify their email is filled in (editable if needed).<br/>Choose their communication language (FR/EN).</>}
+          ? <>Dans la section <strong style={{ color: "#fff" }}>Modérateurs</strong>, sélectionnez un ou plusieurs membres de l&apos;équipe EOCON.<br/>Ces personnes animeront le Q&A et géreront le timing de la session.</>
+          : <>In the <strong style={{ color: "#fff" }}>Moderators</strong> section, select one or more EOCON team members.<br/>They will run the Q&A and manage session timing.</>}
         <Tip>{isFr ? "Le modérateur idéal comprend le sujet de la session et parle couramment la langue du speaker." : "The ideal moderator understands the session topic and speaks the speaker's language fluently."}</Tip>
       </Step>
 
-      <Step n={4} title={isFr ? "Ajouter le ou les speakers" : "Add the speaker(s)"}>
+      <Step n={4} title={isFr ? "Désigner le ou les techniciens" : "Designate the technician(s)"}>
         {isFr
-          ? <>Choisissez depuis la liste des <strong style={{ color: "#fff" }}>speakers acceptés</strong> ou entrez nom + email manuellement.<br/>Pour un panel : ajoutez plusieurs speakers (bouton &quot;+ Speaker&quot;).</>
-          : <>Select from the <strong style={{ color: "#fff" }}>accepted speakers</strong> list or enter name + email manually.<br/>For a panel: add multiple speakers (button &quot;+ Speaker&quot;).</>}
+          ? <>Dans la section <strong style={{ color: "#fff" }}>Techniciens</strong>, sélectionnez les membres de l&apos;équipe responsables du flux Restream et des overlays.<br/>Ces personnes auront la main sur Studio pendant le live.</>
+          : <>In the <strong style={{ color: "#fff" }}>Technicians</strong> section, select the team members responsible for the Restream stream and overlays.<br/>They will control Studio during the live.</>}
       </Step>
 
-      <Step n={5} title={isFr ? "Renseigner le lien Restream Studio" : "Enter the Restream Studio link"}>
+      <Step n={5} title={isFr ? "Ajouter les panélistes / speakers extra" : "Add panelists / extra speakers"}>
         {isFr
-          ? <>Sur <Code>studio.restream.io</Code>, créez ou ouvrez votre session en cours.<br/>Cliquez <strong style={{ color: "#fff" }}>Inviter des guests</strong> → copiez le lien d&apos;invitation guest.<br/>Collez-le dans le champ <strong style={{ color: "#fff" }}>Lien Restream Studio</strong> dans l&apos;admin.<br/>Ce lien sera inclus dans tous les emails d&apos;invitation.</>
-          : <>On <Code>studio.restream.io</Code>, create or open your current session.<br/>Click <strong style={{ color: "#fff" }}>Invite guests</strong> → copy the guest invite link.<br/>Paste it in the <strong style={{ color: "#fff" }}>Restream Studio Link</strong> field in the admin.<br/>This link will be included in all invitation emails.</>}
+          ? <>Pour un panel ou un atelier avec plusieurs intervenants, ajoutez les speakers supplémentaires dans la section <strong style={{ color: "#fff" }}>Panélistes</strong>.<br/>Les speakers principaux sont déjà attachés à la session via le pipeline CFP.</>
+          : <>For a panel or workshop with multiple speakers, add them in the <strong style={{ color: "#fff" }}>Panelists</strong> section.<br/>Main speakers are already attached to the session via the CFP pipeline.</>}
+      </Step>
+
+      <Step n={6} title={isFr ? "Renseigner le lien Restream Studio (webinaire)" : "Enter the Restream Studio link (webinar)"}>
+        {isFr
+          ? <>Sur <Code>studio.restream.io</Code>, créez ou ouvrez votre session.<br/>Cliquez <strong style={{ color: "#fff" }}>Inviter des guests</strong> → copiez le lien d&apos;invitation guest.<br/>Collez-le dans le champ <strong style={{ color: "#fff" }}>Lien webinaire / studio invité</strong>.<br/>Ce lien sera inclus dans les emails d&apos;invitation speaker et modérateur.</>
+          : <>On <Code>studio.restream.io</Code>, create or open your session.<br/>Click <strong style={{ color: "#fff" }}>Invite guests</strong> → copy the guest invite link.<br/>Paste it in the <strong style={{ color: "#fff" }}>Webinar / studio guest link</strong> field.<br/>This link will be included in speaker and moderator invitation emails.</>}
         <Info>{isFr ? "Le lien guest Restream est unique par session. Régénérez-le si une session est compromise." : "The Restream guest link is unique per session. Regenerate it if a session is compromised."}</Info>
       </Step>
 
-      <Step n={6} title={isFr ? "Sauvegarder la configuration" : "Save the configuration"}>
-        {isFr ? "Cliquez Sauvegarder l'équipe. La configuration est mémorisée jusqu'à la prochaine modification." : "Click Save team. The configuration is saved until the next modification."}
+      <Step n={7} title={isFr ? "Sauvegarder la planification" : "Save the planning"}>
+        {isFr ? "Cliquez Sauvegarder. La configuration est mémorisée et rechargée automatiquement lors de la prochaine sélection de cette session." : "Click Save. The configuration is saved and reloaded automatically the next time this session is selected."}
       </Step>
     </div>
   );
@@ -303,30 +309,53 @@ function ChapterAdminConf({ isFr }: { isFr: boolean }) {
   return (
     <div>
       <h2 style={{ fontSize: 18, color: "#fff", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
-        {isFr ? "5 · Configurer la session dans l'admin" : "5 · Configure the session in admin"}
+        {isFr ? "5 · Lier le live YouTube à la session" : "5 · Link the YouTube live to the session"}
       </h2>
       <p style={{ color: "#666", fontSize: 12, marginBottom: 24 }}>
-        {isFr ? "Lier l'embed YouTube à la session pour que les participants voient le live sur /live." : "Link the YouTube embed to the session so participants see the live on /live."}
+        {isFr ? "Renseigner l'URL embed YouTube dans la session pour que les participants voient le live sur /live. L'admin propose deux méthodes automatiques." : "Set the YouTube embed URL on the session so participants see the live on /live. The admin offers two automatic methods."}
       </p>
 
-      <Step n={1} title={isFr ? "Démarrer le live YouTube dans Restream (mode preview d'abord)" : "Start YouTube live in Restream (preview mode first)"}>
-        {isFr
-          ? <>Dans Restream Studio, lancez en <strong style={{ color: "#fff" }}>Preview</strong> — cela crée automatiquement une diffusion YouTube programmée et génère une URL embed.<br/>Vous pouvez aussi aller sur <Code>studio.youtube.com</Code> → voir la diffusion créée → copier l&apos;URL.</>
-          : <>In Restream Studio, launch in <strong style={{ color: "#fff" }}>Preview</strong> — this automatically creates a scheduled YouTube broadcast and generates an embed URL.<br/>You can also go to <Code>studio.youtube.com</Code> → see the created broadcast → copy the URL.</>}
-      </Step>
+      <Section title={isFr ? "MÉTHODE 1 — AUTO-DÉTECTION (recommandée)" : "METHOD 1 — AUTO-DETECT (recommended)"} color="#00ff9d">
+        <Step n={1} title={isFr ? "Démarrer le stream dans Restream Studio (Preview ou Go Live)" : "Start the stream in Restream Studio (Preview or Go Live)"}>
+          {isFr
+            ? <>Dans Restream Studio, lancez en <strong style={{ color: "#fff" }}>Preview</strong> ou directement <strong style={{ color: "#ff4444" }}>Go Live</strong>.<br/>Restream crée automatiquement une diffusion YouTube et active son canal.</>
+            : <>In Restream Studio, launch in <strong style={{ color: "#fff" }}>Preview</strong> or directly <strong style={{ color: "#ff4444" }}>Go Live</strong>.<br/>Restream automatically creates a YouTube broadcast and activates its channel.</>}
+        </Step>
 
-      <Step n={2} title={isFr ? "Copier l'URL embed YouTube" : "Copy the YouTube embed URL"}>
-        {isFr
-          ? <>Format attendu : <Code>https://www.youtube.com/embed/XXXXXXXXXXX</Code><br/><br/><strong style={{ color: "#ffaa00" }}>Méthode rapide</strong> : Dans l&apos;admin → <Code>🔴 En direct</Code> → widget Restream → bouton <strong style={{ color: "#00ff9d" }}>📋 Copier embed YouTube</strong> (disponible dès que le stream est actif).<br/><br/><strong style={{ color: "#aaa" }}>Méthode manuelle</strong> : YouTube Studio → Diffusions → clic droit sur la vidéo → Partager → Intégrer → extraire l&apos;ID de la balise <Code>iframe src</Code>.</>
-          : <>Expected format: <Code>https://www.youtube.com/embed/XXXXXXXXXXX</Code><br/><br/><strong style={{ color: "#ffaa00" }}>Quick method</strong>: In admin → <Code>🔴 Live</Code> → Restream widget → <strong style={{ color: "#00ff9d" }}>📋 Copy YouTube embed</strong> button (available once the stream is active).<br/><br/><strong style={{ color: "#aaa" }}>Manual method</strong>: YouTube Studio → Broadcasts → right-click video → Share → Embed → extract ID from <Code>iframe src</Code>.</>}
-      </Step>
+        <Step n={2} title={isFr ? "Cliquer ↗ Récupérer dans Planification session" : "Click ↗ Fetch in Session planning"}>
+          {isFr
+            ? <><Code>Admin → Live Streaming → 📅 Planification session → sélectionner la session</Code><br/>Dans le champ <strong style={{ color: "#fff" }}>Lien live YouTube (embed)</strong>, cliquez <strong style={{ color: "#00ff9d" }}>↗ Récupérer</strong>.<br/>Le système interroge l&apos;API Restream, détecte le canal YouTube en cours et renseigne automatiquement l&apos;URL embed.<br/>Un message de confirmation s&apos;affiche : <em>&quot;✓ URL récupérée (live en cours)&quot;</em> ou <em>&quot;✓ URL récupérée (événement Restream)&quot;</em>.</>
+            : <><Code>Admin → Live Streaming → 📅 Session planning → select session</Code><br/>In the <strong style={{ color: "#fff" }}>YouTube live link (embed)</strong> field, click <strong style={{ color: "#00ff9d" }}>↗ Fetch</strong>.<br/>The system queries the Restream API, detects the active YouTube channel and automatically fills in the embed URL.<br/>A confirmation message appears: <em>&quot;✓ URL fetched (live in progress)&quot;</em> or <em>&quot;✓ URL fetched (Restream event)&quot;</em>.</>}
+          <Tip>{isFr ? "Si le message dit «Aucun live actif détecté», c'est que Restream n'est pas encore en stream. Lancez Preview dans Studio d'abord." : "If the message says 'No active live detected', Restream is not streaming yet. Launch Preview in Studio first."}</Tip>
+        </Step>
 
-      <Step n={3} title={isFr ? "Coller l'embed URL dans la session" : "Paste the embed URL in the session"}>
-        {isFr
-          ? <><Code>Admin → ⚙️ Configuration → Sessions du jour</Code><br/>Trouvez la session dans la liste, cliquez le lien pour aller dans le Pipeline speakers.<br/>Dans la session : champ <strong style={{ color: "#fff" }}>Lien live</strong> → coller l&apos;URL embed → sauvegarder.<br/>Un point vert indique que la session a un lien configuré.</>
-          : <><Code>Admin → ⚙️ Configuration → Today's sessions</Code><br/>Find the session in the list, click the link to go to the Speakers Pipeline.<br/>In the session: <strong style={{ color: "#fff" }}>Live link</strong> field → paste the embed URL → save.<br/>A green dot indicates the session has a configured link.</>}
-        <Warn>{isFr ? "Ne collez pas le lien de la page YouTube mais l'URL embed (avec /embed/ dans l'URL). Sinon le player ne s'affichera pas sur /live." : "Don't paste the YouTube page link but the embed URL (with /embed/ in the URL). Otherwise the player won't display on /live."}</Warn>
-      </Step>
+        <Step n={3} title={isFr ? "Sauvegarder la planification" : "Save the planning"}>
+          {isFr ? "Cliquez Sauvegarder. L'URL est maintenant liée à la session — le player YouTube apparaîtra sur /live." : "Click Save. The URL is now linked to the session — the YouTube player will appear on /live."}
+        </Step>
+      </Section>
+
+      <Section title={isFr ? "MÉTHODE 2 — CRÉER UN ÉVÉNEMENT RESTREAM" : "METHOD 2 — CREATE A RESTREAM EVENT"} color="#4488ff">
+        <Step n="▸" title={isFr ? "Cliquer + Créer dans Planification session" : "Click + Create in Session planning"}>
+          {isFr
+            ? <>Dans le champ <strong style={{ color: "#fff" }}>Lien live YouTube</strong>, cliquez <strong style={{ color: "#4488ff" }}>+ Créer</strong>.<br/>Le système crée un nouvel événement Restream (non listé) au nom de la session sélectionnée.<br/>YouTube assigne un ID vidéo → l&apos;URL embed est générée et renseignée automatiquement.<br/>Utile pour préparer les sessions <strong style={{ color: "#fff" }}>à l&apos;avance</strong>, sans être en train de streamer.</>
+            : <>In the <strong style={{ color: "#fff" }}>YouTube live link</strong> field, click <strong style={{ color: "#4488ff" }}>+ Create</strong>.<br/>The system creates a new (unlisted) Restream event named after the selected session.<br/>YouTube assigns a video ID → the embed URL is generated and filled in automatically.<br/>Useful to prepare sessions <strong style={{ color: "#fff" }}>in advance</strong>, without streaming yet.</>}
+          <Info>{isFr ? "Cette méthode nécessite que le token Restream soit configuré et que le canal YouTube soit connecté dans restream.io." : "This method requires the Restream token to be configured and the YouTube channel to be connected in restream.io."}</Info>
+        </Step>
+      </Section>
+
+      <Section title={isFr ? "MÉTHODE 3 — COPIE MANUELLE (fallback)" : "METHOD 3 — MANUAL COPY (fallback)"} color="#888">
+        <Step n="▸" title={isFr ? "Via le widget 🔴 En direct" : "Via the 🔴 Live widget"}>
+          {isFr
+            ? <>Quand Restream est en live : <Code>Admin → 🔴 En direct</Code> → widget Restream → bouton <strong style={{ color: "#00ff9d" }}>📋 Copier embed YouTube</strong>.<br/>Copiez et collez dans le champ Lien live de la session (Planification).</>
+            : <>When Restream is live: <Code>Admin → 🔴 Live</Code> → Restream widget → <strong style={{ color: "#00ff9d" }}>📋 Copy YouTube embed</strong> button.<br/>Copy and paste in the session&apos;s Live link field (Planning).</>}
+        </Step>
+        <Step n="▸" title={isFr ? "Via YouTube Studio (toujours dispo)" : "Via YouTube Studio (always available)"}>
+          {isFr
+            ? <>YouTube Studio → Diffusions → clic droit sur la vidéo → Partager → Intégrer → extraire l&apos;ID.<br/>Format attendu : <Code>https://www.youtube.com/embed/XXXXXXXXXXX</Code></>
+            : <>YouTube Studio → Broadcasts → right-click video → Share → Embed → extract ID.<br/>Expected format: <Code>https://www.youtube.com/embed/XXXXXXXXXXX</Code></>}
+          <Warn>{isFr ? "Ne collez pas le lien de la page YouTube mais l'URL embed (avec /embed/ dans l'URL). Sinon le player ne s'affichera pas sur /live." : "Don't paste the YouTube page link but the embed URL (with /embed/ in the URL). Otherwise the player won't display on /live."}</Warn>
+        </Step>
+      </Section>
     </div>
   );
 }
@@ -552,25 +581,111 @@ function ChapterWorkshop({ isFr }: { isFr: boolean }) {
 
 function ChapterChecklist({ isFr }: { isFr: boolean }) {
   const checks = isFr ? [
-    { group: "J-3 (3 jours avant)",  items: ["Speakers invités dans Restream Studio (test de connexion)", "Emails d'invitation envoyés (speaker + modérateur)", "Confirmation de réception vérifiée"] },
-    { group: "J-1 (veille)",          items: ["Test technique complet avec chaque speaker (30 min)", "Overlays préparés et testés dans Studio", "Workshops JaaS créés et testés", "Page /live testée avec compte participant test"] },
-    { group: "H-2h",                  items: ["Restream connecté, token valide", "YouTube Live activé et lié à Restream", "Studio ouvert, speaker de la 1ère session connecté"] },
-    { group: "H-30min",               items: ["Test stream en mode Preview", "Audio/vidéo speaker validé", "Overlays vérifiés"] },
-    { group: "H-15min",               items: ["URL embed YouTube copiée depuis widget admin", "Embed collé dans la session admin (point vert)", "Page /live testée en navigation privée"] },
-    { group: "H-10min",               items: ["Q&A testé (question test soumise et modérée)", "Annonce broadcast rédigée", "Modérateur confirmé en ligne dans Studio"] },
-    { group: "H-5min",                items: ["Briefing final équipe (speaker, modérateur, tech)", "Lower third speaker prêt à activer", "Admin ouvert sur 🔴 En direct"] },
-    { group: "H-0 — GO LIVE",         items: ["Studio → Go Live !", "Attendre 30 secondes", "Vérifier widget Restream : EN DIRECT", "Activer lower third speaker", "Envoyer broadcast participants"] },
-    { group: "Après chaque session",  items: ["Studio → Stop Streaming", "Q&A nettoyé", "Prochain speaker invité dans Studio", "Nouveau lien embed collé dans prochaine session", "Broadcast transition envoyé"] },
+    { group: "J-3 (3 jours avant)",  items: [
+      "Équipe streaming affectée dans Admin → 📅 Planification session (modérateurs + techniciens)",
+      "Lien Restream Studio (guest) renseigné dans la planification de chaque session",
+      "Emails d'invitation envoyés (speaker + modérateur) depuis la planification",
+      "Confirmation de réception vérifiée (WhatsApp / Signal)",
+    ]},
+    { group: "J-1 (veille)",          items: [
+      "Test technique complet avec chaque speaker (30 min)",
+      "Overlays préparés et testés dans Studio",
+      "Workshops JaaS créés et testés (si applicable)",
+      "Page /live testée avec compte participant test",
+      "Lien live YouTube pré-créé via «+ Créer» dans Planification (optionnel mais recommandé)",
+    ]},
+    { group: "H-2h",                  items: [
+      "Restream connecté, token valide (Admin → ⚙️ Configuration)",
+      "YouTube Live activé et lié à Restream (canal visible dans widget 🔴 En direct)",
+      "Studio ouvert, speaker de la 1ère session connecté",
+    ]},
+    { group: "H-30min",               items: [
+      "Test stream en mode Preview dans Restream Studio",
+      "Audio/vidéo speaker validé",
+      "Overlays vérifiés (lower third, titre session, logo)",
+    ]},
+    { group: "H-15min",               items: [
+      "URL embed YouTube récupérée via ↗ Récupérer dans Planification session (ou via bouton 📋 dans widget 🔴 En direct)",
+      "Planification sauvegardée (point vert visible sur la session)",
+      "Page /live testée en navigation privée — player YouTube visible",
+    ]},
+    { group: "H-10min",               items: [
+      "Q&A testé (question test soumise et modérée)",
+      "Annonce broadcast rédigée dans 🔴 En direct",
+      "Modérateur confirmé en ligne dans Studio",
+    ]},
+    { group: "H-5min",                items: [
+      "Briefing final équipe (speaker, modérateur, technicien)",
+      "Lower third speaker prêt à activer",
+      "Admin ouvert sur 🔴 En direct",
+    ]},
+    { group: "H-0 — GO LIVE",         items: [
+      "Studio → Go Live !",
+      "Attendre 30 secondes (stabilisation flux YouTube)",
+      "Vérifier widget Restream : EN DIRECT + canal YouTube actif",
+      "Activer lower third speaker dans Studio",
+      "Envoyer broadcast participants («🔴 La session X démarre !»)",
+    ]},
+    { group: "Après chaque session",  items: [
+      "Studio → Stop Streaming",
+      "Q&A nettoyé (questions résiduelles approuvées ou supprimées)",
+      "Prochain speaker invité dans Studio",
+      "↗ Récupérer ou + Créer dans Planification pour la prochaine session",
+      "Broadcast transition envoyé («Prochaine session dans X min : [Titre]»)",
+    ]},
   ] : [
-    { group: "D-3 (3 days before)",  items: ["Speakers invited in Restream Studio (connection test)", "Invitation emails sent (speaker + moderator)", "Receipt confirmed"] },
-    { group: "D-1 (day before)",      items: ["Full technical test with each speaker (30 min)", "Overlays prepared and tested in Studio", "JaaS workshops created and tested", "/ live page tested with test participant account"] },
-    { group: "H-2h",                  items: ["Restream connected, token valid", "YouTube Live active and linked to Restream", "Studio open, 1st session speaker connected"] },
-    { group: "H-30min",               items: ["Test stream in Preview mode", "Speaker audio/video validated", "Overlays verified"] },
-    { group: "H-15min",               items: ["YouTube embed URL copied from admin widget", "Embed pasted in admin session (green dot)", "/ live page tested in incognito"] },
-    { group: "H-10min",               items: ["Q&A tested (test question submitted and moderated)", "Broadcast announcement drafted", "Moderator confirmed online in Studio"] },
-    { group: "H-5min",                items: ["Final team briefing (speaker, moderator, tech)", "Speaker lower third ready to activate", "Admin open on 🔴 Live"] },
-    { group: "H-0 — GO LIVE",         items: ["Studio → Go Live!", "Wait 30 seconds", "Check Restream widget: LIVE", "Activate speaker lower third", "Send participant broadcast"] },
-    { group: "After each session",    items: ["Studio → Stop Streaming", "Q&A cleaned up", "Next speaker invited in Studio", "New embed link pasted in next session", "Transition broadcast sent"] },
+    { group: "D-3 (3 days before)",  items: [
+      "Streaming team assigned in Admin → 📅 Session planning (moderators + technicians)",
+      "Restream Studio guest link entered in each session's planning",
+      "Invitation emails sent (speaker + moderator) from planning",
+      "Receipt confirmed (WhatsApp / Signal)",
+    ]},
+    { group: "D-1 (day before)",      items: [
+      "Full technical test with each speaker (30 min)",
+      "Overlays prepared and tested in Studio",
+      "JaaS workshops created and tested (if applicable)",
+      "/live page tested with test participant account",
+      "YouTube live link pre-created via '+ Create' in Planning (optional but recommended)",
+    ]},
+    { group: "H-2h",                  items: [
+      "Restream connected, token valid (Admin → ⚙️ Configuration)",
+      "YouTube Live active and linked to Restream (channel visible in 🔴 Live widget)",
+      "Studio open, 1st session speaker connected",
+    ]},
+    { group: "H-30min",               items: [
+      "Test stream in Preview mode in Restream Studio",
+      "Speaker audio/video validated",
+      "Overlays verified (lower third, session title, logo)",
+    ]},
+    { group: "H-15min",               items: [
+      "YouTube embed URL fetched via ↗ Fetch in Session planning (or via 📋 button in 🔴 Live widget)",
+      "Planning saved (green dot visible on session)",
+      "/live page tested in incognito — YouTube player visible",
+    ]},
+    { group: "H-10min",               items: [
+      "Q&A tested (test question submitted and moderated)",
+      "Broadcast announcement drafted in 🔴 Live",
+      "Moderator confirmed online in Studio",
+    ]},
+    { group: "H-5min",                items: [
+      "Final team briefing (speaker, moderator, technician)",
+      "Speaker lower third ready to activate",
+      "Admin open on 🔴 Live",
+    ]},
+    { group: "H-0 — GO LIVE",         items: [
+      "Studio → Go Live!",
+      "Wait 30 seconds (YouTube stream stabilization)",
+      "Check Restream widget: LIVE + YouTube channel active",
+      "Activate speaker lower third in Studio",
+      "Send participant broadcast ('🔴 Session X starting!')",
+    ]},
+    { group: "After each session",    items: [
+      "Studio → Stop Streaming",
+      "Q&A cleaned up (remaining questions approved or deleted)",
+      "Next speaker invited in Studio",
+      "↗ Fetch or + Create in Planning for the next session",
+      "Transition broadcast sent ('Next session in X min: [Title]')",
+    ]},
   ];
 
   return (

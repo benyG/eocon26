@@ -48,6 +48,21 @@ export async function getCurrentPermissions(): Promise<CurrentPerms | null> {
   return null;
 }
 
+/** Returns the email of the currently logged-in admin, or null for legacy/unauthenticated. */
+export async function getSessionEmail(): Promise<string | null> {
+  const c = await cookies();
+  const userCookie = c.get("admin_user_token")?.value;
+  if (!userCookie) return null;
+  const parsed = verifyUserSession(userCookie);
+  if (!parsed) return null;
+  const session = await prisma.adminSession.findFirst({
+    where: { userId: parsed.userId, token: parsed.sessionToken, expiresAt: { gt: new Date() } },
+    select: { user: { select: { email: true, isActive: true } } },
+  });
+  if (session?.user?.isActive) return session.user.email;
+  return null;
+}
+
 // True when the current request may act on `module` at the given level.
 export async function hasPermission(module: string, level: "read" | "write" = "write"): Promise<boolean> {
   const p = await getCurrentPermissions();

@@ -13,6 +13,7 @@ import CampaignsPanel from "@/components/admin/CampaignsPanel";
 import StrategicPlanPanel from "@/components/admin/StrategicPlanPanel";
 import LivePanel from "@/components/admin/LivePanel";
 import RegistrationsChart from "@/components/admin/RegistrationsChart";
+import NotificationBell from "@/components/admin/NotificationBell";
 import { adminI18n } from "@/lib/adminI18n";
 import { AdminLangContext, useAdminT, type AdminLang } from "@/lib/adminLangContext";
 
@@ -6274,6 +6275,9 @@ export default function AdminDashboard() {
             <button onClick={() => setShowAccount(true)} className="text-gray-400 hover:text-neon-green text-xs font-mono transition-colors">
               👤 {userInfo.name}
             </button>
+          )}
+          {userInfo && !userInfo.isLegacy && (
+            <NotificationBell userEmail={userInfo.email} onGoToPilotage={() => setTab("pilotage")} />
           )}
           <a href="/" target="_blank" className="text-gray-500 hover:text-neon-green text-xs transition-colors">↗ {t.viewSite}</a>
           <button

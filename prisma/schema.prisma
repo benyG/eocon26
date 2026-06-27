@@ -262,6 +262,22 @@ model SteeringMeeting {
   @@map("steering_meetings")
 }
 
+model AdminNotification {
+  id             Int       @id @default(autoincrement())
+  recipientEmail String
+  type           String    // "task_due_soon" | "task_overdue" | "meeting_upcoming"
+  refType        String    // "task" | "meeting"
+  refId          Int
+  title          String
+  body           String    @db.Text
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@unique([recipientEmail, refType, refId])
+  @@index([recipientEmail, readAt])
+  @@map("admin_notifications")
+}
+
 model PastSpeaker {
   id        Int      @id @default(autoincrement())
   name      String

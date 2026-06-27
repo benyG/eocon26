@@ -62,18 +62,30 @@ export async function POST(req: NextRequest) {
   if (reg.status !== "validated") {
     return NextResponse.json({ error: "Paiement non confirmé — inscription non validée" }, { status: 403 });
   }
-  if (reg.checkedInAt) {
-    // Fire-and-forget fraud alert
-    sendFraudAlert(reg, operatorName || "Scanner inconnu");
+  // Atomic conditional update: only writes if checkedInAt is still null.
+  // Prevents race conditions when two scanners hit the same QR simultaneously —
+  // MySQL guarantees exactly one UPDATE succeeds even under concurrent requests.
+  const now = new Date();
+  const operator = operatorName || "Admin";
+  const result = await prisma.registration.updateMany({
+    where: { id, checkedInAt: null },
+    data: { checkedInAt: now, checkedInBy: operator },
+  });
+
+  if (result.count === 0) {
+    // Another request won the race, or it was already checked in.
+    const fresh = await prisma.registration.findUnique({ where: { id } });
+    sendFraudAlert(
+      { ...reg, checkedInAt: fresh?.checkedInAt ?? reg.checkedInAt, checkedInBy: fresh?.checkedInBy ?? reg.checkedInBy },
+      operator,
+    );
     return NextResponse.json({
       error: "Already checked in",
-      checkedInAt: reg.checkedInAt,
-      checkedInBy: reg.checkedInBy,
+      checkedInAt: fresh?.checkedInAt ?? reg.checkedInAt,
+      checkedInBy: fresh?.checkedInBy ?? reg.checkedInBy,
     }, { status: 409 });
   }
-  const updated = await prisma.registration.update({
-    where: { id },
-    data: { checkedInAt: new Date(), checkedInBy: operatorName || "Admin" },
-  });
+
+  const updated = await prisma.registration.findUnique({ where: { id } });
   return NextResponse.json({ success: true, registration: updated });
 }

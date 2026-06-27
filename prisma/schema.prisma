@@ -93,7 +93,7 @@ model Registration {
   onlineAccessSentAt DateTime?
   onlineSessions     OnlineSession[]
   // Live presence tracking (CPE)
-  liveToken          String?   @unique
+  liveToken          String?   @unique @map("live_token")
   livePresence       LivePresence?
   createdAt          DateTime  @default(now())
 
@@ -709,13 +709,13 @@ model SessionQuestion {
 // ── Live presence & CPE ────────────────────────────────────────────────────────
 model LivePresence {
   id             Int          @id @default(autoincrement())
-  liveToken      String       @unique
-  registrationId Int          @unique
+  liveToken      String       @unique @map("live_token")
+  registrationId Int          @unique @map("registration_id")
   registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
-  totalMinutes   Int          @default(0)
-  lastHeartbeat  DateTime?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  totalMinutes   Int          @default(0) @map("total_minutes")
+  lastHeartbeat  DateTime?    @map("last_heartbeat")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
 
   @@map("live_presences")
 }
@@ -725,10 +725,10 @@ model StreamingRoom {
   id        Int               @id @default(autoincrement())
   name      String
   type      String            // "conference" | "workshop"
-  guestLink String?           // Restream guest invite link (conference rooms)
-  jaasRoom  String?           // JaaS room name, e.g. EOCON-NomSalle (workshop rooms)
-  sortOrder Int               @default(0)
-  createdAt DateTime          @default(now())
+  guestLink String?           @map("guest_link") // Restream guest invite link (conference rooms)
+  jaasRoom  String?           @map("jaas_room") // JaaS room name, e.g. EOCON-NomSalle (workshop rooms)
+  sortOrder Int               @default(0) @map("sort_order")
+  createdAt DateTime          @default(now()) @map("created_at")
   plannings SessionPlanning[]
 
   @@map("streaming_rooms")
@@ -737,19 +737,19 @@ model StreamingRoom {
 // ── Session planning (filled by streaming team) ────────────────────────────────
 model SessionPlanning {
   id              Int            @id @default(autoincrement())
-  sessionId       Int            @unique
+  sessionId       Int            @unique @map("session_id")
   session         ConferenceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  roomId          Int?
+  roomId          Int?           @map("room_id")
   room            StreamingRoom? @relation(fields: [roomId], references: [id], onDelete: SetNull)
-  lienWebinaire   String?        // Zoom / Jitsi / Restream webinar link for speakers
-  lienLive        String?        // Public YouTube / broadcast link shown on /live
-  restreamEventId String?        // Restream event id (from API, optional)
-  technicienIds   Json           @default("[]") // Int[] — TeamMember ids
-  moderateurIds   Json           @default("[]") // Int[] — TeamMember ids
-  panelistesExtra Json           @default("[]") // {name,email,lang}[]
-  notifiedAt      DateTime?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  lienWebinaire   String?        @map("lien_webinaire") // Zoom / Jitsi / Restream webinar link for speakers
+  lienLive        String?        @map("lien_live") // Public YouTube / broadcast link shown on /live
+  restreamEventId String?        @map("restream_event_id") // Restream event id (from API, optional)
+  technicienIds   Json           @default("[]") @map("technicien_ids") // Int[] — TeamMember ids
+  moderateurIds   Json           @default("[]") @map("moderateur_ids") // Int[] — TeamMember ids
+  panelistesExtra Json           @default("[]") @map("panelistes_extra") // {name,email,lang}[]
+  notifiedAt      DateTime?      @map("notified_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
 
   @@map("session_plannings")
 }

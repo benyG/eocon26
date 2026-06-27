@@ -40,6 +40,14 @@ export async function GET(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || null;
   const userAgent = req.headers.get("user-agent") || null;
 
+  // Expire all existing sessions for this registration before creating a new one.
+  // This ensures only one active session per ticket: if the magic link is shared,
+  // the previous holder is logged out and only the latest user stays connected.
+  await prisma.onlineSession.updateMany({
+    where: { registrationId: registration.id, expiresAt: { gt: new Date() } },
+    data: { expiresAt: new Date() },
+  });
+
   await prisma.onlineSession.create({
     data: {
       registrationId: registration.id,

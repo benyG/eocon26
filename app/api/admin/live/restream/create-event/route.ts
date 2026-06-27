@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         title: body.title,
-        privacy: body.privacy ?? "private",
+        privacy: body.privacy ?? "unlisted",
       }),
       cache: "no-store",
     });

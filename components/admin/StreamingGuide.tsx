@@ -128,39 +128,58 @@ function ChapterRestream({ isFr }: { isFr: boolean }) {
   return (
     <div>
       <h2 style={{ fontSize: 18, color: "#fff", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
-        {isFr ? "1 · Configurer Restream" : "1 · Set up Restream"}
+        {isFr ? "1 · Configurer Restream (OAuth)" : "1 · Set up Restream (OAuth)"}
       </h2>
       <p style={{ color: "#666", fontSize: 12, marginBottom: 24 }}>
-        {isFr ? "À faire une seule fois (ou si le token expire)." : "Done once (or when the token expires)."}
+        {isFr ? "La connexion utilise OAuth 2.0 — pas de token manuel. À faire une seule fois, ou après un «Token invalide ou expiré»." : "The connection uses OAuth 2.0 — no manual token. Done once, or after a 'Token invalid or expired' error."}
       </p>
 
-      <Step n={1} title={isFr ? "Obtenir un Access Token Restream" : "Get a Restream Access Token"}>
-        {isFr
-          ? <><span>Connectez-vous sur <strong style={{ color: "#fff" }}>restream.io</strong> avec le compte EOCON.<br/>Allez dans : <Code>Paramètres → API → Personal Access Token</Code><br/>Cliquez <strong style={{ color: "#fff" }}>Créer un token</strong> et copiez-le immédiatement (il ne sera plus visible).</span></>
-          : <><span>Log in to <strong style={{ color: "#fff" }}>restream.io</strong> with the EOCON account.<br/>Go to: <Code>Settings → API → Personal Access Token</Code><br/>Click <strong style={{ color: "#fff" }}>Create token</strong> and copy it immediately (it won&apos;t be shown again).</span></>}
-        <Tip>{isFr ? "Conservez le token dans un gestionnaire de mots de passe ou le partager avec le responsable technique uniquement." : "Store the token in a password manager and share it with the technical lead only."}</Tip>
-      </Step>
+      <Section title={isFr ? "PRÉREQUIS — VARIABLES D'ENVIRONNEMENT" : "PREREQUISITES — ENVIRONMENT VARIABLES"} color="#ffaa00">
+        <Step n={1} title={isFr ? "Créer une application OAuth sur restream.io" : "Create an OAuth app on restream.io"}>
+          {isFr
+            ? <>Connectez-vous sur <strong style={{ color: "#fff" }}>restream.io</strong> avec le compte EOCON.<br/>Allez dans : <Code>Profile → Developers → Create application</Code><br/>Renseignez :<br/>• Nom : <em>EOCON 2026 Admin</em><br/>• Redirect URI : <Code>https://[votre-domaine]/api/admin/live/restream/callback</Code><br/>Copiez le <strong style={{ color: "#fff" }}>Client ID</strong> et le <strong style={{ color: "#fff" }}>Client Secret</strong>.</>
+            : <>Log in to <strong style={{ color: "#fff" }}>restream.io</strong> with the EOCON account.<br/>Go to: <Code>Profile → Developers → Create application</Code><br/>Fill in:<br/>• Name: <em>EOCON 2026 Admin</em><br/>• Redirect URI: <Code>https://[your-domain]/api/admin/live/restream/callback</Code><br/>Copy the <strong style={{ color: "#fff" }}>Client ID</strong> and <strong style={{ color: "#fff" }}>Client Secret</strong>.</>}
+        </Step>
 
-      <Step n={2} title={isFr ? "Coller le token dans l'admin" : "Paste the token in the admin"}>
-        {isFr
-          ? <><Code>Admin → Live Streaming → ⚙️ Configuration → Section Restream</Code><br/>Collez le token dans le champ &quot;Access Token&quot;, cliquez <strong style={{ color: "#fff" }}>Connecter</strong>.<br/>Un aperçu masqué confirme la sauvegarde.</>
-          : <><Code>Admin → Live Streaming → ⚙️ Configuration → Restream section</Code><br/>Paste the token in the &quot;Access Token&quot; field, click <strong style={{ color: "#fff" }}>Connect</strong>.<br/>A masked preview confirms the save.</>}
-      </Step>
+        <Step n={2} title={isFr ? "Configurer les variables d'environnement" : "Set the environment variables"}>
+          {isFr
+            ? <>Dans votre <Code>.env</Code> ou panneau d&apos;hébergement (Vercel, Railway…) :<br/><br/><Code>RESTREAM_CLIENT_ID=xxxxx</Code><br/><Code>RESTREAM_CLIENT_SECRET=xxxxx</Code><br/><Code>RESTREAM_REDIRECT_URI=https://[domaine]/api/admin/live/restream/callback</Code><br/><br/>Redémarrez l&apos;application après modification.</>
+            : <>In your <Code>.env</Code> or hosting panel (Vercel, Railway…):<br/><br/><Code>RESTREAM_CLIENT_ID=xxxxx</Code><br/><Code>RESTREAM_CLIENT_SECRET=xxxxx</Code><br/><Code>RESTREAM_REDIRECT_URI=https://[domain]/api/admin/live/restream/callback</Code><br/><br/>Restart the application after changes.</>}
+          <Warn>{isFr ? "RESTREAM_REDIRECT_URI doit correspondre exactement à ce qui est déclaré dans l'application Restream (avec /api/admin/live/restream/callback à la fin)." : "RESTREAM_REDIRECT_URI must exactly match what is declared in the Restream app (ending with /api/admin/live/restream/callback)."}</Warn>
+        </Step>
+      </Section>
 
-      <Step n={3} title={isFr ? "Vérifier les canaux connectés" : "Verify connected channels"}>
-        {isFr
-          ? <>Les canaux Restream s&apos;affichent dans la section Configuration. Vérifiez que <strong style={{ color: "#fff" }}>YouTube</strong> est présent et <strong style={{ color: "#00ff9d" }}>Actif</strong>.<br/>Si YouTube n&apos;apparaît pas : allez sur <Code>restream.io → Canaux → Ajouter YouTube</Code> et connectez le compte YouTube EOCON.</>
-          : <>The Restream channels appear in the Configuration section. Verify that <strong style={{ color: "#fff" }}>YouTube</strong> is listed and <strong style={{ color: "#00ff9d" }}>Active</strong>.<br/>If YouTube doesn&apos;t appear: go to <Code>restream.io → Channels → Add YouTube</Code> and connect the EOCON YouTube account.</>}
-        <Warn>{isFr ? "Sans YouTube actif, les participants ne pourront pas voir le live sur /live." : "Without active YouTube, participants won't be able to watch the stream on /live."}</Warn>
-      </Step>
+      <Section title={isFr ? "CONNEXION — DANS L'ADMIN" : "CONNECTION — IN ADMIN"} color="#00ff9d">
+        <Step n={3} title={isFr ? "Cliquer «Connecter Restream (OAuth)»" : "Click 'Connect Restream (OAuth)'"}>
+          {isFr
+            ? <><Code>Admin → Live Streaming → ⚙️ Configuration → Section Restream</Code><br/>Cliquez <strong style={{ color: "#ff4444" }}>🔗 Connecter Restream (OAuth)</strong>.<br/>Vous êtes redirigé vers restream.io → autorisez l&apos;application → retour automatique dans l&apos;admin.<br/>Le statut passe à <strong style={{ color: "#00ff9d" }}>✓ Connecté via OAuth</strong>.</>
+            : <><Code>Admin → Live Streaming → ⚙️ Configuration → Restream section</Code><br/>Click <strong style={{ color: "#ff4444" }}>🔗 Connect Restream (OAuth)</strong>.<br/>You are redirected to restream.io → authorize the app → automatically returned to admin.<br/>Status changes to <strong style={{ color: "#00ff9d" }}>✓ Connected via OAuth</strong>.</>}
+          <Tip>{isFr ? "Le token OAuth est valide ~1h et se renouvelle automatiquement via le refresh token. La reconnexion manuelle n'est nécessaire que si le refresh token expire aussi (rare, ~30 jours)." : "The OAuth token is valid ~1h and auto-renews via the refresh token. Manual reconnection is only needed if the refresh token also expires (rare, ~30 days)."}</Tip>
+        </Step>
 
-      <Step n={4} title={isFr ? "Configurer la destination YouTube (une fois)" : "Configure YouTube destination (once)"}>
-        {isFr
-          ? <>Sur <Code>restream.io → Canaux → YouTube</Code> :<br/>• Titre par défaut : &quot;EOCON 2026 — Live&quot;<br/>• Catégorie : Science et technologie<br/>• Confidentialité : <strong style={{ color: "#ff6b6b" }}>Public</strong> (ou Non répertorié si test)<br/>• Activer <strong style={{ color: "#fff" }}>Programmé automatiquement</strong> pour les événements récurrents</>
-          : <>On <Code>restream.io → Channels → YouTube</Code>:<br/>• Default title: &quot;EOCON 2026 — Live&quot;<br/>• Category: Science &amp; Technology<br/>• Privacy: <strong style={{ color: "#ff6b6b" }}>Public</strong> (or Unlisted for testing)<br/>• Enable <strong style={{ color: "#fff" }}>Auto-scheduled</strong> for recurring events</>}
-      </Step>
+        <Step n={4} title={isFr ? "Token invalide ou expiré — que faire ?" : "Token invalid or expired — what to do?"}>
+          {isFr
+            ? <>Si le message <strong style={{ color: "#ff6b6b" }}>⚠ Token invalide ou expiré</strong> s&apos;affiche dans l&apos;admin :<br/>1. Cliquez <strong style={{ color: "#ff6b6b" }}>Déconnecter</strong><br/>2. Cliquez <strong style={{ color: "#ff4444" }}>🔗 Connecter Restream (OAuth)</strong><br/>3. Ré-autorisez sur restream.io<br/>Le nouveau token est valide et le refresh token est remis à zéro.</>
+            : <>If the <strong style={{ color: "#ff6b6b" }}>⚠ Token invalid or expired</strong> message appears in admin:<br/>1. Click <strong style={{ color: "#ff6b6b" }}>Disconnect</strong><br/>2. Click <strong style={{ color: "#ff4444" }}>🔗 Connect Restream (OAuth)</strong><br/>3. Re-authorize on restream.io<br/>The new token is valid and the refresh token is reset.</>}
+        </Step>
+      </Section>
 
-      <Tip>{isFr ? "La clé RTMP et l'URL de stream s'affichent dans l'admin une fois le token configuré. Vous en aurez besoin pour les speakers qui utilisent OBS, Zoom ou Teams à la place de Restream Studio." : "The RTMP key and stream URL appear in the admin once the token is configured. You'll need these for speakers using OBS, Zoom, or Teams instead of Restream Studio."}</Tip>
+      <Section title={isFr ? "CANAUX & DESTINATION YOUTUBE" : "CHANNELS & YOUTUBE DESTINATION"} color="#4488ff">
+        <Step n={5} title={isFr ? "Vérifier les canaux connectés" : "Verify connected channels"}>
+          {isFr
+            ? <>Une fois connecté, les canaux Restream s&apos;affichent dans le widget <Code>🔴 En direct</Code>. Vérifiez que <strong style={{ color: "#fff" }}>YouTube</strong> est présent et <strong style={{ color: "#00ff9d" }}>Actif</strong>.<br/>Si YouTube n&apos;apparaît pas : sur <Code>restream.io → Canaux → Ajouter YouTube</Code> → connectez le compte YouTube EOCON.</>
+            : <>Once connected, Restream channels appear in the <Code>🔴 Live</Code> widget. Verify that <strong style={{ color: "#fff" }}>YouTube</strong> is listed and <strong style={{ color: "#00ff9d" }}>Active</strong>.<br/>If YouTube doesn&apos;t appear: on <Code>restream.io → Channels → Add YouTube</Code> → connect the EOCON YouTube account.</>}
+          <Warn>{isFr ? "Sans canal YouTube actif dans Restream, les boutons ↗ Récupérer et + Créer ne peuvent pas générer d'URL embed YouTube." : "Without an active YouTube channel in Restream, the ↗ Fetch and + Create buttons cannot generate a YouTube embed URL."}</Warn>
+        </Step>
+
+        <Step n={6} title={isFr ? "Configurer la destination YouTube dans Restream" : "Configure the YouTube destination in Restream"}>
+          {isFr
+            ? <>Sur <Code>restream.io → Canaux → YouTube</Code> :<br/>• Confidentialité par défaut : <strong style={{ color: "#ff6b6b" }}>Public</strong> (ou Non répertorié pour les tests)<br/>• Catégorie : Science et technologie<br/>Ces paramètres s&apos;appliquent aux événements créés depuis l&apos;admin.</>
+            : <>On <Code>restream.io → Channels → YouTube</Code>:<br/>• Default privacy: <strong style={{ color: "#ff6b6b" }}>Public</strong> (or Unlisted for testing)<br/>• Category: Science &amp; Technology<br/>These settings apply to events created from the admin.</>}
+        </Step>
+      </Section>
+
+      <Tip>{isFr ? "La clé RTMP et l'URL de stream s'affichent dans ⚙️ Configuration une fois connecté. Utilisez-les pour les speakers qui préfèrent OBS, Zoom ou Teams à la place de Restream Studio." : "The RTMP key and stream URL appear in ⚙️ Configuration once connected. Use them for speakers who prefer OBS, Zoom, or Teams instead of Restream Studio."}</Tip>
     </div>
   );
 }

@@ -596,7 +596,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
     try {
       const res = await fetch("/api/admin/live/restream/create-event", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionTitle: selectedPlanSession.title, privacy: "unlisted" }),
+        body: JSON.stringify({ title: selectedPlanSession.title, privacy: "unlisted" }),
       });
       const data = await res.json().catch(() => null);
       if (data?.liveUrl) {

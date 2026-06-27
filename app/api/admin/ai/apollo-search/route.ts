@@ -76,6 +76,7 @@ JSON uniquement: {"score": <0-10>, "reason": "<1 phrase>", "package": "<PLATINUM
     const lead = await prisma.prospectLead.create({
       data: {
         source: "apollo",
+        searchQuery: (keywords || []).join(", ") || null,
         org: org.name,
         sector: org.industry || null,
         city: org.city || null,

@@ -1086,57 +1086,71 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
                 {/* Modérateurs */}
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ fontSize: 10, color: "#00cc88", letterSpacing: 2, display: "block", marginBottom: 6 }}>{__("MODÉRATEUR(S)", "MODERATOR(S)")}</label>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {teamMembers.map((m: TeamMember) => {
-                      const selected = planning.moderateurIds.includes(m.id);
-                      return (
-                        <button
-                          key={m.id}
-                          onClick={() => canWrite && setPlanning((p: SessionPlanning) => ({
-                            ...p,
-                            moderateurIds: selected
-                              ? p.moderateurIds.filter((id: number) => id !== m.id)
-                              : [...p.moderateurIds, m.id],
-                          }))}
-                          style={{
-                            padding: "4px 10px", borderRadius: 6, fontSize: 11, cursor: canWrite ? "pointer" : "default",
-                            background: selected ? "#00cc8820" : "transparent",
-                            border: `1px solid ${selected ? "#00cc8860" : "var(--bdr-2)"}`,
-                            color: selected ? "#00cc88" : "var(--txt-dim)",
-                          }}>
-                          {m.name}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {teamMembers.length === 0 ? (
+                    <p style={{ fontSize: 11, color: "var(--txt-mute)" }}>
+                      {__("Aucun membre d'équipe configuré.", "No team members configured.")}
+                      {" "}<span style={{ color: "var(--ac)" }}>{__("→ Ajoutez-en dans l'onglet 👥 Équipe.", "→ Add them in the 👥 Team tab.")}</span>
+                    </p>
+                  ) : (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {teamMembers.map((m: TeamMember) => {
+                        const selected = planning.moderateurIds.includes(m.id);
+                        return (
+                          <button
+                            key={m.id}
+                            onClick={() => canWrite && setPlanning((p: SessionPlanning) => ({
+                              ...p,
+                              moderateurIds: selected
+                                ? p.moderateurIds.filter((id: number) => id !== m.id)
+                                : [...p.moderateurIds, m.id],
+                            }))}
+                            style={{
+                              padding: "4px 10px", borderRadius: 6, fontSize: 11, cursor: canWrite ? "pointer" : "default",
+                              background: selected ? "#00cc8820" : "transparent",
+                              border: `1px solid ${selected ? "#00cc8860" : "var(--bdr-2)"}`,
+                              color: selected ? "#00cc88" : "var(--txt-dim)",
+                            }}>
+                            {m.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Techniciens */}
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ fontSize: 10, color: "#00cc88", letterSpacing: 2, display: "block", marginBottom: 6 }}>{__("TECHNICIEN(S)", "TECHNICIAN(S)")}</label>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {teamMembers.map((m: TeamMember) => {
-                      const selected = planning.technicienIds.includes(m.id);
-                      return (
-                        <button
-                          key={m.id}
-                          onClick={() => canWrite && setPlanning((p: SessionPlanning) => ({
-                            ...p,
-                            technicienIds: selected
-                              ? p.technicienIds.filter((id: number) => id !== m.id)
-                              : [...p.technicienIds, m.id],
-                          }))}
-                          style={{
-                            padding: "4px 10px", borderRadius: 6, fontSize: 11, cursor: canWrite ? "pointer" : "default",
-                            background: selected ? "#4488ff20" : "transparent",
-                            border: `1px solid ${selected ? "#4488ff60" : "var(--bdr-2)"}`,
-                            color: selected ? "#4488ff" : "var(--txt-dim)",
-                          }}>
-                          {m.name}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {teamMembers.length === 0 ? (
+                    <p style={{ fontSize: 11, color: "var(--txt-mute)" }}>
+                      {__("Aucun membre d'équipe configuré.", "No team members configured.")}
+                      {" "}<span style={{ color: "var(--ac)" }}>{__("→ Ajoutez-en dans l'onglet 👥 Équipe.", "→ Add them in the 👥 Team tab.")}</span>
+                    </p>
+                  ) : (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {teamMembers.map((m: TeamMember) => {
+                        const selected = planning.technicienIds.includes(m.id);
+                        return (
+                          <button
+                            key={m.id}
+                            onClick={() => canWrite && setPlanning((p: SessionPlanning) => ({
+                              ...p,
+                              technicienIds: selected
+                                ? p.technicienIds.filter((id: number) => id !== m.id)
+                                : [...p.technicienIds, m.id],
+                            }))}
+                            style={{
+                              padding: "4px 10px", borderRadius: 6, fontSize: 11, cursor: canWrite ? "pointer" : "default",
+                              background: selected ? "#4488ff20" : "transparent",
+                              border: `1px solid ${selected ? "#4488ff60" : "var(--bdr-2)"}`,
+                              color: selected ? "#4488ff" : "var(--txt-dim)",
+                            }}>
+                            {m.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Panelistes supplémentaires */}

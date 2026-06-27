@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: { params: { uuid: string } })
   const imageUrl = `${baseUrl}/api/verify/${badge.uuid}/image`;
   const pageUrl = `${baseUrl}/verify/${badge.uuid}`;
   const title = `${cred.name || "EOCON 2026 Badge"} — ${badge.recipientName}`;
-  const description = `Verified Open Badge issued by EyesOpen Association for EOCON 2026`;
+  const description = `Verified Open Badge issued by ExamBoot for EOCON 2026`;
   return {
     title,
     description,
@@ -62,10 +62,16 @@ export default async function VerifyPage({ params }: { params: { uuid: string } 
   const linkedinAddUrl = new URL("https://www.linkedin.com/profile/add");
   linkedinAddUrl.searchParams.set("startTask", "CERTIFICATION_NAME");
   linkedinAddUrl.searchParams.set("name", cred.name || "EOCON 2026 Badge");
+  // organizationId: numeric LinkedIn company page ID for ExamBoot.
+  // Set LINKEDIN_ORG_ID env var to the numeric ID from linkedin.com/company/examboot/.
+  const linkedinOrgId = process.env.LINKEDIN_ORG_ID;
+  if (linkedinOrgId) linkedinAddUrl.searchParams.set("organizationId", linkedinOrgId);
   linkedinAddUrl.searchParams.set("issueYear", "2026");
   linkedinAddUrl.searchParams.set("issueMonth", "11");
   linkedinAddUrl.searchParams.set("certUrl", `${baseUrl}/verify/${badge.uuid}`);
   linkedinAddUrl.searchParams.set("certId", badge.uuid);
+  // Skills pre-fill (LinkedIn accepts comma-separated skill names in this param).
+  linkedinAddUrl.searchParams.set("skills", "Cybersecurity,Information Security");
 
   const linkedinShareUrl = new URL("https://www.linkedin.com/shareArticle");
   linkedinShareUrl.searchParams.set("mini", "true");
@@ -145,7 +151,7 @@ export default async function VerifyPage({ params }: { params: { uuid: string } 
         {/* Issuer info */}
         <div style={{ borderTop: "1px solid #1a1a2e", paddingTop: "24px" }}>
           <p style={{ fontSize: "11px", color: "#333", margin: "0 0 4px", letterSpacing: "2px" }}>ISSUED BY</p>
-          <p style={{ fontSize: "13px", color: "#555", margin: 0 }}>EyesOpen Association · eyesopensecurity.com</p>
+          <p style={{ fontSize: "13px", color: "#555", margin: 0 }}>ExamBoot · eyesopensecurity.com</p>
           <p style={{ fontSize: "10px", color: "#222", margin: "4px 0 0" }}>Open Badges V3 · W3C Verifiable Credential</p>
         </div>
 

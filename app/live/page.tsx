@@ -217,15 +217,18 @@ function LivePageInner() {
     return () => document.body.removeAttribute("data-live-light");
   }, [theme]);
 
-  // Fetch session + live config in parallel
+  // Fetch session + live config in parallel.
+  // Stream URLs come from /api/live/streams (session-gated) to prevent public exposure
+  // of the YouTube embed URL from the unauthenticated /api/live/programme endpoint.
   useEffect(() => {
     Promise.all([
       fetch("/api/live/session").then(r => r.json()).catch(() => ({})),
-      fetch("/api/live/programme").then(r => r.json()).catch(() => ({ streams: [], programme: [], workshops: [] })),
+      fetch("/api/live/programme").then(r => r.json()).catch(() => ({ programme: [], workshops: [] })),
+      fetch("/api/live/streams").then(r => r.ok ? r.json() : { streams: [] }).catch(() => ({ streams: [] })),
       fetch("/api/live/sponsors").then(r => r.json()).catch(() => []),
-    ]).then(([sessionData, prog, spons]) => {
+    ]).then(([sessionData, prog, streamsData, spons]) => {
       if (sessionData.ok) setSession(sessionData.session);
-      setLiveData({ streams: prog.streams ?? [], programme: prog.programme ?? [], workshops: prog.workshops ?? [] });
+      setLiveData({ streams: streamsData.streams ?? [], programme: prog.programme ?? [], workshops: prog.workshops ?? [] });
       setSponsors(Array.isArray(spons) ? spons : []);
     }).finally(() => setLoading(false));
   }, []);

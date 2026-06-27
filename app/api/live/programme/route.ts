@@ -12,8 +12,7 @@ async function getSetting(key: string): Promise<unknown> {
 export async function GET() {
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD in UTC
 
-  const [streams, sessions, workshops] = await Promise.all([
-    getSetting("live_streams"),
+  const [sessions, workshops] = await Promise.all([
     prisma.conferenceSession.findMany({
       where: { date: today, isVisible: true },
       orderBy: [{ sortOrder: "asc" }, { time: "asc" }],
@@ -34,7 +33,6 @@ export async function GET() {
 
   return NextResponse.json(
     {
-      streams:   Array.isArray(streams)   ? streams   : [],
       programme: sessions,
       workshops: Array.isArray(workshops) ? workshops : [],
     },

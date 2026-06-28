@@ -707,6 +707,13 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
   const [packages, setPackages] = useState<Record<string, unknown>[]>([]);
   const [filter, setFilter] = useState<"all" | "pending" | "added">("all");
   const [enrichingId, setEnrichingId] = useState<number | null>(null);
+  const [collapsedQueries, setCollapsedQueries] = useState<Set<string>>(new Set());
+
+  const toggleQuery = (q: string) => setCollapsedQueries(prev => {
+    const next = new Set(prev);
+    if (next.has(q)) next.delete(q); else next.add(q);
+    return next;
+  });
 
   useEffect(() => {
     fetch("/api/admin/sponsor-packages").then(r => r.json()).then(setPackages).catch(() => {});
@@ -1040,6 +1047,8 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
             if (!byQuery[q]) byQuery[q] = [];
             byQuery[q].push(lead);
           }
+          const queries = Object.keys(byQuery);
+
           const renderLead = (lead: Record<string, unknown>) => (
             <div key={lead.id as number} className={`border rounded-xl p-4 transition-all ${lead.addedToPipeline ? "border-gray-800 opacity-60" : "border-gray-700 hover:border-gray-500"}`}>
               <div className="flex items-start justify-between gap-4">
@@ -1136,21 +1145,95 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
               </div>
             </div>
           );
-          if (Object.keys(byQuery).length <= 1) {
+
+          if (queries.length <= 1) {
             return <div className="space-y-3">{sorted.map(renderLead)}</div>;
           }
+
           return (
-            <div className="space-y-6">
-              {Object.entries(byQuery).map(([q, qLeads]) => (
-                <div key={q}>
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--ac)" }}>🔍 {q}</span>
-                    <span className="text-xs text-gray-600">({qLeads.length})</span>
-                    <div className="flex-1 h-px bg-gray-800" />
+            <div className="space-y-4">
+              {/* Quick-nav chips */}
+              <div className="flex gap-2 flex-wrap pb-2 border-b border-gray-800">
+                {queries.map(q => {
+                  const qLeads = byQuery[q];
+                  const pending = qLeads.filter(l => !l.addedToPipeline).length;
+                  const isCollapsed = collapsedQueries.has(q);
+                  return (
+                    <button
+                      key={q}
+                      onClick={() => {
+                        if (isCollapsed) toggleQuery(q);
+                        document.getElementById(`prospect-group-${q}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }}
+                      className="text-xs px-2.5 py-1 rounded-full font-mono transition-all"
+                      style={{
+                        background: isCollapsed ? "#1a1a2e" : "var(--ac-bg)",
+                        color: isCollapsed ? "#555" : "var(--ac)",
+                        border: `1px solid ${isCollapsed ? "#333" : "var(--ac)"}`,
+                      }}
+                    >
+                      {q.split(",")[0].trim()} <span style={{ opacity: 0.6 }}>({pending}/{qLeads.length})</span>
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => {
+                    const allCollapsed = queries.every(q => collapsedQueries.has(q));
+                    setCollapsedQueries(allCollapsed ? new Set() : new Set(queries));
+                  }}
+                  className="text-xs px-2.5 py-1 rounded-full font-mono transition-all ml-auto"
+                  style={{ background: "#1a1a2e", color: "#555", border: "1px solid #333" }}
+                >
+                  {queries.every(q => collapsedQueries.has(q)) ? (lang === "en" ? "Expand all" : "Tout ouvrir") : (lang === "en" ? "Collapse all" : "Tout réduire")}
+                </button>
+              </div>
+
+              {/* Groups */}
+              {queries.map(q => {
+                const qLeads = byQuery[q];
+                const isCollapsed = collapsedQueries.has(q);
+                const scores = qLeads.map(l => l.aiScore as number).filter(s => s !== null && s !== undefined);
+                const avgScore = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
+                const pendingCount = qLeads.filter(l => !l.addedToPipeline).length;
+
+                return (
+                  <div key={q} id={`prospect-group-${q}`} className="scroll-mt-4">
+                    <button
+                      onClick={() => toggleQuery(q)}
+                      className="w-full flex items-center gap-3 mb-3 text-left group"
+                    >
+                      <span className="text-xs font-mono transition-transform" style={{ color: "#555" }}>
+                        {isCollapsed ? "▶" : "▼"}
+                      </span>
+                      <span className="text-xs font-bold uppercase tracking-widest truncate" style={{ color: "var(--ac)" }}>
+                        🔍 {q}
+                      </span>
+                      <span className="text-xs font-mono whitespace-nowrap" style={{ color: "#555" }}>
+                        {pendingCount} {lang === "en" ? "pending" : "restants"} / {qLeads.length}
+                      </span>
+                      {avgScore !== null && (
+                        <span className="text-xs font-mono whitespace-nowrap" style={{ color: scoreColor(avgScore) }}>
+                          ø {avgScore.toFixed(1)}
+                        </span>
+                      )}
+                      <div className="flex-1 h-px bg-gray-800 group-hover:bg-gray-700 transition-colors" />
+                    </button>
+                    {!isCollapsed && (
+                      <div className="space-y-3">{qLeads.map(renderLead)}</div>
+                    )}
+                    {isCollapsed && (
+                      <div className="flex gap-2 flex-wrap mb-2 pl-4">
+                        {qLeads.slice(0, 6).map(l => (
+                          <span key={l.id as number} className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: "#0a0a0a", color: "#444", border: "1px solid #222" }}>
+                            {(l.org as string).slice(0, 22)}
+                          </span>
+                        ))}
+                        {qLeads.length > 6 && <span className="text-xs text-gray-700 font-mono">+{qLeads.length - 6}</span>}
+                      </div>
+                    )}
                   </div>
-                  <div className="space-y-3">{qLeads.map(renderLead)}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           );
         })()}

@@ -73,9 +73,9 @@ export function generateBadgeCredential(
     issuer: {
       id: `${baseUrl}`,
       type: "Profile",
-      name: "EyesOpen Association",
+      name: "ExamBoot",
       url: "https://eyesopensecurity.com",
-      description: "EyesOpen Association — Cybersecurity community in Cameroon and Africa",
+      description: "ExamBoot — Certification platform by EyesOpen Association, cybersecurity community in Cameroon and Africa",
       image: { id: `${baseUrl}/logo.png`, type: "Image" },
     },
     issuanceDate: now,

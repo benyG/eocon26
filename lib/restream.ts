@@ -141,9 +141,11 @@ function buildEmbedUrl(ch: Record<string, unknown>): string | null {
 }
 
 export async function fetchRestreamStatus(token: string): Promise<RestreamStatus> {
+  // Fetch channels and stream key in parallel. The streamKey endpoint returns 404
+  // on some Restream account types — handle gracefully so it doesn't kill the whole call.
   const [rawChannels, rawKey] = await Promise.all([
     restreamGet<Record<string, unknown>[]>("/user/channel", token),
-    restreamGet<Record<string, unknown>>("/user/streamKey", token),
+    restreamGet<Record<string, unknown>>("/user/streamKey", token).catch(() => null),
   ]);
 
   const channels: RestreamChannel[] = (rawChannels ?? []).map(ch => ({
@@ -156,7 +158,7 @@ export async function fetchRestreamStatus(token: string): Promise<RestreamStatus
     embedUrl: buildEmbedUrl(ch),
   }));
 
-  const streamKey = String(rawKey?.streamKey ?? rawKey?.key ?? "");
+  const streamKey = rawKey ? String(rawKey.streamKey ?? rawKey.key ?? "") : "";
   const ytChannel = channels.find(c => c.type === "youtube" && c.isLive && c.embedUrl);
 
   return {

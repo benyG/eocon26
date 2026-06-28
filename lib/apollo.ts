@@ -1,7 +1,6 @@
-// Apollo.io API — base URL for v1 endpoints.
-// Auth: api_key included in the POST body (current preferred method).
-// The X-Api-Key header is kept as fallback for GET requests.
-const APOLLO_BASE = "https://api.apollo.io/v1";
+// Apollo.io API — correct base URL (note: /api/v1, not /v1).
+// Auth: x-api-key request header. No api_key in body needed.
+const APOLLO_BASE = "https://api.apollo.io/api/v1";
 
 function getKey(): string {
   const k = process.env.APOLLO_API_KEY;
@@ -37,11 +36,9 @@ async function apolloPost<T>(path: string, body: Record<string, unknown>): Promi
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "no-cache",
-      // Keep header for backwards compat; Apollo v1 primarily uses api_key in body.
-      "X-Api-Key": key,
+      "x-api-key": key,
     },
-    // api_key in body is the current required auth method for Apollo v1 POST endpoints.
-    body: JSON.stringify({ api_key: key, ...body }),
+    body: JSON.stringify(body),
     cache: "no-store",
   });
   if (res.status === 401 || res.status === 403) {
@@ -84,7 +81,7 @@ export async function searchPeople(params: {
   per_page?: number;
 }): Promise<ApolloContact[]> {
   const data = await apolloPost<{ people?: ApolloContact[] }>(
-    "/mixed_people/search",
+    "/mixed_people/api_search",
     { ...params, per_page: params.per_page || 5 },
   );
   return data.people || [];
@@ -93,7 +90,7 @@ export async function searchPeople(params: {
 export async function enrichOrganization(domain: string): Promise<ApolloOrg | null> {
   const res = await fetch(
     `${APOLLO_BASE}/organizations/enrich?domain=${encodeURIComponent(domain)}`,
-    { headers: { "X-Api-Key": getKey(), "Cache-Control": "no-cache" } },
+    { headers: { "x-api-key": getKey(), "Cache-Control": "no-cache" } },
   );
   if (!res.ok) return null;
   const data = await res.json() as { organization?: ApolloOrg };

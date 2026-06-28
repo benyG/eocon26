@@ -556,6 +556,7 @@ function MeetingsView({
   const [reminderResult, setReminderResult] = useState<string | null>(null);
   const [meetDropdownOpen, setMeetDropdownOpen] = useState(false);
   const meetDropdownRef = useRef<HTMLDivElement>(null);
+  const [userTz] = useState<string>(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -713,6 +714,7 @@ function MeetingsView({
                 <p className="text-xs text-gray-400 font-mono">{fmtDayOfWeek(m.scheduledAt)}</p>
                 <p className="text-xs text-gray-500">{fmtDate(m.scheduledAt)}</p>
                 <p className="text-xs text-gray-600 font-mono">{fmtTime(m.scheduledAt)}</p>
+                <p className="text-xs font-mono" style={{ fontSize: 9, color: "#444", marginTop: 2 }} title={userTz}>{userTz.split("/").pop()?.replace(/_/g, " ")}</p>
               </div>
 
               {/* Content */}
@@ -835,6 +837,9 @@ function MeetingsView({
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((f: MeetingForm) => ({ ...f, scheduledAt: e.target.value }))}
                 className="cyber-input w-full px-3 py-2 rounded text-xs"
               />
+              <p className="text-xs mt-1" style={{ color: "var(--ac)", opacity: 0.7 }}>
+                🌍 {__("Heure saisie en", "Time entered in")}: <span className="font-mono">{userTz}</span>
+              </p>
             </div>
 
             {/* Location */}

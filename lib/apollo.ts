@@ -1,3 +1,6 @@
+// Apollo.io API — base URL for v1 endpoints.
+// Auth: api_key included in the POST body (current preferred method).
+// The X-Api-Key header is kept as fallback for GET requests.
 const APOLLO_BASE = "https://api.apollo.io/v1";
 
 function getKey(): string {
@@ -28,21 +31,32 @@ export interface ApolloContact {
 }
 
 async function apolloPost<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  const key = getKey();
   const res = await fetch(`${APOLLO_BASE}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "no-cache",
-      "X-Api-Key": getKey(),
+      // Keep header for backwards compat; Apollo v1 primarily uses api_key in body.
+      "X-Api-Key": key,
     },
-    body: JSON.stringify(body),
+    // api_key in body is the current required auth method for Apollo v1 POST endpoints.
+    body: JSON.stringify({ api_key: key, ...body }),
+    cache: "no-store",
   });
   if (res.status === 401 || res.status === 403) {
     throw new Error(`Apollo API: clé invalide ou quota dépassé (HTTP ${res.status})`);
   }
+  if (res.status === 429) {
+    throw new Error("Apollo API: limite de requêtes atteinte (rate limit). Réessayez dans quelques minutes.");
+  }
+  if (res.status === 422) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Apollo API: paramètres invalides (422): ${text.slice(0, 200)}`);
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`Apollo API error ${res.status}: ${text.slice(0, 200)}`);
+    throw new Error(`Apollo API HTTP ${res.status}: ${text.slice(0, 200)}`);
   }
   return res.json() as Promise<T>;
 }

@@ -1559,6 +1559,12 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [publishing, setPublishing] = useState<number | null>(null);
   const [scheduleId, setScheduleId] = useState<number | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
+  const getTomorrow09h = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T09:00`;
+  };
   // Dynamic context
   const [contextType, setContextType] = useState<"speaker" | "session" | "workshop" | "sponsor" | "countdown" | "cfp" | "inscriptions" | "ctf" | "custom">("speaker");
   const [contextData, setContextData] = useState<{
@@ -1658,7 +1664,11 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
     setGeneratedPostIds({});
     setPanelOpen(true);
     setPostImage(null);
-    setScheduleDate(date.toISOString().slice(0, 10) + "T10:00");
+    // Default to tomorrow 09:00 if clicked day is today or in the past
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const clickedStr = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    setScheduleDate(date <= todayStart ? getTomorrow09h() : `${clickedStr}T09:00`);
     const newBrief = generateBriefFromContext(contextType, selectedItem, contextData);
     setBrief(newBrief);
   };
@@ -1680,8 +1690,9 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
     setGenerating(false);
   };
 
-  const savePosts = async () => {
+  const savePosts = async (overrideDate?: string) => {
     if (!generatedPosts || !selectedDay) return;
+    const effectiveDate = overrideDate !== undefined ? overrideDate : scheduleDate;
     setSaving(true);
     // PATCH each generated post's content (edited by user) and scheduling data in-place.
     // Never re-generate — that would create duplicate DB records.
@@ -1704,7 +1715,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
       await fetch("/api/admin/ai/social-posts", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: postId, content: entry.content, imageUrl: postImage || undefined, scheduledAt: scheduleDate || undefined }),
+        body: JSON.stringify({ id: postId, content: entry.content, imageUrl: postImage || undefined, scheduledAt: effectiveDate || undefined }),
       });
     }
     await loadLinkedinPosts();
@@ -2030,14 +2041,30 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
             {/* Sticky footer — always visible */}
             <div className="shrink-0 border-t border-gray-800 px-5 py-3 space-y-2">
               {/* Schedule date */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 shrink-0">📅</span>
+              <div className="space-y-1">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-gray-500 shrink-0">📅 {adminLang === "en" ? "Publish on:" : "Publier le :"}</span>
+                  <button
+                    type="button"
+                    onClick={() => setScheduleDate(getTomorrow09h())}
+                    className="text-xs px-1.5 py-0.5 rounded ml-auto shrink-0 transition-all"
+                    style={{ background: "#ffaa0015", color: "#ffaa00", border: "1px solid #ffaa0030" }}
+                  >
+                    {adminLang === "en" ? "Tomorrow 9am" : "Demain 09h"}
+                  </button>
+                  {scheduleDate && (
+                    <button type="button" onClick={() => setScheduleDate("")} className="text-gray-600 hover:text-gray-400 text-xs px-1">✕</button>
+                  )}
+                </div>
                 <input
                   type="datetime-local"
                   value={scheduleDate}
                   onChange={e => setScheduleDate(e.target.value)}
-                  className="cyber-input text-xs rounded px-2 py-1 flex-1 text-white"
+                  className="cyber-input text-xs rounded px-2 py-1 w-full text-white"
                 />
+                {!scheduleDate && (
+                  <p className="text-gray-700 text-xs">{adminLang === "en" ? "No date → publishes immediately" : "Aucune date → publication immédiate"}</p>
+                )}
               </div>
               {/* Action buttons */}
               {generatedPosts ? (
@@ -2094,12 +2121,16 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                     {saving ? "..." : t.postNowBtn}
                   </button>
                   <button
-                    onClick={savePosts}
-                    disabled={saving || !scheduleDate}
+                    onClick={() => {
+                      const effectiveDate = scheduleDate || getTomorrow09h();
+                      if (!scheduleDate) setScheduleDate(effectiveDate);
+                      savePosts(effectiveDate);
+                    }}
+                    disabled={saving}
                     className="py-2 rounded text-xs font-bold transition-all"
                     style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "1px solid var(--ac-bdr)" }}
                   >
-                    {saving ? "..." : t.schedulePostBtn}
+                    {saving ? "..." : (scheduleDate ? t.schedulePostBtn : (adminLang === "en" ? "📅 Tomorrow 9am" : "📅 Demain 09h"))}
                   </button>
                 </div>
               ) : (
@@ -2179,7 +2210,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                             <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
                               {publishing === (post.id as number) ? "..." : (adminLang === "en" ? "▶️ Publish now" : "▶️ Publier maintenant")}
                             </button>
-                            <button onClick={() => { setScheduleId(post.id as number); setScheduleDate(""); }} className="text-xs px-2 py-1 rounded" style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0030" }}>{adminLang === "en" ? "🕐 Schedule" : "🕐 Planifier"}</button>
+                            <button onClick={() => { setScheduleId(post.id as number); setScheduleDate(getTomorrow09h()); }} className="text-xs px-2 py-1 rounded" style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0030" }}>{adminLang === "en" ? "🕐 Schedule" : "🕐 Planifier"}</button>
                           </>
                         )}
                         {post.status === "published" && !!post.linkedinPostId && (

@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   const data = await req.json();
   // Prevent duplicate: if a sponsor with the same name already exists, update it instead
   const existing = await prisma.sponsor.findFirst({
-    where: { name: { equals: data.name, mode: "insensitive" } },
+    where: { name: data.name }, // MySQL collation is case-insensitive by default
   });
   if (existing) {
     const updated = await prisma.sponsor.update({ where: { id: existing.id }, data });

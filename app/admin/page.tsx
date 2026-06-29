@@ -2746,6 +2746,32 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
         </div>
       )}
 
+      {/* Pipeline counter */}
+      {(() => {
+        const PIPELINE_TARGET = 300;
+        const total = prospects.length;
+        const pct = Math.min(100, Math.round((total / PIPELINE_TARGET) * 100));
+        const activeCount = prospects.filter(p => !["abandoned", "negative"].includes(p.status as string)).length;
+        const color = pct >= 100 ? "#00ff9d" : pct >= 60 ? "#ffaa00" : "#ff0066";
+        return (
+          <div className="cyber-card rounded-lg p-4 mb-4 flex items-center gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="text-white font-bold text-lg">{total}</span>
+                <span className="text-gray-500 text-xs">/ {PIPELINE_TARGET} {lang === "en" ? "prospects (target)" : "prospects (objectif)"}</span>
+                <span className="ml-auto text-xs font-mono font-bold" style={{ color }}>{pct}%</span>
+              </div>
+              <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+              </div>
+              <p className="text-xs text-gray-600 mt-1">
+                {activeCount} {lang === "en" ? "active (excl. abandoned & negative)" : "actifs (hors abandons & négatifs)"}
+              </p>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Kanban Board */}
       <div className="overflow-x-auto pb-4">
         <div className="flex gap-4 min-w-max">
@@ -2762,10 +2788,11 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                   {group.map(p => (
                     <div
                       key={p.id as number}
-                      className="cyber-card rounded-lg p-3 text-xs"
+                      className="cyber-card rounded-lg p-3 text-xs cursor-pointer hover:border-neon-green/30 transition-colors"
                       style={{ borderLeft: `3px solid ${st.color}40` }}
+                      onClick={() => setDetail(p)}
                     >
-                      <button onClick={() => setDetail(p)} className="text-white font-bold text-sm mb-1 truncate w-full text-left hover:text-neon-green transition-colors" title={lang === "en" ? "View details" : "Voir les détails"}>{p.org as string}</button>
+                      <p className="text-white font-bold text-sm mb-1 truncate">{p.org as string}</p>
                       {(p.contact as string) && <p className="text-gray-500 truncate">{p.contact as string}</p>}
                       {(p.email as string) && <p className="text-neon-green/60 truncate">{p.email as string}</p>}
                       {(p.package as string) && (
@@ -2776,7 +2803,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                       {(p.notes as string) && (
                         <p className="text-gray-600 text-xs mt-1 truncate" title={p.notes as string}>{p.notes as string}</p>
                       )}
-                      <div className="mt-2 space-y-1.5">
+                      <div className="mt-2 space-y-1.5" onClick={e => e.stopPropagation()}>
                         {canWrite && <button
                           onClick={() => generateFollowupEmail(p)}
                           disabled={generatingFor === (p.id as number)}
@@ -6413,6 +6440,8 @@ export default function AdminDashboard() {
   const [cfpNotes, setCfpNotes] = useState<Record<number, string>>({});
   const [onboarding, setOnboarding] = useState<Record<number, Record<string, boolean | string>>>({});
   const [detail, setDetail] = useState<{ type: string; item: Record<string, unknown> } | null>(null);
+  const [sponsorPkgs, setSponsorPkgs] = useState<Record<string, unknown>[]>([]);
+  const [sponsorPipelineData, setSponsorPipelineData] = useState<Record<string, unknown>[]>([]);
   const [lang, setLang] = useState<AdminLang>(() => {
     if (typeof window !== "undefined") return (localStorage.getItem("admin_lang") as AdminLang) || "fr";
     return "fr";
@@ -6546,8 +6575,14 @@ export default function AdminDashboard() {
       if (t === "pipeline") {
         // PipelineKanban self-fetches all data
       } else if (t === "sponsors") {
-        const res = await fetch("/api/admin/sponsors");
-        if (res.ok) { const json = await res.json(); setData(d => ({ ...d, sponsors: json })); }
+        const [sRes, pkgRes, pipeRes] = await Promise.all([
+          fetch("/api/admin/sponsors"),
+          fetch("/api/admin/sponsor-packages"),
+          fetch("/api/admin/sponsor-prospects"),
+        ]);
+        if (sRes.ok) { const json = await sRes.json(); setData(d => ({ ...d, sponsors: json })); }
+        if (pkgRes.ok) { const json = await pkgRes.json(); setSponsorPkgs(json); }
+        if (pipeRes.ok) { const json = await pipeRes.json(); setSponsorPipelineData(json); }
       } else if (t === "team") {
         const res = await fetch("/api/admin/team");
         if (res.ok) { const json = await res.json(); setData(d => ({ ...d, team: json })); }
@@ -7048,7 +7083,13 @@ export default function AdminDashboard() {
                             </div>
                           </div>
                           <div className="flex gap-2 shrink-0">
-                            <button onClick={() => setDetail({ type: "sponsor", item: s })} className="text-xs text-gray-400 hover:text-white px-2 py-1 border border-gray-700 rounded">{lang === "en" ? "Details" : "Détails"}</button>
+                            <button onClick={() => {
+                              const prospect = sponsorPipelineData.find(p => String(p.org || "").toLowerCase() === String(s.name || "").toLowerCase());
+                              const pkg = sponsorPkgs.find(p => String(p.tier || "").toUpperCase() === String(s.tier || "").toUpperCase());
+                              let pkgPerks: string[] = [];
+                              try { pkgPerks = JSON.parse((pkg?.perksFr as string) || "[]"); } catch { pkgPerks = []; }
+                              setDetail({ type: "sponsor", item: { ...s, _prospect: prospect || null, _pkgPerks: pkgPerks } });
+                            }} className="text-xs text-gray-400 hover:text-white px-2 py-1 border border-gray-700 rounded">{lang === "en" ? "Details" : "Détails"}</button>
                             {can("sponsors") && <button onClick={() => { setForm({ ...s }); setEditing(s.id as number); setShowForm(true); }} className="text-xs text-gray-400 hover:text-neon-green px-2 py-1 border border-gray-700 rounded">{lang === "en" ? "Edit" : "Éditer"}</button>}
                             {can("sponsors") && <button onClick={() => del("/api/admin/sponsors", s.id as number)} className="text-xs text-red-400 px-2 py-1 border border-red-900 rounded">{lang === "en" ? "Del." : "Suppr."}</button>}
                           </div>
@@ -7506,6 +7547,19 @@ export default function AdminDashboard() {
 // ── Detail drawer ─────────────────────────────────────────────────────────────
 function DetailDrawer({ item, type, onClose }: { item: Record<string, unknown>; type: string; onClose: () => void }) {
   const { lang } = useAdminT();
+  const prospect = item._prospect as Record<string, unknown> | null | undefined;
+  const pkgPerks = (item._pkgPerks as string[] | undefined) || [];
+  const [perkChecklist, setPerkChecklist] = useState<Record<string, { done: boolean; note: string }>>(() => {
+    try { return JSON.parse((prospect?.perkChecklist as string) || "{}"); } catch { return {}; }
+  });
+  const savePerkChecklist = async (next: Record<string, { done: boolean; note: string }>) => {
+    if (!prospect?.id) return;
+    await fetch(`/api/admin/sponsor-prospects/${prospect.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ perkChecklist: JSON.stringify(next) }),
+    }).catch(() => {});
+  };
   const fmt = (v: unknown) => {
     if (v === null || v === undefined || v === "") return <span className="text-gray-600">—</span>;
     if (typeof v === "boolean") return <span className={v ? "text-neon-green" : "text-gray-500"}>{v ? (lang === "en" ? "Yes" : "Oui") : (lang === "en" ? "No" : "Non")}</span>;
@@ -7628,6 +7682,61 @@ function DetailDrawer({ item, type, onClose }: { item: Record<string, unknown>; 
               </div>
             </div>
           ))}
+
+          {/* Perks checklist for sponsors that have a concluded prospect */}
+          {type === "sponsor" && prospect && pkgPerks.length > 0 && (
+            <div className="border-t border-neon-green/10 pt-4">
+              <p className="text-neon-green/60 text-xs uppercase tracking-widest mb-3 border-b border-neon-green/10 pb-1">
+                {lang === "en" ? "Deliverables checklist" : "Checklist des livrables"} · {item.tier as string}
+              </p>
+              <p className="text-xs text-gray-600 mb-3">
+                {lang === "en" ? "Pipeline status:" : "Statut pipeline :"} <span className="text-gray-400">{prospect.status as string}</span>
+                {" · "}{Object.values(perkChecklist).filter(v => v.done).length}/{pkgPerks.length} {lang === "en" ? "delivered" : "livrés"}
+              </p>
+              <div className="space-y-3">
+                {pkgPerks.map((perk, i) => {
+                  const entry = perkChecklist[perk] || { done: false, note: "" };
+                  return (
+                    <div key={i} className="rounded-lg p-3" style={{ background: entry.done ? "#00ff9d08" : "#0a0a0a", border: `1px solid ${entry.done ? "#00ff9d20" : "#1a1a2e"}` }}>
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={entry.done}
+                          onChange={e => {
+                            const next = { ...perkChecklist, [perk]: { ...entry, done: e.target.checked } };
+                            setPerkChecklist(next);
+                            savePerkChecklist(next);
+                          }}
+                          className="mt-0.5 shrink-0"
+                        />
+                        <span className={`text-xs ${entry.done ? "line-through text-gray-600" : "text-gray-300"}`}>{perk}</span>
+                      </label>
+                      <textarea
+                        rows={1}
+                        placeholder={lang === "en" ? "Notes…" : "Notes…"}
+                        value={entry.note}
+                        onChange={e => setPerkChecklist(prev => ({ ...prev, [perk]: { ...entry, note: e.target.value } }))}
+                        onBlur={e => {
+                          const next = { ...perkChecklist, [perk]: { ...entry, note: e.target.value } };
+                          setPerkChecklist(next);
+                          savePerkChecklist(next);
+                        }}
+                        className="cyber-input w-full mt-2 px-2 py-1 rounded text-xs resize-none"
+                        style={{ minHeight: 28 }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {type === "sponsor" && prospect && pkgPerks.length === 0 && (
+            <div className="border-t border-neon-green/10 pt-4">
+              <p className="text-neon-green/60 text-xs uppercase tracking-widest mb-2">{lang === "en" ? "Pipeline" : "Pipeline"}</p>
+              <p className="text-xs text-gray-500">{lang === "en" ? "Status:" : "Statut :"} {prospect.status as string}</p>
+            </div>
+          )}
         </div>
       </div>
     </>

@@ -446,7 +446,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
       {/* Detail drawer — tasks */}
       {selected && (
         <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setSelected(null)}>
-          <div className="w-full max-w-md h-full bg-[#0a0a0a] border-l border-gray-800 overflow-y-auto p-6 space-y-3" onClick={(e: MouseEvent<HTMLDivElement>) => e.stopPropagation()}>
+          <div className="w-full max-w-md h-full bg-gray-900 border-l border-gray-800 overflow-y-auto p-6 space-y-3" onClick={(e: MouseEvent<HTMLDivElement>) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-black text-neon-green font-mono">{canWrite ? __("Éditer la tâche", "Edit task") : __("Détail de la tâche", "Task detail")}</h3>
               <button onClick={() => setSelected(null)} className="text-gray-600 hover:text-white text-lg">✕</button>
@@ -780,7 +780,7 @@ function MeetingsView({
       {editTarget !== null && (
         <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setEditTarget(null)}>
           <div
-            className="w-full max-w-md h-full bg-[#0a0a0a] border-l border-gray-800 overflow-y-auto p-6 space-y-4"
+            className="w-full max-w-md h-full bg-gray-900 border-l border-gray-800 overflow-y-auto p-6 space-y-4"
             onClick={(e: MouseEvent<HTMLDivElement>) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">

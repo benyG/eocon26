@@ -11,8 +11,12 @@ function extractEmails(json: string | null | undefined): Set<string> {
   return new Set<string>(matches);
 }
 
+async function canWriteMeetings(): Promise<boolean> {
+  return (await hasPermission("pilotage", "write")) || (await hasPermission("pilotage-meetings", "write"));
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  if (!(await hasPermission("pilotage", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await canWriteMeetings())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const id = Number(params.id);
   const body = await req.json();
 
@@ -41,7 +45,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-  if (!(await hasPermission("pilotage", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await canWriteMeetings())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const id = Number(params.id);
   await prisma.steeringMeeting.delete({ where: { id } });
   logAction(req, "DELETE", "pilotage", id);

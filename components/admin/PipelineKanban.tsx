@@ -533,6 +533,27 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
         </div>
       )}
 
+      {/* ── CFP PROGRESS BAR ─────────────────────────────────────── */}
+      {view === "pipeline" && (() => {
+        const CFP_TARGET = 50;
+        const total = cards.length;
+        const pct = Math.min(100, Math.round((total / CFP_TARGET) * 100));
+        const active = cards.filter(c => c.status !== "rejected").length;
+        const color = pct >= 100 ? "#00ff9d" : pct >= 60 ? "#ffaa00" : "#ff0066";
+        return (
+          <div className="rounded-xl border border-gray-800 bg-black/40 px-5 py-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-mono text-gray-400 uppercase tracking-wider">{__("Soumissions CFP", "CFP Submissions")} — {__("objectif", "target")} {CFP_TARGET}</span>
+              <span className="text-sm font-black font-mono" style={{ color }}>{total} / {CFP_TARGET} <span className="text-xs font-normal text-gray-500">({pct}%)</span></span>
+            </div>
+            <div className="h-2 rounded-full bg-gray-900 overflow-hidden">
+              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color, boxShadow: `0 0 8px ${color}60` }} />
+            </div>
+            <p className="text-xs text-gray-600 mt-1.5">{active} {__("active (non rejetées)", "active (non-rejected)")}</p>
+          </div>
+        );
+      })()}
+
       {/* ── PIPELINE KANBAN ──────────────────────────────────────── */}
       {view === "pipeline" && (
         <div className="flex gap-3 overflow-x-auto pb-4">

@@ -4226,11 +4226,19 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
   const [fCheck, setFCheck] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [ctfSlugs, setCtfSlugs] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
-    const r = await fetch("/api/admin/submissions?type=registration");
+    const [r, tt] = await Promise.all([
+      fetch("/api/admin/submissions?type=registration"),
+      fetch("/api/admin/ticket-types"),
+    ]);
     if (r.ok) setRows(await r.json());
+    if (tt.ok) {
+      const types = await tt.json() as Record<string, unknown>[];
+      setCtfSlugs(new Set(types.filter(t => t.includesCTF).map(t => t.slug as string)));
+    }
     setLoading(false);
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -4269,8 +4277,33 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
 
   const selectCls = "bg-black/40 border border-gray-800 rounded px-3 py-1.5 text-xs text-white focus:border-neon-green/50 outline-none";
 
+  const REG_TARGET = 1000;
+  const CTF_TARGET = 500;
+  const totalReg = rows.length;
+  const ctfReg = rows.filter(r => ctfSlugs.has(r.ticketType as string)).length;
+  const regPct = Math.min(100, Math.round((totalReg / REG_TARGET) * 100));
+  const ctfPct = Math.min(100, Math.round((ctfReg / CTF_TARGET) * 100));
+  const regColor = regPct >= 100 ? "#00ff9d" : regPct >= 60 ? "#ffaa00" : "#ff0066";
+  const ctfColor = ctfPct >= 100 ? "#00ff9d" : ctfPct >= 60 ? "#ffaa00" : "#ff0066";
+
   return (
     <div>
+      <div className="rounded-xl border border-gray-800 bg-black/40 px-5 py-4 mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-mono text-gray-400 uppercase tracking-wider">{lang === "en" ? "Total registrations — target" : "Inscriptions totales — objectif"} {REG_TARGET}</span>
+          <span className="text-sm font-black font-mono" style={{ color: regColor }}>{totalReg} / {REG_TARGET} <span className="text-xs font-normal text-gray-500">({regPct}%)</span></span>
+        </div>
+        <div className="h-2 rounded-full bg-gray-900 overflow-hidden mb-3">
+          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${regPct}%`, background: regColor, boxShadow: `0 0 8px ${regColor}60` }} />
+        </div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-mono text-gray-400 uppercase tracking-wider">{lang === "en" ? "With CTF — target" : "Avec CTF — objectif"} {CTF_TARGET}</span>
+          <span className="text-sm font-black font-mono" style={{ color: ctfColor }}>{ctfReg} / {CTF_TARGET} <span className="text-xs font-normal text-gray-500">({ctfPct}%)</span></span>
+        </div>
+        <div className="h-2 rounded-full bg-gray-900 overflow-hidden">
+          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${ctfPct}%`, background: ctfColor, boxShadow: `0 0 8px ${ctfColor}60` }} />
+        </div>
+      </div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black text-white">{t.registrationsTitle} ({filtered.length})</h1>
@@ -7138,6 +7171,23 @@ export default function AdminDashboard() {
           {activeTab === "volunteers" && (
             <div>
               <h1 className="text-2xl font-black text-white mb-6">{t.benevoles} ({(data.volunteers || []).length})</h1>
+              {(() => {
+                const VOL_TARGET = 20;
+                const total = (data.volunteers || []).length;
+                const pct = Math.min(100, Math.round((total / VOL_TARGET) * 100));
+                const color = pct >= 100 ? "#00ff9d" : pct >= 60 ? "#ffaa00" : "#ff0066";
+                return (
+                  <div className="rounded-xl border border-gray-800 bg-black/40 px-5 py-4 mb-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-mono text-gray-400 uppercase tracking-wider">{lang === "en" ? "Volunteer applications — target" : "Candidatures bénévoles — objectif"} {VOL_TARGET}</span>
+                      <span className="text-sm font-black font-mono" style={{ color }}>{total} / {VOL_TARGET} <span className="text-xs font-normal text-gray-500">({pct}%)</span></span>
+                    </div>
+                    <div className="h-2 rounded-full bg-gray-900 overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color, boxShadow: `0 0 8px ${color}60` }} />
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="mb-8">
                 <VolunteerKanban />
               </div>

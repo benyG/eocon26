@@ -40,7 +40,8 @@ async function apolloPost<T>(path: string, body: Record<string, unknown>): Promi
         "Cache-Control": "no-cache",
         "x-api-key": key,
       },
-      body: JSON.stringify(body),
+      // Apollo requires api_key in body in addition to the header
+      body: JSON.stringify({ api_key: key, ...body }),
       cache: "no-store",
     });
   } catch (err) {

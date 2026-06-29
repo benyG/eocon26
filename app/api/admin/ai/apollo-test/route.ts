@@ -32,7 +32,7 @@ export async function GET() {
           "Cache-Control": "no-cache",
           "x-api-key": key,
         },
-        body: JSON.stringify({ per_page: 1, q_organization_keyword_tags: ["technology"] }),
+        body: JSON.stringify({ api_key: key, per_page: 1, q_organization_keyword_tags: ["technology"] }),
         cache: "no-store",
       });
       latencyMs = Date.now() - t0;
@@ -41,11 +41,15 @@ export async function GET() {
       responseBody = await res.text().catch(() => "");
       // Try to parse to confirm shape
       try {
-        const json = JSON.parse(responseBody);
+        const json = JSON.parse(responseBody) as Record<string, unknown>;
         checks.response_keys = Object.keys(json).slice(0, 10);
         checks.organizations_count = Array.isArray(json.organizations) ? json.organizations.length : "n/a";
+        // Expose actual error details from Apollo
+        if (json.error) checks.apollo_error = json.error;
+        if (json.error_code) checks.apollo_error_code = json.error_code;
+        if (json.message) checks.apollo_message = json.message;
       } catch {
-        checks.response_preview = responseBody.slice(0, 200);
+        checks.response_preview = responseBody.slice(0, 300);
       }
     } catch (err) {
       latencyMs = Date.now() - t0;

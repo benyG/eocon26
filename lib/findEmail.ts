@@ -103,7 +103,7 @@ async function tryScrape(websiteUrl: string, domain: string): Promise<FoundEmail
     .replace(/\s+at\s+/gi, "@");
 
   const found = new Map<string, FoundEmail>();
-  for (const match of decoded.matchAll(EMAIL_RE)) {
+  for (const match of Array.from(decoded.matchAll(EMAIL_RE))) {
     const email = match[0].toLowerCase();
     if (!email.includes(domain)) continue; // only emails on this domain
     if (isGeneric(email)) continue;
@@ -114,7 +114,7 @@ async function tryScrape(websiteUrl: string, domain: string): Promise<FoundEmail
 
   // If nothing domain-specific, widen to non-generic emails from any domain
   if (found.size === 0) {
-    for (const match of decoded.matchAll(EMAIL_RE)) {
+    for (const match of Array.from(decoded.matchAll(EMAIL_RE))) {
       const email = match[0].toLowerCase();
       if (isGeneric(email)) continue;
       if (!found.has(email)) {

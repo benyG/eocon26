@@ -31,16 +31,21 @@ export interface ApolloContact {
 
 async function apolloPost<T>(path: string, body: Record<string, unknown>): Promise<T> {
   const key = getKey();
-  const res = await fetch(`${APOLLO_BASE}${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-cache",
-      "x-api-key": key,
-    },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${APOLLO_BASE}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
+        "x-api-key": key,
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+  } catch (err) {
+    throw new Error(`Apollo API: impossible de joindre api.apollo.io (erreur réseau: ${err instanceof Error ? err.message : String(err)}). Vérifiez que le serveur a accès à internet.`);
+  }
   if (res.status === 401 || res.status === 403) {
     throw new Error(`Apollo API: clé invalide ou quota dépassé (HTTP ${res.status})`);
   }

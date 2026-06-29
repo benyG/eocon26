@@ -708,6 +708,9 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
   const [filter, setFilter] = useState<"all" | "pending" | "added">("all");
   const [enrichingId, setEnrichingId] = useState<number | null>(null);
   const [collapsedQueries, setCollapsedQueries] = useState<Set<string>>(new Set());
+  const [editLeadTarget, setEditLeadTarget] = useState<Record<string, unknown> | null>(null);
+  const [editLeadForm, setEditLeadForm] = useState<Record<string, unknown>>({});
+  const [savingLead, setSavingLead] = useState(false);
 
   const toggleQuery = (q: string) => setCollapsedQueries(prev => {
     const next = new Set(prev);
@@ -837,26 +840,52 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
   };
 
   const addToPipeline = async (lead: Record<string, unknown>) => {
-    // Mark lead as added
+    if (lead.addedToPipeline) return; // guard against double-click
     await fetch("/api/admin/ai/prospect-leads", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: lead.id, addedToPipeline: true }),
     });
-    // Create prospect entry with status "prospect"
-    await fetch("/api/admin/sponsor-prospects", {
-      method: "POST",
+    // SponsorProspect is created server-side in the PATCH handler
+    onRefresh();
+  };
+
+  const deleteLead = async (lead: Record<string, unknown>) => {
+    if (!confirm(lang === "en" ? "Delete this prospect lead?" : "Supprimer ce prospect ?")) return;
+    await fetch("/api/admin/ai/prospect-leads", {
+      method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        org: lead.org,
-        contact: lead.contactName || null,
-        email: lead.contactEmail || null,
-        phone: lead.phone || null,
-        package: lead.recommendedPackage || null,
-        notes: lead.aiScoreReason || null,
-        status: "prospect",
-      }),
+      body: JSON.stringify({ id: lead.id }),
     });
+    onRefresh();
+  };
+
+  const openEditLead = (lead: Record<string, unknown>) => {
+    setEditLeadForm({
+      org: lead.org,
+      sector: lead.sector || "",
+      city: lead.city || "",
+      website: lead.website || "",
+      phone: lead.phone || "",
+      contactName: lead.contactName || "",
+      contactTitle: lead.contactTitle || "",
+      contactEmail: lead.contactEmail || "",
+      contactLinkedin: lead.contactLinkedin || "",
+      recommendedPackage: lead.recommendedPackage || "",
+    });
+    setEditLeadTarget(lead);
+  };
+
+  const saveLeadEdit = async () => {
+    if (!editLeadTarget) return;
+    setSavingLead(true);
+    await fetch("/api/admin/ai/prospect-leads", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: editLeadTarget.id, ...editLeadForm }),
+    });
+    setSavingLead(false);
+    setEditLeadTarget(null);
     onRefresh();
   };
 
@@ -889,6 +918,49 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
         <p className="text-gray-500 text-xs mt-1">{t.prospectionWorkflow}</p>
       </div>
 
+      {/* Edit lead modal */}
+      {editLeadTarget && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+          <div className="cyber-card rounded-xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between p-5 pb-4 border-b border-gray-800 shrink-0">
+              <h3 className="text-white font-bold text-sm">{lang === "en" ? "Edit lead" : "Modifier le prospect"} — {editLeadTarget.org as string}</h3>
+              <button onClick={() => setEditLeadTarget(null)} className="text-gray-500 hover:text-white text-xl">✕</button>
+            </div>
+            <div className="p-5 overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3">
+                {([
+                  { key: "org", label: lang === "en" ? "Organization" : "Organisation" },
+                  { key: "sector", label: lang === "en" ? "Sector" : "Secteur" },
+                  { key: "city", label: lang === "en" ? "City" : "Ville" },
+                  { key: "website", label: "Website" },
+                  { key: "phone", label: lang === "en" ? "Phone" : "Téléphone" },
+                  { key: "contactName", label: lang === "en" ? "Contact name" : "Nom contact" },
+                  { key: "contactTitle", label: lang === "en" ? "Contact title" : "Titre contact" },
+                  { key: "contactEmail", label: "Email contact" },
+                  { key: "contactLinkedin", label: "LinkedIn" },
+                  { key: "recommendedPackage", label: "Package" },
+                ] as { key: string; label: string }[]).map(f => (
+                  <div key={f.key} className={f.key === "contactLinkedin" ? "col-span-2" : ""}>
+                    <label className="text-xs text-gray-500 block mb-1">{f.label}</label>
+                    <input
+                      value={(editLeadForm[f.key] as string) || ""}
+                      onChange={e => setEditLeadForm(p => ({ ...p, [f.key]: e.target.value }))}
+                      className="cyber-input w-full px-3 py-1.5 rounded text-xs"
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-4 pt-4 border-t border-gray-800">
+                <button onClick={saveLeadEdit} disabled={savingLead} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
+                  {savingLead ? "…" : (lang === "en" ? "Save" : "Enregistrer")}
+                </button>
+                <button onClick={() => setEditLeadTarget(null)} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">{lang === "en" ? "Cancel" : "Annuler"}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {emailTarget && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <div className="cyber-card rounded-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
@@ -918,10 +990,11 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                 ))}
                 {canWrite && <button
                   onClick={() => addToPipeline(emailTarget)}
-                  className="w-full py-2 rounded text-sm font-bold transition-all"
+                  disabled={!!emailTarget.addedToPipeline}
+                  className="w-full py-2 rounded text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "1px solid var(--ac-bdr)" }}
                 >
-                  {t.addToPipeline}
+                  {emailTarget.addedToPipeline ? (lang === "en" ? "✓ Already in pipeline" : "✓ Déjà dans le pipeline") : t.addToPipeline}
                 </button>}
               </div>
             )}
@@ -1102,44 +1175,57 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                     <p className="text-gray-600 text-xs mt-1 italic">{lead.aiScoreReason as string}</p>
                   )}
                 </div>
-                {!lead.addedToPipeline && canWrite && (
+                {canWrite && (
                   <div className="flex flex-col gap-2 shrink-0">
                     <button
-                      onClick={() => enrichLead(lead)}
-                      disabled={enrichingId === (lead.id as number)}
+                      onClick={() => openEditLead(lead)}
                       className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
-                      style={{ background: "#cc00ff15", color: "#cc00ff", border: "1px solid #cc00ff40" }}
+                      style={{ background: "#ffffff10", color: "#aaa", border: "1px solid #333" }}
                     >
-                      {enrichingId === (lead.id as number) ? "…" : (lang === "en" ? "🔍 Enrich" : "🔍 Enrichir")}
+                      ✏️ {lang === "en" ? "Edit" : "Modifier"}
                     </button>
-                    <button
-                      onClick={() => generateEmail(lead)}
-                      className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
-                      style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}
-                    >
-                      {t.generateBtn}
-                    </button>
-                    <button
-                      onClick={() => generatePitch(lead)}
-                      className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
-                      style={{ background: "#ff006615", color: "#ff0066", border: "1px solid #ff006640" }}
-                    >
-                      🎯 Pitch
-                    </button>
-                    <button
-                      onClick={() => hasContact(lead) ? addToPipeline(lead) : undefined}
-                      disabled={!hasContact(lead)}
-                      title={!hasContact(lead) ? (lang === "en" ? "Enrich contact data before qualifying this prospect." : "Enrichissez les données de contact avant de qualifier ce prospect.") : undefined}
-                      className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
-                      style={hasContact(lead)
-                        ? { background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }
-                        : { background: "#33333320", color: "#555", border: "1px solid #33333340", cursor: "not-allowed" }}
-                    >
-                      {t.addToPipeline}
-                    </button>
-                    {!hasContact(lead) && (
-                      <p className="text-xs text-gray-600 max-w-[140px] text-center leading-tight">{lang === "en" ? "Enrich contact data" : "Enrichissez les données de contact"}</p>
-                    )}
+                    {!lead.addedToPipeline && <>
+                      <button
+                        onClick={() => enrichLead(lead)}
+                        disabled={enrichingId === (lead.id as number)}
+                        className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
+                        style={{ background: "#cc00ff15", color: "#cc00ff", border: "1px solid #cc00ff40" }}
+                      >
+                        {enrichingId === (lead.id as number) ? "…" : (lang === "en" ? "🔍 Enrich" : "🔍 Enrichir")}
+                      </button>
+                      <button
+                        onClick={() => generateEmail(lead)}
+                        className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
+                        style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff40" }}
+                      >
+                        {t.generateBtn}
+                      </button>
+                      <button
+                        onClick={() => generatePitch(lead)}
+                        className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
+                        style={{ background: "#ff006615", color: "#ff0066", border: "1px solid #ff006640" }}
+                      >
+                        🎯 Pitch
+                      </button>
+                      <button
+                        onClick={() => hasContact(lead) ? addToPipeline(lead) : undefined}
+                        disabled={!hasContact(lead)}
+                        title={!hasContact(lead) ? (lang === "en" ? "Enrich contact data first." : "Enrichissez les données de contact d'abord.") : undefined}
+                        className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
+                        style={hasContact(lead)
+                          ? { background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }
+                          : { background: "#33333320", color: "#555", border: "1px solid #33333340", cursor: "not-allowed" }}
+                      >
+                        {t.addToPipeline}
+                      </button>
+                      <button
+                        onClick={() => deleteLead(lead)}
+                        className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
+                        style={{ background: "#ff006610", color: "#ff0066", border: "1px solid #ff006630" }}
+                      >
+                        🗑 {lang === "en" ? "Delete" : "Supprimer"}
+                      </button>
+                    </>}
                   </div>
                 )}
               </div>
@@ -2251,6 +2337,14 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
   const [attachDecks, setAttachDecks] = useState(true);
   const [sendingLang, setSendingLang] = useState<string | null>(null);
   const [sentMsg, setSentMsg] = useState("");
+  const [editingDetail, setEditingDetail] = useState(false);
+  const [detailForm, setDetailForm] = useState<Record<string, unknown>>({});
+  const [savingDetail, setSavingDetail] = useState(false);
+  const [packages, setPackages] = useState<Record<string, unknown>[]>([]);
+
+  useEffect(() => {
+    fetch("/api/admin/sponsor-packages").then(r => r.json()).then(setPackages).catch(() => {});
+  }, []);
 
   const generateFollowupEmail = async (p: Record<string, unknown>) => {
     setAiEmailTarget({ org: p.org as string, id: p.id as number, email: (p.email as string) || null });
@@ -2313,6 +2407,34 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
   const save = async () => {
     await fetch("/api/admin/sponsor-prospects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
     setShowForm(false); setForm({ status: "prospect" }); onRefresh();
+  };
+
+  const openDetailEdit = (p: Record<string, unknown>) => {
+    setDetailForm({ org: p.org, contact: p.contact || "", email: p.email || "", phone: p.phone || "", website: p.website || "", package: p.package || "", notes: p.notes || "" });
+    setEditingDetail(true);
+  };
+
+  const saveDetail = async () => {
+    if (!detail) return;
+    setSavingDetail(true);
+    await fetch(`/api/admin/sponsor-prospects/${detail.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(detailForm),
+    });
+    setSavingDetail(false);
+    setEditingDetail(false);
+    setDetail(null);
+    onRefresh();
+  };
+
+  const savePerkChecklist = async (id: number, checklist: Record<string, { done: boolean; note: string }>) => {
+    await fetch(`/api/admin/sponsor-prospects/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ perkChecklist: JSON.stringify(checklist) }),
+    });
+    onRefresh();
   };
 
   const updateStatus = async (id: number, status: string) => {
@@ -2419,65 +2541,175 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
         </div>
       )}
 
-      {/* Prospect detail modal */}
-      {detail && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setDetail(null)}>
-          <div className="cyber-card rounded-xl max-w-xl w-full max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-start p-6 pb-4 border-b border-gray-800 shrink-0">
-              <div>
-                <h3 className="text-white font-bold text-lg">{detail.org as string}</h3>
-                <span className="text-xs px-2 py-0.5 rounded inline-block mt-1" style={{ background: PROSPECT_STATUSES.find(s => s.value === detail.status)?.color ? (PROSPECT_STATUSES.find(s => s.value === detail.status)!.color + "20") : "var(--bdr)", color: PROSPECT_STATUSES.find(s => s.value === detail.status)?.color || "var(--txt-dim)" }}>
-                  {(() => { const s = PROSPECT_STATUSES.find(x => x.value === detail.status); return s ? (lang === "en" ? s.en : s.fr) : (detail.status as string); })()}
-                </span>
-              </div>
-              <button onClick={() => setDetail(null)} className="text-gray-500 hover:text-white">✕</button>
-            </div>
-            <div className="p-6 overflow-y-auto space-y-3 text-xs">
-              {([
-                { label: t.contact, val: detail.contact as string },
-                { label: t.email, val: detail.email as string, href: detail.email ? `mailto:${detail.email}` : undefined },
-                { label: t.phone, val: detail.phone as string, href: detail.phone ? `tel:${detail.phone}` : undefined },
-                { label: lang === "en" ? "Website" : "Site web", val: detail.website as string, href: detail.website ? (String(detail.website).startsWith("http") ? String(detail.website) : `https://${detail.website}`) : undefined },
-                { label: t.package, val: detail.package as string },
-              ]).map(f => (
-                <div key={f.label} className="flex gap-3">
-                  <span className="text-gray-600 shrink-0 w-28">{f.label}</span>
-                  {f.val
-                    ? (f.href
-                        ? <a href={f.href} target="_blank" rel="noreferrer" className="text-neon-green hover:underline break-all">{f.val}</a>
-                        : <span className="text-gray-200 break-words">{f.val}</span>)
-                    : <span className="text-gray-700">—</span>}
+      {/* Prospect detail / edit modal */}
+      {detail && (() => {
+        const statusColor = PROSPECT_STATUSES.find(s => s.value === detail.status)?.color || "#888";
+        const pkgPerks = (() => {
+          const pkg = packages.find(p => String(p.tier).toUpperCase() === String(detail.package).toUpperCase());
+          if (!pkg) return [] as string[];
+          try { return JSON.parse((pkg.perksFr as string) || "[]") as string[]; } catch { return [] as string[]; }
+        })();
+        const checklist: Record<string, { done: boolean; note: string }> = (() => {
+          try { return JSON.parse((detail.perkChecklist as string) || "{}"); } catch { return {}; }
+        })();
+
+        return (
+          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => { setDetail(null); setEditingDetail(false); }}>
+            <div className="cyber-card rounded-xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-start p-5 pb-4 border-b border-gray-800 shrink-0">
+                <div>
+                  <h3 className="text-white font-bold">{detail.org as string}</h3>
+                  <span className="text-xs px-2 py-0.5 rounded inline-block mt-1" style={{ background: statusColor + "20", color: statusColor }}>
+                    {(() => { const s = PROSPECT_STATUSES.find(x => x.value === detail.status); return s ? (lang === "en" ? s.en : s.fr) : (detail.status as string); })()}
+                  </span>
                 </div>
-              ))}
-              <div className="flex gap-3">
-                <span className="text-gray-600 shrink-0 w-28">{t.notes}</span>
-                <span className="text-gray-300 whitespace-pre-wrap break-words">{(detail.notes as string) || "—"}</span>
-              </div>
-              <div className="flex gap-3 border-t border-gray-800 pt-3">
-                <span className="text-gray-600 shrink-0 w-28">{lang === "en" ? "Created on" : "Créé le"}</span>
-                <span className="text-gray-400">{detail.createdAt ? new Date(detail.createdAt as string).toLocaleString("fr-FR") : "—"}</span>
-              </div>
-              <div className="flex gap-3">
-                <span className="text-gray-600 shrink-0 w-28">{lang === "en" ? "Updated" : "Mis à jour"}</span>
-                <span className="text-gray-400">{detail.updatedAt ? new Date(detail.updatedAt as string).toLocaleString("fr-FR") : "—"}</span>
-              </div>
-              {!!detail.emailJson && (
-                <div className="border-t border-gray-800 pt-3">
-                  <p className="text-gray-600 mb-1">{lang === "en" ? "Cached AI email" : "Courriel IA en cache"}</p>
-                  <p className="text-neon-green/60">{lang === "en" ? "✓ A follow-up email has been generated for this prospect." : "✓ Un courriel de relance a été généré pour ce prospect."}</p>
+                <div className="flex gap-2 items-center">
+                  {canWrite && !editingDetail && (
+                    <button onClick={() => openDetailEdit(detail)} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white">
+                      ✏️ {lang === "en" ? "Edit" : "Modifier"}
+                    </button>
+                  )}
+                  <button onClick={() => { setDetail(null); setEditingDetail(false); }} className="text-gray-500 hover:text-white">✕</button>
                 </div>
-              )}
-              {canWrite && (
-                <div className="border-t border-gray-800 pt-4 flex gap-2">
-                  <button onClick={() => { generateFollowupEmail(detail); setDetail(null); }} className="flex-1 text-xs px-3 py-2 rounded font-bold" style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}>
-                    {detail.emailJson ? (lang === "en" ? "✨ View / send email" : "✨ Voir / envoyer le courriel") : (lang === "en" ? "✨ Generate email (AI)" : "✨ Générer un courriel (IA)")}
-                  </button>
-                </div>
-              )}
+              </div>
+
+              <div className="p-5 overflow-y-auto space-y-4 text-xs">
+                {editingDetail ? (
+                  /* ── Edit form ── */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      {([
+                        { key: "org", label: lang === "en" ? "Organization" : "Organisation" },
+                        { key: "contact", label: t.contact },
+                        { key: "email", label: t.email },
+                        { key: "phone", label: t.phone },
+                        { key: "website", label: "Website" },
+                        { key: "package", label: t.package },
+                      ] as { key: string; label: string }[]).map(f => (
+                        <div key={f.key}>
+                          <label className="text-gray-500 block mb-1">{f.label}</label>
+                          <input
+                            value={(detailForm[f.key] as string) || ""}
+                            onChange={e => setDetailForm(p => ({ ...p, [f.key]: e.target.value }))}
+                            className="cyber-input w-full px-3 py-1.5 rounded text-xs"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <label className="text-gray-500 block mb-1">{t.notes}</label>
+                      <textarea
+                        rows={3}
+                        value={(detailForm.notes as string) || ""}
+                        onChange={e => setDetailForm(p => ({ ...p, notes: e.target.value }))}
+                        className="cyber-input w-full px-3 py-2 rounded text-xs resize-none"
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-2 border-t border-gray-800">
+                      <button onClick={saveDetail} disabled={savingDetail} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
+                        {savingDetail ? "…" : (lang === "en" ? "Save" : "Enregistrer")}
+                      </button>
+                      <button onClick={() => setEditingDetail(false)} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">
+                        {lang === "en" ? "Cancel" : "Annuler"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* ── Read-only view ── */
+                  <>
+                    {([
+                      { label: t.contact, val: detail.contact as string },
+                      { label: t.email, val: detail.email as string, href: detail.email ? `mailto:${detail.email}` : undefined },
+                      { label: t.phone, val: detail.phone as string, href: detail.phone ? `tel:${detail.phone}` : undefined },
+                      { label: lang === "en" ? "Website" : "Site web", val: detail.website as string, href: detail.website ? (String(detail.website).startsWith("http") ? String(detail.website) : `https://${detail.website}`) : undefined },
+                      { label: t.package, val: detail.package as string },
+                    ]).map(f => (
+                      <div key={f.label} className="flex gap-3">
+                        <span className="text-gray-600 shrink-0 w-28">{f.label}</span>
+                        {f.val
+                          ? (f.href
+                              ? <a href={f.href} target="_blank" rel="noreferrer" className="text-neon-green hover:underline break-all">{f.val}</a>
+                              : <span className="text-gray-200 break-words">{f.val}</span>)
+                          : <span className="text-gray-700">—</span>}
+                      </div>
+                    ))}
+                    <div className="flex gap-3">
+                      <span className="text-gray-600 shrink-0 w-28">{t.notes}</span>
+                      <span className="text-gray-300 whitespace-pre-wrap break-words">{(detail.notes as string) || "—"}</span>
+                    </div>
+                    <div className="flex gap-3 text-xs text-gray-600 border-t border-gray-800 pt-3">
+                      <span>{lang === "en" ? "Created" : "Créé"}: {detail.createdAt ? new Date(detail.createdAt as string).toLocaleString("fr-FR") : "—"}</span>
+                      <span>·</span>
+                      <span>{lang === "en" ? "Updated" : "MAJ"}: {detail.updatedAt ? new Date(detail.updatedAt as string).toLocaleString("fr-FR") : "—"}</span>
+                    </div>
+                    {!!detail.emailJson && (
+                      <p className="text-neon-green/60 text-xs">{lang === "en" ? "✓ A follow-up email has been generated." : "✓ Un courriel de relance a été généré."}</p>
+                    )}
+                  </>
+                )}
+
+                {/* ── Perks checklist (only for concluded) ── */}
+                {detail.status === "concluded" && pkgPerks.length > 0 && !editingDetail && (
+                  <div className="border-t border-gray-800 pt-4">
+                    <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#ffaa00" }}>
+                      {lang === "en" ? "Deliverables checklist" : "Checklist des livrables"} · {detail.package as string}
+                    </p>
+                    <div className="space-y-3">
+                      {pkgPerks.map((perk, i) => {
+                        const item = checklist[perk] || { done: false, note: "" };
+                        return (
+                          <div key={i} className="rounded-lg p-3" style={{ background: item.done ? "#00ff9d08" : "#0a0a0a", border: `1px solid ${item.done ? "#00ff9d20" : "#1a1a2e"}` }}>
+                            <label className="flex items-start gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={item.done}
+                                onChange={e => {
+                                  const next = { ...checklist, [perk]: { ...item, done: e.target.checked } };
+                                  savePerkChecklist(detail.id as number, next);
+                                  setDetail(d => d ? { ...d, perkChecklist: JSON.stringify(next) } : d);
+                                }}
+                                className="mt-0.5 shrink-0"
+                              />
+                              <span className={`text-xs ${item.done ? "line-through text-gray-600" : "text-gray-300"}`}>{perk}</span>
+                            </label>
+                            <textarea
+                              rows={1}
+                              placeholder={lang === "en" ? "Notes…" : "Notes…"}
+                              value={item.note}
+                              onChange={e => {
+                                const next = { ...checklist, [perk]: { ...item, note: e.target.value } };
+                                setDetail(d => d ? { ...d, perkChecklist: JSON.stringify(next) } : d);
+                              }}
+                              onBlur={e => {
+                                const next = { ...checklist, [perk]: { ...item, note: e.target.value } };
+                                savePerkChecklist(detail.id as number, next);
+                              }}
+                              className="cyber-input w-full mt-2 px-2 py-1 rounded text-xs resize-none"
+                              style={{ minHeight: 28 }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-gray-700 mt-2">
+                      {Object.values(checklist).filter(v => v.done).length}/{pkgPerks.length} {lang === "en" ? "delivered" : "livrés"}
+                    </p>
+                  </div>
+                )}
+
+                {/* ── Action buttons ── */}
+                {canWrite && !editingDetail && (
+                  <div className="border-t border-gray-800 pt-4 flex gap-2">
+                    <button onClick={() => { generateFollowupEmail(detail); setDetail(null); }} className="flex-1 text-xs px-3 py-2 rounded font-bold" style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}>
+                      {detail.emailJson ? (lang === "en" ? "✨ View / send email" : "✨ Voir / envoyer le courriel") : (lang === "en" ? "✨ Generate email (AI)" : "✨ Générer un courriel (IA)")}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Add form */}
       {canWrite && showForm && (

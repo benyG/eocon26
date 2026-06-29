@@ -7,13 +7,18 @@ import { sendPilotageMeetingInvitation } from "@/lib/email";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!(await hasPermission("pilotage", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const canRead = (await hasPermission("pilotage", "read")) || (await hasPermission("pilotage-meetings", "read")) || (await hasPermission("pilotage-meetings", "write"));
+  if (!canRead) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const meetings = await prisma.steeringMeeting.findMany({ orderBy: { scheduledAt: "asc" } });
   return NextResponse.json(meetings);
 }
 
+async function canWriteMeetings(): Promise<boolean> {
+  return (await hasPermission("pilotage", "write")) || (await hasPermission("pilotage-meetings", "write"));
+}
+
 export async function POST(req: NextRequest) {
-  if (!(await hasPermission("pilotage", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await canWriteMeetings())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json();
   const { title, type, subTeam, scheduledAt, location, agenda, attendees, convenerEmail, convenerName } = body;
   if (!title || !scheduledAt) return NextResponse.json({ error: "title et scheduledAt requis" }, { status: 400 });

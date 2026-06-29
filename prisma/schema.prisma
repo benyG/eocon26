@@ -496,8 +496,9 @@ model SponsorProspect {
   website   String?
   package   String?  // tier/package name
   status    String   @default("contacted") // contacted | meeting | negative | positive | concluded | abandoned | paused
-  notes     String?  @db.Text
-  emailJson String?  @db.Text // cached AI follow-up email (JSON)
+  notes          String?  @db.Text
+  emailJson      String?  @db.Text // cached AI follow-up email (JSON)
+  perkChecklist  String?  @db.Text // JSON: Record<perkText, { done: boolean; note: string }>
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

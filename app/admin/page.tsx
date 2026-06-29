@@ -2371,6 +2371,9 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
   const [editingDetail, setEditingDetail] = useState(false);
   const [detailForm, setDetailForm] = useState<Record<string, unknown>>({});
   const [savingDetail, setSavingDetail] = useState(false);
+  const [findEmailBusy, setFindEmailBusy] = useState(false);
+  const [findEmailResults, setFindEmailResults] = useState<Array<{ email: string; name?: string; title?: string; source: string; confidence?: number }>>([]);
+  const [findEmailDone, setFindEmailDone] = useState(false);
   const [packages, setPackages] = useState<Record<string, unknown>[]>([]);
 
   useEffect(() => {
@@ -2456,6 +2459,34 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
     setSavingDetail(false);
     setEditingDetail(false);
     setDetail(null);
+    onRefresh();
+  };
+
+  const findEmail = async () => {
+    if (!detail?.website) return;
+    setFindEmailBusy(true);
+    setFindEmailResults([]);
+    setFindEmailDone(false);
+    const res = await fetch("/api/admin/ai/find-prospect-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ website: detail.website }),
+    });
+    const data = await res.json() as { emails?: typeof findEmailResults };
+    setFindEmailResults(data.emails || []);
+    setFindEmailBusy(false);
+    setFindEmailDone(true);
+  };
+
+  const pickEmail = async (email: string) => {
+    if (!detail) return;
+    await fetch(`/api/admin/sponsor-prospects/${detail.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    setDetail(d => d ? { ...d, email } : d);
+    setFindEmailResults([]);
     onRefresh();
   };
 
@@ -2585,7 +2616,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
         })();
 
         return (
-          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => { setDetail(null); setEditingDetail(false); }}>
+          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => { setDetail(null); setEditingDetail(false); setFindEmailResults([]); setFindEmailDone(false); }}>
             <div className="cyber-card rounded-xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
               <div className="flex justify-between items-start p-5 pb-4 border-b border-gray-800 shrink-0">
                 <div>
@@ -2600,7 +2631,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                       ✏️ {lang === "en" ? "Edit" : "Modifier"}
                     </button>
                   )}
-                  <button onClick={() => { setDetail(null); setEditingDetail(false); }} className="text-gray-500 hover:text-white">✕</button>
+                  <button onClick={() => { setDetail(null); setEditingDetail(false); setFindEmailResults([]); setFindEmailDone(false); }} className="text-gray-500 hover:text-white">✕</button>
                 </div>
               </div>
 
@@ -2664,6 +2695,46 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                           : <span className="text-gray-700">—</span>}
                       </div>
                     ))}
+                    {/* ── Find email from website ── */}
+                    {!detail.email && detail.website && !editingDetail && (
+                      <div className="flex gap-3 items-start">
+                        <span className="text-gray-600 shrink-0 w-28">{t.email}</span>
+                        <div className="flex flex-col gap-2 flex-1">
+                          <button
+                            onClick={findEmail}
+                            disabled={findEmailBusy}
+                            className="self-start text-xs px-3 py-1.5 rounded font-mono disabled:opacity-50 transition-colors"
+                            style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}
+                          >
+                            {findEmailBusy ? "🔍 Recherche…" : (lang === "en" ? "🔍 Find email from website" : "🔍 Trouver l'email depuis le site")}
+                          </button>
+                          {findEmailResults.length > 0 && (
+                            <div className="space-y-1">
+                              {findEmailResults.map(r => (
+                                <button
+                                  key={r.email}
+                                  onClick={() => pickEmail(r.email)}
+                                  className="flex items-center gap-2 w-full text-left text-xs px-3 py-2 rounded transition-colors hover:border-neon-green/40"
+                                  style={{ background: "#00ff9d08", border: "1px solid #00ff9d20" }}
+                                >
+                                  <span className="text-neon-green font-mono">{r.email}</span>
+                                  {r.name && <span className="text-gray-500">· {r.name}</span>}
+                                  {r.title && <span className="text-gray-600">· {r.title}</span>}
+                                  {r.confidence !== undefined && <span className="ml-auto text-gray-700">{r.confidence}%</span>}
+                                  {r.source === "hunter" && <span className="text-cyan-700 text-xs">Hunter</span>}
+                                  {r.source === "scrape" && <span className="text-gray-700 text-xs">web</span>}
+                                </button>
+                              ))}
+                              <p className="text-xs text-gray-700">{lang === "en" ? "Click to save to this prospect." : "Cliquez pour enregistrer sur ce prospect."}</p>
+                            </div>
+                          )}
+                          {findEmailDone && !findEmailBusy && findEmailResults.length === 0 && (
+                            <p className="text-xs text-gray-700">{lang === "en" ? "No email found on this website." : "Aucun email trouvé sur ce site."}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex gap-3">
                       <span className="text-gray-600 shrink-0 w-28">{t.notes}</span>
                       <span className="text-gray-300 whitespace-pre-wrap break-words">{(detail.notes as string) || "—"}</span>

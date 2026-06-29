@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   const { error } = await resend.emails.send({
     from: fromAddress,
     to: [to],
-    replyTo: "contact@eyesopensecurity.com",
+    replyTo: "sponsors@eyesopensecurity.com",
     subject,
     text: body,
     html: `<pre style="font-family:sans-serif;white-space:pre-wrap;font-size:14px;line-height:1.6">${body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`,

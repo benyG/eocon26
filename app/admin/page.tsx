@@ -2371,6 +2371,9 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
   const [editingDetail, setEditingDetail] = useState(false);
   const [detailForm, setDetailForm] = useState<Record<string, unknown>>({});
   const [savingDetail, setSavingDetail] = useState(false);
+  const [findEmailBusy, setFindEmailBusy] = useState(false);
+  const [findEmailResults, setFindEmailResults] = useState<Array<{ email: string; name?: string; title?: string; source: string; confidence?: number }>>([]);
+  const [findEmailDone, setFindEmailDone] = useState(false);
   const [packages, setPackages] = useState<Record<string, unknown>[]>([]);
 
   useEffect(() => {
@@ -2456,6 +2459,34 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
     setSavingDetail(false);
     setEditingDetail(false);
     setDetail(null);
+    onRefresh();
+  };
+
+  const findEmail = async () => {
+    if (!detail?.website) return;
+    setFindEmailBusy(true);
+    setFindEmailResults([]);
+    setFindEmailDone(false);
+    const res = await fetch("/api/admin/ai/find-prospect-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ website: detail.website }),
+    });
+    const data = await res.json() as { emails?: typeof findEmailResults };
+    setFindEmailResults(data.emails || []);
+    setFindEmailBusy(false);
+    setFindEmailDone(true);
+  };
+
+  const pickEmail = async (email: string) => {
+    if (!detail) return;
+    await fetch(`/api/admin/sponsor-prospects/${detail.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    setDetail(d => d ? { ...d, email } : d);
+    setFindEmailResults([]);
     onRefresh();
   };
 
@@ -2585,7 +2616,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
         })();
 
         return (
-          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => { setDetail(null); setEditingDetail(false); }}>
+          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => { setDetail(null); setEditingDetail(false); setFindEmailResults([]); setFindEmailDone(false); }}>
             <div className="cyber-card rounded-xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
               <div className="flex justify-between items-start p-5 pb-4 border-b border-gray-800 shrink-0">
                 <div>
@@ -2600,7 +2631,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                       ✏️ {lang === "en" ? "Edit" : "Modifier"}
                     </button>
                   )}
-                  <button onClick={() => { setDetail(null); setEditingDetail(false); }} className="text-gray-500 hover:text-white">✕</button>
+                  <button onClick={() => { setDetail(null); setEditingDetail(false); setFindEmailResults([]); setFindEmailDone(false); }} className="text-gray-500 hover:text-white">✕</button>
                 </div>
               </div>
 
@@ -2664,6 +2695,46 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                           : <span className="text-gray-700">—</span>}
                       </div>
                     ))}
+                    {/* ── Find email from website ── */}
+                    {!detail.email && detail.website && !editingDetail && (
+                      <div className="flex gap-3 items-start">
+                        <span className="text-gray-600 shrink-0 w-28">{t.email}</span>
+                        <div className="flex flex-col gap-2 flex-1">
+                          <button
+                            onClick={findEmail}
+                            disabled={findEmailBusy}
+                            className="self-start text-xs px-3 py-1.5 rounded font-mono disabled:opacity-50 transition-colors"
+                            style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}
+                          >
+                            {findEmailBusy ? "🔍 Recherche…" : (lang === "en" ? "🔍 Find email from website" : "🔍 Trouver l'email depuis le site")}
+                          </button>
+                          {findEmailResults.length > 0 && (
+                            <div className="space-y-1">
+                              {findEmailResults.map(r => (
+                                <button
+                                  key={r.email}
+                                  onClick={() => pickEmail(r.email)}
+                                  className="flex items-center gap-2 w-full text-left text-xs px-3 py-2 rounded transition-colors hover:border-neon-green/40"
+                                  style={{ background: "#00ff9d08", border: "1px solid #00ff9d20" }}
+                                >
+                                  <span className="text-neon-green font-mono">{r.email}</span>
+                                  {r.name && <span className="text-gray-500">· {r.name}</span>}
+                                  {r.title && <span className="text-gray-600">· {r.title}</span>}
+                                  {r.confidence !== undefined && <span className="ml-auto text-gray-700">{r.confidence}%</span>}
+                                  {r.source === "hunter" && <span className="text-cyan-700 text-xs">Hunter</span>}
+                                  {r.source === "scrape" && <span className="text-gray-700 text-xs">web</span>}
+                                </button>
+                              ))}
+                              <p className="text-xs text-gray-700">{lang === "en" ? "Click to save to this prospect." : "Cliquez pour enregistrer sur ce prospect."}</p>
+                            </div>
+                          )}
+                          {findEmailDone && !findEmailBusy && findEmailResults.length === 0 && (
+                            <p className="text-xs text-gray-700">{lang === "en" ? "No email found on this website." : "Aucun email trouvé sur ce site."}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex gap-3">
                       <span className="text-gray-600 shrink-0 w-28">{t.notes}</span>
                       <span className="text-gray-300 whitespace-pre-wrap break-words">{(detail.notes as string) || "—"}</span>
@@ -6223,7 +6294,7 @@ function DomainCard({
   title, color, health, onNavigate, children, borderTop,
 }: {
   title: string; color: string; health: "green" | "orange" | "red" | "grey";
-  onNavigate: () => void; children: React.ReactNode; borderTop?: boolean;
+  onNavigate?: () => void; children: React.ReactNode; borderTop?: boolean;
 }) {
   const { lang } = useAdminT();
   return (
@@ -6236,13 +6307,15 @@ function DomainCard({
           <HealthDot color={health} />
           <span className="font-bold text-white text-sm">{title}</span>
         </div>
-        <button
-          onClick={onNavigate}
-          className="text-xs px-2 py-0.5 rounded border transition-all hover:brightness-125"
-          style={{ color, borderColor: color + "50", background: color + "12" }}
-        >
-          {lang === "en" ? "→ View" : "→ Voir"}
-        </button>
+        {onNavigate && (
+          <button
+            onClick={onNavigate}
+            className="text-xs px-2 py-0.5 rounded border transition-all hover:brightness-125"
+            style={{ color, borderColor: color + "50", background: color + "12" }}
+          >
+            {lang === "en" ? "→ View" : "→ Voir"}
+          </button>
+        )}
       </div>
       {children}
     </div>
@@ -6259,12 +6332,13 @@ function MetricRow({ label, value, color }: { label: string; value: string | num
 }
 
 function DashboardHealthPanel({
-  stats, extra, analyticsData, onNavigate,
+  stats, extra, analyticsData, onNavigate, canNavigate,
 }: {
   stats: Record<string, number>;
   extra: DashboardExtra;
   analyticsData: Record<string, unknown> | null;
   onNavigate: (tab: Tab) => void;
+  canNavigate: (tab: Tab) => boolean;
 }) {
   const { lang } = useAdminT();
   // ── CFP ──
@@ -6349,7 +6423,7 @@ function DashboardHealthPanel({
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
       {/* CFP */}
-      <DomainCard title="CFP" color="#cc00ff" health={cfpHealth} onNavigate={() => onNavigate("cfp" as Tab)}>
+      <DomainCard title="CFP" color="#cc00ff" health={cfpHealth} onNavigate={canNavigate("pipeline") ? () => onNavigate("pipeline") : undefined}>
         {/* Funnel */}
         <div className="flex items-center gap-1 mb-3">
           {(lang === "en" ? [
@@ -6375,7 +6449,7 @@ function DashboardHealthPanel({
       </DomainCard>
 
       {/* Programme */}
-      <DomainCard title="Programme" color="#00ccff" health={sessHealth} onNavigate={() => onNavigate("pipeline")}>
+      <DomainCard title="Programme" color="#00ccff" health={sessHealth} onNavigate={canNavigate("pipeline") ? () => onNavigate("pipeline") : undefined}>
         <div className="grid grid-cols-3 gap-3 mb-2">
           <MetricRow label={lang === "en" ? "Scheduled" : "Programmées"} value={sessScheduled} color="#00ccff" />
           <MetricRow label="Total sessions" value={sessTotal} color="#aaa" />
@@ -6385,7 +6459,7 @@ function DashboardHealthPanel({
       </DomainCard>
 
       {/* Speakers */}
-      <DomainCard title="Speakers" color="#00ff9d" health={speakerHealth} onNavigate={() => onNavigate("pipeline")}>
+      <DomainCard title="Speakers" color="#00ff9d" health={speakerHealth} onNavigate={canNavigate("pipeline") ? () => onNavigate("pipeline") : undefined}>
         <div className="grid grid-cols-3 gap-3">
           <MetricRow label="Total" value={speakerTotal} color="#00ff9d" />
           <MetricRow label={lang === "en" ? "Visible" : "Visibles"} value={speakerVisible} color="#aaa" />
@@ -6394,7 +6468,7 @@ function DashboardHealthPanel({
       </DomainCard>
 
       {/* Inscriptions */}
-      <DomainCard title={lang === "en" ? "Registrations" : "Inscriptions"} color="#ff6600" health={inscHealth} onNavigate={() => onNavigate("registrations")}>
+      <DomainCard title={lang === "en" ? "Registrations" : "Inscriptions"} color="#ff6600" health={inscHealth} onNavigate={canNavigate("registrations") ? () => onNavigate("registrations") : undefined}>
         <div className="grid grid-cols-3 gap-3 mb-2">
           <MetricRow label={lang === "en" ? "Validated" : "Validées"} value={validated} color="#ff6600" />
           <MetricRow label={lang === "en" ? "Pending" : "En attente"} value={pendingPay} color="#ffaa00" />
@@ -6404,7 +6478,7 @@ function DashboardHealthPanel({
       </DomainCard>
 
       {/* Budget */}
-      <DomainCard title="Budget" color="#ffaa00" health={budgetHealth} onNavigate={() => onNavigate("budget")}>
+      <DomainCard title="Budget" color="#ffaa00" health={budgetHealth} onNavigate={canNavigate("budget") ? () => onNavigate("budget") : undefined}>
         <div className="grid grid-cols-3 gap-3 mb-2">
           <MetricRow label={lang === "en" ? "Capital" : "Capital"} value={capital > 0 ? `${fmt(Math.round(capital / 1000))}k` : "—"} color="#aaa" />
           <MetricRow label={lang === "en" ? "Actual expenses" : "Dépenses réelles"} value={depenses > 0 ? `${fmt(Math.round(depenses / 1000))}k` : "—"} color={depenses > capital ? "#ff0066" : "#ffaa00"} />
@@ -6414,7 +6488,7 @@ function DashboardHealthPanel({
       </DomainCard>
 
       {/* Sponsors */}
-      <DomainCard title="Sponsors" color="#ffaa00" health={sponsorHealth} onNavigate={() => onNavigate("sponsors")}>
+      <DomainCard title="Sponsors" color="#ffaa00" health={sponsorHealth} onNavigate={canNavigate("sponsors") ? () => onNavigate("sponsors") : undefined}>
         <div className="grid grid-cols-2 gap-3 mb-3">
           <MetricRow label={lang === "en" ? "Confirmed" : "Confirmés"} value={sponsorConfirmed} color="#ffaa00" />
           <MetricRow label={lang === "en" ? "Pipeline total" : "Pipeline total"} value={extra.sponsorProspects.length} color="#aaa" />
@@ -6431,7 +6505,7 @@ function DashboardHealthPanel({
       </DomainCard>
 
       {/* Bénévoles */}
-      <DomainCard title={lang === "en" ? "Volunteers" : "Bénévoles"} color="#0066ff" health={volHealth} onNavigate={() => onNavigate("volunteers")}>
+      <DomainCard title={lang === "en" ? "Volunteers" : "Bénévoles"} color="#0066ff" health={volHealth} onNavigate={canNavigate("volunteers") ? () => onNavigate("volunteers") : undefined}>
         <div className="grid grid-cols-3 gap-3">
           <MetricRow label={lang === "en" ? "Applications" : "Candidatures"} value={volTotal} color="#aaa" />
           <MetricRow label={lang === "en" ? "Accepted" : "Acceptés"} value={volAccepted} color="#0066ff" />
@@ -6440,7 +6514,7 @@ function DashboardHealthPanel({
       </DomainCard>
 
       {/* Logistique */}
-      <DomainCard title={lang === "en" ? "Logistics" : "Logistique"} color="#ff6600" health={logHealth} onNavigate={() => onNavigate("logistics")}>
+      <DomainCard title={lang === "en" ? "Logistics" : "Logistique"} color="#ff6600" health={logHealth} onNavigate={canNavigate("logistics") ? () => onNavigate("logistics") : undefined}>
         <div className="grid grid-cols-3 gap-3 mb-2">
           <MetricRow label={lang === "en" ? "Done" : "Faites"} value={taskDone} color="#00ff9d" />
           <MetricRow label="Total" value={taskTotal} color="#aaa" />
@@ -6450,7 +6524,7 @@ function DashboardHealthPanel({
       </DomainCard>
 
       {/* Communication */}
-      <DomainCard title="Communication" color="#cc00ff" health={commHealth} onNavigate={() => onNavigate("communication")}>
+      <DomainCard title="Communication" color="#cc00ff" health={commHealth} onNavigate={canNavigate("communication") ? () => onNavigate("communication") : undefined}>
         <div className="grid grid-cols-3 gap-3">
           <MetricRow label={lang === "en" ? "Scheduled" : "Planifiés"} value={postsScheduled} color="#ffaa00" />
           <MetricRow label={lang === "en" ? "Published" : "Publiés"} value={postsPublished} color="#00ff9d" />
@@ -6459,7 +6533,7 @@ function DashboardHealthPanel({
       </DomainCard>
 
       {/* Check-in */}
-      <DomainCard title="Check-in" color="#00ccff" health="grey" onNavigate={() => onNavigate("registrations")}>
+      <DomainCard title="Check-in" color="#00ccff" health="grey" onNavigate={canNavigate("registrations") ? () => onNavigate("registrations") : undefined}>
         <div className="grid grid-cols-3 gap-3 mb-2">
           <MetricRow label={lang === "en" ? "Checked in" : "Enregistrés"} value={checkedIn} color="#00ccff" />
           <MetricRow label={lang === "en" ? "Total validated" : "Validés total"} value={validated} color="#aaa" />
@@ -6592,7 +6666,7 @@ export default function AdminDashboard() {
   };
 
   const canSeeTab = (tabId: Tab): boolean => {
-    if (!userInfo) return true; // not loaded yet — show all
+    if (!userInfo) return tabId === "dashboard"; // hide all protected tabs until identity confirmed
     if (userInfo.isLegacy) return true; // legacy token = full access
     const permKey = TAB_PERMISSION[tabId];
     if (permKey === undefined) return true; // always visible
@@ -7068,6 +7142,7 @@ export default function AdminDashboard() {
                 extra={dashboardExtra}
                 analyticsData={(data.analytics?.[0] as Record<string, unknown>) || null}
                 onNavigate={(t: Tab) => { if (canSeeTab(t)) setTab(t); }}
+                canNavigate={canSeeTab}
               />
             </div>
           )}

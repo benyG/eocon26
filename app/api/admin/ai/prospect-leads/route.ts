@@ -23,7 +23,7 @@ export async function PATCH(req: NextRequest) {
   // Only create SponsorProspect when transitioning to addedToPipeline=true for the first time
   if (addedToPipeline === true && !existing?.addedToPipeline) {
     const alreadyExists = await prisma.sponsorProspect.findFirst({
-      where: { org: { equals: lead.org, mode: "insensitive" } },
+      where: { org: lead.org }, // MySQL collation is case-insensitive by default
     });
     if (!alreadyExists) {
       await prisma.sponsorProspect.create({

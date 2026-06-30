@@ -211,6 +211,9 @@ export function getReplyTo(seg: CampaignSegment): string | undefined {
   if (a === "registrations" || a === "volunteers") {
     return "registration@eyesopensecurity.com";
   }
+  if (a === "newsletter") {
+    return "contact@eyesopensecurity.com";
+  }
   return undefined;
 }
 

@@ -340,6 +340,7 @@ model AdminUser {
   mfaEnrolledAt  DateTime?
   failedLoginCount Int          @default(0)
   lockedUntil    DateTime?
+  assignedProspects SponsorProspect[]
 
   @@map("admin_users")
 }
@@ -499,6 +500,8 @@ model SponsorProspect {
   notes          String?  @db.Text
   emailJson      String?  @db.Text // cached AI follow-up email (JSON)
   perkChecklist  String?  @db.Text // JSON: Record<perkText, { done: boolean; note: string }>
+  assigneeId     Int?
+  assignee       AdminUser? @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

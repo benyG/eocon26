@@ -14,6 +14,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     draftFr?: string;
     draftEn?: string;
     platforms?: string;
+    scheduledAt?: string; // ISO datetime string from client date picker
   };
 
   const item = await prisma.cyberWatchItem.findUnique({ where: { id: Number(id) } });
@@ -28,10 +29,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body.status === "rejected") {
     update.status = "rejected";
   } else if (body.status === "approved") {
-    // Schedule for next day at a random hour between 08:00 and 20:00
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(8 + Math.floor(Math.random() * 12), Math.floor(Math.random() * 60), 0, 0);
+    // Use client-chosen date if provided; otherwise schedule for next day at a random hour (08:00–20:00)
+    let tomorrow: Date;
+    if (body.scheduledAt) {
+      tomorrow = new Date(body.scheduledAt);
+    } else {
+      tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(8 + Math.floor(Math.random() * 12), Math.floor(Math.random() * 60), 0, 0);
+    }
 
     const platforms = (body.platforms ?? item.platforms).split(",").map(p => p.trim()).filter(Boolean);
 

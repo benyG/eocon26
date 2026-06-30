@@ -2375,9 +2375,11 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
   const [findEmailResults, setFindEmailResults] = useState<Array<{ email: string; name?: string; title?: string; source: string; confidence?: number }>>([]);
   const [findEmailDone, setFindEmailDone] = useState(false);
   const [packages, setPackages] = useState<Record<string, unknown>[]>([]);
+  const [assignees, setAssignees] = useState<{ id: number; name: string }[]>([]);
 
   useEffect(() => {
     fetch("/api/admin/sponsor-packages").then(r => r.json()).then(setPackages).catch(() => {});
+    fetch("/api/admin/sponsor-prospects/assignees").then(r => r.ok ? r.json() : []).then(setAssignees).catch(() => {});
   }, []);
 
   const generateFollowupEmail = async (p: Record<string, unknown>) => {
@@ -2444,7 +2446,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
   };
 
   const openDetailEdit = (p: Record<string, unknown>) => {
-    setDetailForm({ org: p.org, contact: p.contact || "", email: p.email || "", phone: p.phone || "", website: p.website || "", package: p.package || "", notes: p.notes || "" });
+    setDetailForm({ org: p.org, contact: p.contact || "", email: p.email || "", phone: p.phone || "", website: p.website || "", package: p.package || "", notes: p.notes || "", assigneeId: p.assigneeId ?? null });
     setEditingDetail(true);
   };
 
@@ -2646,7 +2648,6 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                         { key: "email", label: t.email },
                         { key: "phone", label: t.phone },
                         { key: "website", label: "Website" },
-                        { key: "package", label: t.package },
                       ] as { key: string; label: string }[]).map(f => (
                         <div key={f.key}>
                           <label className="text-gray-500 block mb-1">{f.label}</label>
@@ -2657,6 +2658,30 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                           />
                         </div>
                       ))}
+                      <div>
+                        <label className="text-gray-500 block mb-1">{t.package}</label>
+                        <select
+                          value={(detailForm.package as string) || ""}
+                          onChange={e => setDetailForm(p => ({ ...p, package: e.target.value }))}
+                          className="cyber-input w-full px-3 py-1.5 rounded text-xs"
+                        >
+                          <option value="">{lang === "en" ? "— Select —" : "— Choisir —"}</option>
+                          {["PLATINUM", "GOLD", "SILVER", "BRONZE", "PARTNER"].map(tier => (
+                            <option key={tier} value={tier}>{tier}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-gray-500 block mb-1">{lang === "en" ? "Assigned to" : "Assigné à"}</label>
+                      <select
+                        value={(detailForm.assigneeId as number | null) ?? ""}
+                        onChange={e => setDetailForm(p => ({ ...p, assigneeId: e.target.value ? parseInt(e.target.value) : null }))}
+                        className="cyber-input w-full px-3 py-1.5 rounded text-xs"
+                      >
+                        <option value="">{lang === "en" ? "— Unassigned —" : "— Non assigné —"}</option>
+                        {assignees.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
                     </div>
                     <div>
                       <label className="text-gray-500 block mb-1">{t.notes}</label>
@@ -2685,6 +2710,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                       { label: t.phone, val: detail.phone as string, href: detail.phone ? `tel:${detail.phone}` : undefined },
                       { label: lang === "en" ? "Website" : "Site web", val: detail.website as string, href: detail.website ? (String(detail.website).startsWith("http") ? String(detail.website) : `https://${detail.website}`) : undefined },
                       { label: t.package, val: detail.package as string },
+                      { label: lang === "en" ? "Assigned to" : "Assigné à", val: detail.assigneeId ? (assignees.find(a => a.id === detail.assigneeId)?.name ?? `#${detail.assigneeId}`) : "" },
                     ]).map(f => (
                       <div key={f.label} className="flex gap-3">
                         <span className="text-gray-600 shrink-0 w-28">{f.label}</span>
@@ -2823,7 +2849,6 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
               { key: "email", label: t.email },
               { key: "phone", label: t.phone },
               { key: "website", label: lang === "en" ? "Website" : "Site web" },
-              { key: "package", label: t.package },
             ].map(f => (
               <div key={f.key}>
                 <label className="text-xs text-gray-500 block mb-1">{f.label}</label>
@@ -2831,9 +2856,25 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
               </div>
             ))}
             <div>
+              <label className="text-xs text-gray-500 block mb-1">{t.package}</label>
+              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.package as string) || ""} onChange={e => setForm(p => ({ ...p, package: e.target.value }))}>
+                <option value="">{lang === "en" ? "— Select —" : "— Choisir —"}</option>
+                {["PLATINUM", "GOLD", "SILVER", "BRONZE", "PARTNER"].map(tier => (
+                  <option key={tier} value={tier}>{tier}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="text-xs text-gray-500 block mb-1">{t.status}</label>
               <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.status as string) || "prospect"} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
                 {PROSPECT_STATUSES.map(s => <option key={s.value} value={s.value}>{lang === "en" ? s.en : s.fr}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Assigned to" : "Assigné à"}</label>
+              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.assigneeId as number | "") || ""} onChange={e => setForm(p => ({ ...p, assigneeId: e.target.value ? parseInt(e.target.value) : null }))}>
+                <option value="">{lang === "en" ? "— Unassigned —" : "— Non assigné —"}</option>
+                {assignees.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
@@ -2874,6 +2915,70 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
         );
       })()}
 
+      {/* ── Team performance leaderboard ────────────────────────────────── */}
+      {(() => {
+        const NON_NEGOCIE = new Set(["prospect", "concluded", "paused", "abandoned"]);
+        const stats = assignees
+          .map(a => {
+            const mine = prospects.filter(p => p.assigneeId === a.id);
+            return {
+              ...a,
+              total: mine.length,
+              negocie: mine.filter(p => !NON_NEGOCIE.has(p.status as string)).length,
+              conclu: mine.filter(p => p.status === "concluded").length,
+            };
+          })
+          .filter(a => a.total > 0)
+          .sort((a, b) => b.conclu - a.conclu || b.negocie - a.negocie || b.total - a.total);
+
+        if (stats.length === 0) return null;
+
+        const RANK_ICONS = ["🥇", "🥈", "🥉"];
+        return (
+          <div className="mb-6">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3 font-mono">
+              {lang === "en" ? "⚡ Team Performance" : "⚡ Performance équipe"}
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {stats.map((m, i) => {
+                const convRate = m.total > 0 ? Math.round((m.conclu / m.total) * 100) : 0;
+                const isTop = i === 0 && m.conclu > 0;
+                const initials = m.name.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
+                const accentColors = ["#00ff9d", "#cc00ff", "#ffaa00", "#0066ff", "#ff0066", "#00ccff"];
+                const color = accentColors[i % accentColors.length];
+                return (
+                  <div
+                    key={m.id}
+                    className="rounded-xl p-4 flex gap-3 items-start transition-all"
+                    style={{ background: isTop ? `${color}08` : "rgba(255,255,255,0.02)", border: `1px solid ${isTop ? color + "40" : "#222"}` }}
+                  >
+                    {/* Avatar */}
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center font-black text-sm shrink-0 relative" style={{ background: color + "20", color, border: `2px solid ${color}40` }}>
+                      {initials}
+                      {RANK_ICONS[i] && <span className="absolute -top-2 -right-2 text-sm">{RANK_ICONS[i]}</span>}
+                    </div>
+                    {/* Stats */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sm text-white truncate">{m.name}</p>
+                      <div className="flex gap-3 mt-1.5 text-xs font-mono">
+                        <span className="text-gray-500">{m.total} {lang === "en" ? "assigned" : "assignés"}</span>
+                        <span style={{ color: "#ffaa00" }}>{m.negocie} {lang === "en" ? "in negot." : "en négo"}</span>
+                        <span style={{ color: "#00ff9d" }} className="font-bold">{m.conclu} {lang === "en" ? "closed" : "conclus"}</span>
+                      </div>
+                      {/* Conversion bar */}
+                      <div className="mt-2 h-1 rounded-full bg-gray-800 overflow-hidden">
+                        <div className="h-full rounded-full transition-all" style={{ width: `${convRate}%`, background: color }} />
+                      </div>
+                      <p className="text-xs text-gray-700 mt-0.5 font-mono">{convRate}% {lang === "en" ? "close rate" : "taux de closing"}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Kanban Board */}
       <div className="overflow-x-auto pb-4">
         <div className="flex gap-4 min-w-max">
@@ -2894,7 +2999,19 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                       style={{ borderLeft: `3px solid ${st.color}40` }}
                       onClick={() => setDetail(p)}
                     >
-                      <p className="text-white font-bold text-sm mb-1 truncate">{p.org as string}</p>
+                      <div className="flex items-start justify-between gap-1 mb-1">
+                        <p className="text-white font-bold text-sm truncate flex-1">{p.org as string}</p>
+                        {!!(p.assigneeId) && (() => {
+                          const a = assignees.find(x => x.id === (p.assigneeId as number));
+                          if (!a) return null;
+                          const initials = a.name.split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
+                          return (
+                            <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ background: "#00ff9d20", color: "#00ff9d", border: "1px solid #00ff9d40" }} title={a.name}>
+                              {initials}
+                            </span>
+                          );
+                        })()}
+                      </div>
                       {(p.contact as string) && <p className="text-gray-500 truncate">{p.contact as string}</p>}
                       {(p.email as string) && <p className="text-neon-green/60 truncate">{p.email as string}</p>}
                       {(p.package as string) && (

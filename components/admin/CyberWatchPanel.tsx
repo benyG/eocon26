@@ -44,7 +44,22 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
   const [editDraftFr, setEditDraftFr] = useState("");
   const [editDraftEn, setEditDraftEn] = useState("");
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [scheduleDates, setScheduleDates] = useState<Record<number, string>>({});
   const [activeTab, setActiveTab] = useState<"settings" | "moderation">("moderation");
+
+  const defaultScheduleDate = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}T08:00`;
+  };
+
+  const getScheduleDate = (id: number) => scheduleDates[id] ?? defaultScheduleDate();
+
+  const setScheduleDate = (id: number, val: string) =>
+    setScheduleDates(prev => ({ ...prev, [id]: val }));
 
   const loadSettings = useCallback(async () => {
     setLoadingSettings(true);
@@ -84,14 +99,15 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
     setFetching(false);
   };
 
-  const handleAction = async (id: number, action: "approved" | "rejected", patch?: Partial<WatchItem>) => {
+  const handleAction = async (id: number, action: "approved" | "rejected", patch?: Partial<WatchItem>, scheduledAt?: string) => {
     setSavingId(id);
     await fetch(`/api/admin/cyber-watch/items/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: action, ...patch }),
+      body: JSON.stringify({ status: action, ...(scheduledAt ? { scheduledAt } : {}), ...patch }),
     });
     setItems(prev => prev.filter(i => i.id !== id));
+    setScheduleDates(prev => { const n = { ...prev }; delete n[id]; return n; });
     setEditId(null);
     setSavingId(null);
   };
@@ -285,17 +301,28 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
                           className="cyber-input w-full text-xs p-3 rounded h-32 resize-none text-white"
                         />
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleAction(item.id, "approved", { draftFr: editDraftFr, draftEn: editDraftEn, platforms: item.platforms })}
-                          disabled={savingId === item.id}
-                          className="flex-1 text-xs py-2 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono disabled:opacity-50"
-                        >
-                          {savingId === item.id ? "…" : `✓ ${__("Valider & planifier", "Approve & schedule")}`}
-                        </button>
-                        <button onClick={() => setEditId(null)} className="text-xs px-4 py-2 rounded border border-gray-700 text-gray-400 hover:text-white font-mono">
-                          {__("Annuler", "Cancel")}
-                        </button>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500 font-mono shrink-0">{__("Planifier le :", "Schedule for:")}</span>
+                          <input
+                            type="datetime-local"
+                            value={getScheduleDate(item.id)}
+                            onChange={e => setScheduleDate(item.id, e.target.value)}
+                            className="cyber-input text-xs px-2 py-1 rounded flex-1 text-white"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAction(item.id, "approved", { draftFr: editDraftFr, draftEn: editDraftEn, platforms: item.platforms }, getScheduleDate(item.id))}
+                            disabled={savingId === item.id}
+                            className="flex-1 text-xs py-2 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono disabled:opacity-50"
+                          >
+                            {savingId === item.id ? "…" : `✓ ${__("Valider & planifier", "Approve & schedule")}`}
+                          </button>
+                          <button onClick={() => setEditId(null)} className="text-xs px-4 py-2 rounded border border-gray-700 text-gray-400 hover:text-white font-mono">
+                            {__("Annuler", "Cancel")}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -313,27 +340,38 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
                         </span>
                       </div>
                       {/* Actions */}
-                      {canWrite && <div className="flex gap-2 pt-2">
-                        <button
-                          onClick={() => handleAction(item.id, "approved")}
-                          disabled={savingId === item.id}
-                          className="flex-1 text-xs py-2 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono disabled:opacity-50"
-                        >
-                          {savingId === item.id ? "…" : `✓ ${__("Valider & planifier", "Approve & schedule")}`}
-                        </button>
-                        <button
-                          onClick={() => { setEditId(item.id); setEditDraftFr(item.draftFr); setEditDraftEn(item.draftEn); }}
-                          className="text-xs px-4 py-2 rounded border border-gray-700 text-gray-400 hover:text-white font-mono"
-                        >
-                          ✎ {__("Modifier", "Edit")}
-                        </button>
-                        <button
-                          onClick={() => handleAction(item.id, "rejected")}
-                          disabled={savingId === item.id}
-                          className="text-xs px-4 py-2 rounded border border-red-800/50 text-red-500 hover:bg-red-500/10 font-mono disabled:opacity-50"
-                        >
-                          {__("Rejeter", "Reject")}
-                        </button>
+                      {canWrite && <div className="space-y-2 pt-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500 font-mono shrink-0">{__("Planifier le :", "Schedule for:")}</span>
+                          <input
+                            type="datetime-local"
+                            value={getScheduleDate(item.id)}
+                            onChange={e => setScheduleDate(item.id, e.target.value)}
+                            className="cyber-input text-xs px-2 py-1 rounded flex-1 text-white"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAction(item.id, "approved", undefined, getScheduleDate(item.id))}
+                            disabled={savingId === item.id}
+                            className="flex-1 text-xs py-2 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono disabled:opacity-50"
+                          >
+                            {savingId === item.id ? "…" : `✓ ${__("Valider & planifier", "Approve & schedule")}`}
+                          </button>
+                          <button
+                            onClick={() => { setEditId(item.id); setEditDraftFr(item.draftFr); setEditDraftEn(item.draftEn); }}
+                            className="text-xs px-4 py-2 rounded border border-gray-700 text-gray-400 hover:text-white font-mono"
+                          >
+                            ✎ {__("Modifier", "Edit")}
+                          </button>
+                          <button
+                            onClick={() => handleAction(item.id, "rejected")}
+                            disabled={savingId === item.id}
+                            className="text-xs px-4 py-2 rounded border border-red-800/50 text-red-500 hover:bg-red-500/10 font-mono disabled:opacity-50"
+                          >
+                            {__("Rejeter", "Reject")}
+                          </button>
+                        </div>
                       </div>}
                     </div>
                   )}

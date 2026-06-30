@@ -989,6 +989,27 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
               {sample.length > 0 && (
                 <p className="text-gray-700 text-xs mt-1 truncate">{sample.join(", ")}{count && count > sample.length ? "…" : ""}</p>
               )}
+              {(() => {
+                const a = seg.audience;
+                let replyTo: string;
+                if (a === "cfp_accepted" || a === "cfp_onboarding" || a === "cfp_confirmed" || a === "cfp_scheduled") {
+                  replyTo = "speakers@eyesopensecurity.com";
+                } else if (seg.hasCtf === true) {
+                  replyTo = "ctf@eyesopensecurity.com";
+                } else if (a === "volunteers") {
+                  replyTo = "registration@eyesopensecurity.com";
+                } else if (a === "newsletter") {
+                  replyTo = "contact@eyesopensecurity.com";
+                } else {
+                  replyTo = "registration@eyesopensecurity.com";
+                }
+                return (
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <span className="text-xs text-gray-600">{__("Reply-To :", "Reply-To:")}</span>
+                    <span className="text-xs font-mono text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 px-2 py-0.5 rounded">{replyTo}</span>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 

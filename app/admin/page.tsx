@@ -4216,7 +4216,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
             </label>
             <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "var(--ac)" }}>
               <input type="checkbox" checked={createForm.includesSessions} onChange={e => setCreateForm(f => ({ ...f, includesSessions: e.target.checked }))} />
-              {adminLang === "en" ? "📡 Sessions / Conferences" : "📡 Sessions / Conférences"}
+              {adminLang === "en" ? "🎤 Sessions / Conferences" : "🎤 Sessions / Conférences"}
             </label>
             <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#a78bfa" }}>
               <input type="checkbox" checked={createForm.includesWorkshops} onChange={e => setCreateForm(f => ({ ...f, includesWorkshops: e.target.checked }))} />
@@ -4224,7 +4224,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
             </label>
             <label className="flex items-center gap-2 text-xs font-bold cursor-pointer" style={{ color: "#00ccff" }}>
               <input type="checkbox" checked={createForm.includesCTF} onChange={e => setCreateForm(f => ({ ...f, includesCTF: e.target.checked }))} />
-              ⚡ CTF
+              🏆 CTF
             </label>
           </div>
           <div className="flex gap-3">
@@ -4323,7 +4323,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                     </label>
                     <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "var(--ac)" }}>
                       <input type="checkbox" checked={editForm.includesSessions !== false} onChange={e => setEditForm(f => ({ ...f, includesSessions: e.target.checked }))} />
-                      {adminLang === "en" ? "📡 Sessions / Conferences" : "📡 Sessions / Conférences"}
+                      {adminLang === "en" ? "🎤 Sessions / Conferences" : "🎤 Sessions / Conférences"}
                     </label>
                     <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#a78bfa" }}>
                       <input type="checkbox" checked={!!editForm.includesWorkshops} onChange={e => setEditForm(f => ({ ...f, includesWorkshops: e.target.checked }))} />
@@ -4331,7 +4331,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                     </label>
                     <label className="flex items-center gap-2 text-xs cursor-pointer font-bold" style={{ color: "#00ccff" }}>
                       <input type="checkbox" checked={!!editForm.includesCTF} onChange={e => setEditForm(f => ({ ...f, includesCTF: e.target.checked }))} />
-                      ⚡ CTF
+                      🏆 CTF
                     </label>
                     <div className="flex items-center gap-2">
                       <label className="text-xs text-gray-500">{adminLang === "en" ? "Order" : "Ordre"}</label>
@@ -4365,7 +4365,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                           {!t.isVisible && <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-500">{adminLang === "en" ? "Hidden" : "Masqué"}</span>}
                           {t.includesSessions && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "1px solid var(--ac-bdr)" }}>📡 Sessions</span>}
                           {t.includesWorkshops && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#a78bfa15", color: "#a78bfa", border: "1px solid #a78bfa30" }}>🛠 Workshops</span>}
-                          {t.includesCTF && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}>⚡ CTF</span>}
+                          {t.includesCTF && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}>🏆 CTF</span>}
                         </div>
                         <div className="text-xs text-gray-400 mt-0.5 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
                           <span style={{ color: t.color }}>{t.priceFr.toLocaleString("fr-FR")} XAF</span>
@@ -4623,7 +4623,7 @@ const CERT_TABS = [
   { id: "participant", label: "Participants", icon: "🎟", apiPath: "/api/admin/submissions?type=registration", nameField: (r: Record<string,unknown>) => `${r.fname} ${r.lname}`, emailField: "email" },
   { id: "volunteer", label: "Bénévoles", icon: "🙋", apiPath: "/api/admin/submissions?type=volunteer", nameField: (r: Record<string,unknown>) => r.name as string, emailField: "email" },
   { id: "speaker", label: "Speakers", icon: "🎤", apiPath: "/api/admin/speakers", nameField: (r: Record<string,unknown>) => r.name as string, emailField: "email" },
-  { id: "ctf_competitor", label: "CTF", icon: "🏁", apiPath: "/api/admin/ctf/participants", nameField: (r: Record<string,unknown>) => (r.ctfCompetitorName || r.fname || r.name) as string, emailField: "email" },
+  { id: "ctf_competitor", label: "CTF", icon: "🏆", apiPath: "/api/admin/ctf/participants", nameField: (r: Record<string,unknown>) => (r.ctfCompetitorName || r.fname || r.name) as string, emailField: "email" },
   { id: "organizer", label: "Organisateurs", icon: "👥", apiPath: "/api/admin/team", nameField: (r: Record<string,unknown>) => r.name as string, emailField: "email" },
 ] as const;
 

@@ -711,6 +711,11 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
   const [editLeadTarget, setEditLeadTarget] = useState<Record<string, unknown> | null>(null);
   const [editLeadForm, setEditLeadForm] = useState<Record<string, unknown>>({});
   const [savingLead, setSavingLead] = useState(false);
+  // Pipeline assignment modal
+  const [pipelineAssignTarget, setPipelineAssignTarget] = useState<Record<string, unknown> | null>(null);
+  const [pipelineAssigneeId, setPipelineAssigneeId] = useState<string>("");
+  const [pipelineAssigning, setPipelineAssigning] = useState(false);
+  const [assignees, setAssignees] = useState<{ id: number; name: string }[]>([]);
 
   const toggleQuery = (q: string) => setCollapsedQueries(prev => {
     const next = new Set(prev);
@@ -720,6 +725,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
 
   useEffect(() => {
     fetch("/api/admin/sponsor-packages").then(r => r.json()).then(setPackages).catch(() => {});
+    fetch("/api/admin/sponsor-prospects/assignees").then(r => r.ok ? r.json() : []).then(setAssignees).catch(() => {});
   }, []);
 
   const enrichLead = async (lead: Record<string, unknown>) => {
@@ -839,14 +845,23 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
     setGeneratingPitch(false);
   };
 
-  const addToPipeline = async (lead: Record<string, unknown>) => {
-    if (lead.addedToPipeline) return; // guard against double-click
+  const requestAddToPipeline = (lead: Record<string, unknown>) => {
+    if (lead.addedToPipeline) return;
+    setPipelineAssignTarget(lead);
+    setPipelineAssigneeId("");
+  };
+
+  const confirmAddToPipeline = async () => {
+    if (!pipelineAssignTarget || !pipelineAssigneeId) return;
+    setPipelineAssigning(true);
     await fetch("/api/admin/ai/prospect-leads", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: lead.id, addedToPipeline: true }),
+      body: JSON.stringify({ id: pipelineAssignTarget.id, addedToPipeline: true, assigneeId: parseInt(pipelineAssigneeId) }),
     });
-    // SponsorProspect is created server-side in the PATCH handler
+    setPipelineAssigning(false);
+    setPipelineAssignTarget(null);
+    setPipelineAssigneeId("");
     onRefresh();
   };
 
@@ -989,7 +1004,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                   </div>
                 ))}
                 {canWrite && <button
-                  onClick={() => addToPipeline(emailTarget)}
+                  onClick={() => requestAddToPipeline(emailTarget)}
                   disabled={!!emailTarget.addedToPipeline}
                   className="w-full py-2 rounded text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "1px solid var(--ac-bdr)" }}
@@ -1208,7 +1223,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                         🎯 Pitch
                       </button>
                       <button
-                        onClick={() => hasContact(lead) ? addToPipeline(lead) : undefined}
+                        onClick={() => hasContact(lead) ? requestAddToPipeline(lead) : undefined}
                         disabled={!hasContact(lead)}
                         title={!hasContact(lead) ? (lang === "en" ? "Enrich contact data first." : "Enrichissez les données de contact d'abord.") : undefined}
                         className="text-xs px-3 py-1.5 rounded transition-all whitespace-nowrap"
@@ -1324,6 +1339,39 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
           );
         })()}
       </div>
+
+      {/* Assignee modal for +Pipeline */}
+      {pipelineAssignTarget && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4">
+          <div className="cyber-card rounded-xl max-w-sm w-full p-6 space-y-4">
+            <h3 className="text-white font-bold">{lang === "en" ? "Assign this prospect" : "Assigner ce prospect"}</h3>
+            <p className="text-gray-400 text-sm font-mono">{pipelineAssignTarget.org as string}</p>
+            <select
+              value={pipelineAssigneeId}
+              onChange={e => setPipelineAssigneeId(e.target.value)}
+              className="cyber-input w-full px-3 py-2 rounded text-sm"
+            >
+              <option value="">{lang === "en" ? "— Choose a team member —" : "— Choisir un responsable —"}</option>
+              {assignees.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+            <div className="flex gap-2">
+              <button
+                onClick={confirmAddToPipeline}
+                disabled={!pipelineAssigneeId || pipelineAssigning}
+                className="btn-neon flex-1 py-2 rounded text-sm font-bold disabled:opacity-40"
+              >
+                {pipelineAssigning ? "…" : (lang === "en" ? "✓ Add to pipeline" : "✓ Ajouter au pipeline")}
+              </button>
+              <button
+                onClick={() => { setPipelineAssignTarget(null); setPipelineAssigneeId(""); }}
+                className="px-4 py-2 rounded text-sm text-gray-500 hover:text-white transition-colors"
+              >
+                {lang === "en" ? "Cancel" : "Annuler"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {packages.length > 0 && (
         <div className="cyber-card rounded-xl p-5">

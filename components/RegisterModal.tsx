@@ -20,7 +20,8 @@ interface TicketTypeData {
   earlyBirdUntil: string | null;
   color: string;
   isFeatured: boolean;
-  ctfAccess: boolean;
+  includesSessions: boolean;
+  includesWorkshops: boolean;
   includesCTF: boolean;
   maxCapacity: number;
   sold: number;
@@ -319,6 +320,34 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                             </div>
                           )}
                         </div>
+                        {/* Access type badges */}
+                        <div className="grid grid-cols-3 gap-1.5 mt-3">
+                          {([
+                            { key: "sessions", label: lang === "fr" ? "Talks" : "Talks", icon: "🎤", included: ticket.includesSessions, color: "#00ff9d" },
+                            { key: "workshops", label: "Workshop", icon: "🛠", included: ticket.includesWorkshops, color: "#ff9500" },
+                            { key: "ctf", label: "CTF", icon: "⚡", included: ticket.includesCTF, color: "#00ccff" },
+                          ] as const).map(({ key, label, icon, included, color }) => (
+                            <div
+                              key={key}
+                              className="flex flex-col items-center justify-center rounded-lg py-2 px-1 gap-0.5"
+                              style={{
+                                background: included ? color + "18" : "#ffffff04",
+                                border: `1px solid ${included ? color + "55" : "#ffffff0a"}`,
+                              }}
+                            >
+                              <span className="text-base leading-none">{icon}</span>
+                              <span
+                                className="text-[9px] font-bold uppercase leading-tight text-center"
+                                style={{ color: included ? color : "#2a2a2a", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.5px" }}
+                              >
+                                {label}
+                              </span>
+                              <span className="text-[10px] font-bold leading-none" style={{ color: included ? color : "#2a2a2a" }}>
+                                {included ? "✓" : "—"}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                         <ul className="space-y-1 mt-3">
                           {getPerks(ticket).map(p => (
                             <li key={p} className="flex items-start gap-2 text-xs text-gray-400">
@@ -327,14 +356,6 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                             </li>
                           ))}
                         </ul>
-                        {ticket.ctfAccess && (
-                          <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "#00ccff15", border: "1px solid #00ccff40" }}>
-                            <span className="text-sm">⚡</span>
-                            <span className="text-xs font-bold" style={{ color: "#00ccff", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "1px" }}>
-                              CTF ACCESS
-                            </span>
-                          </div>
-                        )}
                         {!sold_out && (
                           <div
                             className="mt-4 w-full py-2 rounded text-xs font-mono text-center font-bold uppercase"
@@ -432,7 +453,7 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                 </div>
 
                 {/* CTF fields — shown when ticket includes CTF */}
-                {(selectedTicket?.includesCTF || selectedTicket?.ctfAccess) && (
+                {selectedTicket?.includesCTF && (
                   <div
                     className="p-4 rounded border space-y-3"
                     style={{ borderColor: "#00ccff40", background: "#00ccff05", transition: "all 0.3s", opacity: 1 }}

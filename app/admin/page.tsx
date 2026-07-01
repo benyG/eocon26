@@ -2441,6 +2441,8 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
   };
 
   const save = async () => {
+    if (!form.org) { alert(lang === "en" ? "Organization name is required." : "Le nom de l'organisation est requis."); return; }
+    if (!form.assigneeId) { alert(lang === "en" ? "Please assign this prospect to a team member." : "Veuillez assigner ce prospect à un membre de l'équipe."); return; }
     await fetch("/api/admin/sponsor-prospects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
     setShowForm(false); setForm({ status: "prospect" }); onRefresh();
   };
@@ -2871,9 +2873,16 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Assigned to" : "Assigné à"}</label>
-              <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.assigneeId as number | "") || ""} onChange={e => setForm(p => ({ ...p, assigneeId: e.target.value ? parseInt(e.target.value) : null }))}>
-                <option value="">{lang === "en" ? "— Unassigned —" : "— Non assigné —"}</option>
+              <label className="text-xs block mb-1">
+                <span className="text-red-400 mr-1">*</span>
+                <span className={form.assigneeId ? "text-gray-500" : "text-red-400/80"}>{lang === "en" ? "Assigned to" : "Assigné à"}</span>
+              </label>
+              <select
+                className={`cyber-input w-full px-3 py-2 rounded text-xs ${!form.assigneeId ? "border-red-500/40" : ""}`}
+                value={(form.assigneeId as number | "") || ""}
+                onChange={e => setForm(p => ({ ...p, assigneeId: e.target.value ? parseInt(e.target.value) : null }))}
+              >
+                <option value="">{lang === "en" ? "— Required —" : "— Obligatoire —"}</option>
                 {assignees.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
@@ -2882,9 +2891,10 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
               <textarea rows={2} className="cyber-input w-full px-3 py-2 rounded text-xs resize-none" value={(form.notes as string) || ""} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} />
             </div>
           </div>
-          <div className="flex gap-2">
-            <button onClick={save} className="btn-neon px-4 py-2 rounded text-xs">{t.save}</button>
+          <div className="flex gap-2 items-center">
+            <button onClick={save} disabled={!form.org || !form.assigneeId} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-40 disabled:cursor-not-allowed">{t.save}</button>
             <button onClick={() => { setShowForm(false); setForm({ status: "prospect" }); }} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">{t.cancel}</button>
+            {!form.assigneeId && <span className="text-xs text-red-400/70">{lang === "en" ? "Assignment required" : "Assignation obligatoire"}</span>}
           </div>
         </div>
       )}
@@ -4405,6 +4415,8 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
   );
 }
 
+const REG_PAGE_SIZE = 50;
+
 function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail: (r: Record<string, unknown>) => void; canManualValidate?: boolean }) {
   const { t, lang } = useAdminT();
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
@@ -4412,9 +4424,12 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
   const [fStatus, setFStatus] = useState("");
   const [fTicket, setFTicket] = useState("");
   const [fCheck, setFCheck] = useState("");
+  const [fSearch, setFSearch] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [ctfSlugs, setCtfSlugs] = useState<Set<string>>(new Set());
+  const [regTab, setRegTab] = useState<"stats" | "list">("stats");
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -4439,8 +4454,16 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
     if (fTicket && r.ticketType !== fTicket) return false;
     if (fCheck === "checked" && !r.checkedInAt) return false;
     if (fCheck === "unchecked" && r.checkedInAt) return false;
+    if (fSearch) {
+      const q = fSearch.toLowerCase();
+      const hay = `${r.fname} ${r.lname} ${r.email} ${r.org || ""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
     return true;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / REG_PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * REG_PAGE_SIZE, page * REG_PAGE_SIZE);
 
   const validate = async (r: Record<string, unknown>) => {
     if (!confirm(lang === "en" ? `Validate payment for ${r.fname} ${r.lname} and send the ticket?` : `Valider le paiement de ${r.fname} ${r.lname} et envoyer le billet ?`)) return;
@@ -4476,27 +4499,8 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
 
   return (
     <div>
-      <div className="rounded-xl border border-gray-800 bg-black/40 px-5 py-4 mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-mono text-gray-400 uppercase tracking-wider">{lang === "en" ? "Total registrations — target" : "Inscriptions totales — objectif"} {REG_TARGET}</span>
-          <span className="text-sm font-black font-mono" style={{ color: regColor }}>{totalReg} / {REG_TARGET} <span className="text-xs font-normal text-gray-500">({regPct}%)</span></span>
-        </div>
-        <div className="h-2 rounded-full bg-gray-900 overflow-hidden mb-3">
-          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${regPct}%`, background: regColor, boxShadow: `0 0 8px ${regColor}60` }} />
-        </div>
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-mono text-gray-400 uppercase tracking-wider">{lang === "en" ? "With CTF — target" : "Avec CTF — objectif"} {CTF_TARGET}</span>
-          <span className="text-sm font-black font-mono" style={{ color: ctfColor }}>{ctfReg} / {CTF_TARGET} <span className="text-xs font-normal text-gray-500">({ctfPct}%)</span></span>
-        </div>
-        <div className="h-2 rounded-full bg-gray-900 overflow-hidden">
-          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${ctfPct}%`, background: ctfColor, boxShadow: `0 0 8px ${ctfColor}60` }} />
-        </div>
-      </div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-black text-white">{t.registrationsTitle} ({filtered.length})</h1>
-          <p className="text-gray-500 text-xs mt-1">{lang === "en" ? "Validate payment to send the ticket with QR code" : "Validez le paiement pour envoyer le billet avec QR code"}</p>
-        </div>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-black text-white">{t.registrationsTitle} <span className="text-gray-600 text-lg font-normal">({rows.length})</span></h1>
         <div className="flex gap-2 flex-wrap">
           <a href="/checkin/scan" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">📷 Scanner QR →</a>
           <a href="/admin/checkin" target="_blank" rel="noreferrer" className="px-4 py-2 rounded text-sm border border-gray-700 text-gray-300 hover:text-white transition-colors">📋 Liste check-in →</a>
@@ -4515,106 +4519,178 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
         </div>
       </div>
 
-      {/* Filtres */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        <select className={selectCls} value={fStatus} onChange={e => setFStatus(e.target.value)}>
-          <option value="">{lang === "en" ? "All statuses" : "Tous les statuts"}</option>
-          {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select className={selectCls} value={fTicket} onChange={e => setFTicket(e.target.value)}>
-          <option value="">{lang === "en" ? "All tickets" : "Tous les billets"}</option>
-          {ticketTypes.map(tt => <option key={tt} value={tt}>{tt}</option>)}
-        </select>
-        <select className={selectCls} value={fCheck} onChange={e => setFCheck(e.target.value)}>
-          <option value="">{lang === "en" ? "Check-in: all" : "Check-in : tous"}</option>
-          <option value="checked">{lang === "en" ? "Check-in: present" : "Check-in : présents"}</option>
-          <option value="unchecked">{lang === "en" ? "Check-in: absent" : "Check-in : absents"}</option>
-        </select>
-        {(fStatus || fTicket || fCheck) && (
-          <button onClick={() => { setFStatus(""); setFTicket(""); setFCheck(""); }} className="text-xs text-gray-500 hover:text-white px-2">{lang === "en" ? "Reset" : "Réinitialiser"}</button>
-        )}
+      {/* Sub-tabs */}
+      <div className="flex gap-1 mb-6 border-b border-gray-800">
+        {([
+          { key: "stats", label: `📊 ${lang === "en" ? "Stats" : "Stats"}` },
+          { key: "list",  label: `📋 ${lang === "en" ? "List" : "Liste"} (${filtered.length})` },
+        ] as const).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setRegTab(tab.key)}
+            className={`text-xs px-4 py-2 border-b-2 transition-all font-mono ${regTab === tab.key ? "border-neon-green text-neon-green" : "border-transparent text-gray-500 hover:text-gray-300"}`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {msg && <div className="mb-4 px-4 py-2 rounded text-xs text-neon-green border border-neon-green/30 bg-neon-green/5">{msg}</div>}
 
-      {rows.length > 0 && <RegistrationsChart rows={rows} />}
+      {/* ── Stats tab ── */}
+      {regTab === "stats" && (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-gray-800 bg-black/40 px-5 py-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-mono text-gray-400 uppercase tracking-wider">{lang === "en" ? "Total registrations — target" : "Inscriptions totales — objectif"} {REG_TARGET}</span>
+              <span className="text-sm font-black font-mono" style={{ color: regColor }}>{totalReg} / {REG_TARGET} <span className="text-xs font-normal text-gray-500">({regPct}%)</span></span>
+            </div>
+            <div className="h-2 rounded-full bg-gray-900 overflow-hidden mb-3">
+              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${regPct}%`, background: regColor, boxShadow: `0 0 8px ${regColor}60` }} />
+            </div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-mono text-gray-400 uppercase tracking-wider">{lang === "en" ? "With CTF — target" : "Avec CTF — objectif"} {CTF_TARGET}</span>
+              <span className="text-sm font-black font-mono" style={{ color: ctfColor }}>{ctfReg} / {CTF_TARGET} <span className="text-xs font-normal text-gray-500">({ctfPct}%)</span></span>
+            </div>
+            <div className="h-2 rounded-full bg-gray-900 overflow-hidden">
+              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${ctfPct}%`, background: ctfColor, boxShadow: `0 0 8px ${ctfColor}60` }} />
+            </div>
+          </div>
+          {rows.length > 0 && <RegistrationsChart rows={rows} />}
+        </div>
+      )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b border-neon-green/10 text-gray-500 text-left">
-              {[t.name, t.ticketType, t.status, t.checkedIn, t.onlineAccess, t.date, t.actions].map(h => (
-                <th key={h} className="py-2 px-3 font-normal">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(r => {
-              const status = r.status as string;
-              const awaiting = status === "pending" || status === "payment_pending";
-              const done = status === "validated" || status === "paid";
-              return (
-                <tr key={r.id as number} className={`border-b border-gray-800 hover:bg-white/[0.02] transition-colors ${r.checkedInAt ? "bg-neon-green/[0.02]" : ""}`}>
-                  <td className="py-2 px-3">
-                    <span className="text-white">{r.fname as string} {r.lname as string}</span>
-                    <br/><span className="text-gray-500">{r.email as string}</span>
-                    {!!r.org && <><br/><span className="text-gray-600">{String(r.org)}</span></>}
-                  </td>
-                  <td className="py-2 px-3"><span className="px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green/70">{r.ticketType as string}</span></td>
-                  <td className="py-2 px-3"><Badge status={status} /></td>
-                  <td className="py-2 px-3">
-                    {r.checkedInAt
-                      ? <span className="text-neon-green text-xs">✓ {new Date(r.checkedInAt as string).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
-                      : <span className="text-gray-600 text-xs">—</span>}
-                  </td>
-                  <td className="py-2 px-3">
-                    {r.onlineCheckedInAt
-                      ? <span className="text-cyan-400 text-xs">🌐 {new Date(r.onlineCheckedInAt as string).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
-                      : r.onlineToken
-                        ? <span className="text-gray-600 text-xs">{lang === "en" ? "🔗 pending" : "🔗 en attente"}</span>
-                        : <span className="text-gray-700 text-xs">—</span>}
-                  </td>
-                  <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleDateString("fr-FR")}</td>
-                  <td className="py-2 px-3">
-                    <div className="flex gap-2 flex-wrap items-center">
-                      <button onClick={() => onDetail(r)} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">{lang === "en" ? "Details" : "Détails"}</button>
-                      {awaiting && (
-                        <>
-                          {/* Manual payment-bypass validation: root super-admin + QA currency mode only */}
-                          {canManualValidate && (
-                            <button disabled={busyId === r.id} onClick={() => validate(r)} className="text-xs px-3 py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/20 hover:bg-neon-green/20 transition-colors disabled:opacity-50">
-                              {t.validateAndSend}
+      {/* ── List tab ── */}
+      {regTab === "list" && (
+        <div>
+          {/* Filtres + recherche */}
+          <div className="flex flex-wrap gap-3 mb-4">
+            <input
+              type="search"
+              value={fSearch}
+              onChange={e => { setFSearch(e.target.value); setPage(1); }}
+              placeholder={lang === "en" ? "Search name, email, org…" : "Rechercher nom, email, org…"}
+              className="bg-black/40 border border-gray-800 rounded px-3 py-1.5 text-xs text-white focus:border-neon-green/50 outline-none w-56"
+            />
+            <select className={selectCls} value={fStatus} onChange={e => { setFStatus(e.target.value); setPage(1); }}>
+              <option value="">{lang === "en" ? "All statuses" : "Tous les statuts"}</option>
+              {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <select className={selectCls} value={fTicket} onChange={e => { setFTicket(e.target.value); setPage(1); }}>
+              <option value="">{lang === "en" ? "All tickets" : "Tous les billets"}</option>
+              {ticketTypes.map(tt => <option key={tt} value={tt}>{tt}</option>)}
+            </select>
+            <select className={selectCls} value={fCheck} onChange={e => { setFCheck(e.target.value); setPage(1); }}>
+              <option value="">{lang === "en" ? "Check-in: all" : "Check-in : tous"}</option>
+              <option value="checked">{lang === "en" ? "Check-in: present" : "Check-in : présents"}</option>
+              <option value="unchecked">{lang === "en" ? "Check-in: absent" : "Check-in : absents"}</option>
+            </select>
+            {(fStatus || fTicket || fCheck || fSearch) && (
+              <button onClick={() => { setFStatus(""); setFTicket(""); setFCheck(""); setFSearch(""); setPage(1); }} className="text-xs text-gray-500 hover:text-white px-2">{lang === "en" ? "Reset" : "Réinitialiser"}</button>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-neon-green/10 text-gray-500 text-left">
+                  {[t.name, t.ticketType, t.status, t.checkedIn, t.onlineAccess, t.date, t.actions].map(h => (
+                    <th key={h} className="py-2 px-3 font-normal">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {paginated.map(r => {
+                  const status = r.status as string;
+                  const awaiting = status === "pending" || status === "payment_pending";
+                  const done = status === "validated" || status === "paid";
+                  return (
+                    <tr key={r.id as number} className={`border-b border-gray-800 hover:bg-white/[0.02] transition-colors ${r.checkedInAt ? "bg-neon-green/[0.02]" : ""}`}>
+                      <td className="py-2 px-3">
+                        <span className="text-white">{r.fname as string} {r.lname as string}</span>
+                        <br/><span className="text-gray-500">{r.email as string}</span>
+                        {!!r.org && <><br/><span className="text-gray-600">{String(r.org)}</span></>}
+                      </td>
+                      <td className="py-2 px-3"><span className="px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green/70">{r.ticketType as string}</span></td>
+                      <td className="py-2 px-3"><Badge status={status} /></td>
+                      <td className="py-2 px-3">
+                        {r.checkedInAt
+                          ? <span className="text-neon-green text-xs">✓ {new Date(r.checkedInAt as string).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                          : <span className="text-gray-600 text-xs">—</span>}
+                      </td>
+                      <td className="py-2 px-3">
+                        {r.onlineCheckedInAt
+                          ? <span className="text-cyan-400 text-xs">🌐 {new Date(r.onlineCheckedInAt as string).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                          : r.onlineToken
+                            ? <span className="text-gray-600 text-xs">{lang === "en" ? "🔗 pending" : "🔗 en attente"}</span>
+                            : <span className="text-gray-700 text-xs">—</span>}
+                      </td>
+                      <td className="py-2 px-3 text-gray-600">{new Date(r.createdAt as string).toLocaleDateString("fr-FR")}</td>
+                      <td className="py-2 px-3">
+                        <div className="flex gap-2 flex-wrap items-center">
+                          <button onClick={() => onDetail(r)} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">{lang === "en" ? "Details" : "Détails"}</button>
+                          {awaiting && (
+                            <>
+                              {canManualValidate && (
+                                <button disabled={busyId === r.id} onClick={() => validate(r)} className="text-xs px-3 py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/20 hover:bg-neon-green/20 transition-colors disabled:opacity-50">
+                                  {t.validateAndSend}
+                                </button>
+                              )}
+                              <button disabled={busyId === r.id} onClick={() => remind(r)} className="text-xs px-3 py-1 rounded border border-yellow-600/40 text-yellow-400 hover:bg-yellow-500/10 transition-colors disabled:opacity-50">
+                                {busyId === r.id ? "…" : lang === "en" ? "✉ Follow up" : "✉ Relancer"}
+                              </button>
+                            </>
+                          )}
+                          {done && <span className="text-xs text-neon-green/60 font-mono">{lang === "en" ? "Ticket sent ✓" : "Billet envoyé ✓"}</span>}
+                          {done && (
+                            <button
+                              disabled={busyId === r.id}
+                              onClick={async () => {
+                                setBusyId(r.id as number);
+                                await fetch(`/api/admin/registrations/${r.id}/resend-online`, { method: "POST" });
+                                setBusyId(null);
+                              }}
+                              className="text-xs px-2 py-1 rounded border border-cyan-700/40 text-cyan-400 hover:bg-cyan-500/10 transition-colors disabled:opacity-50"
+                              title={lang === "en" ? "Resend online access link" : "Renvoyer le lien d'accès online"}
+                            >
+                              {t.resendOnline}
                             </button>
                           )}
-                          <button disabled={busyId === r.id} onClick={() => remind(r)} className="text-xs px-3 py-1 rounded border border-yellow-600/40 text-yellow-400 hover:bg-yellow-500/10 transition-colors disabled:opacity-50">
-                            {busyId === r.id ? "…" : lang === "en" ? "✉ Follow up" : "✉ Relancer"}
-                          </button>
-                        </>
-                      )}
-                      {done && <span className="text-xs text-neon-green/60 font-mono">{lang === "en" ? "Ticket sent ✓" : "Billet envoyé ✓"}</span>}
-                      {done && (
-                        <button
-                          disabled={busyId === r.id}
-                          onClick={async () => {
-                            setBusyId(r.id as number);
-                            await fetch(`/api/admin/registrations/${r.id}/resend-online`, { method: "POST" });
-                            setBusyId(null);
-                          }}
-                          className="text-xs px-2 py-1 rounded border border-cyan-700/40 text-cyan-400 hover:bg-cyan-500/10 transition-colors disabled:opacity-50"
-                          title={lang === "en" ? "Resend online access link" : "Renvoyer le lien d'accès online"}
-                        >
-                          {t.resendOnline}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {!filtered.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No registrations" : "Aucune inscription"}</p>}
-      </div>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {!filtered.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No registrations" : "Aucune inscription"}</p>}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 px-1">
+              <p className="text-xs text-gray-600 font-mono">
+                {lang === "en"
+                  ? `${(page - 1) * REG_PAGE_SIZE + 1}–${Math.min(page * REG_PAGE_SIZE, filtered.length)} of ${filtered.length}`
+                  : `${(page - 1) * REG_PAGE_SIZE + 1}–${Math.min(page * REG_PAGE_SIZE, filtered.length)} sur ${filtered.length}`}
+              </p>
+              <div className="flex gap-1">
+                <button onClick={() => setPage(1)} disabled={page === 1} className="text-xs px-2 py-1 rounded border border-gray-800 text-gray-500 hover:text-white disabled:opacity-30">«</button>
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="text-xs px-2 py-1 rounded border border-gray-800 text-gray-500 hover:text-white disabled:opacity-30">‹</button>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const start = Math.max(1, Math.min(page - 2, totalPages - 4));
+                  const n = start + i;
+                  return (
+                    <button key={n} onClick={() => setPage(n)} className={`text-xs px-2.5 py-1 rounded border transition-colors ${n === page ? "border-neon-green text-neon-green" : "border-gray-800 text-gray-500 hover:text-white"}`}>{n}</button>
+                  );
+                })}
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="text-xs px-2 py-1 rounded border border-gray-800 text-gray-500 hover:text-white disabled:opacity-30">›</button>
+                <button onClick={() => setPage(totalPages)} disabled={page === totalPages} className="text-xs px-2 py-1 rounded border border-gray-800 text-gray-500 hover:text-white disabled:opacity-30">»</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

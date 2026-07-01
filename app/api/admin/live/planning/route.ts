@@ -47,11 +47,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
   }
 
+  // roomId may arrive as a string from HTML <select> — coerce to Int or null
+  const roomId = body.roomId != null && body.roomId !== ("" as unknown)
+    ? parseInt(String(body.roomId), 10) || null
+    : null;
+
   const planning = await prisma.sessionPlanning.upsert({
     where: { sessionId: body.sessionId },
     create: {
       sessionId: body.sessionId,
-      roomId: body.roomId ?? null,
+      roomId,
       lienWebinaire: body.lienWebinaire ?? null,
       lienLive: body.lienLive ?? null,
       restreamEventId: body.restreamEventId ?? null,
@@ -60,7 +65,7 @@ export async function POST(req: NextRequest) {
       panelistesExtra: (body.panelistesExtra ?? []) as Prisma.InputJsonValue[],
     },
     update: {
-      ...(body.roomId          !== undefined ? { roomId:          body.roomId          } : {}),
+      ...(body.roomId          !== undefined ? { roomId }                              : {}),
       ...(body.lienWebinaire   !== undefined ? { lienWebinaire:   body.lienWebinaire   } : {}),
       ...(body.lienLive        !== undefined ? { lienLive:        body.lienLive        } : {}),
       ...(body.restreamEventId !== undefined ? { restreamEventId: body.restreamEventId } : {}),

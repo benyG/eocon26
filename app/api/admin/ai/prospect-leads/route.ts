@@ -12,7 +12,7 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
   if (!(await hasPermission("prospection", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json();
-  const { id, addedToPipeline, ...editableFields } = body;
+  const { id, addedToPipeline, assigneeId, ...editableFields } = body;
 
   const updateData: Record<string, unknown> = { ...editableFields };
   if (addedToPipeline !== undefined) updateData.addedToPipeline = addedToPipeline;
@@ -35,6 +35,7 @@ export async function PATCH(req: NextRequest) {
           package: lead.recommendedPackage || undefined,
           status: "prospect",
           notes: lead.aiScoreReason || undefined,
+          ...(assigneeId ? { assigneeId: parseInt(String(assigneeId), 10) } : {}),
         },
       });
     }

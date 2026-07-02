@@ -1404,19 +1404,29 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
 
 
 // ---- Library Panel ----
+type LibFile = { name: string; url: string; size: number; updated: string; categoryId: number | null; categoryName: string | null; categorySlug: string | null };
+type LibCat = { id: number; name: string; slug: string; _count: { assets: number } };
+
 function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
   const { t, lang } = useAdminT();
-  const [files, setFiles] = useState<{ name: string; url: string; size: number; updated: string }[]>([]);
+  const [files, setFiles] = useState<LibFile[]>([]);
+  const [categories, setCategories] = useState<LibCat[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [activeCat, setActiveCat] = useState<number | "all" | "uncategorized">("all");
+  const [uploadCat, setUploadCat] = useState<number | "">("");
+  const [newCatName, setNewCatName] = useState("");
+  const [addingCat, setAddingCat] = useState(false);
+  const [movingFile, setMovingFile] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/admin/library");
-    if (res.ok) setFiles(await res.json());
+    const [fr, cr] = await Promise.all([fetch("/api/admin/library"), fetch("/api/admin/library/categories")]);
+    if (fr.ok) setFiles(await fr.json());
+    if (cr.ok) setCategories(await cr.json());
     setLoading(false);
   }, []);
 
@@ -1426,6 +1436,7 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
     setUploading(true);
     const fd = new FormData();
     fd.append("file", file);
+    if (uploadCat) fd.append("categoryId", String(uploadCat));
     await fetch("/api/admin/library", { method: "POST", body: fd });
     await load();
     setUploading(false);
@@ -1434,21 +1445,48 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
   const deleteFile = async (name: string) => {
     if (!confirm(lang === "en" ? `Delete "${name.split("/").pop()}"?` : `Supprimer "${name.split("/").pop()}" ?`)) return;
     setDeleting(name);
-    await fetch("/api/admin/library", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
+    await fetch("/api/admin/library", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
     setFiles(prev => prev.filter(f => f.name !== name));
     setDeleting(null);
   };
 
+  const assignCategory = async (name: string, categoryId: number | null) => {
+    const res = await fetch("/api/admin/library", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, categoryId }) });
+    if (res.ok) {
+      const cat = categories.find(c => c.id === categoryId) ?? null;
+      setFiles(prev => prev.map(f => f.name === name ? { ...f, categoryId: cat?.id ?? null, categoryName: cat?.name ?? null, categorySlug: cat?.slug ?? null } : f));
+    }
+    setMovingFile(null);
+  };
+
+  const createCategory = async () => {
+    if (!newCatName.trim()) return;
+    const res = await fetch("/api/admin/library/categories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newCatName }) });
+    if (res.ok) { await load(); setNewCatName(""); setAddingCat(false); }
+  };
+
+  const deleteCategory = async (id: number) => {
+    if (!confirm(lang === "en" ? "Delete this category? Images will become uncategorized." : "Supprimer cette catégorie ? Les images deviennent non classées.")) return;
+    await fetch("/api/admin/library/categories", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    await load();
+    if (activeCat === id) setActiveCat("all");
+  };
+
   const fmt = (b: number) => b < 1024 ? `${b} B` : b < 1048576 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1048576).toFixed(1)} MB`;
-  const filtered = files.filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
+
+  const filtered = files.filter(f => {
+    if (search && !f.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (activeCat === "all") return true;
+    if (activeCat === "uncategorized") return f.categoryId === null;
+    return f.categoryId === activeCat;
+  });
+
+  const uncategorizedCount = files.filter(f => f.categoryId === null).length;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-black text-white">{t.libraryTitle}</h1>
           <p className="text-gray-500 text-xs mt-1">{t.librarySubtitle}</p>
@@ -1461,57 +1499,156 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
             onChange={e => setSearch(e.target.value)}
             className="cyber-input text-xs px-3 py-1.5 rounded w-44"
           />
-          {canWrite && <button
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            className="text-xs px-4 py-1.5 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono transition-colors disabled:opacity-50"
-          >
-            {uploading ? t.importingBtn : t.importBtn}
-          </button>}
-          {canWrite && <input
-            ref={fileRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
-            className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }}
-          />}
+          {canWrite && (
+            <div className="flex items-center gap-2">
+              <select value={uploadCat} onChange={e => setUploadCat(e.target.value ? Number(e.target.value) : "")} className="cyber-input text-xs px-2 py-1.5 rounded text-gray-300 bg-transparent">
+                <option value="">{lang === "en" ? "No category" : "Sans catégorie"}</option>
+                {categories.map(c => <option key={c.id} value={c.id} className="bg-gray-900">{c.name}</option>)}
+              </select>
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="text-xs px-4 py-1.5 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {uploading ? t.importingBtn : t.importBtn}
+              </button>
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }} />
+            </div>
+          )}
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center h-64 text-gray-600 font-mono text-xs">{t.loading}</div>
-      ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-64 text-gray-600 font-mono text-xs gap-3">
-          <span>{search ? t.noSearchResult : t.noImages}</span>
-          {canWrite && !search && (
-            <button onClick={() => fileRef.current?.click()} className="text-neon-green text-xs underline">
-              {t.importFirstImage}
+      <div className="flex gap-4">
+        {/* Category sidebar */}
+        <div className="w-44 shrink-0 space-y-0.5">
+          {[
+            { id: "all" as const, label: lang === "en" ? "All" : "Toutes", count: files.length },
+            { id: "uncategorized" as const, label: lang === "en" ? "Uncategorized" : "Non classées", count: uncategorizedCount },
+          ].map(item => (
+            <button
+              key={item.id}
+              onClick={() => setActiveCat(item.id)}
+              className={`w-full text-left text-xs px-2.5 py-1.5 rounded font-mono flex items-center justify-between transition-colors ${activeCat === item.id ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 hover:text-gray-300 hover:bg-gray-800/40"}`}
+            >
+              <span>{item.label}</span>
+              <span className="text-gray-600 text-xs">{item.count}</span>
             </button>
+          ))}
+
+          {categories.length > 0 && <div className="border-t border-gray-800 my-1.5" />}
+
+          {categories.map(cat => (
+            <div key={cat.id} className={`group flex items-center gap-1 rounded transition-colors ${activeCat === cat.id ? "bg-neon-green/10 border border-neon-green/30" : "hover:bg-gray-800/40"}`}>
+              <button
+                onClick={() => setActiveCat(cat.id)}
+                className={`flex-1 text-left text-xs px-2.5 py-1.5 font-mono flex items-center justify-between ${activeCat === cat.id ? "text-neon-green" : "text-gray-500 hover:text-gray-300"}`}
+              >
+                <span className="truncate">{cat.name}</span>
+                <span className="text-gray-600 text-xs ml-1 shrink-0">{cat._count.assets}</span>
+              </button>
+              {canWrite && (
+                <button onClick={() => deleteCategory(cat.id)} className="hidden group-hover:flex text-gray-700 hover:text-red-400 text-xs px-1 py-1.5 transition-colors" title={lang === "en" ? "Delete category" : "Supprimer la catégorie"}>✕</button>
+              )}
+            </div>
+          ))}
+
+          {canWrite && (
+            <div className="pt-2">
+              {addingCat ? (
+                <div className="space-y-1.5">
+                  <input
+                    autoFocus
+                    value={newCatName}
+                    onChange={e => setNewCatName(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") createCategory(); if (e.key === "Escape") { setAddingCat(false); setNewCatName(""); } }}
+                    placeholder={lang === "en" ? "Category name…" : "Nom de catégorie…"}
+                    className="cyber-input text-xs px-2 py-1 rounded w-full"
+                  />
+                  <div className="flex gap-1">
+                    <button onClick={createCategory} className="flex-1 text-xs py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/30 font-mono">✓</button>
+                    <button onClick={() => { setAddingCat(false); setNewCatName(""); }} className="flex-1 text-xs py-1 rounded bg-gray-800 text-gray-400 font-mono">✕</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setAddingCat(true)} className="w-full text-xs px-2.5 py-1.5 text-gray-600 hover:text-neon-green font-mono border border-dashed border-gray-800 hover:border-neon-green/30 rounded transition-colors text-left">
+                  + {lang === "en" ? "New category" : "Nouvelle catégorie"}
+                </button>
+              )}
+            </div>
           )}
         </div>
-      ) : (
-        <>
-          <p className="text-xs text-gray-600 mb-3 font-mono">{filtered.length} fichier{filtered.length !== 1 ? "s" : ""}</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-            {filtered.map(f => (
-              <div key={f.name} className="group relative rounded-lg overflow-hidden border border-gray-800 hover:border-gray-600 transition-all">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={f.url} alt={f.name} className="w-full aspect-square object-contain bg-gray-900 p-1" loading="lazy" />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors" />
-                {canWrite && <button
-                  onClick={() => deleteFile(f.name)}
-                  disabled={deleting === f.name}
-                  className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-600/80 text-white text-xs items-center justify-center hidden group-hover:flex hover:bg-red-500"
-                >✕</button>}
-                <div className="absolute bottom-0 inset-x-0 bg-black/70 px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <p className="text-white text-xs truncate leading-tight">{f.name.split("/").pop()}</p>
-                  <p className="text-gray-400 text-xs">{fmt(f.size)}</p>
-                </div>
+
+        {/* Image grid */}
+        <div className="flex-1 min-w-0">
+          {loading ? (
+            <div className="flex items-center justify-center h-64 text-gray-600 font-mono text-xs">{t.loading}</div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-gray-600 font-mono text-xs gap-3">
+              <span>{search ? t.noSearchResult : t.noImages}</span>
+              {canWrite && !search && (
+                <button onClick={() => fileRef.current?.click()} className="text-neon-green text-xs underline">{t.importFirstImage}</button>
+              )}
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-gray-600 mb-3 font-mono">{filtered.length} fichier{filtered.length !== 1 ? "s" : ""}</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                {filtered.map(f => (
+                  <div key={f.name} className="group relative rounded-lg overflow-hidden border border-gray-800 hover:border-gray-600 transition-all">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={f.url} alt={f.name} className="w-full aspect-square object-contain bg-gray-900 p-1" loading="lazy" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors" />
+
+                    {/* Category badge */}
+                    {f.categoryName && (
+                      <div className="absolute top-1 left-1 text-xs bg-black/70 text-neon-green px-1.5 py-0.5 rounded font-mono leading-tight max-w-[80%] truncate">
+                        {f.categoryName}
+                      </div>
+                    )}
+
+                    {/* Delete button */}
+                    {canWrite && (
+                      <button
+                        onClick={() => deleteFile(f.name)}
+                        disabled={deleting === f.name}
+                        className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-600/80 text-white text-xs items-center justify-center hidden group-hover:flex hover:bg-red-500"
+                      >✕</button>
+                    )}
+
+                    {/* Bottom overlay: filename + category selector */}
+                    <div className="absolute bottom-0 inset-x-0 bg-black/80 px-1.5 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <p className="text-white text-xs truncate leading-tight">{f.name.split("/").pop()}</p>
+                      <p className="text-gray-400 text-xs">{fmt(f.size)}</p>
+                      {canWrite && (
+                        movingFile === f.name ? (
+                          <select
+                            autoFocus
+                            defaultValue={f.categoryId ?? ""}
+                            onChange={e => assignCategory(f.name, e.target.value ? Number(e.target.value) : null)}
+                            onBlur={() => setMovingFile(null)}
+                            className="mt-1 w-full text-xs bg-gray-900 text-white border border-gray-700 rounded px-1 py-0.5"
+                          >
+                            <option value="">{lang === "en" ? "Uncategorized" : "Non classée"}</option>
+                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                        ) : (
+                          <button
+                            onClick={() => setMovingFile(f.name)}
+                            className="mt-0.5 text-xs text-gray-500 hover:text-neon-green font-mono"
+                          >
+                            {lang === "en" ? "📁 Move to…" : "📁 Déplacer…"}
+                          </button>
+                        )
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </>
-      )}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -7909,7 +8046,7 @@ export default function AdminDashboard() {
           {activeTab === "testimony" && <TestimonyPanel canWrite={can("testimony")} />}
 
           {/* AUDIT LOG — super_admin only */}
-          {activeTab === "audit" && <AuditPanel />}
+          {activeTab === "audit" && <AuditPanel canWrite={can("audit")} />}
 
           {/* EXPORT */}
           {activeTab === "export" && (

@@ -972,8 +972,10 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
               <input
                 type="date"
                 value={planStartDate}
-                onChange={e => savePlanStartDate(e.target.value)}
-                className="cyber-input text-xs rounded px-3 py-1.5 text-white"
+                onChange={e => canWrite && savePlanStartDate(e.target.value)}
+                readOnly={!canWrite}
+                disabled={!canWrite}
+                className="cyber-input text-xs rounded px-3 py-1.5 text-white disabled:opacity-50"
                 style={{ colorScheme: "dark" }}
               />
             </div>

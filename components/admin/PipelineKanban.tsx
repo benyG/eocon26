@@ -687,11 +687,11 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                 <p className="text-gray-600 text-xs uppercase tracking-wider">{__("Score IA", "AI Score")}</p>
                 {selectedCard.aiScore != null ? (
                   <span className="text-sm font-mono font-bold" style={{ color: scoreColor(selectedCard.aiScore) }}>{selectedCard.aiScore.toFixed(1)}/10</span>
-                ) : (
+                ) : canWrite ? (
                   <button onClick={() => scoreWithAI(selectedCard)} disabled={scoring === selectedCard.id} className="text-xs px-2 py-1 rounded" style={{ background: "#0066ff20", color: "#0066ff", border: "1px solid #0066ff30" }}>
                     {scoring === selectedCard.id ? __("Analyse...", "Analysing...") : `✨ ${__("Scorer avec IA", "Score with AI")}`}
                   </button>
-                )}
+                ) : null}
               </div>
               {selectedCard.aiAnalysis && <AiAnalysis raw={selectedCard.aiAnalysis} />}
             </div>
@@ -1191,7 +1191,7 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-gray-500 text-xs">{__("Les ateliers affichés ici sont publiés directement sur le site.", "Workshops shown here are published directly on the site.")}</p>
-            <button onClick={createWorkshop} className="btn-neon px-4 py-2 rounded text-xs">+ {__("Ajouter atelier", "Add workshop")}</button>
+            {canWrite && <button onClick={createWorkshop} className="btn-neon px-4 py-2 rounded text-xs">+ {__("Ajouter atelier", "Add workshop")}</button>}
           </div>
 
           {workshops.map(ws => (
@@ -1206,12 +1206,12 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                   <p className="text-gray-500 text-xs">{ws.instructor && `${__("Animé par", "Led by")} ${ws.instructor} · `}{ws.duration}{ws.maxSeats ? ` · ${ws.maxSeats} ${__("places", "seats")}` : ""}</p>
                   <p className="text-gray-600 text-xs mt-1 line-clamp-2">{ws.description}</p>
                 </div>
-                <button onClick={() => setEditWorkshop(editWorkshop?.id === ws.id ? null : ws)} className="text-xs px-3 py-1 rounded shrink-0" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>
+                {canWrite && <button onClick={() => setEditWorkshop(editWorkshop?.id === ws.id ? null : ws)} className="text-xs px-3 py-1 rounded shrink-0" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>
                   {editWorkshop?.id === ws.id ? __("Fermer", "Close") : __("Éditer", "Edit")}
-                </button>
+                </button>}
               </div>
 
-              {editWorkshop?.id === ws.id && (
+              {canWrite && editWorkshop?.id === ws.id && (
                 <div className="mt-4 pt-4 border-t border-gray-800 space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     {([

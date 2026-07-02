@@ -79,7 +79,7 @@ function parsePerms(raw: string): Permissions {
   try { return JSON.parse(raw); } catch { return {}; }
 }
 
-export default function AdminProfilesPanel() {
+export default function AdminProfilesPanel({ canWrite = true }: { canWrite?: boolean } = {}) {
   const __ = useLang();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selected, setSelected] = useState<Profile | null>(null);
@@ -199,16 +199,19 @@ export default function AdminProfilesPanel() {
         </div>
         <input
           value={coordoEmail}
-          onChange={e => setCoordoEmail(e.target.value)}
+          onChange={e => canWrite && setCoordoEmail(e.target.value)}
+          readOnly={!canWrite}
           placeholder="contact@eyesopensecurity.com"
-          style={{ ...inputStyle, flex: 1, minWidth: "220px", padding: "8px 12px" }}
+          style={{ ...inputStyle, flex: 1, minWidth: "220px", padding: "8px 12px", opacity: canWrite ? 1 : 0.6 }}
         />
-        <button
-          onClick={saveCoordo}
-          style={{ background: "var(--ac)", color: "#000", border: "none", borderRadius: "6px", padding: "8px 16px", fontSize: "13px", fontWeight: "bold", cursor: "pointer" }}
-        >
-          {coordoSaved ? __("✓ Enregistré", "✓ Saved") : __("Enregistrer", "Save")}
-        </button>
+        {canWrite && (
+          <button
+            onClick={saveCoordo}
+            style={{ background: "var(--ac)", color: "#000", border: "none", borderRadius: "6px", padding: "8px 16px", fontSize: "13px", fontWeight: "bold", cursor: "pointer" }}
+          >
+            {coordoSaved ? __("✓ Enregistré", "✓ Saved") : __("Enregistrer", "Save")}
+          </button>
+        )}
       </div>
 
       <div className="flex gap-4" style={{ minHeight: "600px" }}>
@@ -216,15 +219,17 @@ export default function AdminProfilesPanel() {
       <div style={{ width: "260px", flexShrink: 0 }}>
         <div className="flex items-center justify-between mb-3">
           <span style={{ color: "var(--ac)", fontFamily: "monospace", fontSize: "13px" }}>{__("PROFILS ADMIN", "ADMIN PROFILES")}</span>
-          <button
-            onClick={() => setCreating(true)}
-            style={{ background: "var(--ac)", color: "#000", border: "none", borderRadius: "4px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontWeight: "bold" }}
-          >
-            {__("+ Nouveau", "+ New")}
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setCreating(true)}
+              style={{ background: "var(--ac)", color: "#000", border: "none", borderRadius: "4px", padding: "4px 10px", fontSize: "12px", cursor: "pointer", fontWeight: "bold" }}
+            >
+              {__("+ Nouveau", "+ New")}
+            </button>
+          )}
         </div>
 
-        {creating && (
+        {canWrite && creating && (
           <div style={{ background: "var(--panel)", border: "1px solid var(--ac-bdr)", borderRadius: "6px", padding: "12px", marginBottom: "12px" }}>
             <div style={{ fontSize: "12px", color: "var(--ac)", marginBottom: "8px" }}>{__("Nouveau profil", "New profile")}</div>
             <input
@@ -293,14 +298,16 @@ export default function AdminProfilesPanel() {
               <label style={{ fontSize: "11px", color: "var(--txt-dim)" }}>{__("Couleur", "Color")}</label>
               <input type="color" value={editColor} onChange={e => setEditColor(e.target.value)} style={{ width: "36px", height: "30px", border: "none", borderRadius: "4px", cursor: "pointer", background: "transparent" }} />
             </div>
-            <button
-              onClick={save}
-              disabled={saving}
-              style={{ background: "var(--ac)", color: "#000", border: "none", borderRadius: "6px", padding: "8px 16px", fontSize: "13px", fontWeight: "bold", cursor: "pointer" }}
-            >
-              {saving ? __("Saving…", "Saving…") : __("Enregistrer", "Save")}
-            </button>
-            {!selected.isSystem && (
+            {canWrite && (
+              <button
+                onClick={save}
+                disabled={saving}
+                style={{ background: "var(--ac)", color: "#000", border: "none", borderRadius: "6px", padding: "8px 16px", fontSize: "13px", fontWeight: "bold", cursor: "pointer" }}
+              >
+                {saving ? __("Saving…", "Saving…") : __("Enregistrer", "Save")}
+              </button>
+            )}
+            {canWrite && !selected.isSystem && (
               <button
                 onClick={deleteProfile}
                 style={{ background: "transparent", color: "#ff4444", border: "1px solid rgba(255,68,68,0.3)", borderRadius: "6px", padding: "8px 16px", fontSize: "13px", cursor: "pointer" }}
@@ -338,11 +345,11 @@ export default function AdminProfilesPanel() {
                     return (
                       <button
                         key={key}
-                        onClick={() => togglePerm(key)}
+                        onClick={() => canWrite && togglePerm(key)}
                         style={{
                           display: "flex", alignItems: "center", justifyContent: "space-between",
                           background: "var(--card)", border: `1px solid ${permColor(level)}33`,
-                          borderRadius: "6px", padding: "10px 12px", cursor: "pointer", textAlign: "left",
+                          borderRadius: "6px", padding: "10px 12px", cursor: canWrite ? "pointer" : "default", textAlign: "left",
                           transition: "border-color 0.15s",
                         }}
                       >

@@ -4465,7 +4465,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
 
 const REG_PAGE_SIZE = 50;
 
-function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail: (r: Record<string, unknown>) => void; canManualValidate?: boolean }) {
+function RegistrationsPanel({ onDetail, canManualValidate = false, canWrite = true }: { onDetail: (r: Record<string, unknown>) => void; canManualValidate?: boolean; canWrite?: boolean }) {
   const { t, lang } = useAdminT();
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
@@ -4552,7 +4552,7 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
         <div className="flex gap-2 flex-wrap">
           <a href="/checkin/scan" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">📷 Scanner QR →</a>
           <a href="/admin/checkin" target="_blank" rel="noreferrer" className="px-4 py-2 rounded text-sm border border-gray-700 text-gray-300 hover:text-white transition-colors">📋 Liste check-in →</a>
-          <button
+          {canWrite && <button
             onClick={async () => {
               if (!confirm(lang === "en" ? "Generate and send online access links to all validated registrants without a link?" : "Générer et envoyer les liens d'accès online à tous les inscrits validés sans lien ?")) return;
               const res = await fetch("/api/admin/registrations/generate-online-tokens", { method: "POST" });
@@ -4563,7 +4563,7 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
             className="px-4 py-2 rounded text-sm border border-cyan-700/40 text-cyan-400 hover:bg-cyan-500/10 transition-colors"
           >
             {lang === "en" ? "🌐 Send online access" : "🌐 Envoyer accès online"}
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -4679,18 +4679,18 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
                           <button onClick={() => onDetail(r)} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">{lang === "en" ? "Details" : "Détails"}</button>
                           {awaiting && (
                             <>
-                              {canManualValidate && (
+                              {canManualValidate && canWrite && (
                                 <button disabled={busyId === r.id} onClick={() => validate(r)} className="text-xs px-3 py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/20 hover:bg-neon-green/20 transition-colors disabled:opacity-50">
                                   {t.validateAndSend}
                                 </button>
                               )}
-                              <button disabled={busyId === r.id} onClick={() => remind(r)} className="text-xs px-3 py-1 rounded border border-yellow-600/40 text-yellow-400 hover:bg-yellow-500/10 transition-colors disabled:opacity-50">
+                              {canWrite && <button disabled={busyId === r.id} onClick={() => remind(r)} className="text-xs px-3 py-1 rounded border border-yellow-600/40 text-yellow-400 hover:bg-yellow-500/10 transition-colors disabled:opacity-50">
                                 {busyId === r.id ? "…" : lang === "en" ? "✉ Follow up" : "✉ Relancer"}
-                              </button>
+                              </button>}
                             </>
                           )}
                           {done && <span className="text-xs text-neon-green/60 font-mono">{lang === "en" ? "Ticket sent ✓" : "Billet envoyé ✓"}</span>}
-                          {done && (
+                          {done && canWrite && (
                             <button
                               disabled={busyId === r.id}
                               onClick={async () => {
@@ -6394,7 +6394,7 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
   );
 }
 
-function AuditPanel() {
+function AuditPanel({ canWrite = true }: { canWrite?: boolean } = {}) {
   const { t } = useAdminT();
   const [logs, setLogs] = useState<Record<string, unknown>[]>([]);
   const [total, setTotal] = useState(0);
@@ -6446,9 +6446,9 @@ function AuditPanel() {
           <h1 className="text-2xl font-black text-white">{t.auditTitle}</h1>
           <p className="text-xs text-gray-600 mt-1 font-mono">{t.retention60} · {total} {t.entry}</p>
         </div>
-        <button onClick={purge} disabled={purging} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-50">
+        {canWrite && <button onClick={purge} disabled={purging} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-50">
           {purging ? "…" : t.purgeOld}
-        </button>
+        </button>}
       </div>
 
       {/* Filters */}
@@ -7505,7 +7505,7 @@ export default function AdminDashboard() {
                 );
               })()}
               <div className="mb-8">
-                <VolunteerKanban />
+                <VolunteerKanban canWrite={can("volunteers")} />
               </div>
               <div className="border-t border-gray-800 pt-6">
                 <h2 className="text-sm font-bold text-gray-400 font-mono mb-4 uppercase tracking-wider">{lang === "en" ? "All applications" : "Toutes les candidatures"}</h2>
@@ -7526,21 +7526,22 @@ export default function AdminDashboard() {
                       <div className="flex items-center gap-2 shrink-0">
                         <button onClick={() => setDetail({ type: "volunteer", item: v })} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">{lang === "en" ? "Details" : "Détails"}</button>
                         <Badge status={v.status as string} />
-                        <select className="cyber-input text-xs px-2 py-1 rounded bg-transparent" value={v.status as string}
+                        {can("volunteers") && <select className="cyber-input text-xs px-2 py-1 rounded bg-transparent" value={v.status as string}
                           onChange={e => updateStatus("volunteer", v.id as number, e.target.value)}>
                           <option value="pending" className="bg-dark-800">pending</option>
                           <option value="accepted" className="bg-dark-800">accepted</option>
                           <option value="rejected" className="bg-dark-800">rejected</option>
-                        </select>
+                        </select>}
                       </div>
                     </div>
-                    {v.status === "accepted" && (
+                    {v.status === "accepted" && can("volunteers") && (
                       <div className="border-t border-gray-800 pt-3 mt-2">
                         <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">{lang === "en" ? "Assignment" : "Affectation"}</p>
                         <div className="flex gap-2 flex-wrap">
                           <select
                             className="cyber-input text-xs rounded px-2 py-1 flex-1 min-w-[140px]"
                             defaultValue={(v.assignedRole as string) || ""}
+                            disabled={!can("volunteers")}
                             onChange={async (e) => {
                               await fetch("/api/admin/submissions", {
                                 method: "PATCH",
@@ -7558,6 +7559,7 @@ export default function AdminDashboard() {
                             type="datetime-local"
                             defaultValue={(v.shiftStart as string)?.slice(0, 16) || ""}
                             className="cyber-input text-xs rounded px-2 py-1"
+                            disabled={!can("volunteers")}
                             onBlur={async (e) => {
                               await fetch("/api/admin/submissions", {
                                 method: "PATCH",
@@ -7570,6 +7572,7 @@ export default function AdminDashboard() {
                             type="datetime-local"
                             defaultValue={(v.shiftEnd as string)?.slice(0, 16) || ""}
                             className="cyber-input text-xs rounded px-2 py-1"
+                            disabled={!can("volunteers")}
                             onBlur={async (e) => {
                               await fetch("/api/admin/submissions", {
                                 method: "PATCH",
@@ -7593,7 +7596,7 @@ export default function AdminDashboard() {
           )}
 
           {/* REGISTRATIONS */}
-          {activeTab === "registrations" && <RegistrationsPanel onDetail={r => setDetail({ type: "registration", item: r })} canManualValidate={!!userInfo?.isRoot && !!userInfo?.currencySelectorEnabled} />}
+          {activeTab === "registrations" && <RegistrationsPanel onDetail={r => setDetail({ type: "registration", item: r })} canManualValidate={!!userInfo?.isRoot && !!userInfo?.currencySelectorEnabled} canWrite={can("registrations")} />}
 
           {/* NEWSLETTER */}
           {activeTab === "newsletter" && (
@@ -7810,7 +7813,7 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === "users" && <AdminUsersPanel canWrite={can("users")} canDelete={!!(userInfo?.isLegacy || userInfo?.isRoot)} />}
-          {activeTab === "profiles" && <AdminProfilesPanel />}
+          {activeTab === "profiles" && <AdminProfilesPanel canWrite={can("profiles")} />}
 
           {activeTab === "pilotage" && (() => {
             // Only pass meetings-specific perms when the user has an explicit "pilotage-meetings" key;

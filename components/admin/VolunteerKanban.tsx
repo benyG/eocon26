@@ -44,7 +44,7 @@ interface VolCard {
   createdAt: string;
 }
 
-export default function VolunteerKanban() {
+export default function VolunteerKanban({ canWrite = true }: { canWrite?: boolean } = {}) {
   const __ = useLang();
   const [cards, setCards] = useState<VolCard[]>([]);
   const [loading, setLoading] = useState(false);
@@ -127,8 +127,8 @@ export default function VolunteerKanban() {
                 {cards.filter(c => c.volunteerStage === stage.key).map(card => (
                   <div
                     key={card.id}
-                    draggable
-                    onDragStart={() => setDragId(card.id)}
+                    draggable={canWrite}
+                    onDragStart={() => canWrite && setDragId(card.id)}
                     onDragEnd={() => { setDragId(null); setDropTarget(null); }}
                     onClick={() => { setSelected(card); setAssignRole(card.assignedRole || card.role || ""); }}
                     className={`rounded p-2 cursor-pointer border transition-all hover:border-opacity-60 ${dragId === card.id ? "opacity-40" : ""}`}
@@ -196,33 +196,37 @@ export default function VolunteerKanban() {
             )}
 
             {/* Role assignment */}
-            <div>
-              <label className="text-xs text-gray-500 font-mono block mb-1">{__("Rôle à assigner", "Role to assign")}</label>
-              <select
-                value={assignRole}
-                onChange={e => setAssignRole(e.target.value)}
-                className="cyber-input w-full text-xs rounded px-3 py-2 text-white bg-transparent"
-              >
-                <option value="" className="bg-dark-800">{__("— Choisir —", "— Choose —")}</option>
-                {ROLES.map(r => <option key={r} value={r} className="bg-dark-800">{r}</option>)}
-              </select>
-            </div>
+            {canWrite && (
+              <div>
+                <label className="text-xs text-gray-500 font-mono block mb-1">{__("Rôle à assigner", "Role to assign")}</label>
+                <select
+                  value={assignRole}
+                  onChange={e => setAssignRole(e.target.value)}
+                  className="cyber-input w-full text-xs rounded px-3 py-2 text-white bg-transparent"
+                >
+                  <option value="" className="bg-dark-800">{__("— Choisir —", "— Choose —")}</option>
+                  {ROLES.map(r => <option key={r} value={r} className="bg-dark-800">{r}</option>)}
+                </select>
+              </div>
+            )}
 
             {/* Stage actions */}
             <div className="space-y-2">
               <p className="text-xs text-gray-500 font-mono">{__("Actions — étape actuelle :", "Actions — current stage:")} <span className="text-white">{(() => { const s = STAGES.find(s => s.key === selected.volunteerStage); return s ? __(s.label.fr, s.label.en) : ""; })()}</span></p>
-              <div className="grid grid-cols-2 gap-2">
-                {STAGES.filter(s => s.key !== selected.volunteerStage && s.key !== "submitted").map(s => (
-                  <button
-                    key={s.key}
-                    onClick={() => moveStage(selected.id, s.key, assignRole || undefined)}
-                    className="text-xs px-2 py-1.5 rounded border font-mono transition-colors hover:opacity-80"
-                    style={{ borderColor: `${s.color}60`, color: s.color, backgroundColor: `${s.color}10` }}
-                  >
-                    → {__(s.label.fr, s.label.en)}
-                  </button>
-                ))}
-              </div>
+              {canWrite && (
+                <div className="grid grid-cols-2 gap-2">
+                  {STAGES.filter(s => s.key !== selected.volunteerStage && s.key !== "submitted").map(s => (
+                    <button
+                      key={s.key}
+                      onClick={() => moveStage(selected.id, s.key, assignRole || undefined)}
+                      className="text-xs px-2 py-1.5 rounded border font-mono transition-colors hover:opacity-80"
+                      style={{ borderColor: `${s.color}60`, color: s.color, backgroundColor: `${s.color}10` }}
+                    >
+                      → {__(s.label.fr, s.label.en)}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

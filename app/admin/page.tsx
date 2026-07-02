@@ -1404,19 +1404,29 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
 
 
 // ---- Library Panel ----
+type LibFile = { name: string; url: string; size: number; updated: string; categoryId: number | null; categoryName: string | null; categorySlug: string | null };
+type LibCat = { id: number; name: string; slug: string; _count: { assets: number } };
+
 function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
   const { t, lang } = useAdminT();
-  const [files, setFiles] = useState<{ name: string; url: string; size: number; updated: string }[]>([]);
+  const [files, setFiles] = useState<LibFile[]>([]);
+  const [categories, setCategories] = useState<LibCat[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [activeCat, setActiveCat] = useState<number | "all" | "uncategorized">("all");
+  const [uploadCat, setUploadCat] = useState<number | "">("");
+  const [newCatName, setNewCatName] = useState("");
+  const [addingCat, setAddingCat] = useState(false);
+  const [movingFile, setMovingFile] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/admin/library");
-    if (res.ok) setFiles(await res.json());
+    const [fr, cr] = await Promise.all([fetch("/api/admin/library"), fetch("/api/admin/library/categories")]);
+    if (fr.ok) setFiles(await fr.json());
+    if (cr.ok) setCategories(await cr.json());
     setLoading(false);
   }, []);
 
@@ -1426,6 +1436,7 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
     setUploading(true);
     const fd = new FormData();
     fd.append("file", file);
+    if (uploadCat) fd.append("categoryId", String(uploadCat));
     await fetch("/api/admin/library", { method: "POST", body: fd });
     await load();
     setUploading(false);
@@ -1434,21 +1445,48 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
   const deleteFile = async (name: string) => {
     if (!confirm(lang === "en" ? `Delete "${name.split("/").pop()}"?` : `Supprimer "${name.split("/").pop()}" ?`)) return;
     setDeleting(name);
-    await fetch("/api/admin/library", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
+    await fetch("/api/admin/library", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
     setFiles(prev => prev.filter(f => f.name !== name));
     setDeleting(null);
   };
 
+  const assignCategory = async (name: string, categoryId: number | null) => {
+    const res = await fetch("/api/admin/library", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, categoryId }) });
+    if (res.ok) {
+      const cat = categories.find(c => c.id === categoryId) ?? null;
+      setFiles(prev => prev.map(f => f.name === name ? { ...f, categoryId: cat?.id ?? null, categoryName: cat?.name ?? null, categorySlug: cat?.slug ?? null } : f));
+    }
+    setMovingFile(null);
+  };
+
+  const createCategory = async () => {
+    if (!newCatName.trim()) return;
+    const res = await fetch("/api/admin/library/categories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newCatName }) });
+    if (res.ok) { await load(); setNewCatName(""); setAddingCat(false); }
+  };
+
+  const deleteCategory = async (id: number) => {
+    if (!confirm(lang === "en" ? "Delete this category? Images will become uncategorized." : "Supprimer cette catégorie ? Les images deviennent non classées.")) return;
+    await fetch("/api/admin/library/categories", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    await load();
+    if (activeCat === id) setActiveCat("all");
+  };
+
   const fmt = (b: number) => b < 1024 ? `${b} B` : b < 1048576 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1048576).toFixed(1)} MB`;
-  const filtered = files.filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
+
+  const filtered = files.filter(f => {
+    if (search && !f.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (activeCat === "all") return true;
+    if (activeCat === "uncategorized") return f.categoryId === null;
+    return f.categoryId === activeCat;
+  });
+
+  const uncategorizedCount = files.filter(f => f.categoryId === null).length;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-black text-white">{t.libraryTitle}</h1>
           <p className="text-gray-500 text-xs mt-1">{t.librarySubtitle}</p>
@@ -1461,57 +1499,156 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
             onChange={e => setSearch(e.target.value)}
             className="cyber-input text-xs px-3 py-1.5 rounded w-44"
           />
-          {canWrite && <button
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            className="text-xs px-4 py-1.5 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono transition-colors disabled:opacity-50"
-          >
-            {uploading ? t.importingBtn : t.importBtn}
-          </button>}
-          {canWrite && <input
-            ref={fileRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
-            className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }}
-          />}
+          {canWrite && (
+            <div className="flex items-center gap-2">
+              <select value={uploadCat} onChange={e => setUploadCat(e.target.value ? Number(e.target.value) : "")} className="cyber-input text-xs px-2 py-1.5 rounded text-gray-300 bg-transparent">
+                <option value="">{lang === "en" ? "No category" : "Sans catégorie"}</option>
+                {categories.map(c => <option key={c.id} value={c.id} className="bg-gray-900">{c.name}</option>)}
+              </select>
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="text-xs px-4 py-1.5 rounded border border-neon-green/30 text-neon-green bg-neon-green/10 hover:bg-neon-green/20 font-mono transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {uploading ? t.importingBtn : t.importBtn}
+              </button>
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }} />
+            </div>
+          )}
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center h-64 text-gray-600 font-mono text-xs">{t.loading}</div>
-      ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-64 text-gray-600 font-mono text-xs gap-3">
-          <span>{search ? t.noSearchResult : t.noImages}</span>
-          {canWrite && !search && (
-            <button onClick={() => fileRef.current?.click()} className="text-neon-green text-xs underline">
-              {t.importFirstImage}
+      <div className="flex gap-4">
+        {/* Category sidebar */}
+        <div className="w-44 shrink-0 space-y-0.5">
+          {[
+            { id: "all" as const, label: lang === "en" ? "All" : "Toutes", count: files.length },
+            { id: "uncategorized" as const, label: lang === "en" ? "Uncategorized" : "Non classées", count: uncategorizedCount },
+          ].map(item => (
+            <button
+              key={item.id}
+              onClick={() => setActiveCat(item.id)}
+              className={`w-full text-left text-xs px-2.5 py-1.5 rounded font-mono flex items-center justify-between transition-colors ${activeCat === item.id ? "bg-neon-green/10 text-neon-green border border-neon-green/30" : "text-gray-500 hover:text-gray-300 hover:bg-gray-800/40"}`}
+            >
+              <span>{item.label}</span>
+              <span className="text-gray-600 text-xs">{item.count}</span>
             </button>
+          ))}
+
+          {categories.length > 0 && <div className="border-t border-gray-800 my-1.5" />}
+
+          {categories.map(cat => (
+            <div key={cat.id} className={`group flex items-center gap-1 rounded transition-colors ${activeCat === cat.id ? "bg-neon-green/10 border border-neon-green/30" : "hover:bg-gray-800/40"}`}>
+              <button
+                onClick={() => setActiveCat(cat.id)}
+                className={`flex-1 text-left text-xs px-2.5 py-1.5 font-mono flex items-center justify-between ${activeCat === cat.id ? "text-neon-green" : "text-gray-500 hover:text-gray-300"}`}
+              >
+                <span className="truncate">{cat.name}</span>
+                <span className="text-gray-600 text-xs ml-1 shrink-0">{cat._count.assets}</span>
+              </button>
+              {canWrite && (
+                <button onClick={() => deleteCategory(cat.id)} className="hidden group-hover:flex text-gray-700 hover:text-red-400 text-xs px-1 py-1.5 transition-colors" title={lang === "en" ? "Delete category" : "Supprimer la catégorie"}>✕</button>
+              )}
+            </div>
+          ))}
+
+          {canWrite && (
+            <div className="pt-2">
+              {addingCat ? (
+                <div className="space-y-1.5">
+                  <input
+                    autoFocus
+                    value={newCatName}
+                    onChange={e => setNewCatName(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") createCategory(); if (e.key === "Escape") { setAddingCat(false); setNewCatName(""); } }}
+                    placeholder={lang === "en" ? "Category name…" : "Nom de catégorie…"}
+                    className="cyber-input text-xs px-2 py-1 rounded w-full"
+                  />
+                  <div className="flex gap-1">
+                    <button onClick={createCategory} className="flex-1 text-xs py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/30 font-mono">✓</button>
+                    <button onClick={() => { setAddingCat(false); setNewCatName(""); }} className="flex-1 text-xs py-1 rounded bg-gray-800 text-gray-400 font-mono">✕</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setAddingCat(true)} className="w-full text-xs px-2.5 py-1.5 text-gray-600 hover:text-neon-green font-mono border border-dashed border-gray-800 hover:border-neon-green/30 rounded transition-colors text-left">
+                  + {lang === "en" ? "New category" : "Nouvelle catégorie"}
+                </button>
+              )}
+            </div>
           )}
         </div>
-      ) : (
-        <>
-          <p className="text-xs text-gray-600 mb-3 font-mono">{filtered.length} fichier{filtered.length !== 1 ? "s" : ""}</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-            {filtered.map(f => (
-              <div key={f.name} className="group relative rounded-lg overflow-hidden border border-gray-800 hover:border-gray-600 transition-all">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={f.url} alt={f.name} className="w-full aspect-square object-contain bg-gray-900 p-1" loading="lazy" />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors" />
-                {canWrite && <button
-                  onClick={() => deleteFile(f.name)}
-                  disabled={deleting === f.name}
-                  className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-600/80 text-white text-xs items-center justify-center hidden group-hover:flex hover:bg-red-500"
-                >✕</button>}
-                <div className="absolute bottom-0 inset-x-0 bg-black/70 px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <p className="text-white text-xs truncate leading-tight">{f.name.split("/").pop()}</p>
-                  <p className="text-gray-400 text-xs">{fmt(f.size)}</p>
-                </div>
+
+        {/* Image grid */}
+        <div className="flex-1 min-w-0">
+          {loading ? (
+            <div className="flex items-center justify-center h-64 text-gray-600 font-mono text-xs">{t.loading}</div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-gray-600 font-mono text-xs gap-3">
+              <span>{search ? t.noSearchResult : t.noImages}</span>
+              {canWrite && !search && (
+                <button onClick={() => fileRef.current?.click()} className="text-neon-green text-xs underline">{t.importFirstImage}</button>
+              )}
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-gray-600 mb-3 font-mono">{filtered.length} fichier{filtered.length !== 1 ? "s" : ""}</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                {filtered.map(f => (
+                  <div key={f.name} className="group relative rounded-lg overflow-hidden border border-gray-800 hover:border-gray-600 transition-all">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={f.url} alt={f.name} className="w-full aspect-square object-contain bg-gray-900 p-1" loading="lazy" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors" />
+
+                    {/* Category badge */}
+                    {f.categoryName && (
+                      <div className="absolute top-1 left-1 text-xs bg-black/70 text-neon-green px-1.5 py-0.5 rounded font-mono leading-tight max-w-[80%] truncate">
+                        {f.categoryName}
+                      </div>
+                    )}
+
+                    {/* Delete button */}
+                    {canWrite && (
+                      <button
+                        onClick={() => deleteFile(f.name)}
+                        disabled={deleting === f.name}
+                        className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-600/80 text-white text-xs items-center justify-center hidden group-hover:flex hover:bg-red-500"
+                      >✕</button>
+                    )}
+
+                    {/* Bottom overlay: filename + category selector */}
+                    <div className="absolute bottom-0 inset-x-0 bg-black/80 px-1.5 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <p className="text-white text-xs truncate leading-tight">{f.name.split("/").pop()}</p>
+                      <p className="text-gray-400 text-xs">{fmt(f.size)}</p>
+                      {canWrite && (
+                        movingFile === f.name ? (
+                          <select
+                            autoFocus
+                            defaultValue={f.categoryId ?? ""}
+                            onChange={e => assignCategory(f.name, e.target.value ? Number(e.target.value) : null)}
+                            onBlur={() => setMovingFile(null)}
+                            className="mt-1 w-full text-xs bg-gray-900 text-white border border-gray-700 rounded px-1 py-0.5"
+                          >
+                            <option value="">{lang === "en" ? "Uncategorized" : "Non classée"}</option>
+                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                        ) : (
+                          <button
+                            onClick={() => setMovingFile(f.name)}
+                            className="mt-0.5 text-xs text-gray-500 hover:text-neon-green font-mono"
+                          >
+                            {lang === "en" ? "📁 Move to…" : "📁 Déplacer…"}
+                          </button>
+                        )
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </>
-      )}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -2776,21 +2913,24 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                       <div className="flex gap-3 items-start">
                         <span className="text-gray-600 shrink-0 w-28">{t.email}</span>
                         <div className="flex flex-col gap-2 flex-1">
-                          <button
-                            onClick={findEmail}
-                            disabled={findEmailBusy}
-                            className="self-start text-xs px-3 py-1.5 rounded font-mono disabled:opacity-50 transition-colors"
-                            style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}
-                          >
-                            {findEmailBusy ? "🔍 Recherche…" : (lang === "en" ? "🔍 Find email from website" : "🔍 Trouver l'email depuis le site")}
-                          </button>
+                          {canWrite && (
+                            <button
+                              onClick={findEmail}
+                              disabled={findEmailBusy}
+                              className="self-start text-xs px-3 py-1.5 rounded font-mono disabled:opacity-50 transition-colors"
+                              style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}
+                            >
+                              {findEmailBusy ? "🔍 Recherche…" : (lang === "en" ? "🔍 Find email from website" : "🔍 Trouver l'email depuis le site")}
+                            </button>
+                          )}
                           {findEmailResults.length > 0 && (
                             <div className="space-y-1">
                               {findEmailResults.map(r => (
                                 <button
                                   key={r.email}
-                                  onClick={() => pickEmail(r.email)}
-                                  className="flex items-center gap-2 w-full text-left text-xs px-3 py-2 rounded transition-colors hover:border-neon-green/40"
+                                  onClick={() => canWrite && pickEmail(r.email)}
+                                  disabled={!canWrite}
+                                  className="flex items-center gap-2 w-full text-left text-xs px-3 py-2 rounded transition-colors hover:border-neon-green/40 disabled:opacity-50 disabled:cursor-not-allowed"
                                   style={{ background: "#00ff9d08", border: "1px solid #00ff9d20" }}
                                 >
                                   <span className="text-neon-green font-mono">{r.email}</span>
@@ -2837,11 +2977,13 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                         const item = checklist[perk] || { done: false, note: "" };
                         return (
                           <div key={i} className="rounded-lg p-3" style={{ background: item.done ? "#00ff9d08" : "#0a0a0a", border: `1px solid ${item.done ? "#00ff9d20" : "#1a1a2e"}` }}>
-                            <label className="flex items-start gap-2 cursor-pointer">
+                            <label className={`flex items-start gap-2 ${canWrite ? "cursor-pointer" : "cursor-default"}`}>
                               <input
                                 type="checkbox"
                                 checked={item.done}
+                                disabled={!canWrite}
                                 onChange={e => {
+                                  if (!canWrite) return;
                                   const next = { ...checklist, [perk]: { ...item, done: e.target.checked } };
                                   savePerkChecklist(detail.id as number, next);
                                   setDetail(d => d ? { ...d, perkChecklist: JSON.stringify(next) } : d);
@@ -2854,15 +2996,18 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                               rows={1}
                               placeholder={lang === "en" ? "Notes…" : "Notes…"}
                               value={item.note}
+                              readOnly={!canWrite}
                               onChange={e => {
+                                if (!canWrite) return;
                                 const next = { ...checklist, [perk]: { ...item, note: e.target.value } };
                                 setDetail(d => d ? { ...d, perkChecklist: JSON.stringify(next) } : d);
                               }}
                               onBlur={e => {
+                                if (!canWrite) return;
                                 const next = { ...checklist, [perk]: { ...item, note: e.target.value } };
                                 savePerkChecklist(detail.id as number, next);
                               }}
-                              className="cyber-input w-full mt-2 px-2 py-1 rounded text-xs resize-none"
+                              className="cyber-input w-full mt-2 px-2 py-1 rounded text-xs resize-none read-only:opacity-60"
                               style={{ minHeight: 28 }}
                             />
                           </div>
@@ -4465,7 +4610,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
 
 const REG_PAGE_SIZE = 50;
 
-function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail: (r: Record<string, unknown>) => void; canManualValidate?: boolean }) {
+function RegistrationsPanel({ onDetail, canManualValidate = false, canWrite = true }: { onDetail: (r: Record<string, unknown>) => void; canManualValidate?: boolean; canWrite?: boolean }) {
   const { t, lang } = useAdminT();
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
@@ -4552,7 +4697,7 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
         <div className="flex gap-2 flex-wrap">
           <a href="/checkin/scan" target="_blank" rel="noreferrer" className="btn-neon px-4 py-2 rounded text-sm">📷 Scanner QR →</a>
           <a href="/admin/checkin" target="_blank" rel="noreferrer" className="px-4 py-2 rounded text-sm border border-gray-700 text-gray-300 hover:text-white transition-colors">📋 Liste check-in →</a>
-          <button
+          {canWrite && <button
             onClick={async () => {
               if (!confirm(lang === "en" ? "Generate and send online access links to all validated registrants without a link?" : "Générer et envoyer les liens d'accès online à tous les inscrits validés sans lien ?")) return;
               const res = await fetch("/api/admin/registrations/generate-online-tokens", { method: "POST" });
@@ -4563,7 +4708,7 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
             className="px-4 py-2 rounded text-sm border border-cyan-700/40 text-cyan-400 hover:bg-cyan-500/10 transition-colors"
           >
             {lang === "en" ? "🌐 Send online access" : "🌐 Envoyer accès online"}
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -4679,18 +4824,18 @@ function RegistrationsPanel({ onDetail, canManualValidate = false }: { onDetail:
                           <button onClick={() => onDetail(r)} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">{lang === "en" ? "Details" : "Détails"}</button>
                           {awaiting && (
                             <>
-                              {canManualValidate && (
+                              {canManualValidate && canWrite && (
                                 <button disabled={busyId === r.id} onClick={() => validate(r)} className="text-xs px-3 py-1 rounded bg-neon-green/10 text-neon-green border border-neon-green/20 hover:bg-neon-green/20 transition-colors disabled:opacity-50">
                                   {t.validateAndSend}
                                 </button>
                               )}
-                              <button disabled={busyId === r.id} onClick={() => remind(r)} className="text-xs px-3 py-1 rounded border border-yellow-600/40 text-yellow-400 hover:bg-yellow-500/10 transition-colors disabled:opacity-50">
+                              {canWrite && <button disabled={busyId === r.id} onClick={() => remind(r)} className="text-xs px-3 py-1 rounded border border-yellow-600/40 text-yellow-400 hover:bg-yellow-500/10 transition-colors disabled:opacity-50">
                                 {busyId === r.id ? "…" : lang === "en" ? "✉ Follow up" : "✉ Relancer"}
-                              </button>
+                              </button>}
                             </>
                           )}
                           {done && <span className="text-xs text-neon-green/60 font-mono">{lang === "en" ? "Ticket sent ✓" : "Billet envoyé ✓"}</span>}
-                          {done && (
+                          {done && canWrite && (
                             <button
                               disabled={busyId === r.id}
                               onClick={async () => {
@@ -5301,15 +5446,16 @@ function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
                   {field.key === "event_country" ? (
                     <CountrySelect
                       value={settings[field.key] || ""}
-                      onChange={v => handleChange(field.key, v)}
-                      className="w-full text-sm"
+                      onChange={v => canWrite && handleChange(field.key, v)}
+                      className={`w-full text-sm${!canWrite ? " opacity-60 pointer-events-none" : ""}`}
                     />
                   ) : field.key === "ctf_prize_details_fr" || field.key === "ctf_prize_details_en" ? (
                     <textarea
                       rows={4}
                       value={settings[field.key] || ""}
-                      onChange={e => handleChange(field.key, e.target.value)}
-                      className="cyber-input w-full px-3 py-2 rounded text-sm text-white resize-none"
+                      readOnly={!canWrite}
+                      onChange={e => canWrite && handleChange(field.key, e.target.value)}
+                      className="cyber-input w-full px-3 py-2 rounded text-sm text-white resize-none read-only:opacity-60"
                       style={{ fontFamily: "'Share Tech Mono', monospace" }}
                       placeholder={field.key === "ctf_prize_details_en"
                         ? "Ex: 1st prize: 500,000 XAF + trophy + CTF Winner badge&#10;2nd prize: 200,000 XAF&#10;3rd prize: 100,000 XAF"
@@ -5319,8 +5465,9 @@ function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
                     <input
                       type={field.type}
                       value={settings[field.key] || ""}
-                      onChange={e => handleChange(field.key, e.target.value)}
-                      className="cyber-input w-full px-3 py-2 rounded text-sm text-white"
+                      readOnly={!canWrite}
+                      onChange={e => canWrite && handleChange(field.key, e.target.value)}
+                      className="cyber-input w-full px-3 py-2 rounded text-sm text-white read-only:opacity-60"
                       style={{ fontFamily: "'Share Tech Mono', monospace" }}
                     />
                   )}
@@ -6394,7 +6541,7 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
   );
 }
 
-function AuditPanel() {
+function AuditPanel({ canWrite = true }: { canWrite?: boolean } = {}) {
   const { t } = useAdminT();
   const [logs, setLogs] = useState<Record<string, unknown>[]>([]);
   const [total, setTotal] = useState(0);
@@ -6446,9 +6593,9 @@ function AuditPanel() {
           <h1 className="text-2xl font-black text-white">{t.auditTitle}</h1>
           <p className="text-xs text-gray-600 mt-1 font-mono">{t.retention60} · {total} {t.entry}</p>
         </div>
-        <button onClick={purge} disabled={purging} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-50">
+        {canWrite && <button onClick={purge} disabled={purging} className="text-xs px-3 py-1.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-50">
           {purging ? "…" : t.purgeOld}
-        </button>
+        </button>}
       </div>
 
       {/* Filters */}
@@ -7242,7 +7389,7 @@ export default function AdminDashboard() {
     <AdminLangContext.Provider value={{ lang, t, setLang: changeLang }}>
     <div data-theme={theme} className="min-h-screen bg-dark-900" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
       {/* Detail drawer */}
-      {detail && <DetailDrawer item={detail.item} type={detail.type} onClose={() => setDetail(null)} />}
+      {detail && <DetailDrawer item={detail.item} type={detail.type} onClose={() => setDetail(null)} canWrite={can("sponsor-pipeline") || can("prospection")} />}
       {showAccount && userInfo && !userInfo.isLegacy && (
         <AccountModal info={userInfo} onClose={() => setShowAccount(false)} onChanged={refreshMe} />
       )}
@@ -7505,7 +7652,7 @@ export default function AdminDashboard() {
                 );
               })()}
               <div className="mb-8">
-                <VolunteerKanban />
+                <VolunteerKanban canWrite={can("volunteers")} />
               </div>
               <div className="border-t border-gray-800 pt-6">
                 <h2 className="text-sm font-bold text-gray-400 font-mono mb-4 uppercase tracking-wider">{lang === "en" ? "All applications" : "Toutes les candidatures"}</h2>
@@ -7526,21 +7673,22 @@ export default function AdminDashboard() {
                       <div className="flex items-center gap-2 shrink-0">
                         <button onClick={() => setDetail({ type: "volunteer", item: v })} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">{lang === "en" ? "Details" : "Détails"}</button>
                         <Badge status={v.status as string} />
-                        <select className="cyber-input text-xs px-2 py-1 rounded bg-transparent" value={v.status as string}
+                        {can("volunteers") && <select className="cyber-input text-xs px-2 py-1 rounded bg-transparent" value={v.status as string}
                           onChange={e => updateStatus("volunteer", v.id as number, e.target.value)}>
                           <option value="pending" className="bg-dark-800">pending</option>
                           <option value="accepted" className="bg-dark-800">accepted</option>
                           <option value="rejected" className="bg-dark-800">rejected</option>
-                        </select>
+                        </select>}
                       </div>
                     </div>
-                    {v.status === "accepted" && (
+                    {v.status === "accepted" && can("volunteers") && (
                       <div className="border-t border-gray-800 pt-3 mt-2">
                         <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">{lang === "en" ? "Assignment" : "Affectation"}</p>
                         <div className="flex gap-2 flex-wrap">
                           <select
                             className="cyber-input text-xs rounded px-2 py-1 flex-1 min-w-[140px]"
                             defaultValue={(v.assignedRole as string) || ""}
+                            disabled={!can("volunteers")}
                             onChange={async (e) => {
                               await fetch("/api/admin/submissions", {
                                 method: "PATCH",
@@ -7558,6 +7706,7 @@ export default function AdminDashboard() {
                             type="datetime-local"
                             defaultValue={(v.shiftStart as string)?.slice(0, 16) || ""}
                             className="cyber-input text-xs rounded px-2 py-1"
+                            disabled={!can("volunteers")}
                             onBlur={async (e) => {
                               await fetch("/api/admin/submissions", {
                                 method: "PATCH",
@@ -7570,6 +7719,7 @@ export default function AdminDashboard() {
                             type="datetime-local"
                             defaultValue={(v.shiftEnd as string)?.slice(0, 16) || ""}
                             className="cyber-input text-xs rounded px-2 py-1"
+                            disabled={!can("volunteers")}
                             onBlur={async (e) => {
                               await fetch("/api/admin/submissions", {
                                 method: "PATCH",
@@ -7593,7 +7743,7 @@ export default function AdminDashboard() {
           )}
 
           {/* REGISTRATIONS */}
-          {activeTab === "registrations" && <RegistrationsPanel onDetail={r => setDetail({ type: "registration", item: r })} canManualValidate={!!userInfo?.isRoot && !!userInfo?.currencySelectorEnabled} />}
+          {activeTab === "registrations" && <RegistrationsPanel onDetail={r => setDetail({ type: "registration", item: r })} canManualValidate={!!userInfo?.isRoot && !!userInfo?.currencySelectorEnabled} canWrite={can("registrations")} />}
 
           {/* NEWSLETTER */}
           {activeTab === "newsletter" && (
@@ -7810,7 +7960,7 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === "users" && <AdminUsersPanel canWrite={can("users")} canDelete={!!(userInfo?.isLegacy || userInfo?.isRoot)} />}
-          {activeTab === "profiles" && <AdminProfilesPanel />}
+          {activeTab === "profiles" && <AdminProfilesPanel canWrite={can("profiles")} />}
 
           {activeTab === "pilotage" && (() => {
             // Only pass meetings-specific perms when the user has an explicit "pilotage-meetings" key;
@@ -7906,7 +8056,7 @@ export default function AdminDashboard() {
           {activeTab === "testimony" && <TestimonyPanel canWrite={can("testimony")} />}
 
           {/* AUDIT LOG — super_admin only */}
-          {activeTab === "audit" && <AuditPanel />}
+          {activeTab === "audit" && <AuditPanel canWrite={can("audit")} />}
 
           {/* EXPORT */}
           {activeTab === "export" && (
@@ -7942,7 +8092,7 @@ export default function AdminDashboard() {
 }
 
 // ── Detail drawer ─────────────────────────────────────────────────────────────
-function DetailDrawer({ item, type, onClose }: { item: Record<string, unknown>; type: string; onClose: () => void }) {
+function DetailDrawer({ item, type, onClose, canWrite = false }: { item: Record<string, unknown>; type: string; onClose: () => void; canWrite?: boolean }) {
   const { lang } = useAdminT();
   const prospect = item._prospect as Record<string, unknown> | null | undefined;
   const pkgPerks = (item._pkgPerks as string[] | undefined) || [];
@@ -8095,11 +8245,13 @@ function DetailDrawer({ item, type, onClose }: { item: Record<string, unknown>; 
                   const entry = perkChecklist[perk] || { done: false, note: "" };
                   return (
                     <div key={i} className="rounded-lg p-3" style={{ background: entry.done ? "#00ff9d08" : "#0a0a0a", border: `1px solid ${entry.done ? "#00ff9d20" : "#1a1a2e"}` }}>
-                      <label className="flex items-start gap-2 cursor-pointer">
+                      <label className={`flex items-start gap-2 ${canWrite ? "cursor-pointer" : "cursor-default"}`}>
                         <input
                           type="checkbox"
                           checked={entry.done}
+                          disabled={!canWrite}
                           onChange={e => {
+                            if (!canWrite) return;
                             const next = { ...perkChecklist, [perk]: { ...entry, done: e.target.checked } };
                             setPerkChecklist(next);
                             savePerkChecklist(next);
@@ -8112,13 +8264,15 @@ function DetailDrawer({ item, type, onClose }: { item: Record<string, unknown>; 
                         rows={1}
                         placeholder={lang === "en" ? "Notes…" : "Notes…"}
                         value={entry.note}
-                        onChange={e => setPerkChecklist(prev => ({ ...prev, [perk]: { ...entry, note: e.target.value } }))}
+                        readOnly={!canWrite}
+                        onChange={e => { if (canWrite) setPerkChecklist(prev => ({ ...prev, [perk]: { ...entry, note: e.target.value } })); }}
                         onBlur={e => {
+                          if (!canWrite) return;
                           const next = { ...perkChecklist, [perk]: { ...entry, note: e.target.value } };
                           setPerkChecklist(next);
                           savePerkChecklist(next);
                         }}
-                        className="cyber-input w-full mt-2 px-2 py-1 rounded text-xs resize-none"
+                        className="cyber-input w-full mt-2 px-2 py-1 rounded text-xs resize-none read-only:opacity-60"
                         style={{ minHeight: 28 }}
                       />
                     </div>

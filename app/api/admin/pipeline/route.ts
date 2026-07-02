@@ -11,7 +11,7 @@ const STAGES = ["submitted", "reviewing", "accepted", "onboarding", "confirmed",
 type Stage = (typeof STAGES)[number];
 
 export async function GET() {
-  if (!(await hasPermission("sponsor-pipeline", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await hasPermission("cfp", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const cfps = await prisma.cFPSubmission.findMany({
     orderBy: { createdAt: "desc" },
@@ -23,7 +23,7 @@ export async function GET() {
 
 // Move a CFP card to a new pipeline stage — triggers side effects
 export async function PATCH(req: NextRequest) {
-  if (!(await hasPermission("sponsor-pipeline", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await hasPermission("cfp", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id, stage, notes, deferred } = await req.json() as { id: number; stage: Stage; notes?: string; deferred?: boolean };
 
@@ -188,7 +188,7 @@ export async function PATCH(req: NextRequest) {
 
 // Reject a CFP (separate from pipeline stages)
 export async function DELETE(req: NextRequest) {
-  if (!(await hasPermission("sponsor-pipeline", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await hasPermission("cfp", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id, notes } = await req.json() as { id: number; notes?: string };
 
   const cfp = await prisma.cFPSubmission.findUnique({ where: { id } });

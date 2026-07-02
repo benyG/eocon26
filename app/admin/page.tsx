@@ -2913,21 +2913,24 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                       <div className="flex gap-3 items-start">
                         <span className="text-gray-600 shrink-0 w-28">{t.email}</span>
                         <div className="flex flex-col gap-2 flex-1">
-                          <button
-                            onClick={findEmail}
-                            disabled={findEmailBusy}
-                            className="self-start text-xs px-3 py-1.5 rounded font-mono disabled:opacity-50 transition-colors"
-                            style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}
-                          >
-                            {findEmailBusy ? "🔍 Recherche…" : (lang === "en" ? "🔍 Find email from website" : "🔍 Trouver l'email depuis le site")}
-                          </button>
+                          {canWrite && (
+                            <button
+                              onClick={findEmail}
+                              disabled={findEmailBusy}
+                              className="self-start text-xs px-3 py-1.5 rounded font-mono disabled:opacity-50 transition-colors"
+                              style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}
+                            >
+                              {findEmailBusy ? "🔍 Recherche…" : (lang === "en" ? "🔍 Find email from website" : "🔍 Trouver l'email depuis le site")}
+                            </button>
+                          )}
                           {findEmailResults.length > 0 && (
                             <div className="space-y-1">
                               {findEmailResults.map(r => (
                                 <button
                                   key={r.email}
-                                  onClick={() => pickEmail(r.email)}
-                                  className="flex items-center gap-2 w-full text-left text-xs px-3 py-2 rounded transition-colors hover:border-neon-green/40"
+                                  onClick={() => canWrite && pickEmail(r.email)}
+                                  disabled={!canWrite}
+                                  className="flex items-center gap-2 w-full text-left text-xs px-3 py-2 rounded transition-colors hover:border-neon-green/40 disabled:opacity-50 disabled:cursor-not-allowed"
                                   style={{ background: "#00ff9d08", border: "1px solid #00ff9d20" }}
                                 >
                                   <span className="text-neon-green font-mono">{r.email}</span>
@@ -2974,11 +2977,13 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                         const item = checklist[perk] || { done: false, note: "" };
                         return (
                           <div key={i} className="rounded-lg p-3" style={{ background: item.done ? "#00ff9d08" : "#0a0a0a", border: `1px solid ${item.done ? "#00ff9d20" : "#1a1a2e"}` }}>
-                            <label className="flex items-start gap-2 cursor-pointer">
+                            <label className={`flex items-start gap-2 ${canWrite ? "cursor-pointer" : "cursor-default"}`}>
                               <input
                                 type="checkbox"
                                 checked={item.done}
+                                disabled={!canWrite}
                                 onChange={e => {
+                                  if (!canWrite) return;
                                   const next = { ...checklist, [perk]: { ...item, done: e.target.checked } };
                                   savePerkChecklist(detail.id as number, next);
                                   setDetail(d => d ? { ...d, perkChecklist: JSON.stringify(next) } : d);
@@ -2991,15 +2996,18 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                               rows={1}
                               placeholder={lang === "en" ? "Notes…" : "Notes…"}
                               value={item.note}
+                              readOnly={!canWrite}
                               onChange={e => {
+                                if (!canWrite) return;
                                 const next = { ...checklist, [perk]: { ...item, note: e.target.value } };
                                 setDetail(d => d ? { ...d, perkChecklist: JSON.stringify(next) } : d);
                               }}
                               onBlur={e => {
+                                if (!canWrite) return;
                                 const next = { ...checklist, [perk]: { ...item, note: e.target.value } };
                                 savePerkChecklist(detail.id as number, next);
                               }}
-                              className="cyber-input w-full mt-2 px-2 py-1 rounded text-xs resize-none"
+                              className="cyber-input w-full mt-2 px-2 py-1 rounded text-xs resize-none read-only:opacity-60"
                               style={{ minHeight: 28 }}
                             />
                           </div>
@@ -5438,15 +5446,16 @@ function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
                   {field.key === "event_country" ? (
                     <CountrySelect
                       value={settings[field.key] || ""}
-                      onChange={v => handleChange(field.key, v)}
-                      className="w-full text-sm"
+                      onChange={v => canWrite && handleChange(field.key, v)}
+                      className={`w-full text-sm${!canWrite ? " opacity-60 pointer-events-none" : ""}`}
                     />
                   ) : field.key === "ctf_prize_details_fr" || field.key === "ctf_prize_details_en" ? (
                     <textarea
                       rows={4}
                       value={settings[field.key] || ""}
-                      onChange={e => handleChange(field.key, e.target.value)}
-                      className="cyber-input w-full px-3 py-2 rounded text-sm text-white resize-none"
+                      readOnly={!canWrite}
+                      onChange={e => canWrite && handleChange(field.key, e.target.value)}
+                      className="cyber-input w-full px-3 py-2 rounded text-sm text-white resize-none read-only:opacity-60"
                       style={{ fontFamily: "'Share Tech Mono', monospace" }}
                       placeholder={field.key === "ctf_prize_details_en"
                         ? "Ex: 1st prize: 500,000 XAF + trophy + CTF Winner badge&#10;2nd prize: 200,000 XAF&#10;3rd prize: 100,000 XAF"
@@ -5456,8 +5465,9 @@ function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
                     <input
                       type={field.type}
                       value={settings[field.key] || ""}
-                      onChange={e => handleChange(field.key, e.target.value)}
-                      className="cyber-input w-full px-3 py-2 rounded text-sm text-white"
+                      readOnly={!canWrite}
+                      onChange={e => canWrite && handleChange(field.key, e.target.value)}
+                      className="cyber-input w-full px-3 py-2 rounded text-sm text-white read-only:opacity-60"
                       style={{ fontFamily: "'Share Tech Mono', monospace" }}
                     />
                   )}
@@ -7379,7 +7389,7 @@ export default function AdminDashboard() {
     <AdminLangContext.Provider value={{ lang, t, setLang: changeLang }}>
     <div data-theme={theme} className="min-h-screen bg-dark-900" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
       {/* Detail drawer */}
-      {detail && <DetailDrawer item={detail.item} type={detail.type} onClose={() => setDetail(null)} />}
+      {detail && <DetailDrawer item={detail.item} type={detail.type} onClose={() => setDetail(null)} canWrite={can("sponsor-pipeline") || can("prospection")} />}
       {showAccount && userInfo && !userInfo.isLegacy && (
         <AccountModal info={userInfo} onClose={() => setShowAccount(false)} onChanged={refreshMe} />
       )}
@@ -8082,7 +8092,7 @@ export default function AdminDashboard() {
 }
 
 // ── Detail drawer ─────────────────────────────────────────────────────────────
-function DetailDrawer({ item, type, onClose }: { item: Record<string, unknown>; type: string; onClose: () => void }) {
+function DetailDrawer({ item, type, onClose, canWrite = false }: { item: Record<string, unknown>; type: string; onClose: () => void; canWrite?: boolean }) {
   const { lang } = useAdminT();
   const prospect = item._prospect as Record<string, unknown> | null | undefined;
   const pkgPerks = (item._pkgPerks as string[] | undefined) || [];
@@ -8235,11 +8245,13 @@ function DetailDrawer({ item, type, onClose }: { item: Record<string, unknown>; 
                   const entry = perkChecklist[perk] || { done: false, note: "" };
                   return (
                     <div key={i} className="rounded-lg p-3" style={{ background: entry.done ? "#00ff9d08" : "#0a0a0a", border: `1px solid ${entry.done ? "#00ff9d20" : "#1a1a2e"}` }}>
-                      <label className="flex items-start gap-2 cursor-pointer">
+                      <label className={`flex items-start gap-2 ${canWrite ? "cursor-pointer" : "cursor-default"}`}>
                         <input
                           type="checkbox"
                           checked={entry.done}
+                          disabled={!canWrite}
                           onChange={e => {
+                            if (!canWrite) return;
                             const next = { ...perkChecklist, [perk]: { ...entry, done: e.target.checked } };
                             setPerkChecklist(next);
                             savePerkChecklist(next);
@@ -8252,13 +8264,15 @@ function DetailDrawer({ item, type, onClose }: { item: Record<string, unknown>; 
                         rows={1}
                         placeholder={lang === "en" ? "Notes…" : "Notes…"}
                         value={entry.note}
-                        onChange={e => setPerkChecklist(prev => ({ ...prev, [perk]: { ...entry, note: e.target.value } }))}
+                        readOnly={!canWrite}
+                        onChange={e => { if (canWrite) setPerkChecklist(prev => ({ ...prev, [perk]: { ...entry, note: e.target.value } })); }}
                         onBlur={e => {
+                          if (!canWrite) return;
                           const next = { ...perkChecklist, [perk]: { ...entry, note: e.target.value } };
                           setPerkChecklist(next);
                           savePerkChecklist(next);
                         }}
-                        className="cyber-input w-full mt-2 px-2 py-1 rounded text-xs resize-none"
+                        className="cyber-input w-full mt-2 px-2 py-1 rounded text-xs resize-none read-only:opacity-60"
                         style={{ minHeight: 28 }}
                       />
                     </div>

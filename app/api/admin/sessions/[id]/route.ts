@@ -8,7 +8,8 @@ import { syncCfpScheduleStage } from "@/lib/cfpSessionSync";
 export const dynamic = "force-dynamic";
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  if (!(await hasPermission("cfp", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const canWrite = (await hasPermission("cfp", "write")) || (await hasPermission("sessions", "write"));
+  if (!canWrite) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const data = await req.json();
   const session = await prisma.conferenceSession.update({ where: { id: Number(params.id) }, data });
 
@@ -45,7 +46,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
-  if (!(await hasPermission("cfp", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const canWrite = (await hasPermission("cfp", "write")) || (await hasPermission("sessions", "write"));
+  if (!canWrite) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   // Cancel associated reminder before deleting
   const session = await prisma.conferenceSession.findUnique({ where: { id: Number(params.id) } });

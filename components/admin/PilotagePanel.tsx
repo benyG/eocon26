@@ -142,7 +142,10 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(false);
   const [seeding, setSeeding] = useState(false);
-  const [view, setView] = useState<"kanban" | "meetings">("kanban");
+  // Auto-start on meetings view for users who only have pilotage-meetings access (no kanban access)
+  const [view, setView] = useState<"kanban" | "meetings">(
+    canReadKanban === false && !canWrite && canReadMeetings !== false ? "meetings" : "kanban"
+  );
 
   // filters
   const [fPhase, setFPhase] = useState("");

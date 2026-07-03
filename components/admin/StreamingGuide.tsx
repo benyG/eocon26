@@ -10,8 +10,8 @@ function Step({ n, title, children }: { n: number | string; title: string; child
     <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
       <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#00ff9d20", border: "1px solid #00ff9d50", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, color: "#00ff9d", fontFamily: "'Courier New', monospace", flexShrink: 0, marginTop: 2 }}>{n}</div>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 6 }}>{title}</div>
-        <div style={{ fontSize: 12, color: "#aaa", lineHeight: 1.8 }}>{children}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--txt)", marginBottom: 6 }}>{title}</div>
+        <div style={{ fontSize: 12, color: "var(--txt-2)", lineHeight: 1.8 }}>{children}</div>
       </div>
     </div>
   );
@@ -19,7 +19,7 @@ function Step({ n, title, children }: { n: number | string; title: string; child
 
 function Tip({ children }: { children?: ReactNode }) {
   return (
-    <div style={{ background: "#00ff9d08", border: "1px solid #00ff9d25", borderRadius: 8, padding: "10px 14px", margin: "12px 0", fontSize: 12, color: "#aaa", lineHeight: 1.8 }}>
+    <div style={{ background: "#00ff9d08", border: "1px solid #00ff9d25", borderRadius: 8, padding: "10px 14px", margin: "12px 0", fontSize: 12, color: "var(--txt-2)", lineHeight: 1.8 }}>
       <span style={{ color: "#00ff9d", fontWeight: 700, marginRight: 6 }}>💡</span>{children}
     </div>
   );
@@ -27,7 +27,7 @@ function Tip({ children }: { children?: ReactNode }) {
 
 function Warn({ children }: { children?: ReactNode }) {
   return (
-    <div style={{ background: "#ffaa0008", border: "1px solid #ffaa0030", borderRadius: 8, padding: "10px 14px", margin: "12px 0", fontSize: 12, color: "#aaa", lineHeight: 1.8 }}>
+    <div style={{ background: "#ffaa0008", border: "1px solid #ffaa0030", borderRadius: 8, padding: "10px 14px", margin: "12px 0", fontSize: 12, color: "var(--txt-2)", lineHeight: 1.8 }}>
       <span style={{ color: "#ffaa00", fontWeight: 700, marginRight: 6 }}>⚠</span>{children}
     </div>
   );
@@ -35,14 +35,14 @@ function Warn({ children }: { children?: ReactNode }) {
 
 function Info({ children }: { children?: ReactNode }) {
   return (
-    <div style={{ background: "#4488ff08", border: "1px solid #4488ff25", borderRadius: 8, padding: "10px 14px", margin: "12px 0", fontSize: 12, color: "#aaa", lineHeight: 1.8 }}>
+    <div style={{ background: "#4488ff08", border: "1px solid #4488ff25", borderRadius: 8, padding: "10px 14px", margin: "12px 0", fontSize: 12, color: "var(--txt-2)", lineHeight: 1.8 }}>
       <span style={{ color: "#4488ff", fontWeight: 700, marginRight: 6 }}>ℹ</span>{children}
     </div>
   );
 }
 
 function Code({ children }: { children: string }) {
-  return <code style={{ background: "#050508", border: "1px solid #ffffff15", borderRadius: 4, padding: "2px 7px", fontSize: 11, color: "#4488ff", fontFamily: "'Courier New', monospace" }}>{children}</code>;
+  return <code style={{ background: "var(--card2)", border: "1px solid var(--bdr)", borderRadius: 4, padding: "2px 7px", fontSize: 11, color: "#4488ff", fontFamily: "'Courier New', monospace" }}>{children}</code>;
 }
 
 function Section({ title, color = "#00ff9d", children }: { title: string; color?: string; children?: ReactNode }) {
@@ -63,10 +63,10 @@ function Section({ title, color = "#00ff9d", children }: { title: string; color?
 function ChapterOverview({ isFr }: { isFr: boolean }) {
   return (
     <div>
-      <h2 style={{ fontSize: 18, color: "#fff", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
+      <h2 style={{ fontSize: 18, color: "var(--txt)", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
         {isFr ? "🗺 Vue d'ensemble" : "🗺 Overview"}
       </h2>
-      <p style={{ color: "#666", fontSize: 12, marginBottom: 24 }}>
+      <p style={{ color: "var(--txt-dim)", fontSize: 12, marginBottom: 24 }}>
         {isFr ? "Comprendre l'architecture avant de commencer." : "Understand the architecture before starting."}
       </p>
 
@@ -74,7 +74,7 @@ function ChapterOverview({ isFr }: { isFr: boolean }) {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
           <div style={{ background: "#4488ff08", border: "1px solid #4488ff25", borderRadius: 10, padding: 16 }}>
             <div style={{ fontSize: 11, color: "#4488ff", letterSpacing: 2, marginBottom: 8 }}>📡 SESSIONS LIVE</div>
-            <div style={{ fontSize: 12, color: "#aaa", lineHeight: 1.8 }}>
+            <div style={{ fontSize: 12, color: "var(--txt-2)", lineHeight: 1.8 }}>
               {isFr
                 ? <>Talks, keynotes, panels.<br/>Flux : Speaker → Restream Studio → YouTube Live → Embed <Code>/live</Code><br/>Participants voient un player YouTube.</>
                 : <>Talks, keynotes, panels.<br/>Flow: Speaker → Restream Studio → YouTube Live → Embed <Code>/live</Code><br/>Participants see a YouTube player.</>}
@@ -82,7 +82,7 @@ function ChapterOverview({ isFr }: { isFr: boolean }) {
           </div>
           <div style={{ background: "#9b59ff08", border: "1px solid #9b59ff25", borderRadius: 10, padding: 16 }}>
             <div style={{ fontSize: 11, color: "#9b59ff", letterSpacing: 2, marginBottom: 8 }}>🎓 ATELIERS (WORKSHOPS)</div>
-            <div style={{ fontSize: 12, color: "#aaa", lineHeight: 1.8 }}>
+            <div style={{ fontSize: 12, color: "var(--txt-2)", lineHeight: 1.8 }}>
               {isFr
                 ? <>Workshops interactifs.<br/>Flux : Participants → Room JaaS (WebRTC P2P)<br/>Pas de YouTube. Connexion directe.</>
                 : <>Interactive workshops.<br/>Flow: Participants → JaaS Room (WebRTC P2P)<br/>No YouTube. Direct connection.</>}
@@ -97,26 +97,26 @@ function ChapterOverview({ isFr }: { isFr: boolean }) {
           { role: isFr ? "🎙 Modérateur" : "🎙 Moderator", color: "#4488ff", desc: isFr ? "Accueille le speaker dans Restream Studio, introduit les sessions, filtre les Q&A, gère le timing." : "Welcomes speaker in Restream Studio, introduces sessions, filters Q&A, manages timing." },
           { role: isFr ? "👤 Speaker" : "👤 Speaker", color: "#ffaa00", desc: isFr ? "Rejoint Restream Studio via son lien d'invitation, présente son contenu depuis son navigateur." : "Joins Restream Studio via invite link, presents content from their browser." },
         ].map(r => (
-          <div key={r.role} style={{ display: "flex", gap: 12, padding: "10px 0", borderBottom: "1px solid #ffffff08" }}>
+          <div key={r.role} style={{ display: "flex", gap: 12, padding: "10px 0", borderBottom: "1px solid var(--bdr)" }}>
             <div style={{ width: 140, fontSize: 12, color: r.color, flexShrink: 0, fontWeight: 600 }}>{r.role}</div>
-            <div style={{ fontSize: 12, color: "#aaa", lineHeight: 1.7 }}>{r.desc}</div>
+            <div style={{ fontSize: 12, color: "var(--txt-2)", lineHeight: 1.7 }}>{r.desc}</div>
           </div>
         ))}
       </Section>
 
       <Section title={isFr ? "CHRONOLOGIE TYPE (J-0)" : "TYPICAL TIMELINE (D-0)"}>
         {[
-          { time: "H-2h",    col: "#666",     txt: isFr ? "Vérification token Restream + canaux YouTube actifs" : "Check Restream token + YouTube channels active" },
-          { time: "H-1h",    col: "#666",     txt: isFr ? "Ouvrir Studio, ajouter le speaker, vérifier équipe (📅 Planification)" : "Open Studio, add speaker, check team (📅 Planning)" },
+          { time: "H-2h",    col: "var(--txt-dim)",     txt: isFr ? "Vérification token Restream + canaux YouTube actifs" : "Check Restream token + YouTube channels active" },
+          { time: "H-1h",    col: "var(--txt-dim)",     txt: isFr ? "Ouvrir Studio, ajouter le speaker, vérifier équipe (📅 Planification)" : "Open Studio, add speaker, check team (📅 Planning)" },
           { time: "H-30min", col: "#ffaa00",  txt: isFr ? "Test stream en Preview, valider audio/vidéo" : "Test stream in Preview, validate audio/video" },
           { time: "H-15min", col: "#ffaa00",  txt: isFr ? "↗ Récupérer le lien embed YouTube dans Planification → Sauvegarder" : "↗ Fetch YouTube embed link in Planning → Save" },
           { time: "H-10min", col: "#ff6b6b",  txt: isFr ? "Tester page /live (navigation privée) + Q&A test" : "Test /live page (incognito) + test Q&A" },
           { time: "H-5min",  col: "#ff6b6b",  txt: isFr ? "Overlays préparés, speaker prêt, modérateur en ligne" : "Overlays ready, speaker ready, moderator online" },
           { time: "H-0",     col: "#00ff9d",  txt: isFr ? "🔴 Go Live → broadcast annonce participants" : "🔴 Go Live → broadcast announcement to participants" },
         ].map(t => (
-          <div key={t.time} style={{ display: "flex", gap: 16, padding: "7px 0", borderBottom: "1px solid #ffffff06" }}>
+          <div key={t.time} style={{ display: "flex", gap: 16, padding: "7px 0", borderBottom: "1px solid var(--bdr)" }}>
             <div style={{ width: 56, fontSize: 11, color: t.col, fontFamily: "'Courier New', monospace", flexShrink: 0 }}>{t.time}</div>
-            <div style={{ fontSize: 12, color: "#aaa" }}>{t.txt}</div>
+            <div style={{ fontSize: 12, color: "var(--txt-2)" }}>{t.txt}</div>
           </div>
         ))}
       </Section>
@@ -127,18 +127,18 @@ function ChapterOverview({ isFr }: { isFr: boolean }) {
 function ChapterRestream({ isFr }: { isFr: boolean }) {
   return (
     <div>
-      <h2 style={{ fontSize: 18, color: "#fff", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
+      <h2 style={{ fontSize: 18, color: "var(--txt)", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
         {isFr ? "1 · Configurer Restream (OAuth)" : "1 · Set up Restream (OAuth)"}
       </h2>
-      <p style={{ color: "#666", fontSize: 12, marginBottom: 24 }}>
+      <p style={{ color: "var(--txt-dim)", fontSize: 12, marginBottom: 24 }}>
         {isFr ? "La connexion utilise OAuth 2.0 — pas de token manuel. À faire une seule fois, ou après un «Token invalide ou expiré»." : "The connection uses OAuth 2.0 — no manual token. Done once, or after a 'Token invalid or expired' error."}
       </p>
 
       <Section title={isFr ? "PRÉREQUIS — VARIABLES D'ENVIRONNEMENT" : "PREREQUISITES — ENVIRONMENT VARIABLES"} color="#ffaa00">
         <Step n={1} title={isFr ? "Créer une application OAuth sur restream.io" : "Create an OAuth app on restream.io"}>
           {isFr
-            ? <>Connectez-vous sur <strong style={{ color: "#fff" }}>restream.io</strong> avec le compte EOCON.<br/>Allez dans : <Code>Profile → Developers → Create application</Code><br/>Renseignez :<br/>• Nom : <em>EOCON 2026 Admin</em><br/>• Redirect URI : <Code>https://[votre-domaine]/api/admin/live/restream/callback</Code><br/>Copiez le <strong style={{ color: "#fff" }}>Client ID</strong> et le <strong style={{ color: "#fff" }}>Client Secret</strong>.</>
-            : <>Log in to <strong style={{ color: "#fff" }}>restream.io</strong> with the EOCON account.<br/>Go to: <Code>Profile → Developers → Create application</Code><br/>Fill in:<br/>• Name: <em>EOCON 2026 Admin</em><br/>• Redirect URI: <Code>https://[your-domain]/api/admin/live/restream/callback</Code><br/>Copy the <strong style={{ color: "#fff" }}>Client ID</strong> and <strong style={{ color: "#fff" }}>Client Secret</strong>.</>}
+            ? <>Connectez-vous sur <strong style={{ color: "var(--txt)" }}>restream.io</strong> avec le compte EOCON.<br/>Allez dans : <Code>Profile → Developers → Create application</Code><br/>Renseignez :<br/>• Nom : <em>EOCON 2026 Admin</em><br/>• Redirect URI : <Code>https://[votre-domaine]/api/admin/live/restream/callback</Code><br/>Copiez le <strong style={{ color: "var(--txt)" }}>Client ID</strong> et le <strong style={{ color: "var(--txt)" }}>Client Secret</strong>.</>
+            : <>Log in to <strong style={{ color: "var(--txt)" }}>restream.io</strong> with the EOCON account.<br/>Go to: <Code>Profile → Developers → Create application</Code><br/>Fill in:<br/>• Name: <em>EOCON 2026 Admin</em><br/>• Redirect URI: <Code>https://[your-domain]/api/admin/live/restream/callback</Code><br/>Copy the <strong style={{ color: "var(--txt)" }}>Client ID</strong> and <strong style={{ color: "var(--txt)" }}>Client Secret</strong>.</>}
         </Step>
 
         <Step n={2} title={isFr ? "Configurer les variables d'environnement" : "Set the environment variables"}>
@@ -167,8 +167,8 @@ function ChapterRestream({ isFr }: { isFr: boolean }) {
       <Section title={isFr ? "CANAUX & DESTINATION YOUTUBE" : "CHANNELS & YOUTUBE DESTINATION"} color="#4488ff">
         <Step n={5} title={isFr ? "Vérifier les canaux connectés" : "Verify connected channels"}>
           {isFr
-            ? <>Une fois connecté, les canaux Restream s&apos;affichent dans le widget <Code>🔴 En direct</Code>. Vérifiez que <strong style={{ color: "#fff" }}>YouTube</strong> est présent et <strong style={{ color: "#00ff9d" }}>Actif</strong>.<br/>Si YouTube n&apos;apparaît pas : sur <Code>restream.io → Canaux → Ajouter YouTube</Code> → connectez le compte YouTube EOCON.</>
-            : <>Once connected, Restream channels appear in the <Code>🔴 Live</Code> widget. Verify that <strong style={{ color: "#fff" }}>YouTube</strong> is listed and <strong style={{ color: "#00ff9d" }}>Active</strong>.<br/>If YouTube doesn&apos;t appear: on <Code>restream.io → Channels → Add YouTube</Code> → connect the EOCON YouTube account.</>}
+            ? <>Une fois connecté, les canaux Restream s&apos;affichent dans le widget <Code>🔴 En direct</Code>. Vérifiez que <strong style={{ color: "var(--txt)" }}>YouTube</strong> est présent et <strong style={{ color: "#00ff9d" }}>Actif</strong>.<br/>Si YouTube n&apos;apparaît pas : sur <Code>restream.io → Canaux → Ajouter YouTube</Code> → connectez le compte YouTube EOCON.</>
+            : <>Once connected, Restream channels appear in the <Code>🔴 Live</Code> widget. Verify that <strong style={{ color: "var(--txt)" }}>YouTube</strong> is listed and <strong style={{ color: "#00ff9d" }}>Active</strong>.<br/>If YouTube doesn&apos;t appear: on <Code>restream.io → Channels → Add YouTube</Code> → connect the EOCON YouTube account.</>}
           <Warn>{isFr ? "Sans canal YouTube actif dans Restream, les boutons ↗ Récupérer et + Créer ne peuvent pas générer d'URL embed YouTube." : "Without an active YouTube channel in Restream, the ↗ Fetch and + Create buttons cannot generate a YouTube embed URL."}</Warn>
         </Step>
 
@@ -187,10 +187,10 @@ function ChapterRestream({ isFr }: { isFr: boolean }) {
 function ChapterTeam({ isFr }: { isFr: boolean }) {
   return (
     <div>
-      <h2 style={{ fontSize: 18, color: "#fff", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
+      <h2 style={{ fontSize: 18, color: "var(--txt)", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
         {isFr ? "2 · Constituer l'équipe streaming" : "2 · Assemble the streaming team"}
       </h2>
-      <p style={{ color: "#666", fontSize: 12, marginBottom: 24 }}>
+      <p style={{ color: "var(--txt-dim)", fontSize: 12, marginBottom: 24 }}>
         {isFr ? "Désigner le modérateur, les techniciens et les speakers pour chaque session — dans l'onglet Planification." : "Assign the moderator, technicians and speakers for each session — in the Planning tab."}
       </p>
 
@@ -208,27 +208,27 @@ function ChapterTeam({ isFr }: { isFr: boolean }) {
 
       <Step n={3} title={isFr ? "Désigner le ou les modérateurs" : "Designate the moderator(s)"}>
         {isFr
-          ? <>Dans la section <strong style={{ color: "#fff" }}>Modérateurs</strong>, sélectionnez un ou plusieurs membres de l&apos;équipe EOCON.<br/>Ces personnes animeront le Q&A et géreront le timing de la session.</>
-          : <>In the <strong style={{ color: "#fff" }}>Moderators</strong> section, select one or more EOCON team members.<br/>They will run the Q&A and manage session timing.</>}
+          ? <>Dans la section <strong style={{ color: "var(--txt)" }}>Modérateurs</strong>, sélectionnez un ou plusieurs membres de l&apos;équipe EOCON.<br/>Ces personnes animeront le Q&A et géreront le timing de la session.</>
+          : <>In the <strong style={{ color: "var(--txt)" }}>Moderators</strong> section, select one or more EOCON team members.<br/>They will run the Q&A and manage session timing.</>}
         <Tip>{isFr ? "Le modérateur idéal comprend le sujet de la session et parle couramment la langue du speaker." : "The ideal moderator understands the session topic and speaks the speaker's language fluently."}</Tip>
       </Step>
 
       <Step n={4} title={isFr ? "Désigner le ou les techniciens" : "Designate the technician(s)"}>
         {isFr
-          ? <>Dans la section <strong style={{ color: "#fff" }}>Techniciens</strong>, sélectionnez les membres de l&apos;équipe responsables du flux Restream et des overlays.<br/>Ces personnes auront la main sur Studio pendant le live.</>
-          : <>In the <strong style={{ color: "#fff" }}>Technicians</strong> section, select the team members responsible for the Restream stream and overlays.<br/>They will control Studio during the live.</>}
+          ? <>Dans la section <strong style={{ color: "var(--txt)" }}>Techniciens</strong>, sélectionnez les membres de l&apos;équipe responsables du flux Restream et des overlays.<br/>Ces personnes auront la main sur Studio pendant le live.</>
+          : <>In the <strong style={{ color: "var(--txt)" }}>Technicians</strong> section, select the team members responsible for the Restream stream and overlays.<br/>They will control Studio during the live.</>}
       </Step>
 
       <Step n={5} title={isFr ? "Ajouter les panélistes / speakers extra" : "Add panelists / extra speakers"}>
         {isFr
-          ? <>Pour un panel ou un atelier avec plusieurs intervenants, ajoutez les speakers supplémentaires dans la section <strong style={{ color: "#fff" }}>Panélistes</strong>.<br/>Les speakers principaux sont déjà attachés à la session via le pipeline CFP.</>
-          : <>For a panel or workshop with multiple speakers, add them in the <strong style={{ color: "#fff" }}>Panelists</strong> section.<br/>Main speakers are already attached to the session via the CFP pipeline.</>}
+          ? <>Pour un panel ou un atelier avec plusieurs intervenants, ajoutez les speakers supplémentaires dans la section <strong style={{ color: "var(--txt)" }}>Panélistes</strong>.<br/>Les speakers principaux sont déjà attachés à la session via le pipeline CFP.</>
+          : <>For a panel or workshop with multiple speakers, add them in the <strong style={{ color: "var(--txt)" }}>Panelists</strong> section.<br/>Main speakers are already attached to the session via the CFP pipeline.</>}
       </Step>
 
       <Step n={6} title={isFr ? "Renseigner le lien Restream Studio (webinaire)" : "Enter the Restream Studio link (webinar)"}>
         {isFr
-          ? <>Sur <Code>studio.restream.io</Code>, créez ou ouvrez votre session.<br/>Cliquez <strong style={{ color: "#fff" }}>Inviter des guests</strong> → copiez le lien d&apos;invitation guest.<br/>Collez-le dans le champ <strong style={{ color: "#fff" }}>Lien webinaire / studio invité</strong>.<br/>Ce lien sera inclus dans les emails d&apos;invitation speaker et modérateur.</>
-          : <>On <Code>studio.restream.io</Code>, create or open your session.<br/>Click <strong style={{ color: "#fff" }}>Invite guests</strong> → copy the guest invite link.<br/>Paste it in the <strong style={{ color: "#fff" }}>Webinar / studio guest link</strong> field.<br/>This link will be included in speaker and moderator invitation emails.</>}
+          ? <>Sur <Code>studio.restream.io</Code>, créez ou ouvrez votre session.<br/>Cliquez <strong style={{ color: "var(--txt)" }}>Inviter des guests</strong> → copiez le lien d&apos;invitation guest.<br/>Collez-le dans le champ <strong style={{ color: "var(--txt)" }}>Lien webinaire / studio invité</strong>.<br/>Ce lien sera inclus dans les emails d&apos;invitation speaker et modérateur.</>
+          : <>On <Code>studio.restream.io</Code>, create or open your session.<br/>Click <strong style={{ color: "var(--txt)" }}>Invite guests</strong> → copy the guest invite link.<br/>Paste it in the <strong style={{ color: "var(--txt)" }}>Webinar / studio guest link</strong> field.<br/>This link will be included in speaker and moderator invitation emails.</>}
         <Info>{isFr ? "Le lien guest Restream est unique par session. Régénérez-le si une session est compromise." : "The Restream guest link is unique per session. Regenerate it if a session is compromised."}</Info>
       </Step>
 
@@ -242,10 +242,10 @@ function ChapterTeam({ isFr }: { isFr: boolean }) {
 function ChapterInvite({ isFr }: { isFr: boolean }) {
   return (
     <div>
-      <h2 style={{ fontSize: 18, color: "#fff", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
+      <h2 style={{ fontSize: 18, color: "var(--txt)", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
         {isFr ? "3 · Envoyer les invitations" : "3 · Send invitations"}
       </h2>
-      <p style={{ color: "#666", fontSize: 12, marginBottom: 24 }}>
+      <p style={{ color: "var(--txt-dim)", fontSize: 12, marginBottom: 24 }}>
         {isFr ? "Un clic par personne. Chaque email est personnalisé selon le rôle." : "One click per person. Each email is personalized by role."}
       </p>
 
@@ -282,10 +282,10 @@ function ChapterInvite({ isFr }: { isFr: boolean }) {
 function ChapterStudio({ isFr }: { isFr: boolean }) {
   return (
     <div>
-      <h2 style={{ fontSize: 18, color: "#fff", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
+      <h2 style={{ fontSize: 18, color: "var(--txt)", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
         {isFr ? "4 · Restream Studio — accueil & préparation" : "4 · Restream Studio — welcome & prep"}
       </h2>
-      <p style={{ color: "#666", fontSize: 12, marginBottom: 24 }}>
+      <p style={{ color: "var(--txt-dim)", fontSize: 12, marginBottom: 24 }}>
         {isFr ? "Gérer la salle virtuelle avant et pendant le live." : "Manage the virtual room before and during the live."}
       </p>
 
@@ -297,8 +297,8 @@ function ChapterStudio({ isFr }: { isFr: boolean }) {
 
       <Step n={2} title={isFr ? "Inviter le speaker (guest link)" : "Invite the speaker (guest link)"}>
         {isFr
-          ? <>Cliquez <strong style={{ color: "#fff" }}>+ Inviter</strong> en haut de l&apos;interface Studio.<br/>Sélectionnez <strong style={{ color: "#fff" }}>Guest link</strong> — c&apos;est le lien à envoyer au speaker.<br/>Le speaker clique → accès navigateur direct, sans compte Restream.</>
-          : <>Click <strong style={{ color: "#fff" }}>+ Invite</strong> at the top of the Studio interface.<br/>Select <strong style={{ color: "#fff" }}>Guest link</strong> — this is the link to send to the speaker.<br/>The speaker clicks → direct browser access, no Restream account needed.</>}
+          ? <>Cliquez <strong style={{ color: "var(--txt)" }}>+ Inviter</strong> en haut de l&apos;interface Studio.<br/>Sélectionnez <strong style={{ color: "var(--txt)" }}>Guest link</strong> — c&apos;est le lien à envoyer au speaker.<br/>Le speaker clique → accès navigateur direct, sans compte Restream.</>
+          : <>Click <strong style={{ color: "var(--txt)" }}>+ Invite</strong> at the top of the Studio interface.<br/>Select <strong style={{ color: "var(--txt)" }}>Guest link</strong> — this is the link to send to the speaker.<br/>The speaker clicks → direct browser access, no Restream account needed.</>}
         <Tip>{isFr ? "Jusqu'à 6 guests simultanés en plan gratuit. Pour les panels, passez en plan payant si besoin." : "Up to 6 simultaneous guests on the free plan. For panels, upgrade if needed."}</Tip>
       </Step>
 
@@ -311,14 +311,14 @@ function ChapterStudio({ isFr }: { isFr: boolean }) {
 
       <Step n={4} title={isFr ? "Configurer les overlays (banières)" : "Set up overlays (banners)"}>
         {isFr
-          ? <>Dans Studio → onglet <strong style={{ color: "#fff" }}>Overlays</strong> (ou Calques) :<br/>• <strong style={{ color: "#fff" }}>Lower third</strong> : nom et titre du speaker (ex: &quot;Jean Dupont — RSSI, Acme Corp&quot;)<br/>• <strong style={{ color: "#fff" }}>Logo EOCON</strong> : coin supérieur droit<br/>• <strong style={{ color: "#fff" }}>Titre de la session</strong> : affiché les 3 premières minutes<br/>Préparez-les <em>avant</em> le live, activez-les au bon moment.</>
-          : <>In Studio → <strong style={{ color: "#fff" }}>Overlays</strong> (or Layers) tab:<br/>• <strong style={{ color: "#fff" }}>Lower third</strong>: speaker name and title (e.g., &quot;Jane Smith — CISO, Acme Corp&quot;)<br/>• <strong style={{ color: "#fff" }}>EOCON Logo</strong>: top right corner<br/>• <strong style={{ color: "#fff" }}>Session title</strong>: shown for the first 3 minutes<br/>Prepare them <em>before</em> the live, activate at the right time.</>}
+          ? <>Dans Studio → onglet <strong style={{ color: "var(--txt)" }}>Overlays</strong> (ou Calques) :<br/>• <strong style={{ color: "var(--txt)" }}>Lower third</strong> : nom et titre du speaker (ex: &quot;Jean Dupont — RSSI, Acme Corp&quot;)<br/>• <strong style={{ color: "var(--txt)" }}>Logo EOCON</strong> : coin supérieur droit<br/>• <strong style={{ color: "var(--txt)" }}>Titre de la session</strong> : affiché les 3 premières minutes<br/>Préparez-les <em>avant</em> le live, activez-les au bon moment.</>
+          : <>In Studio → <strong style={{ color: "var(--txt)" }}>Overlays</strong> (or Layers) tab:<br/>• <strong style={{ color: "var(--txt)" }}>Lower third</strong>: speaker name and title (e.g., &quot;Jane Smith — CISO, Acme Corp&quot;)<br/>• <strong style={{ color: "var(--txt)" }}>EOCON Logo</strong>: top right corner<br/>• <strong style={{ color: "var(--txt)" }}>Session title</strong>: shown for the first 3 minutes<br/>Prepare them <em>before</em> the live, activate at the right time.</>}
       </Step>
 
       <Step n={5} title={isFr ? "Test stream en mode Preview" : "Test stream in Preview mode"}>
         {isFr
-          ? <>Dans Studio → cliquez <strong style={{ color: "#fff" }}>Preview</strong> (pas Go Live encore).<br/>Vérifiez la qualité dans le preview player.<br/>Corrigez les problèmes avant de démarrer le live public.</>
-          : <>In Studio → click <strong style={{ color: "#fff" }}>Preview</strong> (not Go Live yet).<br/>Check quality in the preview player.<br/>Fix any issues before starting the public live.</>}
+          ? <>Dans Studio → cliquez <strong style={{ color: "var(--txt)" }}>Preview</strong> (pas Go Live encore).<br/>Vérifiez la qualité dans le preview player.<br/>Corrigez les problèmes avant de démarrer le live public.</>
+          : <>In Studio → click <strong style={{ color: "var(--txt)" }}>Preview</strong> (not Go Live yet).<br/>Check quality in the preview player.<br/>Fix any issues before starting the public live.</>}
       </Step>
     </div>
   );
@@ -327,24 +327,24 @@ function ChapterStudio({ isFr }: { isFr: boolean }) {
 function ChapterAdminConf({ isFr }: { isFr: boolean }) {
   return (
     <div>
-      <h2 style={{ fontSize: 18, color: "#fff", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
+      <h2 style={{ fontSize: 18, color: "var(--txt)", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
         {isFr ? "5 · Lier le live YouTube à la session" : "5 · Link the YouTube live to the session"}
       </h2>
-      <p style={{ color: "#666", fontSize: 12, marginBottom: 24 }}>
+      <p style={{ color: "var(--txt-dim)", fontSize: 12, marginBottom: 24 }}>
         {isFr ? "Renseigner l'URL embed YouTube dans la session pour que les participants voient le live sur /live. L'admin propose deux méthodes automatiques." : "Set the YouTube embed URL on the session so participants see the live on /live. The admin offers two automatic methods."}
       </p>
 
       <Section title={isFr ? "MÉTHODE 1 — AUTO-DÉTECTION (recommandée)" : "METHOD 1 — AUTO-DETECT (recommended)"} color="#00ff9d">
         <Step n={1} title={isFr ? "Démarrer le stream dans Restream Studio (Preview ou Go Live)" : "Start the stream in Restream Studio (Preview or Go Live)"}>
           {isFr
-            ? <>Dans Restream Studio, lancez en <strong style={{ color: "#fff" }}>Preview</strong> ou directement <strong style={{ color: "#ff4444" }}>Go Live</strong>.<br/>Restream crée automatiquement une diffusion YouTube et active son canal.</>
-            : <>In Restream Studio, launch in <strong style={{ color: "#fff" }}>Preview</strong> or directly <strong style={{ color: "#ff4444" }}>Go Live</strong>.<br/>Restream automatically creates a YouTube broadcast and activates its channel.</>}
+            ? <>Dans Restream Studio, lancez en <strong style={{ color: "var(--txt)" }}>Preview</strong> ou directement <strong style={{ color: "#ff4444" }}>Go Live</strong>.<br/>Restream crée automatiquement une diffusion YouTube et active son canal.</>
+            : <>In Restream Studio, launch in <strong style={{ color: "var(--txt)" }}>Preview</strong> or directly <strong style={{ color: "#ff4444" }}>Go Live</strong>.<br/>Restream automatically creates a YouTube broadcast and activates its channel.</>}
         </Step>
 
         <Step n={2} title={isFr ? "Cliquer ↗ Récupérer dans Planification session" : "Click ↗ Fetch in Session planning"}>
           {isFr
-            ? <><Code>Admin → Live Streaming → 📅 Planification session → sélectionner la session</Code><br/>Dans le champ <strong style={{ color: "#fff" }}>Lien live YouTube (embed)</strong>, cliquez <strong style={{ color: "#00ff9d" }}>↗ Récupérer</strong>.<br/>Le système interroge l&apos;API Restream, détecte le canal YouTube en cours et renseigne automatiquement l&apos;URL embed.<br/>Un message de confirmation s&apos;affiche : <em>&quot;✓ URL récupérée (live en cours)&quot;</em> ou <em>&quot;✓ URL récupérée (événement Restream)&quot;</em>.</>
-            : <><Code>Admin → Live Streaming → 📅 Session planning → select session</Code><br/>In the <strong style={{ color: "#fff" }}>YouTube live link (embed)</strong> field, click <strong style={{ color: "#00ff9d" }}>↗ Fetch</strong>.<br/>The system queries the Restream API, detects the active YouTube channel and automatically fills in the embed URL.<br/>A confirmation message appears: <em>&quot;✓ URL fetched (live in progress)&quot;</em> or <em>&quot;✓ URL fetched (Restream event)&quot;</em>.</>}
+            ? <><Code>Admin → Live Streaming → 📅 Planification session → sélectionner la session</Code><br/>Dans le champ <strong style={{ color: "var(--txt)" }}>Lien live YouTube (embed)</strong>, cliquez <strong style={{ color: "#00ff9d" }}>↗ Récupérer</strong>.<br/>Le système interroge l&apos;API Restream, détecte le canal YouTube en cours et renseigne automatiquement l&apos;URL embed.<br/>Un message de confirmation s&apos;affiche : <em>&quot;✓ URL récupérée (live en cours)&quot;</em> ou <em>&quot;✓ URL récupérée (événement Restream)&quot;</em>.</>
+            : <><Code>Admin → Live Streaming → 📅 Session planning → select session</Code><br/>In the <strong style={{ color: "var(--txt)" }}>YouTube live link (embed)</strong> field, click <strong style={{ color: "#00ff9d" }}>↗ Fetch</strong>.<br/>The system queries the Restream API, detects the active YouTube channel and automatically fills in the embed URL.<br/>A confirmation message appears: <em>&quot;✓ URL fetched (live in progress)&quot;</em> or <em>&quot;✓ URL fetched (Restream event)&quot;</em>.</>}
           <Tip>{isFr ? "Si le message dit «Aucun live actif détecté», c'est que Restream n'est pas encore en stream. Lancez Preview dans Studio d'abord." : "If the message says 'No active live detected', Restream is not streaming yet. Launch Preview in Studio first."}</Tip>
         </Step>
 
@@ -356,8 +356,8 @@ function ChapterAdminConf({ isFr }: { isFr: boolean }) {
       <Section title={isFr ? "MÉTHODE 2 — CRÉER UN ÉVÉNEMENT RESTREAM" : "METHOD 2 — CREATE A RESTREAM EVENT"} color="#4488ff">
         <Step n="▸" title={isFr ? "Cliquer + Créer dans Planification session" : "Click + Create in Session planning"}>
           {isFr
-            ? <>Dans le champ <strong style={{ color: "#fff" }}>Lien live YouTube</strong>, cliquez <strong style={{ color: "#4488ff" }}>+ Créer</strong>.<br/>Le système crée un nouvel événement Restream (non listé) au nom de la session sélectionnée.<br/>YouTube assigne un ID vidéo → l&apos;URL embed est générée et renseignée automatiquement.<br/>Utile pour préparer les sessions <strong style={{ color: "#fff" }}>à l&apos;avance</strong>, sans être en train de streamer.</>
-            : <>In the <strong style={{ color: "#fff" }}>YouTube live link</strong> field, click <strong style={{ color: "#4488ff" }}>+ Create</strong>.<br/>The system creates a new (unlisted) Restream event named after the selected session.<br/>YouTube assigns a video ID → the embed URL is generated and filled in automatically.<br/>Useful to prepare sessions <strong style={{ color: "#fff" }}>in advance</strong>, without streaming yet.</>}
+            ? <>Dans le champ <strong style={{ color: "var(--txt)" }}>Lien live YouTube</strong>, cliquez <strong style={{ color: "#4488ff" }}>+ Créer</strong>.<br/>Le système crée un nouvel événement Restream (non listé) au nom de la session sélectionnée.<br/>YouTube assigne un ID vidéo → l&apos;URL embed est générée et renseignée automatiquement.<br/>Utile pour préparer les sessions <strong style={{ color: "var(--txt)" }}>à l&apos;avance</strong>, sans être en train de streamer.</>
+            : <>In the <strong style={{ color: "var(--txt)" }}>YouTube live link</strong> field, click <strong style={{ color: "#4488ff" }}>+ Create</strong>.<br/>The system creates a new (unlisted) Restream event named after the selected session.<br/>YouTube assigns a video ID → the embed URL is generated and filled in automatically.<br/>Useful to prepare sessions <strong style={{ color: "var(--txt)" }}>in advance</strong>, without streaming yet.</>}
           <Info>{isFr ? "Cette méthode nécessite que le token Restream soit configuré et que le canal YouTube soit connecté dans restream.io." : "This method requires the Restream token to be configured and the YouTube channel to be connected in restream.io."}</Info>
         </Step>
       </Section>
@@ -382,10 +382,10 @@ function ChapterAdminConf({ isFr }: { isFr: boolean }) {
 function ChapterValidate({ isFr }: { isFr: boolean }) {
   return (
     <div>
-      <h2 style={{ fontSize: 18, color: "#fff", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
+      <h2 style={{ fontSize: 18, color: "var(--txt)", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
         {isFr ? "6 · Valider le flux côté participants" : "6 · Validate the stream for participants"}
       </h2>
-      <p style={{ color: "#666", fontSize: 12, marginBottom: 24 }}>
+      <p style={{ color: "var(--txt-dim)", fontSize: 12, marginBottom: 24 }}>
         {isFr ? "Toujours tester en navigation privée — vous n'êtes pas connecté comme participant normal." : "Always test in incognito mode — you're not logged in as a regular participant."}
       </p>
 
@@ -410,8 +410,8 @@ function ChapterValidate({ isFr }: { isFr: boolean }) {
 
       <Step n={4} title={isFr ? "Vérifier les statistiques" : "Check statistics"}>
         {isFr
-          ? <>Dans <Code>🔴 En direct</Code>, les compteurs &quot;En ligne&quot; et &quot;Sessions actives&quot; doivent augmenter lors de votre test.<br/>Rafraîchissez avec le bouton <strong style={{ color: "#fff" }}>↺ Rafraîchir</strong> si nécessaire.</>
-          : <>In <Code>🔴 Live</Code>, the &quot;Online&quot; and &quot;Active sessions&quot; counters should increase during your test.<br/>Refresh with the <strong style={{ color: "#fff" }}>↺ Refresh</strong> button if needed.</>}
+          ? <>Dans <Code>🔴 En direct</Code>, les compteurs &quot;En ligne&quot; et &quot;Sessions actives&quot; doivent augmenter lors de votre test.<br/>Rafraîchissez avec le bouton <strong style={{ color: "var(--txt)" }}>↺ Rafraîchir</strong> si nécessaire.</>
+          : <>In <Code>🔴 Live</Code>, the &quot;Online&quot; and &quot;Active sessions&quot; counters should increase during your test.<br/>Refresh with the <strong style={{ color: "var(--txt)" }}>↺ Refresh</strong> button if needed.</>}
       </Step>
     </div>
   );
@@ -420,10 +420,10 @@ function ChapterValidate({ isFr }: { isFr: boolean }) {
 function ChapterGoLive({ isFr }: { isFr: boolean }) {
   return (
     <div>
-      <h2 style={{ fontSize: 18, color: "#fff", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
+      <h2 style={{ fontSize: 18, color: "var(--txt)", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
         {isFr ? "7 · Go Live — démarrer le streaming" : "7 · Go Live — start streaming"}
       </h2>
-      <p style={{ color: "#666", fontSize: 12, marginBottom: 24 }}>
+      <p style={{ color: "var(--txt-dim)", fontSize: 12, marginBottom: 24 }}>
         {isFr ? "Séquence de démarrage — dans cet ordre exact." : "Start sequence — in this exact order."}
       </p>
 
@@ -465,18 +465,18 @@ function ChapterGoLive({ isFr }: { isFr: boolean }) {
 function ChapterAnimate({ isFr }: { isFr: boolean }) {
   return (
     <div>
-      <h2 style={{ fontSize: 18, color: "#fff", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
+      <h2 style={{ fontSize: 18, color: "var(--txt)", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
         {isFr ? "8 · Animation pendant le live" : "8 · Managing the live session"}
       </h2>
-      <p style={{ color: "#666", fontSize: 12, marginBottom: 24 }}>
+      <p style={{ color: "var(--txt-dim)", fontSize: 12, marginBottom: 24 }}>
         {isFr ? "Rôles partagés entre le technicien (overlays, flux) et le modérateur (Q&A, timing)." : "Roles shared between technician (overlays, stream) and moderator (Q&A, timing)."}
       </p>
 
       <Section title={isFr ? "CÔTÉ TECHNICIEN — RESTREAM STUDIO" : "TECHNICIAN — RESTREAM STUDIO"} color="#4488ff">
         <Step n="▸" title={isFr ? "Gestion des overlays (banières)" : "Overlay management (banners)"}>
           {isFr
-            ? <>Studio → Overlays :<br/>• <strong style={{ color: "#fff" }}>Lower third</strong> : activer à l&apos;intro du speaker → désactiver après 2 min<br/>• <strong style={{ color: "#fff" }}>Slide de titre</strong> : afficher au début et après chaque pause<br/>• <strong style={{ color: "#fff" }}>Compteur</strong> : widget Timer → démarrer quand la session commence<br/>• <strong style={{ color: "#fff" }}>Alerte</strong> : &quot;5 minutes restantes&quot; → activer manuellement à H-5</>
-            : <>Studio → Overlays:<br/>• <strong style={{ color: "#fff" }}>Lower third</strong>: activate at speaker intro → deactivate after 2 min<br/>• <strong style={{ color: "#fff" }}>Title slide</strong>: show at start and after each break<br/>• <strong style={{ color: "#fff" }}>Timer</strong>: Timer widget → start when session begins<br/>• <strong style={{ color: "#fff" }}>Alert</strong>: &quot;5 minutes remaining&quot; → activate manually at H-5</>}
+            ? <>Studio → Overlays :<br/>• <strong style={{ color: "var(--txt)" }}>Lower third</strong> : activer à l&apos;intro du speaker → désactiver après 2 min<br/>• <strong style={{ color: "var(--txt)" }}>Slide de titre</strong> : afficher au début et après chaque pause<br/>• <strong style={{ color: "var(--txt)" }}>Compteur</strong> : widget Timer → démarrer quand la session commence<br/>• <strong style={{ color: "var(--txt)" }}>Alerte</strong> : &quot;5 minutes restantes&quot; → activer manuellement à H-5</>
+            : <>Studio → Overlays:<br/>• <strong style={{ color: "var(--txt)" }}>Lower third</strong>: activate at speaker intro → deactivate after 2 min<br/>• <strong style={{ color: "var(--txt)" }}>Title slide</strong>: show at start and after each break<br/>• <strong style={{ color: "var(--txt)" }}>Timer</strong>: Timer widget → start when session begins<br/>• <strong style={{ color: "var(--txt)" }}>Alert</strong>: &quot;5 minutes remaining&quot; → activate manually at H-5</>}
         </Step>
 
         <Step n="▸" title={isFr ? "Gestion du flux" : "Stream management"}>
@@ -507,10 +507,10 @@ function ChapterAnimate({ isFr }: { isFr: boolean }) {
 function ChapterEnd({ isFr }: { isFr: boolean }) {
   return (
     <div>
-      <h2 style={{ fontSize: 18, color: "#fff", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
+      <h2 style={{ fontSize: 18, color: "var(--txt)", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
         {isFr ? "9 · Fin de session & session suivante" : "9 · End session & next session"}
       </h2>
-      <p style={{ color: "#666", fontSize: 12, marginBottom: 24 }}>
+      <p style={{ color: "var(--txt-dim)", fontSize: 12, marginBottom: 24 }}>
         {isFr ? "Clôturer proprement et enchaîner sans coupure visible." : "Close cleanly and transition without visible gaps."}
       </p>
 
@@ -540,8 +540,8 @@ function ChapterEnd({ isFr }: { isFr: boolean }) {
 
       <Step n={5} title={isFr ? "Préparer la session suivante" : "Prepare the next session"}>
         {isFr
-          ? <>1. Dans Studio : déconnectez le speaker actuel et invitez le suivant<br/>2. Répétez la vérification audio/vidéo<br/>3. Créez un nouveau broadcast YouTube (ou réutilisez la même clé RTMP)<br/>4. Mettez à jour le <strong style={{ color: "#fff" }}>Lien live</strong> de la prochaine session dans l&apos;admin<br/>5. Envoyez un broadcast participants : &quot;Prochaine session dans X minutes : [Titre]&quot;</>
-          : <>1. In Studio: disconnect current speaker and invite the next one<br/>2. Repeat audio/video check<br/>3. Create a new YouTube broadcast (or reuse the same RTMP key)<br/>4. Update the <strong style={{ color: "#fff" }}>Live link</strong> for the next session in admin<br/>5. Send participant broadcast: &quot;Next session in X minutes: [Title]&quot;</>}
+          ? <>1. Dans Studio : déconnectez le speaker actuel et invitez le suivant<br/>2. Répétez la vérification audio/vidéo<br/>3. Créez un nouveau broadcast YouTube (ou réutilisez la même clé RTMP)<br/>4. Mettez à jour le <strong style={{ color: "var(--txt)" }}>Lien live</strong> de la prochaine session dans l&apos;admin<br/>5. Envoyez un broadcast participants : &quot;Prochaine session dans X minutes : [Titre]&quot;</>
+          : <>1. In Studio: disconnect current speaker and invite the next one<br/>2. Repeat audio/video check<br/>3. Create a new YouTube broadcast (or reuse the same RTMP key)<br/>4. Update the <strong style={{ color: "var(--txt)" }}>Live link</strong> for the next session in admin<br/>5. Send participant broadcast: &quot;Next session in X minutes: [Title]&quot;</>}
         <Tip>{isFr ? "Si vous utilisez la même clé RTMP Restream, l'URL embed YouTube peut rester la même pour toutes les sessions de la journée — YouTube crée un seul stream continu." : "If you use the same Restream RTMP key, the YouTube embed URL can remain the same for all sessions of the day — YouTube creates one continuous stream."}</Tip>
       </Step>
     </div>
@@ -551,18 +551,18 @@ function ChapterEnd({ isFr }: { isFr: boolean }) {
 function ChapterWorkshop({ isFr }: { isFr: boolean }) {
   return (
     <div>
-      <h2 style={{ fontSize: 18, color: "#fff", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
+      <h2 style={{ fontSize: 18, color: "var(--txt)", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
         {isFr ? "10 · Ateliers — Rooms JaaS" : "10 · Workshops — JaaS Rooms"}
       </h2>
-      <p style={{ color: "#666", fontSize: 12, marginBottom: 24 }}>
+      <p style={{ color: "var(--txt-dim)", fontSize: 12, marginBottom: 24 }}>
         {isFr ? "Les ateliers sont en P2P direct — pas de streaming YouTube." : "Workshops are direct P2P — no YouTube streaming."}
       </p>
 
       <Section title={isFr ? "CONFIGURATION (une seule fois)" : "SETUP (once)"} color="#9b59ff">
         <Step n={1} title={isFr ? "Obtenir les credentials JaaS" : "Get JaaS credentials"}>
           {isFr
-            ? <>Allez sur <Code>8x8.vc/products/jaas</Code> → créez un compte gratuit.<br/>Récupérez : <strong style={{ color: "#fff" }}>App ID</strong> (vpaas-magic-cookie-xxxx), <strong style={{ color: "#fff" }}>API Key ID</strong>, <strong style={{ color: "#fff" }}>Clé privée RSA</strong>.<br/>Plan gratuit : jusqu&apos;à 200 rooms simultanées, 200 participants par room.</>
-            : <>Go to <Code>8x8.vc/products/jaas</Code> → create a free account.<br/>Get: <strong style={{ color: "#fff" }}>App ID</strong> (vpaas-magic-cookie-xxxx), <strong style={{ color: "#fff" }}>API Key ID</strong>, <strong style={{ color: "#fff" }}>Private RSA Key</strong>.<br/>Free plan: up to 200 simultaneous rooms, 200 participants per room.</>}
+            ? <>Allez sur <Code>8x8.vc/products/jaas</Code> → créez un compte gratuit.<br/>Récupérez : <strong style={{ color: "var(--txt)" }}>App ID</strong> (vpaas-magic-cookie-xxxx), <strong style={{ color: "var(--txt)" }}>API Key ID</strong>, <strong style={{ color: "var(--txt)" }}>Clé privée RSA</strong>.<br/>Plan gratuit : jusqu&apos;à 200 rooms simultanées, 200 participants par room.</>
+            : <>Go to <Code>8x8.vc/products/jaas</Code> → create a free account.<br/>Get: <strong style={{ color: "var(--txt)" }}>App ID</strong> (vpaas-magic-cookie-xxxx), <strong style={{ color: "var(--txt)" }}>API Key ID</strong>, <strong style={{ color: "var(--txt)" }}>Private RSA Key</strong>.<br/>Free plan: up to 200 simultaneous rooms, 200 participants per room.</>}
         </Step>
 
         <Step n={2} title={isFr ? "Saisir les credentials dans l'admin" : "Enter credentials in admin"}>
@@ -709,10 +709,10 @@ function ChapterChecklist({ isFr }: { isFr: boolean }) {
 
   return (
     <div>
-      <h2 style={{ fontSize: 18, color: "#fff", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
+      <h2 style={{ fontSize: 18, color: "var(--txt)", fontWeight: 900, marginBottom: 6, fontFamily: "'Courier New', monospace" }}>
         {isFr ? "📋 Checklist rapide" : "📋 Quick checklist"}
       </h2>
-      <p style={{ color: "#666", fontSize: 12, marginBottom: 24 }}>
+      <p style={{ color: "var(--txt-dim)", fontSize: 12, marginBottom: 24 }}>
         {isFr ? "À imprimer ou garder ouverte le jour J." : "Print it or keep it open on event day."}
       </p>
 
@@ -720,9 +720,9 @@ function ChapterChecklist({ isFr }: { isFr: boolean }) {
         <div key={group.group} style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 10, color: "#00ff9d", letterSpacing: 2, marginBottom: 8, fontFamily: "'Courier New', monospace" }}>{group.group.toUpperCase()}</div>
           {group.items.map(item => (
-            <div key={item} style={{ display: "flex", gap: 10, padding: "5px 0", borderBottom: "1px solid #ffffff06" }}>
-              <div style={{ width: 16, height: 16, border: "1px solid #ffffff30", borderRadius: 3, flexShrink: 0, marginTop: 1 }} />
-              <div style={{ fontSize: 12, color: "#aaa" }}>{item}</div>
+            <div key={item} style={{ display: "flex", gap: 10, padding: "5px 0", borderBottom: "1px solid var(--bdr)" }}>
+              <div style={{ width: 16, height: 16, border: "1px solid var(--bdr-2)", borderRadius: 3, flexShrink: 0, marginTop: 1 }} />
+              <div style={{ fontSize: 12, color: "var(--txt-2)" }}>{item}</div>
             </div>
           ))}
         </div>
@@ -780,29 +780,29 @@ export default function StreamingGuide({ onClose }: { onClose: () => void }) {
   const next = currentIdx < CHAPTERS.length - 1 ? CHAPTERS[currentIdx + 1] : null;
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#000000f0", zIndex: 2000, display: "flex", flexDirection: "column" }}>
+    <div style={{ position: "fixed", inset: 0, background: "var(--panel)", zIndex: 2000, display: "flex", flexDirection: "column" }}>
       {/* Header */}
-      <div style={{ background: "#07070e", borderBottom: "2px solid #00ff9d30", padding: "12px 24px", display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
+      <div style={{ background: "var(--card2)", borderBottom: "2px solid #00ff9d30", padding: "12px 24px", display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 9, color: "#00ff9d", letterSpacing: 3, fontFamily: "'Courier New', monospace" }}>{isFr ? "EOCON 2026 · DOCUMENTATION OPÉRATEUR" : "EOCON 2026 · OPERATOR DOCUMENTATION"}</div>
-          <div style={{ fontSize: 17, fontWeight: 900, color: "#fff", fontFamily: "'Courier New', monospace", marginTop: 2 }}>
+          <div style={{ fontSize: 17, fontWeight: 900, color: "var(--txt)", fontFamily: "'Courier New', monospace", marginTop: 2 }}>
             {isFr ? "Guide Streaming — Technicien & Modérateur" : "Streaming Guide — Technician & Moderator"}
           </div>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           {(["fr","en"] as const).map(l => (
-            <button key={l} onClick={() => setLang(l)} style={{ padding: "5px 12px", borderRadius: 5, fontSize: 11, cursor: "pointer", background: lang === l ? "#00ff9d20" : "transparent", border: `1px solid ${lang === l ? "#00ff9d" : "#333"}`, color: lang === l ? "#00ff9d" : "#555", fontFamily: "'Courier New', monospace", letterSpacing: 1 }}>
+            <button key={l} onClick={() => setLang(l)} style={{ padding: "5px 12px", borderRadius: 5, fontSize: 11, cursor: "pointer", background: lang === l ? "#00ff9d20" : "transparent", border: `1px solid ${lang === l ? "#00ff9d" : "var(--bdr-2)"}`, color: lang === l ? "#00ff9d" : "#555", fontFamily: "'Courier New', monospace", letterSpacing: 1 }}>
               {l.toUpperCase()}
             </button>
           ))}
-          <button onClick={onClose} style={{ padding: "5px 14px", borderRadius: 5, fontSize: 12, cursor: "pointer", background: "transparent", border: "1px solid #ffffff20", color: "#888", marginLeft: 8 }}>✕</button>
+          <button onClick={onClose} style={{ padding: "5px 14px", borderRadius: 5, fontSize: 12, cursor: "pointer", background: "transparent", border: "1px solid var(--bdr-2)", color: "var(--txt-dim)", marginLeft: 8 }}>✕</button>
         </div>
       </div>
 
       {/* Body */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {/* Sidebar */}
-        <div style={{ width: 210, background: "#050508", borderRight: "1px solid #ffffff08", overflowY: "auto", padding: "10px 0", flexShrink: 0 }}>
+        <div style={{ width: 210, background: "var(--card2)", borderRight: "1px solid var(--bdr)", overflowY: "auto", padding: "10px 0", flexShrink: 0 }}>
           {CHAPTERS.map(ch => (
             <button key={ch.id} onClick={() => setChapter(ch.id)} style={{
               width: "100%", textAlign: "left", background: chapter === ch.id ? "#00ff9d12" : "transparent",
@@ -817,13 +817,13 @@ export default function StreamingGuide({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "30px 40px", background: "#08080f" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "30px 40px", background: "var(--panel)" }}>
           {renderChapter()}
 
           {/* Prev / Next */}
-          <div style={{ display: "flex", gap: 12, marginTop: 36, paddingTop: 20, borderTop: "1px solid #ffffff08" }}>
+          <div style={{ display: "flex", gap: 12, marginTop: 36, paddingTop: 20, borderTop: "1px solid var(--bdr)" }}>
             {prev && (
-              <button onClick={() => setChapter(prev.id)} style={{ background: "transparent", border: "1px solid #ffffff20", color: "#888", padding: "8px 16px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>
+              <button onClick={() => setChapter(prev.id)} style={{ background: "transparent", border: "1px solid var(--bdr-2)", color: "var(--txt-dim)", padding: "8px 16px", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>
                 ← {isFr ? prev.title.fr : prev.title.en}
               </button>
             )}

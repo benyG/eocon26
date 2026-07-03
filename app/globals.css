@@ -414,8 +414,12 @@ select option {
 
 /* ── Main / deep backgrounds ──────────────────────────────────────────────── */
 /* Compound selector handles the root div that carries both data-theme and bg-dark-900 */
+/* bg-dark-800 is not a real Tailwind class — define it as theme-aware */
+.bg-dark-800 { background-color: var(--card); }
+
 [data-theme="light"].bg-dark-900,
 [data-theme="light"] .bg-dark-900               { background-color: #f0f2f6 !important; }
+[data-theme="light"] .bg-dark-800               { background-color: var(--panel) !important; }
 [data-theme="light"] .bg-black                  { background-color: #ffffff !important; }
 [data-theme="light"] .bg-gray-950               { background-color: #f8fafc !important; }
 [data-theme="light"] .bg-gray-900               { background-color: #ffffff !important; }

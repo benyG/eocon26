@@ -561,7 +561,7 @@ function EmailModal({ profile, contact, onClose }: { profile: SpeakerProfile; co
           <div className="flex gap-2">
             {(["initial","followup"] as const).map(m => (
               <button key={m} onClick={() => setMode(m)} className="text-xs px-3 py-1 rounded transition-all"
-                style={{ background: mode === m ? "var(--ac-bg)" : "transparent", color: mode === m ? "var(--ac)" : "#666", border: "1px solid " + (mode === m ? "var(--ac)" : "#333") }}>
+                style={{ background: mode === m ? "var(--ac-bg)" : "transparent", color: mode === m ? "var(--ac)" : "var(--txt-mute)", border: "1px solid " + (mode === m ? "var(--ac)" : "var(--bdr-2)") }}>
                 {m === "initial" ? "Premier contact" : "Relance"}
               </button>
             ))}
@@ -569,7 +569,7 @@ function EmailModal({ profile, contact, onClose }: { profile: SpeakerProfile; co
           <div className="flex gap-2">
             {(["fr","en"] as const).map(l => (
               <button key={l} onClick={() => setLangPref(l)} className="text-xs px-2 py-1 rounded"
-                style={{ background: langPref === l ? "#0066ff20" : "transparent", color: langPref === l ? "#0066ff" : "#555", border: "1px solid " + (langPref === l ? "#0066ff40" : "#333") }}>
+                style={{ background: langPref === l ? "#0066ff20" : "transparent", color: langPref === l ? "#0066ff" : "var(--txt-mute)", border: "1px solid " + (langPref === l ? "#0066ff40" : "var(--bdr-2)") }}>
                 {l.toUpperCase()}
               </button>
             ))}
@@ -583,7 +583,7 @@ function EmailModal({ profile, contact, onClose }: { profile: SpeakerProfile; co
             <div className="flex gap-2 mb-2">
               {(["fr","en"] as const).map(l => (
                 <button key={l} onClick={() => setDisplayLang(l)} className="text-xs px-2 py-1 rounded"
-                  style={{ background: displayLang === l ? "#0066ff20" : "transparent", color: displayLang === l ? "#0066ff" : "#555", border: "1px solid " + (displayLang === l ? "#0066ff40" : "#333") }}>
+                  style={{ background: displayLang === l ? "#0066ff20" : "transparent", color: displayLang === l ? "#0066ff" : "var(--txt-mute)", border: "1px solid " + (displayLang === l ? "#0066ff40" : "var(--bdr-2)") }}>
                   {l.toUpperCase()}
                 </button>
               ))}
@@ -799,7 +799,7 @@ function ProfileDetail({
           {(["info","contacts","sources","edit"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className="text-xs px-3 py-2 capitalize transition-all"
-              style={{ color: tab === t ? "var(--ac)" : "#555", borderBottom: tab === t ? "2px solid var(--ac)" : "2px solid transparent" }}>
+              style={{ color: tab === t ? "var(--ac)" : "var(--txt-mute)", borderBottom: tab === t ? "2px solid var(--ac)" : "2px solid transparent" }}>
               {t === "info" ? "Profil" : t === "contacts" ? `Contacts (${profile.contacts.length})` : t === "sources" ? `Sources (${profile.sources.length})` : "Modifier"}
             </button>
           ))}
@@ -1600,7 +1600,7 @@ export default function ProspectionSpeakersPanel({ canWrite = false }: { canWrit
         {(["database","pipeline","dashboard"] as const).map(v => (
           <button key={v} onClick={() => setView(v)}
             className="text-xs px-4 py-2 transition-all"
-            style={{ color: view === v ? "var(--ac)" : "#555", borderBottom: view === v ? "2px solid var(--ac)" : "2px solid transparent" }}>
+            style={{ color: view === v ? "var(--ac)" : "var(--txt-mute)", borderBottom: view === v ? "2px solid var(--ac)" : "2px solid transparent" }}>
             {v === "database" ? "📋 Base" : v === "pipeline" ? "📈 Pipeline contacts" : "📊 Couverture thématique"}
           </button>
         ))}

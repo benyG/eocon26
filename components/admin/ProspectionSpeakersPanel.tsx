@@ -1120,28 +1120,44 @@ function normalizeIntCol(val: unknown): number {
 }
 
 // Column name → internal field key (lowercase keys for lookup)
+// Covers both single-row headers and 2-row ESID format (group header + sub-column)
 const COL_MAP: Record<string, string> = {
+  // ── Identity ──
   "nom": "name", "nom complet": "name", "name": "name", "full name": "name", "speaker": "name", "prénom nom": "name",
   "poste": "title", "titre": "title", "title": "title", "position": "title", "job title": "title", "fonction": "title",
-  "organisation": "org", "organization": "org", "company": "org", "entreprise": "org", "org": "org", "société": "org", "structure": "org",
+  "organisation": "org", "organization": "org", "company": "org", "entreprise": "org", "org": "org", "société": "org",
+  "organisation / poste": "org",  // merged label in some ESID exports
   "pays": "country", "country": "country",
   "région": "region", "region": "region", "zone": "region", "zone géographique": "region",
   "ville": "city", "city": "city",
+  // ── Contact ──
   "linkedin": "linkedin", "linkedin url": "linkedin", "profil linkedin": "linkedin",
   "email": "email", "e-mail": "email", "mail": "email", "courriel": "email", "adresse email": "email",
+  // ── Topic / participation ──
   "thématique": "topicMain", "topic": "topicMain", "thematique": "topicMain",
   "thématique principale": "topicMain", "axe thématique": "topicMain", "sujet": "topicMain",
   "modèle de participation": "participationModel", "participation": "participationModel",
   "modèle": "participationModel", "cachet estimé": "participationModel", "cachet": "participationModel",
+  // ── P scores — short forms ──
   "p1": "p1", "p2": "p2", "p3": "p3", "p4": "p4", "p5": "p5", "p6": "p6",
-  "p1 - pertinence internationale": "p1", "p2 - alignement thématique eocon": "p2",
-  "p3 - africanité / diaspora": "p3", "p4 - accessibilité & modèle pro bono": "p4",
-  "p5 - adéquation format programme": "p5", "p6 - visibilité & rayonnement": "p6",
+  // ── P scores — ESID group-header labels (row 1 in 2-row header files) ──
+  "p1 pertinence intl.": "p1", "p1 - pertinence internationale": "p1",
+  "p2 alignement eocon": "p2", "p2 - alignement thématique eocon": "p2",
+  "p3 africanité / diaspora": "p3", "p3 - africanité / diaspora": "p3",
+  "p4 budget": "p4", "p4 - accessibilité & modèle pro bono": "p4",
+  "p5 format": "p5", "p5 - adéquation format programme": "p5",
+  "p6 visibilité": "p6", "p6 - visibilité & rayonnement": "p6",
+  // ── Computed columns — skip (recalculated server-side) ──
+  "indice de priorité": "__skip__", "ip": "__skip__", "ip /100": "__skip__",
+  "tier": "__skip__", "tier de contact": "__skip__", "#": "__skip__",
+  "/100": "__skip__",
+  // ── Misc ──
   "notes": "notes", "commentaires": "notes", "observations": "notes", "remarques": "notes", "note": "notes",
+  "pertinence": "notes",
   "site web": "website", "website": "website",
   "twitter": "twitter", "github": "github",
   "bio": "bio", "biographie": "bio", "biography": "bio",
-  "langue": "__lang__", "language": "__lang__", "langues": "__lang__", "lang": "__lang__",
+  "langue": "__lang__", "langue(s)": "__lang__", "language": "__lang__", "langues": "__lang__", "lang": "__lang__",
   "source": "__source__", "sources": "__source__", "source principale": "__source__",
   "format": "__format__", "format proposé": "__format__", "format de présentation": "__format__",
   "type de profil": "profileType", "profil": "profileType", "catégorie": "profileType",
@@ -1151,7 +1167,6 @@ const COL_MAP: Record<string, string> = {
   "talks passés": "conferencesPast", "historique conférences": "conferencesPast",
   "publications": "publications",
   "keywords": "keywords", "mots-clés": "keywords", "mots clés": "keywords",
-  "pertinence": "notes", // pertinence column → goes into notes
 };
 
 function buildProfileFromRow(row: unknown[], fieldMap: string[]): ProfileForm | null {
@@ -1235,10 +1250,36 @@ function XlsxImportModal({ onClose, onDone }: { onClose: () => void; onDone: () 
 
     if (raw.length < 2) { alert("Fichier vide ou illisible."); return; }
 
-    const hdrs = (raw[0] as unknown[]).map(h => String(h ?? "").trim());
+    const toStr = (v: unknown) => String(v ?? "").trim();
+    const row1 = (raw[0] as unknown[]).map(toStr);
+    const row2 = raw.length > 2 ? (raw[1] as unknown[]).map(toStr) : [] as string[];
+
+    // Score each row: how many cells match COL_MAP?
+    const scoreRow = (r: string[]) => r.filter(h => h && COL_MAP[h.toLowerCase()] !== undefined).length;
+    const s1 = scoreRow(row1);
+    const s2 = scoreRow(row2);
+
+    let hdrs: string[];
+    let firstDataRow: number;
+
+    if (s2 > s1 && row2.length > 0) {
+      // 2-row header: row 2 has the actual column names.
+      // For columns where row 2 is empty/unrecognized, fall back to row 1 group label (covers P1-P6).
+      hdrs = row2.map((h, i) => {
+        const h1 = row1[i] ?? "";
+        if (h && COL_MAP[h.toLowerCase()]) return h;        // row 2 recognized → use it
+        if (h1 && COL_MAP[h1.toLowerCase()]) return h1;     // row 1 group label recognized → use it
+        return h || h1;                                      // best-effort fallback
+      });
+      firstDataRow = 2;
+    } else {
+      hdrs = row1;
+      firstDataRow = 1;
+    }
+
     const fMap = hdrs.map(h => COL_MAP[h.toLowerCase()] ?? `__unknown_${h}__`);
-    const dataRows = raw.slice(1).filter(r =>
-      (r as unknown[]).some(c => String(c ?? "").trim() !== "")
+    const dataRows = raw.slice(firstDataRow).filter(r =>
+      (r as unknown[]).some(c => toStr(c) !== "")
     );
 
     setHeaders(hdrs);
@@ -1284,7 +1325,7 @@ function XlsxImportModal({ onClose, onDone }: { onClose: () => void; onDone: () 
     setStep("done");
   };
 
-  const recognized = fieldMap.filter(f => !f.startsWith("__unknown_")).length;
+  const recognized = fieldMap.filter(f => !f.startsWith("__unknown_") && f !== "__skip__").length;
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
@@ -1314,15 +1355,17 @@ function XlsxImportModal({ onClose, onDone }: { onClose: () => void; onDone: () 
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {headers.map((h, i) => {
-                  const unknown = fieldMap[i].startsWith("__unknown_");
+                  const isUnknown = fieldMap[i].startsWith("__unknown_");
+                  const isSkip = fieldMap[i] === "__skip__";
+                  const bg = isUnknown ? "#ff000012" : isSkip ? "#33333320" : "#00ff9d12";
+                  const color = isUnknown ? "#ff6666" : isSkip ? "#555" : "#00cc7a";
+                  const border = isUnknown ? "#ff444430" : isSkip ? "#44444440" : "#00ff9d30";
                   return (
                     <span key={i} className="text-xs px-2 py-0.5 rounded font-mono"
-                      style={{
-                        background: unknown ? "#ff000012" : "#00ff9d12",
-                        color: unknown ? "#ff6666" : "#00cc7a",
-                        border: `1px solid ${unknown ? "#ff444430" : "#00ff9d30"}`,
-                      }}>
-                      {h}{!unknown && <span className="opacity-40 ml-1">→ {fieldMap[i]}</span>}
+                      style={{ background: bg, color, border: `1px solid ${border}` }}>
+                      {h}
+                      {!isUnknown && !isSkip && <span className="opacity-40 ml-1">→ {fieldMap[i]}</span>}
+                      {isSkip && <span className="opacity-40 ml-1">ignoré</span>}
                     </span>
                   );
                 })}

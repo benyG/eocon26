@@ -4419,7 +4419,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
             </label>
             <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "var(--ac)" }}>
               <input type="checkbox" checked={createForm.includesSessions} onChange={e => setCreateForm(f => ({ ...f, includesSessions: e.target.checked }))} />
-              {adminLang === "en" ? "🎤 Sessions / Conferences" : "🎤 Sessions / Conférences"}
+              {adminLang === "en" ? "🎙️ Sessions / Conferences" : "🎙️ Sessions / Conférences"}
             </label>
             <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#a78bfa" }}>
               <input type="checkbox" checked={createForm.includesWorkshops} onChange={e => setCreateForm(f => ({ ...f, includesWorkshops: e.target.checked }))} />
@@ -4526,7 +4526,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                     </label>
                     <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "var(--ac)" }}>
                       <input type="checkbox" checked={editForm.includesSessions !== false} onChange={e => setEditForm(f => ({ ...f, includesSessions: e.target.checked }))} />
-                      {adminLang === "en" ? "🎤 Sessions / Conferences" : "🎤 Sessions / Conférences"}
+                      {adminLang === "en" ? "🎙️ Sessions / Conferences" : "🎙️ Sessions / Conférences"}
                     </label>
                     <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#a78bfa" }}>
                       <input type="checkbox" checked={!!editForm.includesWorkshops} onChange={e => setEditForm(f => ({ ...f, includesWorkshops: e.target.checked }))} />
@@ -4566,7 +4566,7 @@ function TicketsPanel({ canWrite = true }: { canWrite?: boolean }) {
                           <span className="text-white font-bold">{t.nameFr} / {t.nameEn}</span>
                           {t.isFeatured && <span className="text-xs px-2 py-0.5 rounded" style={{ background: t.color + "20", color: t.color }}>{adminLang === "en" ? "★ Featured" : "★ Recommandé"}</span>}
                           {!t.isVisible && <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-500">{adminLang === "en" ? "Hidden" : "Masqué"}</span>}
-                          {t.includesSessions && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "1px solid var(--ac-bdr)" }}>📡 Sessions</span>}
+                          {t.includesSessions && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "1px solid var(--ac-bdr)" }}>🎙️ Sessions</span>}
                           {t.includesWorkshops && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#a78bfa15", color: "#a78bfa", border: "1px solid #a78bfa30" }}>🛠 Workshops</span>}
                           {t.includesCTF && <span className="text-xs px-2 py-0.5 rounded font-bold" style={{ background: "#00ccff15", color: "#00ccff", border: "1px solid #00ccff30" }}>🏆 CTF</span>}
                         </div>

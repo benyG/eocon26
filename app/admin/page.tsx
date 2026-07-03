@@ -12,6 +12,7 @@ import PilotagePanel from "@/components/admin/PilotagePanel";
 import CampaignsPanel from "@/components/admin/CampaignsPanel";
 import StrategicPlanPanel from "@/components/admin/StrategicPlanPanel";
 import LivePanel from "@/components/admin/LivePanel";
+import ProspectionSpeakersPanel from "@/components/admin/ProspectionSpeakersPanel";
 import RegistrationsChart from "@/components/admin/RegistrationsChart";
 import NotificationBell from "@/components/admin/NotificationBell";
 import { adminI18n } from "@/lib/adminI18n";
@@ -23,7 +24,7 @@ const AdminThemeContext = createContext<{ theme: "dark" | "light"; toggleTheme: 
 });
 const useAdminTheme = () => useContext(AdminThemeContext);
 
-type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "live" | "sessions" | "video" | "transactions" | "testimony" | "campaigns" | "strategic-plan";
+type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "prospection-speakers" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "live" | "sessions" | "video" | "transactions" | "testimony" | "campaigns" | "strategic-plan";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -7006,6 +7007,7 @@ export default function AdminDashboard() {
     sponsors: "sponsors",
     "sponsor-pipeline": "sponsor-pipeline",
     prospection: "prospection",
+    "prospection-speakers": "prospection-speakers",
     tickets: "tickets",
     "sponsor-packages": "sponsor-packages",
     budget: "budget",
@@ -7249,6 +7251,7 @@ export default function AdminDashboard() {
       icon: "🎙️",
       tabs: [
         { id: "pipeline", label: t.pipeline, icon: "🧑‍🏫", count: stats.cfp },
+        { id: "prospection-speakers", label: t.prospectionSpeakers, icon: "🔭" },
       ],
     },
     {
@@ -7480,6 +7483,9 @@ export default function AdminDashboard() {
 
           {/* PIPELINE — Speakers & Programme unified */}
           {activeTab === "pipeline" && <PipelineKanban canWrite={can("cfp")} />}
+
+          {/* PROSPECTION SPEAKERS */}
+          {activeTab === "prospection-speakers" && <ProspectionSpeakersPanel canWrite={can("prospection-speakers")} />}
 
           {/* DASHBOARD */}
           {activeTab === "dashboard" && (

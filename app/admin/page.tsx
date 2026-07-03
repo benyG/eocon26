@@ -693,6 +693,7 @@ function AiScoreBadge({ score, analysis }: { score: number | null; analysis: str
 
 function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record<string, unknown>[]; onRefresh: () => void; canWrite?: boolean }) {
   const { t, lang } = useAdminT();
+  const { theme } = useAdminTheme();
   const [searchTab, setSearchTab] = useState<"apollo" | "places">("apollo");
   const [apolloKeywords, setApolloKeywords] = useState("cybersecurity,technology,telecom,finance");
   const [placesQuery, setPlacesQuery] = useState("");
@@ -1142,7 +1143,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: lead.source === "apollo" ? "#0066ff15" : "#cc00ff15", color: lead.source === "apollo" ? "#0066ff" : "#cc00ff" }}>
+                    <span className="text-xs px-1.5 py-0.5 rounded font-mono" style={{ background: lead.source === "apollo" ? (theme === "light" ? "#0066ff28" : "#0066ff15") : (theme === "light" ? "#cc00ff28" : "#cc00ff15"), color: lead.source === "apollo" ? "#0066ff" : "#cc00ff", border: `1px solid ${lead.source === "apollo" ? "#0066ff50" : "#cc00ff50"}` }}>
                       {lead.source as string}
                     </span>
                     {lead.aiScore !== null && lead.aiScore !== undefined && (
@@ -1268,9 +1269,9 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                       }}
                       className="text-xs px-2.5 py-1 rounded-full font-mono transition-all"
                       style={{
-                        background: isCollapsed ? "#1a1a2e" : "var(--ac-bg)",
-                        color: isCollapsed ? "#555" : "var(--ac)",
-                        border: `1px solid ${isCollapsed ? "#333" : "var(--ac)"}`,
+                        background: isCollapsed ? (theme === "light" ? "#e8e8ee" : "#1a1a2e") : "var(--ac-bg)",
+                        color: isCollapsed ? (theme === "light" ? "#666" : "#555") : "var(--ac)",
+                        border: `1px solid ${isCollapsed ? (theme === "light" ? "#ccc" : "#333") : "var(--ac)"}`,
                       }}
                     >
                       {q.split(",")[0].trim()} <span style={{ opacity: 0.6 }}>({pending}/{qLeads.length})</span>
@@ -1283,7 +1284,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                     setCollapsedQueries(allCollapsed ? new Set() : new Set(queries));
                   }}
                   className="text-xs px-2.5 py-1 rounded-full font-mono transition-all ml-auto"
-                  style={{ background: "#1a1a2e", color: "#555", border: "1px solid #333" }}
+                  style={{ background: theme === "light" ? "#e8e8ee" : "#1a1a2e", color: theme === "light" ? "#666" : "#555", border: `1px solid ${theme === "light" ? "#ccc" : "#333"}` }}
                 >
                   {queries.every(q => collapsedQueries.has(q)) ? (lang === "en" ? "Expand all" : "Tout ouvrir") : (lang === "en" ? "Collapse all" : "Tout réduire")}
                 </button>
@@ -1373,31 +1374,6 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
         </div>
       )}
 
-      {packages.length > 0 && (
-        <div className="cyber-card rounded-xl p-5">
-          <h2 className="text-xs font-bold uppercase tracking-widest mb-4 text-gray-500">{t.availablePackages}</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {packages.map(pkg => {
-              const perks = JSON.parse((pkg.perksFr as string) || "[]") as string[];
-              return (
-                <div key={pkg.id as number} className="border border-gray-800 rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold" style={{ color: (pkg.highlightColor as string) || "var(--txt-dim)" }}>{pkg.tier as string}</span>
-                    <span className="text-xs font-mono text-white">{(pkg.price as number) > 0 ? `${(pkg.price as number).toLocaleString("fr-FR")} FCFA` : t.exchangeLabel}</span>
-                  </div>
-                  <p className="text-gray-500 text-xs mb-2">{pkg.nameFr as string}</p>
-                  <ul className="space-y-0.5">
-                    {perks.slice(0, 3).map((p, i) => (
-                      <li key={i} className="text-gray-600 text-xs flex gap-1"><span style={{ color: (pkg.highlightColor as string) || "var(--txt-dim)" }}>·</span>{p}</li>
-                    ))}
-                    {perks.length > 3 && <li className="text-gray-700 text-xs">+{perks.length - 3} {t.morePerks}</li>}
-                  </ul>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -3246,7 +3222,6 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                           >
                             {PROSPECT_STATUSES.map(s => <option key={s.value} value={s.value}>{lang === "en" ? s.en : s.fr}</option>)}
                           </select>
-                          <button onClick={() => del(p.id as number)} className="text-xs text-red-500 hover:text-red-400 px-1">✕</button>
                         </div>}
                       </div>
                     </div>
@@ -6968,6 +6943,7 @@ export default function AdminDashboard() {
   const [detail, setDetail] = useState<{ type: string; item: Record<string, unknown> } | null>(null);
   const [sponsorPkgs, setSponsorPkgs] = useState<Record<string, unknown>[]>([]);
   const [sponsorPipelineData, setSponsorPipelineData] = useState<Record<string, unknown>[]>([]);
+  const [sponsorAssignees, setSponsorAssignees] = useState<{ id: number; name: string }[]>([]);
   const [lang, setLang] = useState<AdminLang>(() => {
     if (typeof window !== "undefined") return (localStorage.getItem("admin_lang") as AdminLang) || "fr";
     return "fr";
@@ -7101,14 +7077,16 @@ export default function AdminDashboard() {
       if (t === "pipeline") {
         // PipelineKanban self-fetches all data
       } else if (t === "sponsors") {
-        const [sRes, pkgRes, pipeRes] = await Promise.all([
+        const [sRes, pkgRes, pipeRes, assigneesRes] = await Promise.all([
           fetch("/api/admin/sponsors"),
           fetch("/api/admin/sponsor-packages"),
           fetch("/api/admin/sponsor-prospects"),
+          fetch("/api/admin/sponsor-prospects/assignees"),
         ]);
         if (sRes.ok) { const json = await sRes.json(); setData(d => ({ ...d, sponsors: json })); }
         if (pkgRes.ok) { const json = await pkgRes.json(); setSponsorPkgs(json); }
         if (pipeRes.ok) { const json = await pipeRes.json(); setSponsorPipelineData(json); }
+        if (assigneesRes.ok) { const json = await assigneesRes.json(); setSponsorAssignees(json); }
       } else if (t === "team") {
         const res = await fetch("/api/admin/team");
         if (res.ok) { const json = await res.json(); setData(d => ({ ...d, team: json })); }
@@ -7540,12 +7518,11 @@ export default function AdminDashboard() {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-black text-white">{t.sponsorsTitle}</h1>
-                {can("sponsors") && <button onClick={() => { setForm({ isVisible: true, tier: "GOLD", sortOrder: 0 }); setEditing(null); setShowForm(true); }} className="btn-neon px-4 py-2 rounded text-xs">{t.addSponsor}</button>}
               </div>
 
-              {can("sponsors") && showForm && (
+              {can("sponsors") && showForm && editing !== null && (
                 <div className="cyber-card rounded-xl p-6 mb-6">
-                  <h3 className="text-neon-green text-sm mb-4">{editing ? (lang === "en" ? "Edit Sponsor" : "Modifier le Sponsor") : (lang === "en" ? "New Sponsor" : "Nouveau Sponsor")}</h3>
+                  <h3 className="text-neon-green text-sm mb-4">{lang === "en" ? "Edit Sponsor" : "Modifier le Sponsor"}</h3>
                   <div className="grid sm:grid-cols-2 gap-3">
                     {(lang === "en" ? [{ key: "name", label: "Sponsor Name *" }, { key: "website", label: "Website" }] : [{ key: "name", label: "Nom du Sponsor *" }, { key: "website", label: "Site Web" }]).map(f => (
                       <div key={f.key}>
@@ -7580,6 +7557,17 @@ export default function AdminDashboard() {
                       <input type="checkbox" checked={!!form.showOnLive} onChange={e => setForm({ ...form, showOnLive: e.target.checked })} />
                       {lang === "en" ? "🔴 Show logo on " : "🔴 Afficher logo sur la page "}<span className="text-neon-green">/live</span>
                     </label>
+                    {(() => {
+                      const linked = sponsorPipelineData.find(p => String(p.org || "").toLowerCase() === String(form.name || "").toLowerCase());
+                      const assigneeName = linked ? sponsorAssignees.find(a => a.id === (linked.assigneeId as number))?.name : null;
+                      if (!assigneeName) return null;
+                      return (
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Assigned to (prospect)" : "Assigné à (prospect)"}</label>
+                          <div className="cyber-input w-full px-3 py-2 rounded text-xs opacity-70 select-none">{assigneeName}</div>
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="flex gap-3 mt-4">
                     <button onClick={() => save("/api/admin/sponsors")} className="btn-neon-solid px-4 py-2 rounded text-xs border-2 border-neon-green">{lang === "en" ? "Save" : "Sauvegarder"}</button>

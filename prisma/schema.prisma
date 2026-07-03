@@ -797,6 +797,91 @@ model MediaAsset {
   @@map("media_assets")
 }
 
+// ── Speaker Prospection ───────────────────────────────────────────────────────
+model SpeakerProfile {
+  id                 Int              @id @default(autoincrement())
+  speakerId          String           @unique @map("speaker_id")
+  name               String
+  title              String?
+  org                String?
+  country            String?
+  region             String?
+  city               String?
+  photoUrl           String?          @map("photo_url")
+  bio                String?          @db.Text
+  profileType        String?          @map("profile_type")
+  participationModel String           @default("unknown") @map("participation_model")
+  langFr             Boolean          @default(false) @map("lang_fr")
+  langEn             Boolean          @default(false) @map("lang_en")
+  langOther          String?          @map("lang_other")
+  topicMain          String?          @map("topic_main")
+  topicsSecondary    Json             @default("[]") @map("topics_secondary")
+  keywords           String?          @db.Text
+  techLevel          String?          @map("tech_level")
+  certifications     String?          @db.Text
+  linkedin           String?
+  twitter            String?
+  github             String?
+  scholar            String?
+  website            String?
+  email              String?
+  conferencesPast    String?          @db.Text @map("conferences_past")
+  videosUrls         String?          @db.Text @map("videos_urls")
+  publications       String?          @db.Text
+  p1                 Int              @default(0)
+  p2                 Int              @default(0)
+  p3                 Int              @default(0)
+  p4                 Int              @default(0)
+  p5                 Int              @default(0)
+  p6                 Int              @default(0)
+  ipScore            Int              @default(0) @map("ip_score")
+  tier               String           @default("Tier3")
+  tierOverride       Boolean          @default(false) @map("tier_override")
+  status             String           @default("active")
+  notes              String?          @db.Text
+  createdBy          Int?             @map("created_by")
+  contacts           SpeakerContact[]
+  sources            SpeakerSource[]
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  @@map("speaker_profiles")
+}
+
+model SpeakerContact {
+  id               Int             @id @default(autoincrement())
+  speakerProfileId Int             @map("speaker_profile_id")
+  profile          SpeakerProfile  @relation(fields: [speakerProfileId], references: [id], onDelete: Cascade)
+  eventLabel       String          @default("EOCON 2026") @map("event_label")
+  contactStatus    String          @default("to_research") @map("contact_status")
+  formatProposed   String?         @map("format_proposed")
+  topicProposed    String?         @db.Text @map("topic_proposed")
+  assigneeId       Int?            @map("assignee_id")
+  contactedAt      DateTime?       @map("contacted_at")
+  responseAt       DateTime?       @map("response_at")
+  nextFollowupAt   DateTime?       @map("next_followup_at")
+  notes            String?         @db.Text
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  @@map("speaker_contacts")
+}
+
+model SpeakerSource {
+  id               Int             @id @default(autoincrement())
+  speakerProfileId Int             @map("speaker_profile_id")
+  profile          SpeakerProfile  @relation(fields: [speakerProfileId], references: [id], onDelete: Cascade)
+  type             String          @default("other")
+  title            String?
+  url              String?         @db.Text
+  reliability      String          @default("secondary")
+  consultedAt      DateTime?       @map("consulted_at")
+  notes            String?         @db.Text
+  createdAt        DateTime        @default(now()) @map("created_at")
+
+  @@map("speaker_sources")
+}
+
 // ── Session planning (filled by streaming team) ────────────────────────────────
 model SessionPlanning {
   id              Int            @id @default(autoincrement())

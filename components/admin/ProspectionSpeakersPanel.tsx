@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1078,6 +1078,333 @@ function CoverageGrid({ profiles }: { profiles: SpeakerProfile[] }) {
   );
 }
 
+// ─── XLSX Import ──────────────────────────────────────────────────────────────
+
+const TOPIC_KEYWORD_MAP: Array<[RegExp, string]> = [
+  [/offensiv|red.?team/i, "TOP-01"],
+  [/threat.?intel|hunting/i, "TOP-02"],
+  [/cloud|infra/i, "TOP-03"],
+  [/\bai\b|artificial|machine.?learn/i, "TOP-04"],
+  [/forensic|incident|dfir/i, "TOP-05"],
+  [/applic|api.?sec/i, "TOP-06"],
+  [/\bot\b|ics|scada/i, "TOP-07"],
+  [/privacy|data.?prot/i, "TOP-08"],
+  [/govern|grc|compliance/i, "TOP-09"],
+  [/emerging|afric.*threat/i, "TOP-10"],
+  [/open.?source|oss/i, "TOP-11"],
+  [/aware|culture|sensibil/i, "TOP-12"],
+];
+
+function normalizeTopic(val: string): string | undefined {
+  if (!val) return undefined;
+  const v = val.trim();
+  if (/^top-\d{2}$/i.test(v)) return v.toUpperCase();
+  const numMatch = v.match(/^(\d{1,2})[.\s\-–]/);
+  if (numMatch) return `TOP-${numMatch[1].padStart(2, "0")}`;
+  const numOnly = v.match(/^\d{1,2}$/);
+  if (numOnly) return `TOP-${numOnly[0].padStart(2, "0")}`;
+  for (const [re, key] of TOPIC_KEYWORD_MAP) if (re.test(v)) return key;
+  return undefined;
+}
+
+function normalizeParticipation(val: string): string {
+  if (!val) return "unknown";
+  if (/volont|pro.?bono|gratuit|bénévole|volunteer|free|communaut/i.test(val)) return "volunteer";
+  if (/payant|paid|cachet|rémun|bureau|speaker.?fee/i.test(val)) return "paid";
+  return "unknown";
+}
+
+function normalizeIntCol(val: unknown): number {
+  const n = Math.round(parseFloat(String(val ?? "")));
+  return isNaN(n) ? 0 : Math.max(0, Math.min(100, n));
+}
+
+// Column name → internal field key (lowercase keys for lookup)
+const COL_MAP: Record<string, string> = {
+  "nom": "name", "nom complet": "name", "name": "name", "full name": "name", "speaker": "name", "prénom nom": "name",
+  "poste": "title", "titre": "title", "title": "title", "position": "title", "job title": "title", "fonction": "title",
+  "organisation": "org", "organization": "org", "company": "org", "entreprise": "org", "org": "org", "société": "org", "structure": "org",
+  "pays": "country", "country": "country",
+  "région": "region", "region": "region", "zone": "region", "zone géographique": "region",
+  "ville": "city", "city": "city",
+  "linkedin": "linkedin", "linkedin url": "linkedin", "profil linkedin": "linkedin",
+  "email": "email", "e-mail": "email", "mail": "email", "courriel": "email", "adresse email": "email",
+  "thématique": "topicMain", "topic": "topicMain", "thematique": "topicMain",
+  "thématique principale": "topicMain", "axe thématique": "topicMain", "sujet": "topicMain",
+  "modèle de participation": "participationModel", "participation": "participationModel",
+  "modèle": "participationModel", "cachet estimé": "participationModel", "cachet": "participationModel",
+  "p1": "p1", "p2": "p2", "p3": "p3", "p4": "p4", "p5": "p5", "p6": "p6",
+  "p1 - pertinence internationale": "p1", "p2 - alignement thématique eocon": "p2",
+  "p3 - africanité / diaspora": "p3", "p4 - accessibilité & modèle pro bono": "p4",
+  "p5 - adéquation format programme": "p5", "p6 - visibilité & rayonnement": "p6",
+  "notes": "notes", "commentaires": "notes", "observations": "notes", "remarques": "notes", "note": "notes",
+  "site web": "website", "website": "website",
+  "twitter": "twitter", "github": "github",
+  "bio": "bio", "biographie": "bio", "biography": "bio",
+  "langue": "__lang__", "language": "__lang__", "langues": "__lang__", "lang": "__lang__",
+  "source": "__source__", "sources": "__source__", "source principale": "__source__",
+  "format": "__format__", "format proposé": "__format__", "format de présentation": "__format__",
+  "type de profil": "profileType", "profil": "profileType", "catégorie": "profileType",
+  "niveau technique": "techLevel", "tech level": "techLevel",
+  "certifications": "certifications", "certs": "certifications",
+  "conférences passées": "conferencesPast", "past conferences": "conferencesPast",
+  "talks passés": "conferencesPast", "historique conférences": "conferencesPast",
+  "publications": "publications",
+  "keywords": "keywords", "mots-clés": "keywords", "mots clés": "keywords",
+  "pertinence": "notes", // pertinence column → goes into notes
+};
+
+function buildProfileFromRow(row: unknown[], fieldMap: string[]): ProfileForm | null {
+  const get = (field: string): string => {
+    const idx = fieldMap.indexOf(field);
+    return idx >= 0 ? String(row[idx] ?? "").trim() : "";
+  };
+
+  const name = get("name");
+  if (!name) return null;
+
+  const langRaw = get("__lang__");
+  const langFr = !langRaw || /fr|français|french/i.test(langRaw);
+  const langEn = !langRaw || /en|english|anglais/i.test(langRaw);
+
+  const participationRaw = get("participationModel") || get("__source__");
+  const participationModel = normalizeParticipation(participationRaw);
+  const topicMain = normalizeTopic(get("topicMain")) ?? "";
+
+  const noteParts: string[] = [];
+  const sourceVal = get("__source__");
+  const notesVal = get("notes");
+  const formatVal = get("__format__");
+  if (sourceVal) noteParts.push(`Source: ${sourceVal}`);
+  if (notesVal) noteParts.push(notesVal);
+  if (formatVal) noteParts.push(`Format suggéré: ${formatVal}`);
+
+  return {
+    name,
+    title: get("title") || undefined,
+    org: get("org") || undefined,
+    country: get("country") || undefined,
+    region: get("region") || undefined,
+    city: get("city") || undefined,
+    bio: get("bio") || undefined,
+    profileType: get("profileType") || undefined,
+    participationModel,
+    langFr,
+    langEn,
+    langOther: "",
+    topicMain,
+    topicsSecondary: [],
+    keywords: get("keywords") || undefined,
+    techLevel: get("techLevel") || "intermediate",
+    certifications: get("certifications") || undefined,
+    linkedin: get("linkedin") || undefined,
+    twitter: get("twitter") || undefined,
+    github: get("github") || undefined,
+    scholar: undefined,
+    website: get("website") || undefined,
+    email: get("email") || undefined,
+    conferencesPast: get("conferencesPast") || undefined,
+    videosUrls: undefined,
+    publications: get("publications") || undefined,
+    p1: normalizeIntCol(get("p1")),
+    p2: normalizeIntCol(get("p2")),
+    p3: normalizeIntCol(get("p3")),
+    p4: normalizeIntCol(get("p4")),
+    p5: normalizeIntCol(get("p5")),
+    p6: normalizeIntCol(get("p6")),
+    status: "active",
+    notes: noteParts.length > 0 ? noteParts.join("\n") : undefined,
+  };
+}
+
+function XlsxImportModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [step, setStep] = useState<"pick" | "preview" | "importing" | "done">("pick");
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [fieldMap, setFieldMap] = useState<string[]>([]);
+  const [allRows, setAllRows] = useState<unknown[][]>([]);
+  const [previewRows, setPreviewRows] = useState<unknown[][]>([]);
+  const [progress, setProgress] = useState({ done: 0, total: 0, imported: 0, errors: [] as string[] });
+
+  const handleFile = async (file: File) => {
+    const XLSX = await import("xlsx");
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const raw = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: "" }) as unknown[][];
+
+    if (raw.length < 2) { alert("Fichier vide ou illisible."); return; }
+
+    const hdrs = (raw[0] as unknown[]).map(h => String(h ?? "").trim());
+    const fMap = hdrs.map(h => COL_MAP[h.toLowerCase()] ?? `__unknown_${h}__`);
+    const dataRows = raw.slice(1).filter(r =>
+      (r as unknown[]).some(c => String(c ?? "").trim() !== "")
+    );
+
+    setHeaders(hdrs);
+    setFieldMap(fMap);
+    setAllRows(dataRows);
+    setPreviewRows(dataRows.slice(0, 5));
+    setStep("preview");
+  };
+
+  const runImport = async () => {
+    setStep("importing");
+    const nameIdx = fieldMap.indexOf("name");
+    const validRows = allRows.filter(r =>
+      nameIdx >= 0 && String((r as unknown[])[nameIdx] ?? "").trim() !== ""
+    );
+    const total = validRows.length;
+    setProgress({ done: 0, total, imported: 0, errors: [] });
+
+    let imported = 0;
+    const errors: string[] = [];
+
+    for (const row of validRows) {
+      const profile = buildProfileFromRow(row as unknown[], fieldMap);
+      if (!profile) continue;
+      try {
+        const res = await fetch("/api/admin/speaker-profiles", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(profile),
+        });
+        if (res.ok) { imported++; }
+        else {
+          const msg = await res.text().catch(() => "");
+          errors.push(`${profile.name}: ${msg.slice(0, 120)}`);
+        }
+      } catch (e) {
+        errors.push(`${profile.name}: ${String(e)}`);
+      }
+      setProgress(p => ({ ...p, done: p.done + 1, imported, errors: [...errors] }));
+    }
+
+    setProgress({ done: total, total, imported, errors });
+    setStep("done");
+  };
+
+  const recognized = fieldMap.filter(f => !f.startsWith("__unknown_")).length;
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+      <div className="cyber-card rounded-xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-neon-green text-sm font-bold">📥 Import XLSX — Speakers EOCON 2026</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-white text-xs">✕</button>
+        </div>
+
+        {step === "pick" && (
+          <div className="text-center py-12 space-y-4">
+            <p className="text-gray-400 text-xs">Format ESID attendu — colonnes : Nom, Organisation, Pays, Région, Langue,<br />Poste, Thématique, Modèle de participation, Email, LinkedIn, P1-P6, Notes…</p>
+            <button onClick={() => fileRef.current?.click()} className="btn-neon px-6 py-3 rounded text-sm">
+              📂 Choisir le fichier .xlsx / .csv
+            </button>
+            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
+              onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
+          </div>
+        )}
+
+        {step === "preview" && (
+          <div className="space-y-4">
+            {/* Column detection */}
+            <div className="border border-gray-800 rounded-lg p-3">
+              <p className="text-xs text-gray-500 mb-2">
+                Colonnes détectées : <span className="text-neon-green font-mono font-bold">{recognized}/{headers.length}</span> reconnues
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {headers.map((h, i) => {
+                  const unknown = fieldMap[i].startsWith("__unknown_");
+                  return (
+                    <span key={i} className="text-xs px-2 py-0.5 rounded font-mono"
+                      style={{
+                        background: unknown ? "#ff000012" : "#00ff9d12",
+                        color: unknown ? "#ff6666" : "#00cc7a",
+                        border: `1px solid ${unknown ? "#ff444430" : "#00ff9d30"}`,
+                      }}>
+                      {h}{!unknown && <span className="opacity-40 ml-1">→ {fieldMap[i]}</span>}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Preview table */}
+            <div>
+              <p className="text-xs text-gray-500 mb-2">Aperçu — 5 premières lignes sur <span className="font-mono text-white">{allRows.length}</span> :</p>
+              <div className="overflow-x-auto">
+                <table className="text-xs border-collapse w-full">
+                  <thead>
+                    <tr className="border-b border-gray-800">
+                      {headers.slice(0, 9).map((h, i) => (
+                        <th key={i} className="text-left text-gray-500 py-1.5 pr-4 font-normal whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewRows.map((row, ri) => (
+                      <tr key={ri} className="border-b border-gray-900 hover:bg-white/2">
+                        {(row as unknown[]).slice(0, 9).map((cell, ci) => (
+                          <td key={ci} className="py-1.5 pr-4 text-gray-300 max-w-[140px] truncate">{String(cell ?? "")}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-1">
+              <button onClick={runImport} className="btn-neon px-5 py-2 rounded text-xs">
+                🚀 Importer les {allRows.length} profils
+              </button>
+              <button onClick={() => setStep("pick")} className="text-xs text-gray-500 hover:text-white">
+                ← Changer de fichier
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === "importing" && (
+          <div className="py-10 space-y-4">
+            <div>
+              <div className="flex justify-between text-xs text-gray-500 mb-2">
+                <span>Import en cours…</span>
+                <span className="font-mono">{progress.done}/{progress.total}</span>
+              </div>
+              <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-full bg-neon-green transition-all duration-200 rounded-full"
+                  style={{ width: `${progress.total > 0 ? (progress.done / progress.total) * 100 : 0}%` }} />
+              </div>
+            </div>
+            {progress.errors.length > 0 && (
+              <div className="text-xs text-red-400 space-y-1">
+                {progress.errors.slice(-3).map((e, i) => <p key={i}>⚠ {e}</p>)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {step === "done" && (
+          <div className="text-center py-10 space-y-4">
+            <p className="text-neon-green text-5xl font-black font-mono">{progress.imported}</p>
+            <p className="text-white text-sm">profils importés avec succès</p>
+            {progress.errors.length > 0 && (
+              <div className="text-left border border-red-900 rounded-lg p-3 mt-4 max-h-40 overflow-y-auto">
+                <p className="text-red-400 text-xs mb-2">{progress.errors.length} erreur(s) :</p>
+                {progress.errors.map((e, i) => <p key={i} className="text-gray-500 text-xs">{e}</p>)}
+              </div>
+            )}
+            <button onClick={() => { onDone(); onClose(); }} className="btn-neon px-6 py-2 rounded text-xs mt-4">
+              ✓ Fermer et actualiser la base
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
 export default function ProspectionSpeakersPanel({ canWrite = false }: { canWrite?: boolean }) {
@@ -1088,6 +1415,7 @@ export default function ProspectionSpeakersPanel({ canWrite = false }: { canWrit
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [apolloModal, setApolloModal] = useState(false);
+  const [importModal, setImportModal] = useState(false);
   const [assignees, setAssignees] = useState<{ id: number; name: string }[]>([]);
 
   // Filters
@@ -1195,6 +1523,9 @@ export default function ProspectionSpeakersPanel({ canWrite = false }: { canWrit
         <div className="flex gap-2 flex-wrap">
           {canWrite && (
             <>
+              <button onClick={() => setImportModal(true)} className="text-xs px-3 py-1.5 rounded" style={{ background: "#ff990015", color: "#ff9900", border: "1px solid #ff990040" }}>
+                📥 Importer XLSX
+              </button>
               <button onClick={() => setApolloModal(true)} className="text-xs px-3 py-1.5 rounded" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff40" }}>
                 🌍 Recherche Apollo
               </button>
@@ -1405,6 +1736,14 @@ export default function ProspectionSpeakersPanel({ canWrite = false }: { canWrit
         <ApolloSearchModal
           onClose={() => setApolloModal(false)}
           onImport={importFromApollo}
+        />
+      )}
+
+      {/* XLSX import modal */}
+      {importModal && (
+        <XlsxImportModal
+          onClose={() => setImportModal(false)}
+          onDone={load}
         />
       )}
     </div>

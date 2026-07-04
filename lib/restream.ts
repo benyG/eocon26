@@ -100,12 +100,13 @@ export interface RestreamTicker {
   active: boolean;
 }
 
-async function restreamGet<T>(path: string, token: string): Promise<T> {
+async function restreamGet<T>(path: string, token: string, opts?: { on404?: T }): Promise<T> {
   const res = await fetch(`${RESTREAM_BASE}${path}`, {
     headers: { "Authorization": `Bearer ${token}`, "Accept": "application/json" },
     cache: "no-store",
   });
   if (res.status === 401 || res.status === 403) throw new Error("Token invalide ou expiré");
+  if (res.status === 404 && opts?.on404 !== undefined) return opts.on404;
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
     throw new Error(`Restream API ${res.status}: ${txt.slice(0, 120)}`);
@@ -144,7 +145,7 @@ export async function fetchRestreamStatus(token: string): Promise<RestreamStatus
   // Fetch channels and stream key in parallel. The streamKey endpoint returns 404
   // on some Restream account types — handle gracefully so it doesn't kill the whole call.
   const [rawChannels, rawKey] = await Promise.all([
-    restreamGet<Record<string, unknown>[]>("/user/channel", token),
+    restreamGet<Record<string, unknown>[]>("/user/channel", token, { on404: [] }),
     restreamGet<Record<string, unknown>>("/user/streamKey", token).catch(() => null),
   ]);
 
@@ -223,7 +224,7 @@ export async function fetchActiveYoutubeEmbedUrl(
 
   // ── 2. Events list (pre-created event) ───────────────────────────────
   try {
-    const events = await restreamGet<RestreamEvent[]>("/user/events", token);
+    const events = await restreamGet<RestreamEvent[]>("/user/events", token, { on404: [] });
     if (Array.isArray(events)) {
       for (const ev of events.slice(0, 20)) {
         const ytId = extractYoutubeIdFromEvent(ev);
@@ -243,7 +244,7 @@ export async function fetchActiveYoutubeEmbedUrl(
 // ── Captions ──────────────────────────────────────────────────────────────────
 
 export async function listCaptions(token: string): Promise<RestreamCaption[]> {
-  const raw = await restreamGet<Record<string, unknown>[]>("/user/caption", token);
+  const raw = await restreamGet<Record<string, unknown>[]>("/user/caption", token, { on404: [] });
   return (raw ?? []).map(c => ({
     id: Number(c.id),
     text: String(c.text ?? ""),
@@ -276,7 +277,7 @@ export async function deleteCaption(token: string, id: number): Promise<void> {
 // ── Tickers ───────────────────────────────────────────────────────────────────
 
 export async function listTickers(token: string): Promise<RestreamTicker[]> {
-  const raw = await restreamGet<Record<string, unknown>[]>("/user/ticker", token);
+  const raw = await restreamGet<Record<string, unknown>[]>("/user/ticker", token, { on404: [] });
   return (raw ?? []).map(t => ({
     id: Number(t.id),
     text: String(t.text ?? ""),

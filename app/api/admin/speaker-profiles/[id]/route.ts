@@ -32,9 +32,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const ct = body.tier ?? existing.tier;
   const { ipScore, tier } = computeIpAndTier(p, pm, to, ct);
 
+  // Strip relation arrays and read-only fields — Prisma rejects them in data
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id: _id, speakerId: _sid, createdAt: _ca, updatedAt: _ua, contacts: _c, sources: _s, ...scalars } = body;
+
   const updated = await prisma.speakerProfile.update({
     where: { id },
-    data: { ...body, ipScore, tier },
+    data: { ...scalars, ipScore, tier },
     include: { contacts: true, sources: true },
   });
   return NextResponse.json(updated);

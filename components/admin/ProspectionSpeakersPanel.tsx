@@ -118,7 +118,7 @@ const PROFILE_TYPES = [
 ];
 
 const IP_FORMULA = (p: SpeakerProfile) =>
-  Math.round(p.p1 * 0.20 + p.p2 * 0.20 + p.p3 * 0.20 + p.p4 * 0.25 + p.p5 * 0.08 + p.p6 * 0.07);
+  Math.round(p.p1 * 0.25 + p.p2 * 0.10 + p.p3 * 0.15 + p.p4 * 0.30 + p.p5 * 0.10 + p.p6 * 0.10);
 
 const computeTier = (ip: number, participationModel: string): string => {
   if (participationModel === "paid") return "Veille";
@@ -1513,6 +1513,13 @@ export default function ProspectionSpeakersPanel({ canWrite = false }: { canWrit
   useEffect(() => {
     load();
     fetch("/api/admin/speaker-prospects/assignees").then(r => r.ok ? r.json() : []).then(setAssignees).catch(() => {});
+    // One-time recalculation when the IP formula weighting changes (v2: P1=25%, P4=30%)
+    if (typeof window !== "undefined" && !localStorage.getItem("ip_formula_v2")) {
+      fetch("/api/admin/speaker-profiles/recalculate", { method: "POST" })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data?.updated >= 0) { localStorage.setItem("ip_formula_v2", "1"); load(); } })
+        .catch(() => {});
+    }
   }, [load]);
 
   const filtered = profiles.filter(p => {

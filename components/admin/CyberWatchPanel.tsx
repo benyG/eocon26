@@ -432,6 +432,8 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
                     { id: "linkedin", label: "💼 LinkedIn" },
                     { id: "twitter", label: "𝕏 Twitter/X" },
                     { id: "facebook", label: "📘 Facebook" },
+                    { id: "instagram", label: "📷 Instagram" },
+                    { id: "whatsapp", label: "💬 WhatsApp" },
                   ].map(ch => (
                     <button
                       key={ch.id}

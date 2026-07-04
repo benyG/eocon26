@@ -15,6 +15,8 @@ interface PostsResult {
   instagram_en: string;
   facebook_fr: string;
   facebook_en: string;
+  whatsapp_fr: string;
+  whatsapp_en: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -116,6 +118,14 @@ Facebook :
 - Hashtags avant le CTA.
 - Terminer par le CTA imposé.
 
+WhatsApp :
+- 50 à 100 mots maximum — message court, direct et conversationnel.
+- Commence par une accroche émoji percutante (ex: 🔐 🚀 🌍).
+- Pas de hashtags.
+- Ton chaleureux, humain et communautaire, comme un message entre membres.
+- Une seule phrase d'appel à l'action claire à la fin.
+- Terminer par le CTA imposé (lien direct).
+
 Hashtags recommandés selon le contexte :
 - Général: #EOCON2026, #EOCON, #EyesOpenSecurity, #SecureTheFuture, 
 - Cyber: #Cybersecurity, #InfoSec, #CyberSecurityAfrica, #AppSec, #CloudSecurity
@@ -134,7 +144,9 @@ Réponds en JSON uniquement, sans markdown :
   "instagram_fr": "...",
   "instagram_en": "...",
   "facebook_fr": "...",
-  "facebook_en": "..."
+  "facebook_en": "...",
+  "whatsapp_fr": "...",
+  "whatsapp_en": "..."
 }`;
 
   const response = await openai.chat.completions.create({
@@ -162,6 +174,8 @@ Réponds en JSON uniquement, sans markdown :
     { platform: "instagram", lang: "en", content: posts.instagram_en },
     { platform: "facebook", lang: "fr", content: posts.facebook_fr },
     { platform: "facebook", lang: "en", content: posts.facebook_en },
+    { platform: "whatsapp", lang: "fr", content: posts.whatsapp_fr },
+    { platform: "whatsapp", lang: "en", content: posts.whatsapp_en },
   ];
 
   // Create records individually so we can return the IDs (createMany doesn't return them)

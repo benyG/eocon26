@@ -1712,7 +1712,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [brief, setBrief] = useState("");
-  const [platforms, setPlatforms] = useState({ linkedin: true, twitter: false, instagram: false, facebook: false });
+  const [platforms, setPlatforms] = useState({ linkedin: true, twitter: false, instagram: false, facebook: false, whatsapp: false });
   const [lang, setLang] = useState<"fr" | "en" | "both">("both");
   const [generating, setGenerating] = useState(false);
   const [generatedPosts, setGeneratedPosts] = useState<Record<string, string> | null>(null);
@@ -1875,6 +1875,10 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
     if (platforms.instagram) {
       if (lang !== "en") entries.push({ platform: "instagram", lang: "fr", content: generatedPosts.instagram_fr || "" });
       if (lang !== "fr") entries.push({ platform: "instagram", lang: "en", content: generatedPosts.instagram_en || "" });
+    }
+    if (platforms.whatsapp) {
+      if (lang !== "en") entries.push({ platform: "whatsapp", lang: "fr", content: (generatedPosts.whatsapp_fr as string) || "" });
+      if (lang !== "fr") entries.push({ platform: "whatsapp", lang: "en", content: (generatedPosts.whatsapp_en as string) || "" });
     }
     for (const entry of entries) {
       const postId = generatedPostIds[`${entry.platform}_${entry.lang}`];
@@ -2098,7 +2102,8 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                   { id: "linkedin", label: "💼 LinkedIn" },
                   { id: "twitter", label: "𝕏 Twitter/X" },
                   { id: "facebook", label: "📘 Facebook" },
-                  { id: "instagram", label: "◎ Instagram" },
+                  { id: "instagram", label: "📷 Instagram" },
+                  { id: "whatsapp", label: "💬 WhatsApp" },
                 ] as const).map(p => (
                   <label key={p.id} className="flex items-center gap-1.5 cursor-pointer">
                     <input type="checkbox" checked={platforms[p.id]} onChange={e => setPlatforms(prev => ({ ...prev, [p.id]: e.target.checked }))} className="accent-neon-green w-3 h-3" />

@@ -4,6 +4,8 @@ import { hasPermission } from "@/lib/adminPermissions";
 import { publishPost as publishLinkedIn } from "@/lib/linkedin";
 import { publishTweet } from "@/lib/twitter";
 import { publishFacebookPost } from "@/lib/facebook";
+import { publishInstagramPost } from "@/lib/instagram";
+import { publishWhatsAppMessage } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +16,7 @@ export async function POST(req: NextRequest) {
   const post = await prisma.socialPost.findUnique({ where: { id } });
   if (!post) return NextResponse.json({ error: "Post not found" }, { status: 404 });
 
-  const SUPPORTED = ["linkedin", "twitter", "facebook"];
+  const SUPPORTED = ["linkedin", "twitter", "facebook", "instagram", "whatsapp"];
   if (!SUPPORTED.includes(post.platform)) {
     return NextResponse.json({ error: `Platform "${post.platform}" publishing not yet supported` }, { status: 400 });
   }
@@ -39,6 +41,15 @@ export async function POST(req: NextRequest) {
       postUrl = result.url;
     } else if (post.platform === "facebook") {
       const result = await publishFacebookPost(post.content, post.imageUrl ?? undefined);
+      postId = result.id;
+      postUrl = result.url;
+    } else if (post.platform === "instagram") {
+      if (!post.imageUrl) throw new Error("Instagram requires an image (imageUrl missing)");
+      const result = await publishInstagramPost(post.content, post.imageUrl);
+      postId = result.id;
+      postUrl = result.url;
+    } else if (post.platform === "whatsapp") {
+      const result = await publishWhatsAppMessage(post.content, post.imageUrl ?? undefined);
       postId = result.id;
       postUrl = result.url;
     } else {

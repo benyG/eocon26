@@ -1,15 +1,16 @@
 // Facebook Graph API — Page publishing
 // Required env vars:
-//   FACEBOOK_PAGE_ID          — Numeric ID of the EOCON Facebook Page
-//   FACEBOOK_PAGE_ACCESS_TOKEN — Long-lived Page Access Token
+//   FACEBOOK_PAGE_ID   — Numeric ID of the EOCON Facebook Page
+//   META_ACCESS_TOKEN  — System User token (covers FB + IG + WA in one Meta App)
+//                        Fallback: FACEBOOK_PAGE_ACCESS_TOKEN (legacy page token)
 
 const GRAPH_BASE = "https://graph.facebook.com/v21.0";
 
 function getCredentials() {
   const pageId = process.env.FACEBOOK_PAGE_ID;
-  const token = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
+  const token = process.env.META_ACCESS_TOKEN || process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
   if (!pageId || !token) {
-    throw new Error("Facebook credentials missing: FACEBOOK_PAGE_ID, FACEBOOK_PAGE_ACCESS_TOKEN");
+    throw new Error("Facebook credentials missing: FACEBOOK_PAGE_ID + META_ACCESS_TOKEN (or FACEBOOK_PAGE_ACCESS_TOKEN)");
   }
   return { pageId, token };
 }

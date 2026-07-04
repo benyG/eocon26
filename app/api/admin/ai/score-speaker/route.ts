@@ -5,7 +5,7 @@ import { hasPermission } from "@/lib/adminPermissions";
 export const dynamic = "force-dynamic";
 
 function computeIpAndTier(p1: number, p2: number, p3: number, p4: number, p5: number, p6: number, participationModel: string) {
-  const ip = Math.round(p1 * 0.20 + p2 * 0.20 + p3 * 0.20 + p4 * 0.25 + p5 * 0.08 + p6 * 0.07);
+  const ip = Math.round(p1 * 0.25 + p2 * 0.10 + p3 * 0.15 + p4 * 0.30 + p5 * 0.10 + p6 * 0.10);
   if (participationModel === "paid") return { ipScore: ip, tier: "Veille" };
   const tier = ip >= 75 ? "Tier1" : ip >= 50 ? "Tier2" : ip >= 25 ? "Tier3" : "Veille";
   return { ipScore: ip, tier };

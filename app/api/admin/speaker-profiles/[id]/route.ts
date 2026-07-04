@@ -5,7 +5,7 @@ import { hasPermission } from "@/lib/adminPermissions";
 export const dynamic = "force-dynamic";
 
 function computeIpAndTier(p: { p1: number; p2: number; p3: number; p4: number; p5: number; p6: number }, participationModel: string, tierOverride: boolean, currentTier?: string) {
-  const ip = Math.round(p.p1 * 0.20 + p.p2 * 0.20 + p.p3 * 0.20 + p.p4 * 0.25 + p.p5 * 0.08 + p.p6 * 0.07);
+  const ip = Math.round(p.p1 * 0.25 + p.p2 * 0.10 + p.p3 * 0.15 + p.p4 * 0.30 + p.p5 * 0.10 + p.p6 * 0.10);
   if (tierOverride && currentTier) return { ipScore: ip, tier: currentTier };
   if (participationModel === "paid") return { ipScore: ip, tier: "Veille" };
   const tier = ip >= 75 ? "Tier1" : ip >= 50 ? "Tier2" : ip >= 25 ? "Tier3" : "Veille";

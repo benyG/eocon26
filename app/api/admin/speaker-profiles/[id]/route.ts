@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
+import { logAction } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -41,15 +42,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     data: { ...scalars, ipScore, tier },
     include: { contacts: true, sources: true },
   });
+  logAction(req, "UPDATE", "speaker-profile", id, { name: existing.name, ipScore, tier });
   return NextResponse.json(updated);
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   if (!(await hasPermission("prospection-speakers", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const id = parseInt(params.id);
+  const existing = await prisma.speakerProfile.findUnique({ where: { id }, select: { name: true } });
   // Never delete — archive instead
   const updated = await prisma.speakerProfile.update({
-    where: { id: parseInt(params.id) },
+    where: { id },
     data: { status: "archived" },
   });
+  logAction(req, "ARCHIVE", "speaker-profile", id, { name: existing?.name ?? "" });
   return NextResponse.json(updated);
 }

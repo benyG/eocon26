@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
+import { logAction } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -41,5 +42,6 @@ export async function POST(req: NextRequest) {
     data: { ...body, speakerId, ipScore, tier, p1: p.p1, p2: p.p2, p3: p.p3, p4: p.p4, p5: p.p5, p6: p.p6 },
     include: { contacts: true, sources: true },
   });
+  logAction(req, "CREATE", "speaker-profile", profile.id, { name: profile.name, speakerId, tier });
   return NextResponse.json(profile, { status: 201 });
 }

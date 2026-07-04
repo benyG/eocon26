@@ -39,6 +39,8 @@ type SpeakerProfile = {
   tierOverride: boolean;
   status: string;
   notes?: string | null;
+  aiDraftEmail?: string | null;
+  aiDraftBrief?: string | null;
   contacts: SpeakerContact[];
   sources: SpeakerSource[];
 };
@@ -524,12 +526,16 @@ function ApolloSearchModal({ onClose, onImport }: { onClose: () => void; onImpor
 
 // ─── Email Modal ──────────────────────────────────────────────────────────────
 
-function EmailModal({ profile, contact, onClose }: { profile: SpeakerProfile; contact?: SpeakerContact; onClose: () => void }) {
+function EmailModal({ profile, contact, onClose, onSave }: { profile: SpeakerProfile; contact?: SpeakerContact; onClose: () => void; onSave?: (draft: string) => void }) {
   const [mode, setMode] = useState<"initial" | "followup">(contact?.contactStatus && !["to_research","to_contact"].includes(contact.contactStatus) ? "followup" : "initial");
   const [langPref, setLangPref] = useState<"fr" | "en">(profile.langFr ? "fr" : "en");
-  const [emailResult, setEmailResult] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
+  const [emailResult, setEmailResult] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(() => {
+    if (profile.aiDraftEmail) { try { return JSON.parse(profile.aiDraftEmail); } catch { return null; } }
+    return null;
+  });
   const [generating, setGenerating] = useState(false);
   const [displayLang, setDisplayLang] = useState<"fr" | "en">(langPref);
+  const [savedEmail, setSavedEmail] = useState(false);
 
   const generate = async () => {
     setGenerating(true);
@@ -596,9 +602,17 @@ function EmailModal({ profile, contact, onClose }: { profile: SpeakerProfile; co
               <label className="block text-xs text-gray-500 mb-1">Corps</label>
               <textarea className="cyber-input w-full px-3 py-2 rounded text-xs" rows={10} value={body} readOnly />
             </div>
-            <button onClick={() => { navigator.clipboard.writeText(`${subject}\n\n${body}`); }} className="text-xs text-gray-400 hover:text-white">
-              📋 Copier
-            </button>
+            <div className="flex gap-3 items-center">
+              <button onClick={() => { navigator.clipboard.writeText(`${subject}\n\n${body}`); }} className="text-xs text-gray-400 hover:text-white">
+                📋 Copier
+              </button>
+              {onSave && (
+                <button onClick={() => { onSave(JSON.stringify(emailResult)); setSavedEmail(true); setTimeout(() => setSavedEmail(false), 2500); }} className="text-xs px-3 py-1.5 rounded btn-neon">
+                  {savedEmail ? "✓ Sauvegardé" : "💾 Sauvegarder"}
+                </button>
+              )}
+              {profile.aiDraftEmail && <span className="text-xs text-gray-600">Brouillon existant chargé</span>}
+            </div>
           </div>
         )}
       </div>
@@ -608,18 +622,24 @@ function EmailModal({ profile, contact, onClose }: { profile: SpeakerProfile; co
 
 // ─── Brief Modal ──────────────────────────────────────────────────────────────
 
-function BriefModal({ profile, onClose }: { profile: SpeakerProfile; onClose: () => void }) {
-  const [brief, setBrief] = useState<{ accroche: string; valeur: string[]; objection: { question: string; reponse: string }; ouverture: string; aEviter: string; brief_complet: string } | null>(null);
+function BriefModal({ profile, onClose, onSave }: { profile: SpeakerProfile; onClose: () => void; onSave?: (draft: string) => void }) {
+  type BriefData = { accroche: string; valeur: string[]; objection: { question: string; reponse: string }; ouverture: string; aEviter: string; brief_complet: string };
+  const [brief, setBrief] = useState<BriefData | null>(() => {
+    if (profile.aiDraftBrief) { try { return JSON.parse(profile.aiDraftBrief) as BriefData; } catch { return null; } }
+    return null;
+  });
   const [loading, setLoading] = useState(false);
+  const [savedBrief, setSavedBrief] = useState(false);
 
   useEffect(() => {
+    if (brief) return; // already loaded from saved draft
     setLoading(true);
     fetch("/api/admin/ai/speaker-brief", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: profile.name, title: profile.title, org: profile.org, topicMain: profile.topicMain, linkedin: profile.linkedin, notes: profile.notes, p1: profile.p1, p3: profile.p3, p4: profile.p4 }),
     }).then(r => r.ok ? r.json() : null).then(d => { if (d) setBrief(d); }).finally(() => setLoading(false));
-  }, [profile]);
+  }, [profile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
@@ -656,7 +676,15 @@ function BriefModal({ profile, onClose }: { profile: SpeakerProfile; onClose: ()
               <p className="text-gray-500 uppercase tracking-widest text-xs mb-2">Brief complet (à lire avant contact)</p>
               <p className="text-gray-200 leading-relaxed whitespace-pre-wrap">{brief.brief_complet}</p>
             </div>
-            <button onClick={() => navigator.clipboard.writeText(brief.brief_complet)} className="text-xs text-gray-400 hover:text-white">📋 Copier le brief</button>
+            <div className="flex gap-3 items-center">
+              <button onClick={() => navigator.clipboard.writeText(brief.brief_complet)} className="text-xs text-gray-400 hover:text-white">📋 Copier le brief</button>
+              {onSave && (
+                <button onClick={() => { onSave(JSON.stringify(brief)); setSavedBrief(true); setTimeout(() => setSavedBrief(false), 2500); }} className="text-xs px-3 py-1.5 rounded btn-neon">
+                  {savedBrief ? "✓ Sauvegardé" : "💾 Sauvegarder"}
+                </button>
+              )}
+              {profile.aiDraftBrief && !savedBrief && <span className="text-xs text-gray-600">Brouillon sauvegardé · <button className="underline" onClick={() => { setLoading(true); setBrief(null); fetch("/api/admin/ai/speaker-brief", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: profile.name, title: profile.title, org: profile.org, topicMain: profile.topicMain, linkedin: profile.linkedin, notes: profile.notes, p1: profile.p1, p3: profile.p3, p4: profile.p4 }) }).then(r => r.ok ? r.json() : null).then(d => { if (d) setBrief(d); }).finally(() => setLoading(false)); }}>Régénérer</button></span>}
+            </div>
           </div>
         )}
       </div>
@@ -694,6 +722,13 @@ function ProfileDetail({
       });
       if (res.ok) { const updated = await res.json(); onUpdate(updated); setTab("info"); }
     } finally { setSaving(false); }
+  };
+
+  const saveAiDraft = async (field: "aiDraftEmail" | "aiDraftBrief", value: string) => {
+    const res = await fetch(`/api/admin/speaker-profiles/${profile.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [field]: value }),
+    });
+    if (res.ok) { const updated = await res.json(); onUpdate(updated); }
   };
 
   const addContact = async () => {
@@ -785,10 +820,10 @@ function ProfileDetail({
         {/* Action buttons */}
         <div className="flex gap-2 flex-wrap mb-4">
           <button onClick={() => setEmailModal(true)} className="text-xs px-3 py-1.5 rounded" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff40" }}>
-            ✉ Email IA
+            ✉ Email IA{profile.aiDraftEmail ? " ✓" : ""}
           </button>
           <button onClick={() => setBriefModal(true)} className="text-xs px-3 py-1.5 rounded" style={{ background: "#cc00ff15", color: "#cc00ff", border: "1px solid #cc00ff40" }}>
-            📋 Brief équipe
+            📋 Brief équipe{profile.aiDraftBrief ? " ✓" : ""}
           </button>
           {canWrite && <button onClick={() => setTab("edit")} className="text-xs px-3 py-1.5 rounded btn-neon">✏️ Modifier</button>}
           {canWrite && <button onClick={archive} className="text-xs px-3 py-1.5 rounded text-red-400 border border-red-900 hover:border-red-700">Archiver</button>}
@@ -1014,8 +1049,8 @@ function ProfileDetail({
         )}
       </div>
 
-      {emailModal && <EmailModal profile={profile} contact={activeContact} onClose={() => setEmailModal(false)} />}
-      {briefModal && <BriefModal profile={profile} onClose={() => setBriefModal(false)} />}
+      {emailModal && <EmailModal profile={profile} contact={activeContact} onClose={() => setEmailModal(false)} onSave={d => saveAiDraft("aiDraftEmail", d)} />}
+      {briefModal && <BriefModal profile={profile} onClose={() => setBriefModal(false)} onSave={d => saveAiDraft("aiDraftBrief", d)} />}
     </div>
   );
 }

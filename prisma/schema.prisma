@@ -839,6 +839,8 @@ model SpeakerProfile {
   tierOverride       Boolean          @default(false) @map("tier_override")
   status             String           @default("active")
   notes              String?          @db.Text
+  aiDraftEmail       String?          @db.Text @map("ai_draft_email")
+  aiDraftBrief       String?          @db.Text @map("ai_draft_brief")
   createdBy          Int?             @map("created_by")
   contacts           SpeakerContact[]
   sources            SpeakerSource[]

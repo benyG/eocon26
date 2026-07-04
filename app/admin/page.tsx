@@ -1702,6 +1702,73 @@ function LibraryPickerModal({ onPick, onClose }: { onPick: (url: string) => void
   );
 }
 
+// ---- Social Credentials Diagnostics ----
+
+function SocialCredentialsDiag({ adminLang }: { adminLang: string }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<Record<string, { status: string; vars: Record<string, boolean> }> | null>(null);
+
+  const run = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/ai/check-social-credentials");
+      if (res.ok) setData(await res.json());
+    } catch { /* skip */ }
+    setLoading(false);
+  };
+
+  const ok = (s: string) => s.startsWith("OK");
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => { setOpen(!open); if (!open && !data) run(); }}
+        className="px-3 py-1.5 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors"
+      >
+        🔌 {adminLang === "en" ? "Test credentials" : "Tester les credentials"}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-9 z-50 w-96 cyber-card rounded-xl p-4 border border-gray-700 shadow-2xl">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold text-white">{adminLang === "en" ? "Social API credentials" : "Credentials APIs sociales"}</span>
+            <div className="flex gap-2">
+              <button onClick={run} disabled={loading} className="text-xs text-blue-400 hover:underline disabled:opacity-40">{loading ? "..." : adminLang === "en" ? "Refresh" : "Actualiser"}</button>
+              <button onClick={() => setOpen(false)} className="text-xs text-gray-500 hover:text-white">✕</button>
+            </div>
+          </div>
+          {!data && !loading && <p className="text-xs text-gray-500">{adminLang === "en" ? "Click Refresh to run the check." : "Cliquez sur Actualiser pour lancer le test."}</p>}
+          {loading && <p className="text-xs text-gray-500 animate-pulse">Test en cours...</p>}
+          {data && (
+            <div className="space-y-3">
+              {(["twitter", "facebook", "instagram", "whatsapp"] as const).map(p => {
+                const pl = data[p] as { status: string; vars: Record<string, boolean> } | undefined;
+                if (!pl) return null;
+                const isOk = ok(pl.status);
+                return (
+                  <div key={p} className="border-b border-gray-800 pb-2 last:border-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-xs font-mono ${isOk ? "text-green-400" : "text-red-400"}`}>{isOk ? "✓" : "✗"} {p}</span>
+                      <span className="text-xs text-gray-500 truncate flex-1">{pl.status}</span>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {Object.entries(pl.vars).map(([k, v]) => (
+                        <span key={k} className={`text-xs px-1.5 py-0.5 rounded font-mono ${v ? "text-green-600 border border-green-900" : "text-red-500 border border-red-900"}`}>
+                          {v ? "✓" : "✗"} {k.replace(/_/g, "_​")}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---- Communication Panel ----
 
 function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
@@ -1720,6 +1787,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [saving, setSaving] = useState(false);
   const [linkedinPosts, setLinkedinPosts] = useState<Record<string, unknown>[]>([]);
   const [publishing, setPublishing] = useState<number | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
   const [scheduleId, setScheduleId] = useState<number | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
   const getTomorrow09h = () => {
@@ -1898,11 +1966,20 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
 
   const publishNow = async (id: number) => {
     setPublishing(id);
-    await fetch("/api/admin/ai/publish-post", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
+    setPublishError(null);
+    try {
+      const res = await fetch("/api/admin/ai/publish-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) {
+        const data = await res.json() as { error?: string };
+        setPublishError(data.error ?? `Erreur ${res.status}`);
+      }
+    } catch (e) {
+      setPublishError(e instanceof Error ? e.message : "Erreur réseau");
+    }
     await loadLinkedinPosts();
     setPublishing(null);
   };
@@ -1923,7 +2000,18 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-black text-white">{t.communicationTitle}</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="text-2xl font-black text-white">{t.communicationTitle}</h1>
+        <SocialCredentialsDiag adminLang={adminLang} />
+      </div>
+
+      {/* Publish error banner */}
+      {publishError && (
+        <div className="flex items-start gap-3 p-3 rounded-lg border border-red-800 bg-red-950/30">
+          <span className="text-red-400 text-xs flex-1 font-mono break-all">{publishError}</span>
+          <button onClick={() => setPublishError(null)} className="text-red-600 hover:text-red-400 text-xs shrink-0">✕</button>
+        </div>
+      )}
 
       {/* ── RÉSEAUX SOCIAUX ── */}
       <>
@@ -2282,9 +2370,19 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                         });
                       }
                       // Publish only this generation's posts (not all drafts)
+                      const batchErrors: string[] = [];
                       for (const postId of toPublish) {
-                        await fetch("/api/admin/ai/publish-post", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: postId }) });
+                        try {
+                          const res = await fetch("/api/admin/ai/publish-post", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: postId }) });
+                          if (!res.ok) {
+                            const d = await res.json() as { error?: string };
+                            batchErrors.push(d.error ?? `Post ${postId}: erreur ${res.status}`);
+                          }
+                        } catch (e) {
+                          batchErrors.push(e instanceof Error ? e.message : "Erreur réseau");
+                        }
                       }
+                      if (batchErrors.length > 0) setPublishError(batchErrors.join(" | "));
                       setGeneratedPosts(null);
                       setGeneratedPostIds({});
                       setSaving(false);

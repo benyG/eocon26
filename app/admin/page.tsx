@@ -13,6 +13,7 @@ import CampaignsPanel from "@/components/admin/CampaignsPanel";
 import StrategicPlanPanel from "@/components/admin/StrategicPlanPanel";
 import LivePanel from "@/components/admin/LivePanel";
 import ProspectionSpeakersPanel from "@/components/admin/ProspectionSpeakersPanel";
+import LogisticsProspectingPanel from "@/components/admin/LogisticsProspectingPanel";
 import RegistrationsChart from "@/components/admin/RegistrationsChart";
 import NotificationBell from "@/components/admin/NotificationBell";
 import { adminI18n } from "@/lib/adminI18n";
@@ -3647,7 +3648,7 @@ const SUPPLIER_FORM_DEFAULT = { supplier: "", domain: SUPPLIER_DOMAINS[0], descr
 
 function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<string, unknown>[]; onRefresh: () => void; canWrite?: boolean }) {
   const { lang } = useAdminT();
-  const [activeTab, setActiveTab] = useState<"kanban" | "phase" | "overdue" | "all" | "suppliers">("kanban");
+  const [activeTab, setActiveTab] = useState<"kanban" | "phase" | "overdue" | "all" | "suppliers" | "prospection">("kanban");
   const [suppliers, setSuppliers] = useState<Record<string, unknown>[]>([]);
   const [supplierForm, setSupplierForm] = useState<Record<string, string>>(SUPPLIER_FORM_DEFAULT);
   const [showSupplierForm, setShowSupplierForm] = useState(false);
@@ -3755,6 +3756,7 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
     { id: "overdue" as const, label: lang === "en" ? "Overdue View" : "Vue Retards" },
     { id: "all" as const, label: lang === "en" ? "All" : "Toutes" },
     { id: "suppliers" as const, label: lang === "en" ? "Supplier Offers" : "Offres Fournisseurs" },
+    { id: "prospection" as const, label: lang === "en" ? "Prospecting" : "Prospection" },
   ];
 
   return (
@@ -3788,8 +3790,13 @@ function LogisticsPanel({ tasks, onRefresh, canWrite = true }: { tasks: Record<s
         ))}
       </div>
 
+      {/* PROSPECTION TAB */}
+      {activeTab === "prospection" && (
+        <LogisticsProspectingPanel canWrite={canWrite} />
+      )}
+
       {/* Progress bar */}
-      {total > 0 && (
+      {activeTab !== "prospection" && total > 0 && (
         <div className="cyber-card rounded-xl p-4 mb-4">
           <div className="flex justify-between text-xs text-gray-500 mb-2">
             <span>{lang === "en" ? "Overall progress" : "Progression globale"}</span>

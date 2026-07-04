@@ -28,6 +28,7 @@ export interface AdminPermissions {
   audit?: "read" | "write";
   settings?: "read" | "write";
   prospection?: "read" | "write";
+  "prospection-speakers"?: "read" | "write";
   certificates?: "read" | "write";
   ctf?: "read" | "write";
   live?: "read" | "write";
@@ -60,6 +61,7 @@ export const ADMIN_PROFILES: AdminProfile[] = [
       logistics: "write", communication: "write", library: "write", "cyber-watch": "write",
       team: "write", video: "write", export: "write", users: "write",
       profiles: "write", audit: "write", settings: "write", prospection: "write",
+      "prospection-speakers": "write",
       certificates: "write", ctf: "write", live: "write", website: "write", pilotage: "write",
       testimony: "write", campaigns: "write", "strategic-plan": "write",
     },
@@ -94,7 +96,7 @@ export const ADMIN_PROFILES: AdminProfile[] = [
     permissions: {
       sponsors: "write", "sponsor-pipeline": "write",
       "sponsor-packages": "write",
-      prospection: "write", export: "read",
+      prospection: "write", "prospection-speakers": "write", export: "read",
     },
   },
   {

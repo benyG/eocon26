@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hasPermission } from "@/lib/adminPermissions";
+import { logAction } from "@/lib/auditLog";
 import { Resend } from "resend";
 
 export const dynamic = "force-dynamic";
@@ -23,5 +24,6 @@ export async function POST(req: NextRequest) {
   });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  logAction(req, "EMAIL_SENT", "speaker-prospect", null, { to, org, subject });
   return NextResponse.json({ success: true });
 }

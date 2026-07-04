@@ -6,6 +6,7 @@ import { signMfaPending } from "@/lib/mfaToken";
 import { signUserSession } from "@/lib/adminAuth";
 import { verifyPassword, needsRehash, hashPassword } from "@/lib/password";
 import { isUserLocked, registerUserFailure, clearUserFailures } from "@/lib/loginSecurity";
+import { logAction } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -30,9 +31,11 @@ export async function POST(req: NextRequest) {
     if (user && user.isActive) {
       const locked = await registerUserFailure(user.id);
       if (locked) {
+        logAction(req, "LOGIN_LOCKED", "auth", null, { email }, email);
         return NextResponse.json({ error: "Compte verrouillé pour 10 minutes après 3 tentatives échouées." }, { status: 423 });
       }
     }
+    logAction(req, "LOGIN_FAILED", "auth", null, { email }, email || "unknown");
     return NextResponse.json({ error: "Identifiants incorrects" }, { status: 401 });
   }
 
@@ -70,6 +73,7 @@ export async function POST(req: NextRequest) {
   await prisma.adminSession.create({ data: { token: sessionToken, userId: user.id, expiresAt } });
 
   const cookieValue = signUserSession(user.id, sessionToken);
+  logAction(req, "LOGIN", "auth", user.id, { email: user.email, name: user.name }, user.email);
   const res = NextResponse.json({ success: true, user: { id: user.id, name: user.name, email: user.email } });
   res.cookies.set("admin_user_token", cookieValue, {
     httpOnly: true,

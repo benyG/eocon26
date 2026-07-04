@@ -582,6 +582,33 @@ model ProspectLead {
   @@map("prospect_leads")
 }
 
+model LogisticsProspect {
+  id              Int       @id @default(autoincrement())
+  sector          String    // hotel | traiteur | transport | impression | badges | goodies
+  name            String
+  contactName     String?   @map("contact_name")
+  contactTitle    String?   @map("contact_title")
+  email           String?
+  phone           String?
+  website         String?
+  address         String?
+  city            String    @default("Douala")
+  googlePlaceId   String?   @unique @map("google_place_id")
+  googleRating    Float?    @map("google_rating")
+  status          String    @default("new") // new | contacted | replied | visit_planned | deal | rejected
+  notes           String?   @db.Text
+  aiDraftEmailFr  String?   @db.Text @map("ai_draft_email_fr")
+  aiDraftEmailEn  String?   @db.Text @map("ai_draft_email_en")
+  lastContactAt   DateTime? @map("last_contact_at")
+  source          String    @default("manual") // manual | google_places
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([sector])
+  @@index([status])
+  @@map("logistics_prospects")
+}
+
 model SupplierOffer {
   id           Int      @id @default(autoincrement())
   supplier     String

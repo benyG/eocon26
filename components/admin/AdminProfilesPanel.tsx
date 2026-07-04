@@ -20,7 +20,8 @@ const NAV_GROUPS: { label: { fr: string; en: string }; modules: { key: string; l
   { label: { fr: "Sponsors", en: "Sponsors" }, modules: [
     { key: "sponsors", label: "Sponsors" },
     { key: "sponsor-pipeline", label: "Pipeline Sponsors" },
-    { key: "prospection", label: "Prospection" },
+    { key: "prospection", label: "Prospection Sponsors" },
+    { key: "prospection-speakers", label: "🔭 Prospection Speakers" },
   ] },
   { label: { fr: "Budget", en: "Budget" }, modules: [
     { key: "tickets", label: "Billets" },

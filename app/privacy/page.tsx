@@ -41,13 +41,15 @@ export default function PrivacyPage() {
               01 — Who We Are / Qui nous sommes
             </h3>
             <p className="text-gray-300 mb-3">
-              EOCON 2026 is organized by <strong className="text-white">EyesOpen Association</strong>, a non-profit organization promoting cybersecurity
-              culture and education in Africa. Our registered contact address is{" "}
+              EOCON 2026 is organized by <strong className="text-white">Services ExamBoot Inc.</strong>, a company incorporated in Canada.
+              Registered address: <strong className="text-white">1321 Rue des Céramistes, Quebec, G3K 0R2, Canada</strong>.
+              Contact:{" "}
               <a href="mailto:contact@eyesopensecurity.com" className="text-neon-green hover:underline">contact@eyesopensecurity.com</a>.
             </p>
             <p className="text-gray-400">
-              EOCON 2026 est organisé par <strong className="text-white">l'Association EyesOpen</strong>, une organisation à but non lucratif
-              promouvant la culture et l'éducation en cybersécurité en Afrique. Notre adresse de contact est{" "}
+              EOCON 2026 est organisé par <strong className="text-white">Services ExamBoot Inc.</strong>, une société incorporée au Canada.
+              Adresse enregistrée : <strong className="text-white">1321 Rue des Céramistes, Québec, G3K 0R2, Canada</strong>.
+              Contact :{" "}
               <a href="mailto:contact@eyesopensecurity.com" className="text-neon-green hover:underline">contact@eyesopensecurity.com</a>.
             </p>
           </section>
@@ -214,8 +216,8 @@ export default function PrivacyPage() {
               10 — Contact
             </h3>
             <p className="text-gray-300">
-              EyesOpen Association · <a href="mailto:contact@eyesopensecurity.com" className="text-neon-green hover:underline">contact@eyesopensecurity.com</a>
-              <br />eyesopensecurity.com · Douala, Cameroon
+              Services ExamBoot Inc. · <a href="mailto:contact@eyesopensecurity.com" className="text-neon-green hover:underline">contact@eyesopensecurity.com</a>
+              <br />1321 Rue des Céramistes, Québec, G3K 0R2, Canada
             </p>
           </section>
 
@@ -224,7 +226,7 @@ export default function PrivacyPage() {
         {/* Footer */}
         <div className="mt-16 pt-8 border-t border-neon-green/10 flex items-center justify-between">
           <p className="text-gray-700 text-xs font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-            © 2026 EyesOpen Association. All rights reserved.
+            © 2026 Services ExamBoot Inc. All rights reserved.
           </p>
           <Link href="/" className="text-neon-green text-xs font-mono hover:underline" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
             &lt; EOCON 2026

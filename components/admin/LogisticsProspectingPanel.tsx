@@ -388,6 +388,8 @@ export default function LogisticsProspectingPanel({ canWrite = true }: { canWrit
   const [editId, setEditId] = useState<number | null>(null);
   const [editNotes, setEditNotes] = useState("");
   const [editStatus, setEditStatus] = useState("");
+  // scraping state: prospectId → { scraping, found, error }
+  const [scrapeState, setScrapeState] = useState<Record<number, { scraping: boolean; found: string[]; error: string | null }>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -427,6 +429,32 @@ export default function LogisticsProspectingPanel({ canWrite = true }: { canWrit
     setEditId(null);
   };
 
+  const scrapeEmail = async (p: LogisticsProspect) => {
+    if (!p.website) return;
+    setScrapeState(prev => ({ ...prev, [p.id]: { scraping: true, found: [], error: null } }));
+    try {
+      const res = await fetch("/api/admin/logistics-prospects/scrape-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prospectId: p.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setScrapeState(prev => ({ ...prev, [p.id]: { scraping: false, found: [], error: data.error ?? "Erreur" } }));
+        return;
+      }
+      setScrapeState(prev => ({ ...prev, [p.id]: { scraping: false, found: data.found ?? [], error: null } }));
+      if (data.autoFilled) load();
+    } catch {
+      setScrapeState(prev => ({ ...prev, [p.id]: { scraping: false, found: [], error: "Erreur réseau" } }));
+    }
+  };
+
+  const applyScrapeEmail = async (id: number, email: string) => {
+    await updateProspect(id, { email });
+    setScrapeState(prev => { const n = { ...prev }; delete n[id]; return n; });
+  };
+
   const filtered = filterStatus === "all"
     ? prospects
     : prospects.filter(p => p.status === filterStatus);
@@ -441,12 +469,23 @@ export default function LogisticsProspectingPanel({ canWrite = true }: { canWrit
           <p className="text-xs text-gray-500 mt-0.5">{prospects.length} prospect(s) · secteur sélectionné</p>
         </div>
         {canWrite && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setShowPlacesSearch(!showPlacesSearch)}
               className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors"
             >
               {showPlacesSearch ? "✕ Fermer recherche" : "🔍 Google Places"}
+            </button>
+            <button
+              onClick={async () => {
+                const targets = prospects.filter(p => p.website && !p.email);
+                for (const p of targets) await scrapeEmail(p);
+              }}
+              disabled={prospects.filter(p => p.website && !p.email).length === 0}
+              title="Scraper les emails sur tous les sites sans email"
+              className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white disabled:opacity-30 transition-colors"
+            >
+              🔎 Scraper tous ({prospects.filter(p => p.website && !p.email).length})
             </button>
             <button
               onClick={() => setShowAddModal(true)}
@@ -569,6 +608,39 @@ export default function LogisticsProspectingPanel({ canWrite = true }: { canWrit
                   {(p.aiDraftEmailFr || p.aiDraftEmailEn) && (
                     <p className="text-xs text-neon-green/60 mt-1">✓ Brouillon email sauvegardé</p>
                   )}
+
+                  {/* Scrape results */}
+                  {scrapeState[p.id] && !scrapeState[p.id].scraping && (
+                    <div className="mt-2">
+                      {scrapeState[p.id].error && (
+                        <p className="text-xs text-red-400">{scrapeState[p.id].error}</p>
+                      )}
+                      {scrapeState[p.id].found.length === 0 && !scrapeState[p.id].error && (
+                        <p className="text-xs text-gray-500">Aucun email trouvé sur le site.</p>
+                      )}
+                      {scrapeState[p.id].found.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-xs text-gray-400 font-mono">Emails trouvés :</p>
+                          {scrapeState[p.id].found.map(e => (
+                            <div key={e} className="flex items-center gap-2">
+                              <span className="text-xs text-blue-300 font-mono">{e}</span>
+                              {e !== p.email && (
+                                <button
+                                  onClick={() => applyScrapeEmail(p.id, e)}
+                                  className="text-xs text-neon-green hover:underline"
+                                >
+                                  ✓ Utiliser
+                                </button>
+                              )}
+                              {e === p.email && (
+                                <span className="text-xs text-green-600">· déjà enregistré</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {canWrite && editId !== p.id && (
@@ -579,6 +651,16 @@ export default function LogisticsProspectingPanel({ canWrite = true }: { canWrit
                     >
                       ✉️ Email
                     </button>
+                    {p.website && (
+                      <button
+                        onClick={() => scrapeEmail(p)}
+                        disabled={scrapeState[p.id]?.scraping}
+                        title="Chercher un email sur le site web"
+                        className="px-3 py-1.5 rounded text-xs border border-gray-700 text-gray-400 hover:text-white disabled:opacity-40 transition-colors"
+                      >
+                        {scrapeState[p.id]?.scraping ? "⏳..." : "🔎 Email"}
+                      </button>
+                    )}
                     <button
                       onClick={() => startEdit(p)}
                       className="px-3 py-1.5 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors"

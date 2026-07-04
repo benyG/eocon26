@@ -163,12 +163,12 @@ function IpGauge({ score }: { score: number }) {
 // ─── IP Score Editor ──────────────────────────────────────────────────────────
 
 const P_LABELS = [
-  { key: "p1", label: "P1 — Pertinence internationale", weight: "20%", hint: "Track record conférences mondiales (RSA, Black Hat, DEF CON…)" },
-  { key: "p2", label: "P2 — Alignement thématique EOCON", weight: "20%", hint: "Couverture directe des 12 thématiques CFP" },
-  { key: "p3", label: "P3 — Africanité / Diaspora", weight: "20%", hint: "Lien documenté avec l'écosystème africain" },
-  { key: "p4", label: "P4 — Accessibilité pro bono ★", weight: "25%", hint: "90-100 = volontaire confirmé · 0-20 = bureau speakers / cachet > 5k€" },
-  { key: "p5", label: "P5 — Adéquation format programme", weight: "8%", hint: "Couvre un besoin non encore pourvu dans le programme" },
-  { key: "p6", label: "P6 — Visibilité & rayonnement", weight: "7%", hint: "+10k LinkedIn, publications, podcasts, médias" },
+  { key: "p1", label: "P1 — Pertinence internationale", weight: "25%", hint: "Track record conférences mondiales (RSA, Black Hat, DEF CON…)" },
+  { key: "p2", label: "P2 — Alignement thématique EOCON", weight: "10%", hint: "Couverture directe des 12 thématiques CFP" },
+  { key: "p3", label: "P3 — Africanité / Diaspora", weight: "15%", hint: "Lien documenté avec l'écosystème africain" },
+  { key: "p4", label: "P4 — Accessibilité & Budget ★", weight: "30%", hint: "90-100 = volontaire confirmé · 0-20 = bureau speakers / cachet > 5k€" },
+  { key: "p5", label: "P5 — Adéquation format", weight: "10%", hint: "Couvre un besoin non encore pourvu dans le programme" },
+  { key: "p6", label: "P6 — Visibilité & Rayonnement", weight: "10%", hint: "+10k LinkedIn, publications, podcasts, médias" },
 ] as const;
 
 type PKey = "p1" | "p2" | "p3" | "p4" | "p5" | "p6";
@@ -245,13 +245,23 @@ function ProfileForm({
       });
       if (res.ok) {
         const d = await res.json();
+        const scores = {
+          p1: d.p1 ?? form.p1, p2: d.p2 ?? form.p2, p3: d.p3 ?? form.p3,
+          p4: d.p4 ?? form.p4, p5: d.p5 ?? form.p5, p6: d.p6 ?? form.p6,
+        };
         setForm(f => ({
           ...f,
-          p1: d.p1 ?? f.p1, p2: d.p2 ?? f.p2, p3: d.p3 ?? f.p3,
-          p4: d.p4 ?? f.p4, p5: d.p5 ?? f.p5, p6: d.p6 ?? f.p6,
+          ...scores,
           topicMain: d.topicMain || f.topicMain,
           participationModel: d.participationModel || f.participationModel,
         }));
+        // Auto-persist scores to DB when editing an existing profile
+        if (initial?.id) {
+          fetch(`/api/admin/speaker-profiles/${initial.id}`, {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...scores, topicMain: d.topicMain || form.topicMain, participationModel: d.participationModel || form.participationModel }),
+          }).catch(() => {});
+        }
       }
     } finally { setAiEnriching(false); }
   };

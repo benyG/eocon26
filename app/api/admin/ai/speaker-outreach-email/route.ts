@@ -40,6 +40,7 @@ Statut actuel: ${contactStatus || "contacté sans réponse"}
 Langue préférée: ${langPref === "en" ? "anglais" : "français"}
 
 Rédige une relance courte (100 mots max), professionnelle et chaleureuse. Rappelle le cadre pro bono. Ne relance pas avec la valeur monétaire mais avec l'impact et l'écosystème.
+IMPÉRATIF : utilise exclusivement la 1ère personne du pluriel (Nous, We) — jamais Je, I, j', me.
 
 JSON uniquement:
 {
@@ -63,6 +64,7 @@ Speaker: ${name}${title ? ` — ${title}` : ""}${org ? ` @ ${org}` : ""}
 Format proposé: ${formatProposed || "talk 45 min"}
 Langue: ${langPref === "en" ? "anglais" : "français (mais générer aussi en anglais)"}
 Longueur: 200 mots max.
+IMPÉRATIF : utilise exclusivement la 1ère personne du pluriel (Nous, We) — jamais Je, I, j', me.
 
 JSON uniquement:
 {

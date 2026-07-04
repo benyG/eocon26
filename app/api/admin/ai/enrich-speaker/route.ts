@@ -23,13 +23,13 @@ Organisation: ${org || "non précisée"}
 LinkedIn: ${linkedin || "non fourni"}
 Site web: ${website || "non fourni"}
 
-Critères de scoring :
-- P1 (0-100): Pertinence internationale — track record de conférences mondiales (RSA, Black Hat, DEF CON, TED…). 90-100 = speaker international régulier, 50-69 = événements nationaux, 0-29 = jamais speaker public.
-- P2 (0-100): Alignement thématique EOCON — couverture des 12 thématiques CFP (Offensive, ThreatIntel, Cloud, AI/Cyber, DFIR, AppSec, OT/ICS, Privacy, GRC, AfricaThreats, OpenSource, Awareness).
-- P3 (0-100): Africanité/Diaspora — 90-100 = africain engagé sur le continent, 70-89 = non-africain travail Afrique documenté, 0-29 = aucun lien.
-- P4 (0-100): Accessibilité pro bono — 90-100 = volontaire confirmé / communauté / académique, 40-69 = inconnu à clarifier, 0-19 = bureau speakers / cachet > 5000€.
-- P5 (0-100): Adéquation format programme — couvre un format/thématique rare dans EOCON.
-- P6 (0-100): Visibilité & rayonnement — LinkedIn actif, publications, podcasts, médias.
+Critères de scoring (nouveaux poids) :
+- P1 (0-100) [25%]: Pertinence internationale — track record de conférences mondiales (RSA, Black Hat, DEF CON, TED…). 90-100 = speaker international régulier, 50-69 = événements nationaux, 0-29 = jamais speaker public.
+- P2 (0-100) [10%]: Alignement thématique EOCON — couverture des 12 thématiques CFP (Offensive, ThreatIntel, Cloud, AI/Cyber, DFIR, AppSec, OT/ICS, Privacy, GRC, AfricaThreats, OpenSource, Awareness).
+- P3 (0-100) [15%]: Africanité/Diaspora — 90-100 = africain engagé sur le continent, 70-89 = non-africain travail Afrique documenté, 0-29 = aucun lien.
+- P4 (0-100) [30%]: Accessibilité & Budget — 90-100 = volontaire confirmé / communauté / académique, 40-69 = inconnu à clarifier, 0-19 = bureau speakers / cachet > 5000€.
+- P5 (0-100) [10%]: Adéquation format — couvre un format/thématique rare dans EOCON.
+- P6 (0-100) [10%]: Visibilité & Rayonnement — LinkedIn actif, publications, podcasts, médias.
 
 Déduis aussi :
 - topicMain: "TOP-01" à "TOP-12" (01=Offensive, 02=ThreatIntel, 03=Cloud, 04=AI, 05=DFIR, 06=AppSec, 07=OT-ICS, 08=Privacy, 09=GRC, 10=AfricaThreats, 11=OpenSource, 12=Awareness)

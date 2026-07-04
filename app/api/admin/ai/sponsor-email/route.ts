@@ -40,6 +40,7 @@ Dernier contact: ${lastContactDate || "non précisé"}
 Notes: ${notes || "aucune"}
 
 Rédige un email de relance adapté au statut "${status}". Utilise un des angles stratégiques ci-dessus adapté au secteur. Ton professionnel mais chaleureux. 150 mots max.
+IMPÉRATIF : utilise exclusivement la 1ère personne du pluriel (Nous, We) — jamais Je, I, j', me.
 
 JSON uniquement :
 {
@@ -60,6 +61,7 @@ Contact: ${contact || "le/la responsable"}, ${contactTitle || ""}
 Package ciblé: ${pkg || "partenariat sponsor"}
 
 Rédige un email de prospection personnalisé. Mentionne l'organisation par son nom. Choisis l'angle stratégique le plus pertinent pour leur secteur parmi les 4 ci-dessus. Ton professionnel mais chaleureux. 200 mots max.
+IMPÉRATIF : utilise exclusivement la 1ère personne du pluriel (Nous, We) — jamais Je, I, j', me.
 
 JSON uniquement :
 {

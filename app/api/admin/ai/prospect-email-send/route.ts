@@ -10,12 +10,12 @@ export async function POST(req: NextRequest) {
   if (!to || !subject || !body) return NextResponse.json({ error: "to, subject, body requis" }, { status: 400 });
 
   const resend = new Resend(process.env.RESEND_API_KEY);
-  const fromAddress = process.env.EMAIL_FROM_OUTREACH || process.env.RESEND_FROM || "EOCON 2026 <contact@eyesopensecurity.com>";
+  const fromAddress = process.env.EMAIL_FROM_SPEAKERS || "EOCON 2026 <speakers@eyesopensecurity.com>";
 
   const { error } = await resend.emails.send({
     from: fromAddress,
     to: [to],
-    replyTo: "sponsors@eyesopensecurity.com",
+    replyTo: "speakers@eyesopensecurity.com",
     subject,
     text: body,
     html: `<pre style="font-family:sans-serif;white-space:pre-wrap;font-size:14px;line-height:1.6">${body.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`,

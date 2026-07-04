@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { publishPost as publishLinkedIn } from "@/lib/linkedin";
 import { publishTweet } from "@/lib/twitter";
+import { publishFacebookPost } from "@/lib/facebook";
+import { publishInstagramPost } from "@/lib/instagram";
+import { publishWhatsAppMessage } from "@/lib/whatsapp";
 
 // Called by an external cron (e.g. cURL every 5 min, or Vercel Cron)
 // Protect with a shared secret: GET /api/cron/publish-scheduled?secret=CRON_SECRET
@@ -16,7 +19,7 @@ export async function GET(req: NextRequest) {
     where: {
       status: "scheduled",
       scheduledAt: { lte: now },
-      platform: { in: ["linkedin", "twitter"] },
+      platform: { in: ["linkedin", "twitter", "facebook", "instagram", "whatsapp"] },
     },
   });
 
@@ -26,6 +29,16 @@ export async function GET(req: NextRequest) {
       let postId: string;
       if (post.platform === "linkedin") {
         const r = await publishLinkedIn(post.content, post.imageUrl ?? undefined);
+        postId = r.id;
+      } else if (post.platform === "facebook") {
+        const r = await publishFacebookPost(post.content, post.imageUrl ?? undefined);
+        postId = r.id;
+      } else if (post.platform === "instagram") {
+        if (!post.imageUrl) throw new Error("Instagram requires imageUrl");
+        const r = await publishInstagramPost(post.content, post.imageUrl);
+        postId = r.id;
+      } else if (post.platform === "whatsapp") {
+        const r = await publishWhatsAppMessage(post.content, post.imageUrl ?? undefined);
         postId = r.id;
       } else {
         const r = await publishTweet(post.content, post.imageUrl ?? undefined);

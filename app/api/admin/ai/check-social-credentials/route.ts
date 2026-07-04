@@ -3,12 +3,12 @@ import { hasPermission } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
-// Lightweight Graph API ping — just check token validity with /me
+const GRAPH = "https://graph.facebook.com/v21.0";
+
+// Validate token and return the identity it belongs to
 async function testMeta(token: string): Promise<string> {
   try {
-    const res = await fetch(`https://graph.facebook.com/v21.0/me?access_token=${token}`, {
-      next: { revalidate: 0 },
-    });
+    const res = await fetch(`${GRAPH}/me?access_token=${token}`);
     const data = await res.json() as { id?: string; name?: string; error?: { message: string } };
     if (data.error) return `invalide — ${data.error.message}`;
     return `OK (${data.name ?? data.id})`;
@@ -17,13 +17,30 @@ async function testMeta(token: string): Promise<string> {
   }
 }
 
-async function testTwitter(): Promise<string> {
+// Test the crucial step: can we exchange the System User token for a Page token?
+// This is what actually breaks Facebook posting when using META_ACCESS_TOKEN directly.
+async function testFacebookPageToken(pageId: string, token: string): Promise<string> {
+  // If a direct page token is set, nothing to exchange
+  if (process.env.FACEBOOK_PAGE_ACCESS_TOKEN) return "OK (page token direct fourni)";
+  try {
+    const res = await fetch(`${GRAPH}/${pageId}?fields=access_token,name&access_token=${token}`);
+    const data = await res.json() as { access_token?: string; name?: string; error?: { message: string } };
+    if (data.error) return `échange token échoué — ${data.error.message} (le System User est-il admin de la page ?)`;
+    if (!data.access_token) return "aucun page token retourné (le System User n'est pas admin de cette page)";
+    return `OK — Page token obtenu pour "${data.name ?? pageId}"`;
+  } catch (e) {
+    return `erreur réseau: ${e instanceof Error ? e.message : String(e)}`;
+  }
+}
+
+async function testTwitter(): Promise<{ status: string; hint?: string }> {
   const key = process.env.X_API_KEY;
   const secret = process.env.X_API_SECRET;
   const token = process.env.X_ACCESS_TOKEN;
   const tokenSecret = process.env.X_ACCESS_TOKEN_SECRET;
-  if (!key || !secret || !token || !tokenSecret) return "manquant";
-  // Just verify credentials via OAuth 1.0a GET account/verify_credentials
+  if (!key || !secret || !token || !tokenSecret) {
+    return { status: "manquant", hint: "X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET requis" };
+  }
   try {
     const crypto = await import("crypto");
     const nonce = crypto.randomBytes(16).toString("hex");
@@ -49,11 +66,20 @@ async function testTwitter(): Promise<string> {
       .map(k => `${encodeURIComponent(k)}="${encodeURIComponent(oauthParams[k])}"`)
       .join(", ");
     const res = await fetch(url, { headers: { Authorization: authHeader } });
-    const data = await res.json() as { screen_name?: string; errors?: { message: string }[] };
-    if (data.errors) return `invalide — ${data.errors[0]?.message}`;
-    return `OK (@${data.screen_name})`;
+    const data = await res.json() as { screen_name?: string; errors?: { message: string; code?: number }[] };
+    if (data.errors) {
+      const msg = data.errors[0]?.message ?? "inconnu";
+      const code = data.errors[0]?.code;
+      // Code 89 = invalid/expired token, 32 = auth failed, 135 = timestamp out of bounds
+      const hint = code === 89 ? "Token invalide ou expiré — régénérer dans le Developer Portal"
+        : code === 32 ? "Authentification échouée — vérifier les 4 clés"
+        : code === 135 ? "Timestamp invalide — problème d'horloge serveur"
+        : "Vérifier les permissions (Read+Write requis) et régénérer l'Access Token";
+      return { status: `invalide (code ${code}) — ${msg}`, hint };
+    }
+    return { status: `OK (@${data.screen_name})`, hint: "Vérifier que l'app a les permissions Read+Write dans le Developer Portal" };
   } catch (e) {
-    return `erreur réseau: ${e instanceof Error ? e.message : String(e)}`;
+    return { status: `erreur réseau: ${e instanceof Error ? e.message : String(e)}` };
   }
 }
 
@@ -67,15 +93,16 @@ export async function GET() {
   const waPhoneId = process.env.WHATSAPP_PHONE_NUMBER_ID || "";
   const waBroadcastTo = process.env.WHATSAPP_BROADCAST_TO || "";
 
-  // Run token tests in parallel
-  const [metaStatus, twitterStatus] = await Promise.all([
+  const [metaStatus, fbPageStatus, twitterResult] = await Promise.all([
     metaToken ? testMeta(metaToken) : Promise.resolve("manquant"),
+    metaToken && fbPageId ? testFacebookPageToken(fbPageId, metaToken) : Promise.resolve("manquant"),
     testTwitter(),
   ]);
 
   return NextResponse.json({
     twitter: {
-      status: twitterStatus,
+      status: twitterResult.status,
+      hint: twitterResult.hint,
       vars: {
         X_API_KEY: !!process.env.X_API_KEY,
         X_API_SECRET: !!process.env.X_API_SECRET,
@@ -84,29 +111,27 @@ export async function GET() {
       },
     },
     facebook: {
-      status: fbPageId ? metaStatus : "manquant",
+      status: fbPageId ? fbPageStatus : "FACEBOOK_PAGE_ID manquant",
+      meta_token: metaStatus,
       vars: {
         META_ACCESS_TOKEN: !!metaToken,
         FACEBOOK_PAGE_ID: !!fbPageId,
       },
-      pageId: fbPageId || null,
     },
     instagram: {
-      status: igAccountId ? metaStatus : "manquant",
+      status: igAccountId ? metaStatus : "INSTAGRAM_BUSINESS_ACCOUNT_ID manquant",
       vars: {
         META_ACCESS_TOKEN: !!metaToken,
         INSTAGRAM_BUSINESS_ACCOUNT_ID: !!igAccountId,
       },
-      accountId: igAccountId || null,
     },
     whatsapp: {
-      status: waPhoneId && waBroadcastTo ? metaStatus : "manquant",
+      status: waPhoneId && waBroadcastTo ? metaStatus : "WHATSAPP_PHONE_NUMBER_ID ou WHATSAPP_BROADCAST_TO manquant",
       vars: {
         META_ACCESS_TOKEN: !!metaToken,
         WHATSAPP_PHONE_NUMBER_ID: !!waPhoneId,
         WHATSAPP_BROADCAST_TO: !!waBroadcastTo,
       },
     },
-    meta_token_status: metaStatus,
   });
 }

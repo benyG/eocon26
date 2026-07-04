@@ -428,14 +428,18 @@ export default function CyberWatchPanel({ canWrite = true }: { canWrite?: boolea
               <div>
                 <p className="text-sm text-white font-bold mb-2">{__("Canaux de publication", "Publishing channels")}</p>
                 <div className="flex gap-2">
-                  {["linkedin", "twitter"].map(ch => (
+                  {[
+                    { id: "linkedin", label: "💼 LinkedIn" },
+                    { id: "twitter", label: "𝕏 Twitter/X" },
+                    { id: "facebook", label: "📘 Facebook" },
+                  ].map(ch => (
                     <button
-                      key={ch}
-                      onClick={() => canWrite && toggleChannel(ch)}
+                      key={ch.id}
+                      onClick={() => canWrite && toggleChannel(ch.id)}
                       disabled={!canWrite}
-                      className={`text-xs px-4 py-2 rounded border font-mono transition-colors capitalize ${settings.channels.includes(ch) ? "border-neon-green/40 text-neon-green bg-neon-green/10" : "border-gray-700 text-gray-500 hover:text-gray-300"}`}
+                      className={`text-xs px-4 py-2 rounded border font-mono transition-colors ${settings.channels.includes(ch.id) ? "border-neon-green/40 text-neon-green bg-neon-green/10" : "border-gray-700 text-gray-500 hover:text-gray-300"}`}
                     >
-                      {ch === "linkedin" ? "💼 LinkedIn" : "𝕏 Twitter/X"}
+                      {ch.label}
                     </button>
                   ))}
                 </div>

@@ -13,6 +13,8 @@ interface PostsResult {
   twitter_en: string;
   instagram_fr: string;
   instagram_en: string;
+  facebook_fr: string;
+  facebook_en: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -106,6 +108,14 @@ Instagram :
 - Hashtags avant le CTA.
 - Terminer par le CTA imposé.
 
+Facebook :
+- 100 à 200 mots.
+- Ton communautaire, chaleureux et engageant, adapté à une page événementielle.
+- Favoriser l'interaction : poser une question ou inviter à partager.
+- 4 à 6 hashtags pertinents.
+- Hashtags avant le CTA.
+- Terminer par le CTA imposé.
+
 Hashtags recommandés selon le contexte :
 - Général: #EOCON2026, #EOCON, #EyesOpenSecurity, #SecureTheFuture, 
 - Cyber: #Cybersecurity, #InfoSec, #CyberSecurityAfrica, #AppSec, #CloudSecurity
@@ -122,7 +132,9 @@ Réponds en JSON uniquement, sans markdown :
   "twitter_fr": "...",
   "twitter_en": "...",
   "instagram_fr": "...",
-  "instagram_en": "..."
+  "instagram_en": "...",
+  "facebook_fr": "...",
+  "facebook_en": "..."
 }`;
 
   const response = await openai.chat.completions.create({
@@ -148,6 +160,8 @@ Réponds en JSON uniquement, sans markdown :
     { platform: "twitter", lang: "en", content: posts.twitter_en },
     { platform: "instagram", lang: "fr", content: posts.instagram_fr },
     { platform: "instagram", lang: "en", content: posts.instagram_en },
+    { platform: "facebook", lang: "fr", content: posts.facebook_fr },
+    { platform: "facebook", lang: "en", content: posts.facebook_en },
   ];
 
   // Create records individually so we can return the IDs (createMany doesn't return them)

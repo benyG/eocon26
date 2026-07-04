@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const from = process.env.EMAIL_FROM_OUTREACH || process.env.RESEND_FROM || "EOCON 2026 <contact@eyesopensecurity.com>";
+  const from = process.env.EMAIL_FROM_SPONSORS || "EOCON 2026 <sponsors@eyesopensecurity.com>";
   // The body is plain text (AI output) — wrap it minimally, preserving line breaks.
   const html = `<!DOCTYPE html><html><body style="background:#030408;color:#fff;font-family:'Courier New',monospace;padding:32px;white-space:pre-wrap;">${String(body)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</body></html>`;

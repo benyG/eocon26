@@ -13,9 +13,12 @@ function getFrom(): string {
 }
 
 // Re-send an already-sent campaign to a filtered subset:
-//   mode=undelivered → recipients whose email was never delivered (no delivered log)
-//   mode=unclicked   → recipients delivered but who never clicked a link
-// Personalization is preserved by re-resolving the segment and intersecting by email.
+//   mode=undelivered → recipients with status="failed" or no log entry (never successfully sent)
+//   mode=unclicked   → recipients with status="sent" but no click recorded
+//
+// Note: deliveredAt is only set when a Resend delivery webhook fires. Without webhooks
+// configured, it stays null even for successfully sent emails, so we use status="failed"
+// as the criterion for "undelivered" instead of checking deliveredAt.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   if (!(await hasPermission("campaigns", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const id = parseInt(params.id);
@@ -30,57 +33,76 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "La campagne doit avoir été envoyée avant un renvoi" }, { status: 409 });
   }
 
-  // Build per-recipient delivery/click state from the logs.
+  // Build per-recipient state from the logs.
+  // A recipient is considered "sent" if their latest log entry has status="sent".
+  // We take the latest log per recipient to handle multiple send attempts.
   const logs = await prisma.emailLog.findMany({
     where: { campaignId: id },
-    select: { recipient: true, deliveredAt: true, clickedAt: true },
+    orderBy: { id: "asc" },
+    select: { recipient: true, status: true, clickedAt: true },
   });
-  const delivered = new Set<string>(), clicked = new Set<string>(), known = new Set<string>();
+
+  // Keep only the latest log entry per recipient.
+  const latestLog = new Map<string, { status: string; clickedAt: Date | null }>();
   for (const l of logs) {
-    const r = l.recipient.toLowerCase();
-    known.add(r);
-    if (l.deliveredAt) delivered.add(r);
-    if (l.clickedAt) clicked.add(r);
+    latestLog.set(l.recipient.toLowerCase(), { status: l.status, clickedAt: l.clickedAt });
   }
 
-  // Target set of emails to retarget.
-  const targets = new Set<string>();
-  for (const r of Array.from(known)) {
-    if (mode === "undelivered" && !delivered.has(r)) targets.add(r);
-    if (mode === "unclicked" && delivered.has(r) && !clicked.has(r)) targets.add(r);
-  }
-  if (targets.size === 0) {
-    return NextResponse.json({ error: "Aucun destinataire à recontacter pour ce filtre" }, { status: 400 });
-  }
-
-  // Re-resolve recipients (with names/org) and keep only the targeted emails.
+  // Re-resolve the full segment to get names/orgs for personalization.
   const seg = parseSegment(campaign.segment);
   const all = await resolveRecipients(seg);
-  const recipients = all.filter(r => targets.has(r.email.toLowerCase()));
+
+  // Filter to the targeted subset.
+  const recipients = all.filter((r) => {
+    const email = r.email.toLowerCase();
+    const log = latestLog.get(email);
+    if (mode === "undelivered") {
+      // Target: failed sends or recipients not yet in the log at all.
+      return !log || log.status === "failed";
+    } else {
+      // mode === "unclicked": successfully sent but never clicked.
+      return log?.status === "sent" && !log.clickedAt;
+    }
+  });
+
   if (!recipients.length) {
     return NextResponse.json({ error: "Aucun destinataire à recontacter pour ce filtre" }, { status: 400 });
   }
 
   const replyTo = getReplyTo(seg);
-
   const resend = new Resend(process.env.RESEND_API_KEY);
   let sent = 0, failed = 0;
-  for (let i = 0; i < recipients.length; i += 50) {
-    const batch = recipients.slice(i, i + 50);
-    await Promise.all(batch.map(async (r) => {
+
+  const BATCH_SIZE = 100;
+  for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
+    const batch = recipients.slice(i, i + BATCH_SIZE);
+
+    const emails = await Promise.all(batch.map(async (r) => {
       const c = pickContent(campaign, r.lang);
       const html = await wrapCampaignHtml(personalize(c.htmlBody, r), c.lang);
       const subject = personalize(c.subject, r);
-      try {
-        const res = await resend.emails.send({ from: getFrom(), to: r.email, subject, html, ...(replyTo ? { replyTo } : {}) });
-        await prisma.emailLog.create({ data: { campaignId: id, recipient: r.email, subject, status: "sent", resendId: res.data?.id ?? null } });
-        sent++;
-      } catch {
-        await prisma.emailLog.create({ data: { campaignId: id, recipient: r.email, subject, status: "failed" } });
-        failed++;
-      }
+      return { from: getFrom(), to: r.email, subject, html, ...(replyTo ? { replyTo } : {}) };
     }));
-    if (i + 50 < recipients.length) await new Promise(res => setTimeout(res, 600));
+
+    try {
+      const res = await resend.batch.send(emails);
+      await Promise.all(batch.map(async (r, idx) => {
+        const resendId = (res.data as Array<{ id: string }> | null)?.[idx]?.id ?? null;
+        await prisma.emailLog.create({
+          data: { campaignId: id, recipient: r.email, subject: emails[idx].subject, status: "sent", resendId },
+        });
+        sent++;
+      }));
+    } catch {
+      await Promise.all(batch.map(async (r, idx) => {
+        await prisma.emailLog.create({
+          data: { campaignId: id, recipient: r.email, subject: emails[idx].subject, status: "failed" },
+        });
+        failed++;
+      }));
+    }
+
+    if (i + BATCH_SIZE < recipients.length) await new Promise(res => setTimeout(res, 1000));
   }
 
   return NextResponse.json({ sent, failed, total: recipients.length, mode });

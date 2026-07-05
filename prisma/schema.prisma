@@ -256,6 +256,8 @@ model SteeringMeeting {
   convenerEmail  String?  // email du convocateur (TeamMember)
   convenerName   String?  // nom affiché du convocateur
   reminderStage  String?  // CSV des rappels envoyés: "J-1,J0"
+  recurrence     String?  // "none" | "daily" | "weekly" | "biweekly" | "monthly"
+  recurrenceEnd  DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

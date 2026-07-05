@@ -30,6 +30,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (body[f] !== undefined) data[f] = body[f];
   }
   if (body.scheduledAt !== undefined) data.scheduledAt = new Date(body.scheduledAt);
+  if (body.recurrence !== undefined) data.recurrence = body.recurrence && body.recurrence !== "none" ? body.recurrence : null;
+  if (body.recurrenceEnd !== undefined) data.recurrenceEnd = body.recurrenceEnd ? new Date(body.recurrenceEnd) : null;
   const updated = await prisma.steeringMeeting.update({ where: { id }, data });
   logAction(req, "UPDATE", "pilotage", id, { meeting: updated.title });
 

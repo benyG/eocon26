@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import PDFDocument from "pdfkit";
 import { generateQrPayload, signConnectRef } from "@/lib/qr";
 import { renderTemplate, getTransactionalTemplate } from "@/lib/renderTemplate";
+import { getEventSettings } from "@/lib/settings";
 
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY || "");
@@ -18,10 +19,11 @@ function esc(s: string): string {
 // Email clients strip <style> and animations — we use inline CSS only.
 // "Glitch" effect: double text-shadow in cyan + magenta on the title.
 
-function emailWrap(body: string, isFr: boolean): string {
-  const footer = isFr
-    ? "EOCON 2026 · EyesOpen Security · Hotel Onomo, Douala, Cameroun"
-    : "EOCON 2026 · EyesOpen Security · Hotel Onomo, Douala, Cameroon";
+function emailWrap(body: string, isFr: boolean, s?: Record<string, string>): string {
+  const venue = s?.event_venue || "Hotel Onomo";
+  const city = s?.event_city || "Douala";
+  const country = isFr ? (s?.event_country || "Cameroun") : (s?.event_country_en || s?.event_country || "Cameroon");
+  const footer = `EOCON 2026 · EyesOpen Security · ${venue}, ${city}, ${country}`;
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
 <body style="margin:0;padding:0;background:#030408;">
@@ -67,8 +69,9 @@ function emailWrap(body: string, isFr: boolean): string {
 
 // Wrap arbitrary campaign body HTML in the branded EOCON shell. Exposed so the
 // campaign sender and the admin preview render identically.
-export function wrapCampaignHtml(body: string, lang: "fr" | "en" = "fr"): string {
-  return emailWrap(body, lang === "fr");
+export async function wrapCampaignHtml(body: string, lang: "fr" | "en" = "fr"): Promise<string> {
+  const s = await getEventSettings().catch(() => ({} as Record<string, string>));
+  return emailWrap(body, lang === "fr", s);
 }
 
 // Reusable HTML chunks
@@ -79,14 +82,30 @@ const neonRow = (label: string, value: string) =>
   `<tr><td style="padding:6px 0;color:#00ff9d80;font-size:12px;width:140px;">${label}</td><td style="padding:6px 0;color:#ffffff;font-size:13px;">${value}</td></tr>`;
 const ctaButton = (href: string, label: string) =>
   `<div style="text-align:center;margin:24px 0;"><a href="${href}" style="background:#00ff9d;color:#000000;font-family:'Courier New',Courier,monospace;font-size:13px;font-weight:900;letter-spacing:2px;padding:14px 32px;border-radius:8px;text-decoration:none;display:inline-block;">${label}</a></div>`;
-const dateLine = (isFr: boolean) =>
-  `<div style="margin-top:20px;padding:12px 16px;background:#050a05;border-left:3px solid #00ff9d60;border-radius:0 6px 6px 0;">
-    <span style="font-size:12px;color:#00ff9d;letter-spacing:1px;">📅 ${isFr ? "28 Novembre 2026 · 08h00 · Hotel Onomo, Douala, Cameroun" : "November 28, 2026 · 08:00 · Hotel Onomo, Douala, Cameroon"}</span>
+const dateLine = (isFr: boolean, s?: Record<string, string>) => {
+  const venue = s?.event_venue || "Hotel Onomo";
+  const city = s?.event_city || "Douala";
+  const country = isFr ? (s?.event_country || "Cameroun") : (s?.event_country_en || s?.event_country || "Cameroon");
+  const time = s?.event_time_start ? s.event_time_start.replace(":", "h") : "08h00";
+  const dateFr = s?.event_date_display_fr || "28 Novembre 2026";
+  const dateEn = s?.event_date_display_en || "November 28, 2026";
+  const label = isFr
+    ? `${dateFr} · ${time} · ${venue}, ${city}, ${country}`
+    : `${dateEn} · ${time.replace("h", ":")} · ${venue}, ${city}, ${country}`;
+  return `<div style="margin-top:20px;padding:12px 16px;background:#050a05;border-left:3px solid #00ff9d60;border-radius:0 6px 6px 0;">
+    <span style="font-size:12px;color:#00ff9d;letter-spacing:1px;">📅 ${label}</span>
   </div>`;
+};
 
 // ── ICS calendar attachment for the full event day ───────────────────────────
 
-function buildEventICS(isFr: boolean): Buffer {
+function buildEventICS(isFr: boolean, s?: Record<string, string>): Buffer {
+  const venue = s?.event_venue || "Hotel Onomo";
+  const city = s?.event_city || "Douala";
+  const country = s?.event_country || "Cameroun";
+  const rawDate = (s?.event_date || "2026-11-28").replace(/-/g, "");
+  const rawTime = (s?.event_time_start || "08:00").replace(":", "") + "00";
+  const dtStart = `${rawDate}T${rawTime}`;
   const ics = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -98,13 +117,13 @@ function buildEventICS(isFr: boolean): Buffer {
     "BEGIN:VEVENT",
     `UID:eocon2026-main@eyesopensecurity.com`,
     `DTSTAMP:${new Date().toISOString().replace(/[-:.]/g, "").slice(0, 15)}Z`,
-    "DTSTART;TZID=Africa/Douala:20261128T080000",
-    "DTEND;TZID=Africa/Douala:20261128T190000",
+    `DTSTART;TZID=Africa/Douala:${dtStart}`,
+    `DTEND;TZID=Africa/Douala:${rawDate}T190000`,
     `SUMMARY:EOCON 2026 — EyesOpen Security Conference`,
-    "LOCATION:Hotel Onomo\\, Douala\\, Cameroun",
+    `LOCATION:${venue}\\, ${city}\\, ${country}`,
     `DESCRIPTION:${isFr
-      ? "Évènement cybersécurité africain — EyesOpen Security. Douala, Cameroun."
-      : "African cybersecurity event — EyesOpen Security. Douala, Cameroon."}`,
+      ? `Évènement cybersécurité africain — EyesOpen Security. ${city}, ${country}.`
+      : `African cybersecurity event — EyesOpen Security. ${city}, ${country}.`}`,
     "URL:https://eyesopensecurity.com",
     "END:VEVENT",
     "END:VCALENDAR",
@@ -112,13 +131,19 @@ function buildEventICS(isFr: boolean): Buffer {
   return Buffer.from(ics, "utf-8");
 }
 
-function googleCalEventUrl(isFr: boolean): string {
+function googleCalEventUrl(isFr: boolean, s?: Record<string, string>): string {
+  const venue = s?.event_venue || "Hotel Onomo";
+  const city = s?.event_city || "Douala";
+  const country = s?.event_country || "Cameroun";
+  const rawDate = (s?.event_date || "2026-11-28").replace(/-/g, "");
+  const rawTime = (s?.event_time_start || "08:00").replace(":", "") + "00";
+  const dtStart = `${rawDate}T${rawTime}`;
   const text = encodeURIComponent("EOCON 2026 — EyesOpen Security Conference");
-  const loc = encodeURIComponent("Hotel Onomo, Douala, Cameroun");
+  const loc = encodeURIComponent(`${venue}, ${city}, ${country}`);
   const desc = encodeURIComponent(isFr
-    ? "Évènement cybersécurité africain. eyesopensecurity.com"
-    : "African cybersecurity event. eyesopensecurity.com");
-  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=20261128T080000/20261128T190000&location=${loc}&details=${desc}`;
+    ? `Évènement cybersécurité africain. eyesopensecurity.com`
+    : `African cybersecurity event. eyesopensecurity.com`);
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${dtStart}/${rawDate}T190000&location=${loc}&details=${desc}`;
 }
 
 // ── Badge PDF ─────────────────────────────────────────────────────────────────
@@ -173,6 +198,7 @@ async function sendWithTemplate(
 
 export async function sendCFPConfirmation(to: string, name: string, talkTitle: string, lang: "fr" | "en" = "fr", deferred = false) {
   const isFr = lang === "fr";
+  const s = await getEventSettings().catch(() => ({} as Record<string, string>));
   const vars = { name: esc(name), talkTitle: esc(talkTitle) };
   const statusFr = deferred ? '<span style="color:#888;">Conservée pour la prochaine édition</span>' : '<span style="color:#ffaa00;">En cours d\'examen</span>';
   const statusEn = deferred ? '<span style="color:#888;">Kept for the next edition</span>' : '<span style="color:#ffaa00;">Under review</span>';
@@ -190,7 +216,7 @@ export async function sendCFPConfirmation(to: string, name: string, talkTitle: s
          ${neonRow("Statut", statusFr)}
        </tbody></table>`)}
        ${followFr}
-       ${dateLine(isFr)}`
+       ${dateLine(isFr, s)}`
     : `<p>${greenLabel("Hello " + esc(name))},</p>
        <p>Your talk proposal has been received. Thank you for contributing!</p>
        ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
@@ -198,32 +224,34 @@ export async function sendCFPConfirmation(to: string, name: string, talkTitle: s
          ${neonRow("Status", statusEn)}
        </tbody></table>`)}
        ${followEn}
-       ${dateLine(isFr)}`;
+       ${dateLine(isFr, s)}`;
   await sendWithTemplate(
     "cfp_confirmation", to, vars,
     isFr ? `✅ Proposition de talk reçue — EOCON 2026` : `✅ Talk proposal received — EOCON 2026`,
-    emailWrap(body, isFr), lang, undefined, "speakers@eyesopensecurity.com",
+    emailWrap(body, isFr, s), lang, undefined, "speakers@eyesopensecurity.com",
   );
 }
 
 export async function sendVolunteerConfirmation(to: string, name: string, lang: "fr" | "en" = "fr") {
   const isFr = lang === "fr";
+  const s = await getEventSettings().catch(() => ({} as Record<string, string>));
   const body = isFr
     ? `<p>${greenLabel("Bonjour " + esc(name))},</p>
        <p>Votre candidature bénévole a bien été reçue. Nous l'examinerons et vous contacterons prochainement.</p>
-       ${dateLine(isFr)}`
+       ${dateLine(isFr, s)}`
     : `<p>${greenLabel("Hello " + esc(name))},</p>
        <p>Your volunteer application has been received. We will review it and get back to you soon.</p>
-       ${dateLine(isFr)}`;
+       ${dateLine(isFr, s)}`;
   await sendWithTemplate(
     "volunteer_confirmation", to, { name: esc(name) },
     isFr ? `✅ Candidature bénévole reçue — EOCON 2026` : `✅ Volunteer application received — EOCON 2026`,
-    emailWrap(body, isFr), lang, undefined, "registration@eyesopensecurity.com",
+    emailWrap(body, isFr, s), lang, undefined, "registration@eyesopensecurity.com",
   );
 }
 
 export async function sendVolunteerAccepted(to: string, name: string, assignedRole: string, lang: "fr" | "en" = "fr") {
   const isFr = lang === "fr";
+  const s = await getEventSettings().catch(() => ({} as Record<string, string>));
   const role = assignedRole || (isFr ? "À confirmer" : "To be confirmed");
   const body = isFr
     ? `<p>${greenLabel("Bonjour " + esc(name))},</p>
@@ -232,68 +260,75 @@ export async function sendVolunteerAccepted(to: string, name: string, assignedRo
          ${neonRow("Rôle assigné", `<strong style="color:#00ff9d;">${esc(role)}</strong>`)}
        </tbody></table>`)}
        <p>Bienvenue dans l'équipe EOCON ! Vous recevrez prochainement les détails logistiques.</p>
-       ${dateLine(isFr)}`
+       ${dateLine(isFr, s)}`
     : `<p>${greenLabel("Hello " + esc(name))},</p>
        <p>🎉 Great news! Your volunteer application has been <strong style="color:#00ff9d;">accepted</strong>.</p>
        ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
          ${neonRow("Assigned role", `<strong style="color:#00ff9d;">${esc(role)}</strong>`)}
        </tbody></table>`)}
        <p>Welcome to the EOCON team! You will receive logistics details soon.</p>
-       ${dateLine(isFr)}`;
+       ${dateLine(isFr, s)}`;
   await sendWithTemplate(
     "volunteer_accepted", to, { name: esc(name), assignedRole: esc(role) },
     isFr ? `🎉 Candidature bénévole acceptée — EOCON 2026` : `🎉 Volunteer application accepted — EOCON 2026`,
-    emailWrap(body, isFr), lang, undefined, "registration@eyesopensecurity.com",
+    emailWrap(body, isFr, s), lang, undefined, "registration@eyesopensecurity.com",
   );
 }
 
 export async function sendVolunteerShortlisted(to: string, name: string, lang: "fr" | "en" = "fr") {
   const isFr = lang === "fr";
+  const s = await getEventSettings().catch(() => ({} as Record<string, string>));
   const nameSafe = esc(name);
   const body = isFr
     ? `<p>${greenLabel("Bonjour " + nameSafe)},</p>
        <p>Votre candidature bénévole est en cours d'examen approfondi. Nous reviendrons vers vous très prochainement.</p>
-       ${dateLine(isFr)}`
+       ${dateLine(isFr, s)}`
     : `<p>${greenLabel("Hello " + nameSafe)},</p>
        <p>Your volunteer application is under detailed review. We will get back to you very soon.</p>
-       ${dateLine(isFr)}`;
+       ${dateLine(isFr, s)}`;
   await sendWithTemplate("volunteer_shortlisted", to, { name: nameSafe },
     isFr ? `👀 Votre candidature bénévole — EOCON 2026` : `👀 Your volunteer application — EOCON 2026`,
-    emailWrap(body, isFr), lang, undefined, "registration@eyesopensecurity.com",
+    emailWrap(body, isFr, s), lang, undefined, "registration@eyesopensecurity.com",
   );
 }
 
 export async function sendVolunteerOnboarding(to: string, name: string, assignedRole: string, lang: "fr" | "en" = "fr") {
   const isFr = lang === "fr";
+  const s = await getEventSettings().catch(() => ({} as Record<string, string>));
   const roleSafe = esc(assignedRole);
   const nameSafe = esc(name);
+  const venue = s.event_venue || "Hotel Onomo";
+  const city = s.event_city || "Douala";
+  const dateFr = s.event_date_display_fr || "28 novembre 2026";
+  const dateEn = s.event_date_display_en || "November 28, 2026";
   const body = isFr
     ? `<p>${greenLabel("Bonjour " + nameSafe)},</p>
        <p>Voici vos informations de mission pour EOCON 2026.</p>
        ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
          ${neonRow("Rôle", `<strong style="color:#00ff9d;">${roleSafe}</strong>`)}
-         ${neonRow("Briefing", "28 novembre 2026 · 07h30")}
-         ${neonRow("Lieu", "Hotel Onomo, Douala")}
+         ${neonRow("Briefing", `${dateFr} · 07h30`)}
+         ${neonRow("Lieu", `${venue}, ${city}`)}
        </tbody></table>`)}
-       <p>Rendez-vous le 28 novembre à partir de 07h30 pour le briefing équipe. Portez votre badge bénévole.</p>
-       ${dateLine(isFr)}`
+       <p>Rendez-vous le ${dateFr} à partir de 07h30 pour le briefing équipe. Portez votre badge bénévole.</p>
+       ${dateLine(isFr, s)}`
     : `<p>${greenLabel("Hello " + nameSafe)},</p>
        <p>Here are your mission details for EOCON 2026.</p>
        ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
          ${neonRow("Role", `<strong style="color:#00ff9d;">${roleSafe}</strong>`)}
-         ${neonRow("Briefing", "November 28, 2026 · 07:30")}
-         ${neonRow("Venue", "Hotel Onomo, Douala")}
+         ${neonRow("Briefing", `${dateEn} · 07:30`)}
+         ${neonRow("Venue", `${venue}, ${city}`)}
        </tbody></table>`)}
-       <p>Join us on November 28 from 07:30 for the team briefing. Wear your volunteer badge.</p>
-       ${dateLine(isFr)}`;
+       <p>Join us on ${dateEn} from 07:30 for the team briefing. Wear your volunteer badge.</p>
+       ${dateLine(isFr, s)}`;
   await sendWithTemplate("volunteer_onboarding", to, { name: nameSafe, assignedRole: roleSafe },
     isFr ? `🎽 Informations bénévole — EOCON 2026` : `🎽 Volunteer briefing — EOCON 2026`,
-    emailWrap(body, isFr), lang, undefined, "registration@eyesopensecurity.com",
+    emailWrap(body, isFr, s), lang, undefined, "registration@eyesopensecurity.com",
   );
 }
 
 export async function sendVolunteerRejected(to: string, name: string, lang: "fr" | "en" = "fr") {
   const isFr = lang === "fr";
+  const s = await getEventSettings().catch(() => ({} as Record<string, string>));
   const nameSafe = esc(name);
   const body = isFr
     ? `<p>${greenLabel("Bonjour " + nameSafe)},</p>
@@ -304,12 +339,13 @@ export async function sendVolunteerRejected(to: string, name: string, lang: "fr"
        <p>We appreciate your interest and hope to see you at EOCON 2027.</p>`;
   await sendWithTemplate("volunteer_rejected", to, { name: nameSafe },
     isFr ? `Candidature bénévole — EOCON 2026` : `Volunteer application — EOCON 2026`,
-    emailWrap(body, isFr), lang, undefined, "registration@eyesopensecurity.com",
+    emailWrap(body, isFr, s), lang, undefined, "registration@eyesopensecurity.com",
   );
 }
 
 export async function sendCFPDecision(email: string, name: string, talkTitle: string, decision: "accepted" | "rejected", lang: "fr" | "en" = "fr"): Promise<void> {
   const isFr = lang === "fr";
+  const s = await getEventSettings().catch(() => ({} as Record<string, string>));
   const vars = { name: esc(name), talkTitle: esc(talkTitle) };
   const slug = decision === "accepted" ? "cfp_accepted" : "cfp_rejected";
   const isAccepted = decision === "accepted";
@@ -322,7 +358,7 @@ export async function sendCFPDecision(email: string, name: string, talkTitle: st
              ${neonRow("Statut", '<span style="color:#00ff9d;font-weight:bold;">✓ ACCEPTÉ</span>')}
            </tbody></table>`)}
            <p>L'équipe programme vous contactera prochainement pour les détails.</p>
-           ${dateLine(isFr)}`
+           ${dateLine(isFr, s)}`
         : `<p>${greenLabel("Hello " + esc(name))},</p>
            <p>🎉 Your proposal has been <strong style="color:#00ff9d;">selected</strong> for EOCON 2026!</p>
            ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
@@ -330,7 +366,7 @@ export async function sendCFPDecision(email: string, name: string, talkTitle: st
              ${neonRow("Status", '<span style="color:#00ff9d;font-weight:bold;">✓ ACCEPTED</span>')}
            </tbody></table>`)}
            <p>The program team will contact you soon with the details.</p>
-           ${dateLine(isFr)}`)
+           ${dateLine(isFr, s)}`)
     : (isFr
         ? `<p>${greenLabel("Bonjour " + esc(name))},</p>
            <p>Merci pour votre proposition <em>&ldquo;${esc(talkTitle)}&rdquo;</em>. Après examen par notre comité, elle n'a malheureusement pas été retenue pour cette édition.</p>
@@ -341,7 +377,7 @@ export async function sendCFPDecision(email: string, name: string, talkTitle: st
   const subject = isAccepted
     ? (isFr ? `🎉 CFP Accepté — EOCON 2026 : "${talkTitle}"` : `🎉 CFP Accepted — EOCON 2026: "${talkTitle}"`)
     : (isFr ? `CFP — EOCON 2026 : "${talkTitle}"` : `CFP — EOCON 2026: "${talkTitle}"`);
-  await sendWithTemplate(slug, email, vars, subject, emailWrap(body, isFr), isFr ? "fr" : "en", undefined, "speakers@eyesopensecurity.com");
+  await sendWithTemplate(slug, email, vars, subject, emailWrap(body, isFr, s), isFr ? "fr" : "en", undefined, "speakers@eyesopensecurity.com");
 }
 
 // ── Pilotage Global (steering) ────────────────────────────────────────────────
@@ -354,10 +390,12 @@ interface PilotageTaskLike {
   priority?: string;
 }
 interface PilotageMeetingLike {
+  id?: number;
   title: string;
   scheduledAt: Date | string;
   location?: string | null;
   agenda?: string | null;
+  convenerEmail?: string | null;
 }
 
 function fmtFrDate(d?: Date | string | null): string {
@@ -414,18 +452,106 @@ export async function sendPilotageEscalation(coordoEmail: string, task: Pilotage
   await sendPilotage(coordoEmail, `🚨 Tâche en retard — ${task.title}`, body);
 }
 
+function buildMeetingICS(to: string, meeting: PilotageMeetingLike & { convenerName?: string | null }): Buffer {
+  const d = typeof meeting.scheduledAt === "string" ? new Date(meeting.scheduledAt) : (meeting.scheduledAt as Date);
+  // Africa/Douala = UTC+1 year-round (no DST)
+  const doualaMs = d.getTime() + 60 * 60000;
+  const localD = new Date(doualaMs);
+  const endD = new Date(doualaMs + 3600000); // +1 hour
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const fmt = (dt: Date) =>
+    `${dt.getUTCFullYear()}${pad(dt.getUTCMonth() + 1)}${pad(dt.getUTCDate())}T${pad(dt.getUTCHours())}${pad(dt.getUTCMinutes())}00`;
+  const dtStart = fmt(localD);
+  const dtEnd = fmt(endD);
+  const nowUtc = new Date();
+  const dtstamp = `${nowUtc.getUTCFullYear()}${pad(nowUtc.getUTCMonth() + 1)}${pad(nowUtc.getUTCDate())}T${pad(nowUtc.getUTCHours())}${pad(nowUtc.getUTCMinutes())}${pad(nowUtc.getUTCSeconds())}Z`;
+  const uid = `eocon-meeting-${meeting.id || d.getTime()}@eyesopensecurity.com`;
+  const descLine = meeting.agenda ? `DESCRIPTION:${meeting.agenda.replace(/\n/g, "\\n").replace(/,/g, "\\,")}` : "";
+  const locLine = meeting.location ? `LOCATION:${meeting.location.replace(/,/g, "\\,").replace(/\n/g, "\\n")}` : "";
+  const orgLine = meeting.convenerEmail ? `ORGANIZER;CN=${meeting.convenerName || "EOCON"}:mailto:${meeting.convenerEmail}` : "";
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//EOCON 2026//eyesopensecurity.com//FR",
+    "CALSCALE:GREGORIAN",
+    "METHOD:REQUEST",
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${dtstamp}`,
+    `DTSTART;TZID=Africa/Douala:${dtStart}`,
+    `DTEND;TZID=Africa/Douala:${dtEnd}`,
+    `SUMMARY:${meeting.title.replace(/,/g, "\\,")}`,
+    orgLine,
+    locLine,
+    descLine,
+    `ATTENDEE;RSVP=TRUE:mailto:${to}`,
+    "STATUS:CONFIRMED",
+    "SEQUENCE:0",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].filter(Boolean).join("\r\n");
+  return Buffer.from(lines, "utf-8");
+}
+
+function googleCalMeetingUrl(meeting: PilotageMeetingLike): string {
+  const d = typeof meeting.scheduledAt === "string" ? new Date(meeting.scheduledAt) : (meeting.scheduledAt as Date);
+  const doualaMs = d.getTime() + 60 * 60000;
+  const localD = new Date(doualaMs);
+  const endD = new Date(doualaMs + 3600000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const fmt = (dt: Date) =>
+    `${dt.getUTCFullYear()}${pad(dt.getUTCMonth() + 1)}${pad(dt.getUTCDate())}T${pad(dt.getUTCHours())}${pad(dt.getUTCMinutes())}00`;
+  const text = encodeURIComponent(meeting.title);
+  const loc = meeting.location ? encodeURIComponent(meeting.location) : "";
+  const desc = meeting.agenda ? encodeURIComponent(meeting.agenda) : "";
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${fmt(localD)}/${fmt(endD)}&ctz=Africa%2FDouala${loc ? `&location=${loc}` : ""}${desc ? `&details=${desc}` : ""}`;
+}
+
 export async function sendPilotageMeetingInvitation(to: string, meeting: PilotageMeetingLike & { convenerName?: string | null }) {
+  const d = typeof meeting.scheduledAt === "string" ? new Date(meeting.scheduledAt) : (meeting.scheduledAt as Date);
+  const dateFr = d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Africa/Douala" });
+  const timeFr = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Douala" });
+
+  const locationDisplay = meeting.location
+    ? (meeting.location.startsWith("https://")
+        ? `<a href="${esc(meeting.location)}" style="color:#00ccff;" target="_blank">${esc(meeting.location)}</a>`
+        : esc(meeting.location))
+    : null;
+
+  const gcalUrl = googleCalMeetingUrl(meeting);
+  const icsBuffer = buildMeetingICS(to, meeting);
+
+  const calLinks = `
+<div style="margin-top:20px;padding:16px;background:#050a05;border:1px solid #00ff9d20;border-radius:8px;text-align:center;">
+  <div style="font-family:'Courier New',Courier,monospace;font-size:10px;color:#00ff9d80;letter-spacing:2px;margin-bottom:10px;">📅 AJOUTER À VOTRE CALENDRIER</div>
+  <a href="${gcalUrl}" style="display:inline-block;margin:4px 6px;padding:7px 16px;background:#0d1117;border:1px solid #00ff9d40;border-radius:6px;color:#00ff9d;font-family:'Courier New',Courier,monospace;font-size:11px;text-decoration:none;" target="_blank">📅 Google Calendar</a>
+  <span style="display:inline-block;margin:4px 6px;padding:7px 16px;background:#0d1117;border:1px solid #00ff9d40;border-radius:6px;color:#00ff9d80;font-family:'Courier New',Courier,monospace;font-size:11px;">🗓 .ics joint (Outlook · Apple · iOS)</span>
+</div>`;
+
   const body = `<p>${greenLabel("Bonjour")},</p>
-     <p>Vous avez été ajouté(e) à une réunion de pilotage EOCON 2026.</p>
+     <p>Vous avez été convoqué(e) à une réunion de pilotage EOCON 2026.</p>
      ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
        ${neonRow("Réunion", `<strong style="color:#00ff9d;">${esc(meeting.title)}</strong>`)}
-       ${neonRow("Date", fmtFrDate(meeting.scheduledAt))}
-       ${meeting.location ? neonRow("Lieu", esc(meeting.location)) : ""}
-       ${meeting.agenda ? neonRow("Ordre du jour", esc(meeting.agenda)) : ""}
+       ${neonRow("Date", dateFr)}
+       ${neonRow("Heure", `${timeFr} <span style="color:#666;font-size:11px;">&mdash; Africa/Douala (UTC+1)</span>`)}
+       ${locationDisplay ? neonRow("Lieu / Lien", locationDisplay) : ""}
+       ${meeting.agenda ? neonRow("Ordre du jour", esc(meeting.agenda).replace(/\n/g, "<br>")) : ""}
        ${meeting.convenerName ? neonRow("Organisateur", esc(meeting.convenerName)) : ""}
      </tbody></table>`)}
-     <p>Pensez à noter cette date dans votre agenda.</p>`;
-  await sendPilotage(to, `📅 Invitation — ${meeting.title}`, body);
+     ${calLinks}`;
+  try {
+    await getResend().emails.send({
+      from: FROM,
+      to,
+      subject: `📅 Invitation — ${meeting.title}`,
+      html: emailWrap(body, true),
+      attachments: [
+        { filename: `reunion-${(meeting.id || "eocon")}.ics`, content: icsBuffer },
+      ],
+    });
+  } catch (e) {
+    console.error("[pilotage meeting invitation email]", e);
+  }
 }
 
 export async function sendPilotageMeetingReminder(to: string, meeting: PilotageMeetingLike, stage: string) {
@@ -457,6 +583,7 @@ const CTF_STATUS_LABELS_FR: Record<string, string> = {
 
 export async function sendCTFChallengeAssigned(to: string, name: string, challenge: CTFChallengeLike) {
   if (!to) return;
+  const s = await getEventSettings().catch(() => ({} as Record<string, string>));
   const statusLabel = CTF_STATUS_LABELS_FR[challenge.status] || challenge.status;
   const body = `<p>${greenLabel("Bonjour " + esc(name || ""))},</p>
      <p>Un challenge du CTF EOCON 2026 (EOCTF) vous a été assigné. Vous en êtes désormais responsable.</p>
@@ -468,12 +595,12 @@ export async function sendCTFChallengeAssigned(to: string, name: string, challen
        ${neonRow("Statut", esc(statusLabel))}
      </tbody></table>`)}
      <p>Connectez-vous à l'espace d'administration (onglet ⚡ CTF → Challenges) pour faire avancer cette tâche et mettre à jour son statut.</p>
-     ${dateLine(true)}`;
+     ${dateLine(true, s)}`;
   try {
     await getResend().emails.send({
       from: FROM, to,
       subject: `🏁 Challenge CTF assigné — ${challenge.title}`,
-      html: emailWrap(body, true),
+      html: emailWrap(body, true, s),
     });
   } catch (e) {
     console.error("[ctf challenge assigned email]", e);
@@ -485,6 +612,7 @@ export async function sendRegistrationPending(
   lang: "fr" | "en" = "fr",
 ) {
   const isFr = lang === "fr";
+  const s = await getEventSettings().catch(() => ({} as Record<string, string>));
   const vars = { fname: esc(fname), lname: esc(lname), ticketType: esc(ticketType), ticketRef, paymentUrl };
   const body = isFr
     ? `<p>${greenLabel("Bonjour " + esc(fname) + " " + esc(lname))},</p>
@@ -495,7 +623,7 @@ export async function sendRegistrationPending(
          ${neonRow("Statut", '<span style="color:#ffaa00;">⏳ En attente de paiement</span>')}
        </tbody></table>`)}
        ${ctaButton(paymentUrl, "💳 PROCÉDER AU PAIEMENT")}
-       ${dateLine(isFr)}`
+       ${dateLine(isFr, s)}`
     : `<p>${greenLabel("Hello " + esc(fname) + " " + esc(lname))},</p>
        <p>Your registration has been recorded. Complete your spot by proceeding to payment.</p>
        ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
@@ -504,11 +632,11 @@ export async function sendRegistrationPending(
          ${neonRow("Status", '<span style="color:#ffaa00;">⏳ Awaiting payment</span>')}
        </tbody></table>`)}
        ${ctaButton(paymentUrl, "💳 PROCEED TO PAYMENT")}
-       ${dateLine(isFr)}`;
+       ${dateLine(isFr, s)}`;
   await sendWithTemplate(
     "registration_pending", to, vars,
     isFr ? `⏳ Inscription enregistrée — EOCON 2026 [${ticketRef}]` : `⏳ Registration recorded — EOCON 2026 [${ticketRef}]`,
-    emailWrap(body, isFr), lang, undefined, "registration@eyesopensecurity.com",
+    emailWrap(body, isFr, s), lang, undefined, "registration@eyesopensecurity.com",
   );
 }
 
@@ -518,6 +646,7 @@ export async function sendRegistrationTicket(
   liveToken?: string,
 ) {
   const isFr = lang === "fr";
+  const s = await getEventSettings().catch(() => ({} as Record<string, string>));
   const isCTFOnly = /ctf.?only|ctf.?seul|eyesopenctf.?only/i.test(ticketType) || ticketType.toLowerCase() === "ctf";
   const domain = process.env.DOMAIN || process.env.NEXT_PUBLIC_URL || "eyesopensecurity.com";
   const baseUrl = domain.startsWith("http") ? domain : `https://${domain}`;
@@ -587,7 +716,7 @@ export async function sendRegistrationTicket(
 </div>`;
 
   // Calendar invite links
-  const gcalUrl = googleCalEventUrl(isFr);
+  const gcalUrl = googleCalEventUrl(isFr, s);
   const calLinks = `
 <div style="margin-top:20px;padding:16px;background:#050a05;border:1px solid #00ff9d20;border-radius:8px;text-align:center;">
   <div style="font-family:'Courier New',Courier,monospace;font-size:10px;color:#00ff9d80;letter-spacing:2px;margin-bottom:10px;">
@@ -643,7 +772,7 @@ export async function sendRegistrationTicket(
          <p style="color:#00ccff;font-size:11px;letter-spacing:2px;margin:0 0 10px;">🪪 BADGE D'ENTRÉE À IMPRIMER</p>
          ${badgeCoupon}
        </div>
-       <p style="font-size:12px;color:#888;margin-top:20px;">📍 Hotel Onomo · Douala · Cameroun</p>`
+       <p style="font-size:12px;color:#888;margin-top:20px;">📍 ${s.event_venue || "Hotel Onomo"} · ${s.event_city || "Douala"} · ${s.event_country || "Cameroun"}</p>`
     : `<p>${greenLabel("Hello " + esc(fname) + " " + esc(lname))},</p>
        <p>${isCTFOnly ? "🏁 Your <strong>EyesOpenCTF</strong> access is confirmed. Get ready — the challenge starts soon!" : "🎟️ Your EOCON 2026 ticket is confirmed. See you from November 23 to 28 — online and in Douala!"}</p>
        ${isCTFOnly ? ctfOnlyNote : ""}
@@ -660,15 +789,15 @@ export async function sendRegistrationTicket(
          <p style="color:#00ccff;font-size:11px;letter-spacing:2px;margin:0 0 10px;">🪪 ENTRY BADGE TO PRINT</p>
          ${badgeCoupon}
        </div>
-       <p style="font-size:12px;color:#888;margin-top:20px;">📍 Hotel Onomo · Douala · Cameroon</p>`;
+       <p style="font-size:12px;color:#888;margin-top:20px;">📍 ${s.event_venue || "Hotel Onomo"} · ${s.event_city || "Douala"} · ${s.event_country_en || s.event_country || "Cameroon"}</p>`;
 
   const vars = { fname: esc(fname), lname: esc(lname), ticketType: esc(ticketType), ticketRef, qr_code_img: qrImg };
-  const icsBuffer = buildEventICS(isFr);
+  const icsBuffer = buildEventICS(isFr, s);
 
   await sendWithTemplate(
     "registration_ticket", to, vars,
     isFr ? `🎟️ Votre billet EOCON 2026 — ${ticketRef}` : `🎟️ Your EOCON 2026 ticket — ${ticketRef}`,
-    emailWrap(body, isFr),
+    emailWrap(body, isFr, s),
     lang,
     [
       { filename: "qr-checkin.png", content: accessQrBuffer, content_id: "qr_access" },
@@ -689,6 +818,7 @@ export async function sendOnlineAccessLink(
   lang: "fr" | "en",
 ): Promise<void> {
   const isFr = lang === "fr";
+  const s = await getEventSettings().catch(() => ({} as Record<string, string>));
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://eyesopensecurity.com";
   const link = `${baseUrl}/live?access=${token}`;
 
@@ -727,14 +857,14 @@ export async function sendOnlineAccessLink(
         ${isFr ? "Renvoyer le lien d'accès" : "Resend access link"}
       </a>
     </p>
-    ${dateLine(isFr)}`;
+    ${dateLine(isFr, s)}`;
 
   const resend = getResend();
   await resend.emails.send({
     from: FROM,
     to,
     subject,
-    html: emailWrap(body, isFr),
+    html: emailWrap(body, isFr, s),
   });
 }
 
@@ -747,6 +877,7 @@ export async function sendRestreamSpeakerInvite(
   lang: "fr" | "en" = "fr",
 ): Promise<void> {
   const isFr = lang === "fr";
+  const s = await getEventSettings().catch(() => ({} as Record<string, string>));
   const subject = isFr
     ? `EOCON 2026 — Votre lien Restream Studio · ${sessionTitle}`
     : `EOCON 2026 — Your Restream Studio link · ${sessionTitle}`;
@@ -791,10 +922,10 @@ export async function sendRestreamSpeakerInvite(
         ? `Problème technique ? Contactez immédiatement : <strong style="color:#aaa;">${esc(techContact)}</strong>`
         : `Technical issue? Contact immediately: <strong style="color:#aaa;">${esc(techContact)}</strong>`}
     </p>
-    ${dateLine(isFr)}`;
+    ${dateLine(isFr, s)}`;
 
   const resend = getResend();
-  await resend.emails.send({ from: FROM, to, subject, html: emailWrap(body, isFr) });
+  await resend.emails.send({ from: FROM, to, subject, html: emailWrap(body, isFr, s) });
 }
 
 // ── Moderator streaming briefing ─────────────────────────────────────────────
@@ -806,6 +937,7 @@ export async function sendModeratorStreamingBriefing(
   lang: "fr" | "en" = "fr",
 ): Promise<void> {
   const isFr = lang === "fr";
+  const s = await getEventSettings().catch(() => ({} as Record<string, string>));
   const subject = isFr
     ? `EOCON 2026 — Briefing modérateur live · ${sessionTitle}`
     : `EOCON 2026 — Moderator live briefing · ${sessionTitle}`;
@@ -853,9 +985,9 @@ export async function sendModeratorStreamingBriefing(
              ▸ <strong style="color:#fff;">Close</strong> — Thank the speaker, announce the next session`}
       </p>
     `)}
-    ${dateLine(isFr)}`;
+    ${dateLine(isFr, s)}`;
 
   const resend = getResend();
-  await resend.emails.send({ from: FROM, to, subject, html: emailWrap(body, isFr) });
+  await resend.emails.send({ from: FROM, to, subject, html: emailWrap(body, isFr, s) });
 }
 

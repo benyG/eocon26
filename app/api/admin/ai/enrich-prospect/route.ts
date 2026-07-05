@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hasPermission } from "@/lib/adminPermissions";
-import { getOpenAI, EOCON_CONTEXT } from "@/lib/openai";
+import { getOpenAI, getEoconContext } from "@/lib/openai";
 import { enrichOrganization } from "@/lib/apollo";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +35,8 @@ export async function POST(req: NextRequest) {
     ? `Données Apollo: secteur=${apolloData.industry}, employés=${apolloData.estimated_num_employees}, description=${apolloData.short_description}`
     : "";
 
-  const prompt = `${EOCON_CONTEXT}
+  const eoconCtx = await getEoconContext();
+  const prompt = `${eoconCtx}
 
 Packages disponibles: PLATINUM (visibilité maximale, stand, discours), GOLD (stand + logo), SILVER (logo + tickets), BRONZE (logo + tickets réduits).
 

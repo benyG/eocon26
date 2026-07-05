@@ -65,6 +65,8 @@ interface Meeting {
   attendees?: string | null; // JSON: [{name, email}]
   convenerEmail?: string | null;
   convenerName?: string | null;
+  recurrence?: string | null;
+  recurrenceEnd?: string | null;
 }
 
 interface MeetingForm {
@@ -76,6 +78,8 @@ interface MeetingForm {
   agenda: string;
   convenerEmail: string;
   attendeeEmails: string[];
+  recurrence: string;
+  recurrenceEnd: string;
 }
 
 interface Member { id: number; name: string; role: string; email?: string | null; }
@@ -131,8 +135,50 @@ function endOfCurrentWeek(): Date {
   return sunday;
 }
 
+type CalMode = "list" | "month" | "week";
+
+interface MeetingInstance extends Meeting { instanceDate: Date; }
+
+function addDays(d: Date, n: number): Date {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+
+function startOfWeekMonday(d: Date): Date {
+  const r = new Date(d);
+  const dow = r.getDay(); // 0=Sun
+  const diff = dow === 0 ? -6 : 1 - dow;
+  r.setDate(r.getDate() + diff);
+  r.setHours(0, 0, 0, 0);
+  return r;
+}
+
+function expandMeetingsForRange(meetings: Meeting[], start: Date, end: Date): MeetingInstance[] {
+  const instances: MeetingInstance[] = [];
+  for (const m of meetings) {
+    const base = new Date(m.scheduledAt);
+    const recEnd = m.recurrenceEnd ? new Date(m.recurrenceEnd) : end;
+    const rule = m.recurrence || "none";
+    if (rule === "none" || !rule) {
+      if (base >= start && base <= end) instances.push({ ...m, instanceDate: base });
+    } else {
+      let cur = new Date(base);
+      while (cur <= end && cur <= recEnd) {
+        if (cur >= start) instances.push({ ...m, instanceDate: new Date(cur), scheduledAt: cur.toISOString() });
+        if (rule === "daily") cur = addDays(cur, 1);
+        else if (rule === "weekly") cur = addDays(cur, 7);
+        else if (rule === "biweekly") cur = addDays(cur, 14);
+        else if (rule === "monthly") { cur = new Date(cur); cur.setMonth(cur.getMonth() + 1); }
+        else break;
+      }
+    }
+  }
+  return instances;
+}
+
 function emptyMeetingForm(): MeetingForm {
-  return { title: "", type: "collective", subTeam: "", scheduledAt: "", location: "", agenda: "", convenerEmail: "", attendeeEmails: [] };
+  return { title: "", type: "collective", subTeam: "", scheduledAt: "", location: "", agenda: "", convenerEmail: "", attendeeEmails: [], recurrence: "none", recurrenceEnd: "" };
 }
 
 export default function PilotagePanel({ canWrite = true, canReadKanban, canWriteKanban, canReadMeetings, canWriteMeetings, currentUserEmail }: { canWrite?: boolean; canReadKanban?: boolean; canWriteKanban?: boolean; canReadMeetings?: boolean; canWriteMeetings?: boolean; currentUserEmail?: string }) {
@@ -536,6 +582,216 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
   );
 }
 
+// ─── CalendarMonthView ───────────────────────────────────────────────────────
+
+function CalendarMonthView({ meetings, calDate, setCalDate, onEdit }: {
+  meetings: Meeting[];
+  calDate: Date;
+  setCalDate: (d: Date) => void;
+  onEdit?: (m: Meeting) => void;
+}) {
+  const year = calDate.getFullYear();
+  const month = calDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  // grid start = Monday of the week containing the 1st
+  const gridStart = startOfWeekMonday(firstDay);
+  const gridEnd = new Date(gridStart);
+  gridEnd.setDate(gridEnd.getDate() + 41); // 6 rows × 7 days
+
+  const instances = expandMeetingsForRange(meetings, gridStart, gridEnd);
+
+  const cells: Date[] = [];
+  for (let i = 0; i < 42; i++) cells.push(addDays(gridStart, i));
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const monthLabel = calDate.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  const dayLabels = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
+  function prevMonth() { setCalDate(new Date(year, month - 1, 1)); }
+  function nextMonth() { setCalDate(new Date(year, month + 1, 1)); }
+  function goToday() { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); setCalDate(d); }
+
+  const colorForType = (type: string) => type === "collective" ? "#00ff9d" : "#00ccff";
+
+  return (
+    <div className="cyber-card rounded-xl p-3" style={{ overflowX: "auto" }}>
+      {/* Nav */}
+      <div className="flex items-center justify-between mb-3 px-1">
+        <div className="flex gap-1">
+          <button onClick={prevMonth} className="text-xs px-2 py-1 border border-gray-700 rounded text-gray-400 hover:text-white">‹</button>
+          <button onClick={nextMonth} className="text-xs px-2 py-1 border border-gray-700 rounded text-gray-400 hover:text-white">›</button>
+          <button onClick={goToday} className="text-xs px-2 py-1 border border-gray-700 rounded text-gray-400 hover:text-white ml-1">Auj.</button>
+        </div>
+        <p className="text-xs font-mono font-bold text-white capitalize">{monthLabel}</p>
+        <div className="w-24" />
+      </div>
+      {/* Grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", gap: 2, minWidth: 420 }}>
+        {dayLabels.map((d) => (
+          <div key={d} className="text-center text-xs font-mono text-gray-600 pb-1">{d}</div>
+        ))}
+        {cells.map((cell) => {
+          const isCurrentMonth = cell.getMonth() === month;
+          const isToday = cell.getTime() === today.getTime();
+          const dayInstances = instances.filter((inst) => {
+            const id = new Date(inst.scheduledAt);
+            return id.getFullYear() === cell.getFullYear() && id.getMonth() === cell.getMonth() && id.getDate() === cell.getDate();
+          });
+          return (
+            <div
+              key={cell.toISOString()}
+              style={{
+                minHeight: 64,
+                background: isToday ? "#00ff9d10" : "#0a0a12",
+                border: isToday ? "1px solid #00ff9d40" : "1px solid #1a1a2e",
+                borderRadius: 4,
+                padding: "2px 3px",
+              }}
+            >
+              <p className={`text-xs text-right mb-0.5 font-mono ${isCurrentMonth ? (isToday ? "text-neon-green font-bold" : "text-gray-400") : "text-gray-700"}`}>
+                {cell.getDate()}
+              </p>
+              <div className="space-y-0.5">
+                {dayInstances.slice(0, 3).map((inst, idx) => (
+                  <button
+                    key={`${inst.id}-${idx}`}
+                    onClick={() => onEdit && onEdit(inst)}
+                    className="w-full text-left truncate font-mono"
+                    style={{ fontSize: 9, padding: "1px 3px", borderRadius: 3, background: `${colorForType(inst.type)}20`, color: colorForType(inst.type), border: "none", cursor: onEdit ? "pointer" : "default" }}
+                    title={inst.title}
+                  >
+                    {fmtTime(inst.scheduledAt)} {inst.title}
+                  </button>
+                ))}
+                {dayInstances.length > 3 && (
+                  <p className="text-xs text-gray-600 font-mono" style={{ fontSize: 9 }}>+{dayInstances.length - 3}</p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── CalendarWeekView ────────────────────────────────────────────────────────
+
+function CalendarWeekView({ meetings, calDate, setCalDate, onEdit }: {
+  meetings: Meeting[];
+  calDate: Date;
+  setCalDate: (d: Date) => void;
+  onEdit?: (m: Meeting) => void;
+}) {
+  const weekStart = startOfWeekMonday(calDate);
+  const weekEnd = addDays(weekStart, 6);
+  weekEnd.setHours(23, 59, 59, 999);
+
+  const instances = expandMeetingsForRange(meetings, weekStart, weekEnd);
+
+  const HOUR_START = 7;
+  const HOUR_END = 22;
+  const SLOT_HEIGHT = 48; // px per hour
+  const TOTAL_HEIGHT = (HOUR_END - HOUR_START) * SLOT_HEIGHT;
+
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+
+  function prevWeek() { setCalDate(addDays(weekStart, -7)); }
+  function nextWeek() { setCalDate(addDays(weekStart, 7)); }
+  function goToday() { setCalDate(new Date()); }
+
+  const weekLabel = `${weekStart.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} – ${weekEnd.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}`;
+
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const hours = Array.from({ length: HOUR_END - HOUR_START }, (_, i) => HOUR_START + i);
+
+  return (
+    <div className="cyber-card rounded-xl p-3" style={{ overflowX: "auto" }}>
+      {/* Nav */}
+      <div className="flex items-center justify-between mb-3 px-1">
+        <div className="flex gap-1">
+          <button onClick={prevWeek} className="text-xs px-2 py-1 border border-gray-700 rounded text-gray-400 hover:text-white">‹</button>
+          <button onClick={nextWeek} className="text-xs px-2 py-1 border border-gray-700 rounded text-gray-400 hover:text-white">›</button>
+          <button onClick={goToday} className="text-xs px-2 py-1 border border-gray-700 rounded text-gray-400 hover:text-white ml-1">Auj.</button>
+        </div>
+        <p className="text-xs font-mono font-bold text-white">{weekLabel}</p>
+        <div className="w-24" />
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ minWidth: 560, display: "flex" }}>
+          {/* Time column */}
+          <div style={{ width: 36, flexShrink: 0 }}>
+            <div style={{ height: 28 }} />
+            <div style={{ position: "relative", height: TOTAL_HEIGHT }}>
+              {hours.map((h) => (
+                <div key={h} style={{ position: "absolute", top: (h - HOUR_START) * SLOT_HEIGHT - 7, left: 0, right: 0 }}>
+                  <span className="text-xs font-mono text-gray-700" style={{ fontSize: 9 }}>{String(h).padStart(2,"0")}h</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Day columns */}
+          {days.map((day) => {
+            const dayStr = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,"0")}-${String(day.getDate()).padStart(2,"0")}`;
+            const isToday = dayStr === todayStr;
+            const dayInstances = instances.filter((inst) => {
+              const id = new Date(inst.scheduledAt);
+              return `${id.getFullYear()}-${String(id.getMonth()+1).padStart(2,"0")}-${String(id.getDate()).padStart(2,"0")}` === dayStr;
+            });
+            const colorForType = (type: string) => type === "collective" ? "#00ff9d" : "#00ccff";
+            return (
+              <div key={dayStr} style={{ flex: 1, minWidth: 0 }}>
+                {/* Day header */}
+                <div style={{ height: 28, textAlign: "center", borderBottom: "1px solid #1a1a2e", paddingBottom: 4 }}>
+                  <p className="font-mono" style={{ fontSize: 9, color: isToday ? "#00ff9d" : "#666" }}>
+                    {day.toLocaleDateString("fr-FR", { weekday: "short" })}
+                  </p>
+                  <p className="font-mono font-bold" style={{ fontSize: 11, color: isToday ? "#00ff9d" : "#aaa" }}>
+                    {day.getDate()}
+                  </p>
+                </div>
+                {/* Slots */}
+                <div style={{ position: "relative", height: TOTAL_HEIGHT, borderLeft: "1px solid #1a1a2e", background: isToday ? "#00ff9d05" : "transparent" }}>
+                  {hours.map((h) => (
+                    <div key={h} style={{ position: "absolute", top: (h - HOUR_START) * SLOT_HEIGHT, left: 0, right: 0, height: SLOT_HEIGHT, borderTop: "1px solid #1a1a2e11" }} />
+                  ))}
+                  {dayInstances.map((inst, idx) => {
+                    const d = new Date(inst.scheduledAt);
+                    const topH = d.getHours() + d.getMinutes() / 60;
+                    const top = Math.max(0, (topH - HOUR_START) * SLOT_HEIGHT);
+                    const height = SLOT_HEIGHT; // 1h default
+                    const color = colorForType(inst.type);
+                    return (
+                      <button
+                        key={`${inst.id}-${idx}`}
+                        onClick={() => onEdit && onEdit(inst)}
+                        style={{
+                          position: "absolute", top, left: 2 + idx * 4, right: 2, height,
+                          background: `${color}18`, border: `1px solid ${color}50`, borderRadius: 4,
+                          textAlign: "left", padding: "2px 4px", overflow: "hidden",
+                          cursor: onEdit ? "pointer" : "default",
+                        }}
+                        title={inst.title}
+                      >
+                        <p className="font-mono font-bold truncate" style={{ fontSize: 9, color }}>{fmtTime(inst.scheduledAt)}</p>
+                        <p className="truncate" style={{ fontSize: 9, color: "#ccc" }}>{inst.title}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── MeetingsView ────────────────────────────────────────────────────────────
 
 function MeetingsView({
@@ -560,6 +816,8 @@ function MeetingsView({
   const [meetDropdownOpen, setMeetDropdownOpen] = useState(false);
   const meetDropdownRef = useRef<HTMLDivElement>(null);
   const [userTz] = useState<string>(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const [calMode, setCalMode] = useState<CalMode>("list");
+  const [calDate, setCalDate] = useState<Date>(() => { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d; });
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -604,6 +862,8 @@ function MeetingsView({
       agenda: m.agenda || "",
       convenerEmail: m.convenerEmail || "",
       attendeeEmails: attendees.map((a) => a.email),
+      recurrence: m.recurrence || "none",
+      recurrenceEnd: m.recurrenceEnd ? m.recurrenceEnd.slice(0, 10) : "",
     });
     setEditTarget(m);
   }
@@ -626,6 +886,8 @@ function MeetingsView({
       convenerEmail: form.convenerEmail || null,
       convenerName: convener?.name || null,
       attendees: attendees.length ? JSON.stringify(attendees) : null,
+      recurrence: form.recurrence !== "none" ? form.recurrence : null,
+      recurrenceEnd: form.recurrenceEnd || null,
     };
 
     const isNew = editTarget === "new";
@@ -672,7 +934,22 @@ function MeetingsView({
     <div className="space-y-3">
       {/* Header actions */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* View mode toggle */}
+          <div className="flex border border-gray-700 rounded overflow-hidden">
+            {(["list", "month", "week"] as CalMode[]).map((mode) => {
+              const labels: Record<CalMode, string> = { list: "☰ Liste", month: "📅 Mois", week: "📆 Semaine" };
+              return (
+                <button
+                  key={mode}
+                  onClick={() => setCalMode(mode)}
+                  className={`text-xs px-2.5 py-1 font-mono transition-colors ${calMode === mode ? "bg-neon-green/15 text-neon-green" : "text-gray-500 hover:text-gray-200"}`}
+                >
+                  {labels[mode]}
+                </button>
+              );
+            })}
+          </div>
           {reminderResult && (
             <span className={`text-xs font-mono ${reminderResult.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>
               {reminderResult}
@@ -698,8 +975,26 @@ function MeetingsView({
         </div>
       </div>
 
+      {/* Calendar or list view */}
+      {calMode === "month" && (
+        <CalendarMonthView
+          meetings={meetings}
+          calDate={calDate}
+          setCalDate={setCalDate}
+          onEdit={canWrite ? openEdit : undefined}
+        />
+      )}
+      {calMode === "week" && (
+        <CalendarWeekView
+          meetings={meetings}
+          calDate={calDate}
+          setCalDate={setCalDate}
+          onEdit={canWrite ? openEdit : undefined}
+        />
+      )}
+
       {/* Meeting cards */}
-      {sorted.map((m) => {
+      {calMode === "list" && sorted.map((m) => {
         const upcoming = new Date(m.scheduledAt).getTime() >= now;
         const attendees = parseAttendees(m.attendees);
         return (
@@ -723,13 +1018,27 @@ function MeetingsView({
               {/* Content */}
               <div className="flex-1 min-w-0 space-y-1.5">
                 <p className="text-sm font-bold text-white leading-tight">{m.title}</p>
-                {m.subTeam && (
-                  <span className="inline-block text-xs font-mono px-2 py-0.5 rounded" style={{ background: "#00ccff15", color: "#00ccff" }}>
-                    {m.subTeam}
-                  </span>
-                )}
+                <div className="flex flex-wrap gap-1 items-center">
+                  {m.subTeam && (
+                    <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "#00ccff15", color: "#00ccff" }}>
+                      {m.subTeam}
+                    </span>
+                  )}
+                  {m.recurrence && m.recurrence !== "none" && (
+                    <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "#a78bfa15", color: "#a78bfa", border: "1px solid #a78bfa30" }}>
+                      🔁 {m.recurrence}
+                    </span>
+                  )}
+                </div>
                 {m.agenda && <p className="text-xs text-gray-400 line-clamp-2 whitespace-pre-line">{m.agenda}</p>}
-                {m.location && <p className="text-xs text-gray-600">📍 {m.location}</p>}
+                {m.location && (
+                  <p className="text-xs text-gray-600">
+                    📍{" "}
+                    {m.location.startsWith("https://") ? (
+                      <a href={m.location} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 hover:underline">{m.location}</a>
+                    ) : m.location}
+                  </p>
+                )}
 
                 {/* People */}
                 <div className="flex flex-wrap gap-1.5 items-center pt-0.5">
@@ -773,7 +1082,7 @@ function MeetingsView({
         );
       })}
 
-      {!meetings.length && (
+      {calMode === "list" && !meetings.length && (
         <p className="text-gray-600 text-xs py-10 text-center font-mono">
           {__("Aucune réunion planifiée — créez-en une ou importez la feuille de route.", "No meetings scheduled — create one or import the roadmap.")}
         </p>
@@ -919,18 +1228,25 @@ function MeetingsView({
                 👤 {__("Convocateur", "Convener")}
                 <span className="text-gray-700 ml-1">({__("responsable d'organiser la rencontre", "responsible for organizing the meeting")})</span>
               </label>
-              <select
-                value={form.convenerEmail}
-                onChange={(e: ChangeEvent<HTMLSelectElement>) => setForm((f: MeetingForm) => ({ ...f, convenerEmail: e.target.value }))}
-                className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white"
-              >
-                <option value="" className="bg-dark-800">— {__("sélectionner", "select")} —</option>
-                {membersWithEmail.map((m) => (
-                  <option key={m.id} value={m.email!} className="bg-dark-800">
-                    {m.name} ({m.role})
-                  </option>
-                ))}
-              </select>
+              {editTarget === "new" && currentUserEmail && membersWithEmail.some((m) => m.email === currentUserEmail) ? (
+                <div className="cyber-input w-full px-3 py-2 rounded text-xs text-white flex items-center justify-between opacity-80">
+                  <span>{membersWithEmail.find((m) => m.email === currentUserEmail)?.name || currentUserEmail}</span>
+                  <span className="text-gray-600 text-xs font-mono ml-2">{__("(vous)", "(you)")}</span>
+                </div>
+              ) : (
+                <select
+                  value={form.convenerEmail}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setForm((f: MeetingForm) => ({ ...f, convenerEmail: e.target.value }))}
+                  className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white"
+                >
+                  <option value="" className="bg-dark-800">— {__("sélectionner", "select")} —</option>
+                  {membersWithEmail.map((m) => (
+                    <option key={m.id} value={m.email!} className="bg-dark-800">
+                      {m.name} ({m.role})
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* Attendees */}
@@ -971,6 +1287,33 @@ function MeetingsView({
                 <p className="text-xs text-gray-600 mt-1 font-mono">
                   {form.attendeeEmails.length} {__("personne(s) convoquée(s)", "person/people invited")}
                 </p>
+              )}
+            </div>
+
+            {/* Recurrence */}
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">🔁 {__("Récurrence", "Recurrence")}</label>
+              <select
+                value={form.recurrence}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) => setForm((f: MeetingForm) => ({ ...f, recurrence: e.target.value }))}
+                className="cyber-input w-full px-2 py-1.5 rounded text-xs bg-transparent text-white"
+              >
+                <option value="none" className="bg-dark-800">{__("Aucune (réunion unique)", "None (one-time)")}</option>
+                <option value="daily" className="bg-dark-800">{__("Quotidienne", "Daily")}</option>
+                <option value="weekly" className="bg-dark-800">{__("Hebdomadaire", "Weekly")}</option>
+                <option value="biweekly" className="bg-dark-800">{__("Bi-hebdomadaire (toutes les 2 semaines)", "Bi-weekly (every 2 weeks)")}</option>
+                <option value="monthly" className="bg-dark-800">{__("Mensuelle", "Monthly")}</option>
+              </select>
+              {form.recurrence !== "none" && (
+                <div className="mt-2">
+                  <label className="block text-xs text-gray-500 mb-1">{__("Fin de récurrence", "Recurrence end")}</label>
+                  <input
+                    type="date"
+                    value={form.recurrenceEnd}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((f: MeetingForm) => ({ ...f, recurrenceEnd: e.target.value }))}
+                    className="cyber-input w-full px-3 py-2 rounded text-xs"
+                  />
+                </div>
               )}
             </div>
 

@@ -1795,7 +1795,7 @@ export default function ProspectionSpeakersPanel({ canWrite = false }: { canWrit
       {/* New profile form */}
       {showForm && canWrite && (
         <div className="fixed inset-0 bg-black/70 z-40 flex items-center justify-center p-4">
-          <div className="cyber-card rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="cyber-card rounded-xl p-6 w-full max-w-2xl max-h-[90vh]" style={{ overflowY: "auto" }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-neon-green text-sm font-bold">Nouveau profil speaker</h3>
               <button onClick={() => setShowForm(false)} className="text-gray-500 hover:text-white text-xs">✕</button>

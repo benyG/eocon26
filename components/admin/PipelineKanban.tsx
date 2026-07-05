@@ -984,7 +984,7 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
             {planStartDate && planDays.length === 7 && (
               <span className="text-xs text-gray-500">{fmtDate(planDays[0])} → {fmtDate(planDays[6])}</span>
             )}
-            {canWrite && <button onClick={seedSessions} disabled={seeding} className="ml-auto text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-gray-200 disabled:opacity-50">
+            {canWrite && sessions.length === 0 && <button onClick={seedSessions} disabled={seeding} className="ml-auto text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-gray-200 disabled:opacity-50">
               {seeding ? "…" : `⚙ ${__("Seed sessions", "Seed sessions")}`}
             </button>}
           </div>

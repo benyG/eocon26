@@ -138,7 +138,7 @@ export default function EmailTemplatesPanel({ canWrite = true }: { canWrite?: bo
       <div className="cyber-card rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Templates Transactionnels</h3>
-          {canWrite && <button onClick={seedTransactionalTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>🔧 Initialiser templates transactionnels</button>}
+          {canWrite && templates.filter(tpl => tpl.slug).length === 0 && <button onClick={seedTransactionalTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#00ff9d15", color: "#00ff9d", border: "1px solid #00ff9d30" }}>🔧 Initialiser templates transactionnels</button>}
         </div>
         <div className="space-y-3">
           {templates.filter(tpl => tpl.slug).length === 0 && (
@@ -186,7 +186,7 @@ export default function EmailTemplatesPanel({ canWrite = true }: { canWrite?: bo
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500">Templates Email Campagnes</h3>
           {canWrite && <div className="flex gap-2">
-            <button onClick={seedTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>⚡ Seeder</button>
+            {templates.filter(tpl => !tpl.slug).length === 0 && <button onClick={seedTemplates} className="text-xs px-3 py-1.5 rounded transition-all" style={{ background: "#0066ff15", color: "#0066ff", border: "1px solid #0066ff30" }}>⚡ Seeder</button>}
             <button onClick={() => { if (showTemplateForm) { setShowTemplateForm(false); } else { setTemplateForm({ htmlBody: STANDARD_TEMPLATE_HTML_FR, htmlBodyEn: STANDARD_TEMPLATE_HTML_EN }); setTemplateFormError(""); setShowTemplateForm(true); } }} className="btn-neon px-3 py-1.5 rounded text-xs">+ Créer</button>
           </div>}
         </div>

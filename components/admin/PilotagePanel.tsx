@@ -359,7 +359,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
             </button>
           )}
           {(canWriteKanban !== false ? canWriteKanban : canWrite) && view === "kanban" && <button onClick={createTask} className="text-sm px-5 py-2.5 rounded border border-neon-green/50 text-neon-green font-semibold font-mono">+ {__("Tâche", "Task")}</button>}
-          {canWrite && (
+          {canWrite && tasks.length === 0 && (
             <button onClick={() => seed(false)} disabled={seeding} className="text-xs px-3 py-1.5 rounded bg-neon-green text-black font-bold font-mono">
               {seeding ? "…" : `↻ ${__("Feuille de route", "Roadmap")}`}
             </button>
@@ -457,7 +457,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
                     onDrop={canWrite ? () => handleDrop(col.key) : undefined}
                   >
                     <div className="p-2 border-b border-gray-800 flex items-center justify-between">
-                      <span className="text-xs font-bold font-mono" style={{ color: col.color }}>{col.label}</span>
+                      <span className={`text-xs font-bold font-mono ${col.key === "done" ? "kanban-status-done" : ""}`} style={{ color: col.color }}>{col.label}</span>
                       <span className="text-xs text-gray-600 font-mono bg-gray-800 rounded-full px-1.5">{cards.length}</span>
                     </div>
                     <div className="p-2 space-y-2 min-h-[140px]">
@@ -468,7 +468,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
                           onDragStart={canWrite ? () => setDragId(card.id) : undefined}
                           onDragEnd={canWrite ? () => { setDragId(null); setDropTarget(null); } : undefined}
                           onClick={() => openDetail(card)}
-                          className={`rounded p-2 cursor-pointer border-l-4 border border-gray-800 transition-all hover:border-gray-600 ${dragId === card.id ? "opacity-40" : ""}`}
+                          className={`rounded p-2 cursor-pointer border-l-4 border border-gray-800 transition-all hover:border-gray-600 ${dragId === card.id ? "opacity-40" : ""} ${col.key === "done" ? "kanban-card-done" : ""}`}
                           style={{ borderLeftColor: phaseColor(card.phase), backgroundColor: "var(--card)" }}
                         >
                           <p className="text-xs font-bold text-white leading-snug">
@@ -643,13 +643,8 @@ function CalendarMonthView({ meetings, calDate, setCalDate, onEdit }: {
           return (
             <div
               key={cell.toISOString()}
-              style={{
-                minHeight: 64,
-                background: isToday ? "#00ff9d10" : "#0a0a12",
-                border: isToday ? "1px solid #00ff9d40" : "1px solid #1a1a2e",
-                borderRadius: 4,
-                padding: "2px 3px",
-              }}
+              className={`rounded border ${isToday ? "border-neon-green/30 bg-neon-green/5" : "bg-gray-900 border-gray-800"}`}
+              style={{ minHeight: 64, padding: "2px 3px" }}
             >
               <p className={`text-xs text-right mb-0.5 font-mono ${isCurrentMonth ? (isToday ? "text-neon-green font-bold" : "text-gray-400") : "text-gray-700"}`}>
                 {cell.getDate()}
@@ -718,7 +713,7 @@ function CalendarWeekView({ meetings, calDate, setCalDate, onEdit }: {
           <button onClick={nextWeek} className="text-xs px-2 py-1 border border-gray-700 rounded text-gray-400 hover:text-white">›</button>
           <button onClick={goToday} className="text-xs px-2 py-1 border border-gray-700 rounded text-gray-400 hover:text-white ml-1">Auj.</button>
         </div>
-        <p className="text-xs font-mono font-bold text-white">{weekLabel}</p>
+        <p className="text-xs font-mono font-bold text-white capitalize">{weekLabel}</p>
         <div className="w-24" />
       </div>
       <div style={{ overflowX: "auto" }}>
@@ -746,18 +741,18 @@ function CalendarWeekView({ meetings, calDate, setCalDate, onEdit }: {
             return (
               <div key={dayStr} style={{ flex: 1, minWidth: 0 }}>
                 {/* Day header */}
-                <div style={{ height: 28, textAlign: "center", borderBottom: "1px solid #1a1a2e", paddingBottom: 4 }}>
-                  <p className="font-mono" style={{ fontSize: 9, color: isToday ? "#00ff9d" : "#666" }}>
+                <div className="border-b border-gray-800" style={{ height: 28, textAlign: "center", paddingBottom: 4 }}>
+                  <p className={`font-mono ${isToday ? "text-neon-green" : "text-gray-500"}`} style={{ fontSize: 9 }}>
                     {day.toLocaleDateString("fr-FR", { weekday: "short" })}
                   </p>
-                  <p className="font-mono font-bold" style={{ fontSize: 11, color: isToday ? "#00ff9d" : "#aaa" }}>
+                  <p className={`font-mono font-bold ${isToday ? "text-neon-green" : "text-gray-400"}`} style={{ fontSize: 11 }}>
                     {day.getDate()}
                   </p>
                 </div>
                 {/* Slots */}
-                <div style={{ position: "relative", height: TOTAL_HEIGHT, borderLeft: "1px solid #1a1a2e", background: isToday ? "#00ff9d05" : "transparent" }}>
+                <div className={`border-l border-gray-800 ${isToday ? "bg-neon-green/5" : ""}`} style={{ position: "relative", height: TOTAL_HEIGHT }}>
                   {hours.map((h) => (
-                    <div key={h} style={{ position: "absolute", top: (h - HOUR_START) * SLOT_HEIGHT, left: 0, right: 0, height: SLOT_HEIGHT, borderTop: "1px solid #1a1a2e11" }} />
+                    <div key={h} className="border-t border-gray-900/30" style={{ position: "absolute", top: (h - HOUR_START) * SLOT_HEIGHT, left: 0, right: 0, height: SLOT_HEIGHT }} />
                   ))}
                   {dayInstances.map((inst, idx) => {
                     const d = new Date(inst.scheduledAt);

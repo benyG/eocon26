@@ -436,6 +436,21 @@ select option {
 /* Semi-transparent black backgrounds (sidebar, header) — become light */
 [data-theme="light"] .bg-black\/40              { background-color: #eef0f6 !important; }
 [data-theme="light"] .bg-black\/80              { background-color: #ffffff !important; }
+
+/* Gray opacity variants not covered by the solid overrides above */
+[data-theme="light"] .bg-gray-900\/5            { background-color: rgba(0,100,56,0.06) !important; }
+[data-theme="light"] .bg-gray-900\/10           { background-color: rgba(255,255,255,0.95) !important; }
+[data-theme="light"] .bg-gray-900\/30           { background-color: rgba(255,255,255,0.85) !important; }
+[data-theme="light"] .bg-gray-900\/40           { background-color: rgba(255,255,255,0.90) !important; }
+[data-theme="light"] .bg-gray-900\/50           { background-color: #ffffff !important; }
+[data-theme="light"] .bg-gray-800\/30           { background-color: rgba(238,240,245,0.80) !important; }
+[data-theme="light"] .bg-gray-800\/40           { background-color: #eef0f5 !important; }
+[data-theme="light"] .bg-gray-800\/50           { background-color: #eef0f5 !important; }
+
+/* Kanban "Done" column — make label distinctly green in light theme */
+[data-theme="light"] .kanban-status-done        { color: #006b3a !important; font-weight: 800 !important; }
+[data-theme="light"] .kanban-card-done          { background-color: #f0fdf8 !important; border-left-color: #009960 !important; }
+[data-theme="light"] .border-gray-900\/30       { border-color: rgba(0,0,0,0.08) !important; }
 /* bg-black/90 intentionally NOT overridden — modal backdrops stay dark */
 
 /* White-alpha bg → invert for light mode */

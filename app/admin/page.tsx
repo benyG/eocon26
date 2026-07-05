@@ -1632,12 +1632,13 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
 }
 
 // ---- Library Picker Modal ----
-// Browse and pick an existing image from the GCS library (no upload here).
+// Browse and pick an existing image from the GCS library — organised by category.
 function LibraryPickerModal({ onPick, onClose }: { onPick: (url: string) => void; onClose: () => void }) {
   const { lang } = useAdminT();
-  const [files, setFiles] = useState<{ name: string; url: string; size: number; updated: string }[]>([]);
+  const [files, setFiles] = useState<{ name: string; url: string; size: number; updated: string; categoryName: string | null; categorySlug: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetch("/api/admin/library")
@@ -1648,15 +1649,31 @@ function LibraryPickerModal({ onPick, onClose }: { onPick: (url: string) => void
   }, []);
 
   const fmt = (b: number) => b < 1024 ? `${b} B` : b < 1048576 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1048576).toFixed(1)} MB`;
-  const filtered = files.filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
+
+  const filtered = search
+    ? files.filter(f => f.name.toLowerCase().includes(search.toLowerCase()) || (f.categoryName ?? "").toLowerCase().includes(search.toLowerCase()))
+    : files;
+
+  // Group by category; files without a category go into "Autres"
+  const groups: { key: string; label: string; files: typeof filtered }[] = [];
+  const seen = new Map<string, typeof filtered>();
+  for (const f of filtered) {
+    const key = f.categorySlug ?? "__autres__";
+    const label = f.categoryName ?? (lang === "en" ? "Other" : "Autres");
+    if (!seen.has(key)) { seen.set(key, []); groups.push({ key, label, files: seen.get(key)! }); }
+    seen.get(key)!.push(f);
+  }
+
+  const toggleCollapse = (key: string) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
 
   return (
     <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4" onClick={onClose}>
       <div className="cyber-card rounded-xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* Header */}
         <div className="flex items-center justify-between gap-3 p-5 pb-3 border-b border-gray-800 shrink-0">
           <div>
-            <h3 className="text-white font-bold text-sm">{lang === "en" ? "📁 Choose an image from the Library" : "📁 Choisir une image de la Library"}</h3>
-            <p className="text-gray-500 text-xs mt-0.5">{lang === "en" ? "Images hosted on Google Cloud Storage" : "Images hébergées sur Google Cloud Storage"}</p>
+            <h3 className="text-white font-bold text-sm">📁 {lang === "en" ? "Choose an image from the Library" : "Choisir une image de la Library"}</h3>
+            <p className="text-gray-500 text-xs mt-0.5">{files.length} {lang === "en" ? "image(s) — organised by category" : "image(s) — organisées par catégorie"}</p>
           </div>
           <div className="flex items-center gap-2">
             <input
@@ -1669,7 +1686,9 @@ function LibraryPickerModal({ onPick, onClose }: { onPick: (url: string) => void
             <button onClick={onClose} className="text-gray-500 hover:text-white text-xl leading-none">✕</button>
           </div>
         </div>
-        <div className="p-5 overflow-y-auto">
+
+        {/* Body */}
+        <div className="p-4 overflow-y-auto space-y-5">
           {loading ? (
             <div className="flex items-center justify-center h-48 text-gray-600 font-mono text-xs">{lang === "en" ? "Loading…" : "Chargement…"}</div>
           ) : filtered.length === 0 ? (
@@ -1678,23 +1697,40 @@ function LibraryPickerModal({ onPick, onClose }: { onPick: (url: string) => void
               <span className="text-gray-700">{lang === "en" ? "Import images via the 📁 Library tab." : "Importez des images via l'onglet 📁 Library."}</span>
             </div>
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-              {filtered.map(f => (
+            groups.map(group => (
+              <div key={group.key}>
+                {/* Category header — clickable to collapse/expand */}
                 <button
-                  key={f.name}
-                  onClick={() => { onPick(f.url); onClose(); }}
-                  className="group relative rounded-lg overflow-hidden border border-gray-800 hover:border-neon-green transition-all text-left"
+                  onClick={() => toggleCollapse(group.key)}
+                  className="flex items-center gap-2 mb-2 w-full text-left group"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={f.url} alt={f.name} className="w-full aspect-square object-contain bg-gray-900 p-1" loading="lazy" />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-neon-green/10 transition-colors" />
-                  <div className="absolute bottom-0 inset-x-0 bg-black/70 px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <p className="text-white text-xs truncate leading-tight">{f.name.split("/").pop()}</p>
-                    <p className="text-gray-400 text-xs">{fmt(f.size)}</p>
-                  </div>
+                  <span className="text-base">{collapsed[group.key] ? "📁" : "📂"}</span>
+                  <span className="text-xs font-bold text-gray-300 group-hover:text-white transition-colors">{group.label}</span>
+                  <span className="text-xs text-gray-600">({group.files.length})</span>
+                  <span className="text-gray-700 text-xs ml-1">{collapsed[group.key] ? "▶" : "▼"}</span>
                 </button>
-              ))}
-            </div>
+
+                {!collapsed[group.key] && (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                    {group.files.map(f => (
+                      <button
+                        key={f.name}
+                        onClick={() => { onPick(f.url); onClose(); }}
+                        className="group/img relative rounded-lg overflow-hidden border border-gray-800 hover:border-neon-green transition-all text-left"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={f.url} alt={f.name} className="w-full aspect-square object-contain bg-gray-900 p-1" loading="lazy" />
+                        <div className="absolute inset-0 bg-black/0 group-hover/img:bg-neon-green/10 transition-colors" />
+                        <div className="absolute bottom-0 inset-x-0 bg-black/70 px-1.5 py-1 opacity-0 group-hover/img:opacity-100 transition-opacity">
+                          <p className="text-white text-xs truncate leading-tight">{f.name.split("/").pop()}</p>
+                          <p className="text-gray-400 text-xs">{fmt(f.size)}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))
           )}
         </div>
       </div>
@@ -1779,7 +1815,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [brief, setBrief] = useState("");
-  const [platforms, setPlatforms] = useState({ linkedin: true, twitter: false, instagram: false, facebook: false, whatsapp: false });
+  const [platforms, setPlatforms] = useState({ linkedin: true, twitter: true, instagram: false, facebook: true, whatsapp: false });
   const [lang, setLang] = useState<"fr" | "en" | "both">("both");
   const [generating, setGenerating] = useState(false);
   const [generatedPosts, setGeneratedPosts] = useState<Record<string, string> | null>(null);
@@ -2185,7 +2221,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
             {/* Platforms */}
             <div className="mb-3">
               <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">{t.platformsLabel}</p>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-x-3 gap-y-2">
                 {([
                   { id: "linkedin", label: "💼 LinkedIn" },
                   { id: "twitter", label: "𝕏 Twitter/X" },
@@ -2283,9 +2319,18 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
               {generatedPosts && (
                 <div className="space-y-2">
                   <p className="text-xs text-gray-500 uppercase tracking-wider">{t.postsPreviewLabel}</p>
-                  {(["linkedin", "twitter", "instagram"] as const).filter(p => platforms[p]).map(platform => (
+                  {(["linkedin", "twitter", "facebook", "instagram", "whatsapp"] as const).filter(p => platforms[p]).map(platform => {
+                    const platformColor: Record<string, string> = {
+                      linkedin: "#0066ff", twitter: "#00ccff", facebook: "#1877f2",
+                      instagram: "#cc00ff", whatsapp: "#25d366",
+                    };
+                    const platformLabel: Record<string, string> = {
+                      linkedin: "💼 LinkedIn", twitter: "𝕏 Twitter/X", facebook: "📘 Facebook",
+                      instagram: "📷 Instagram", whatsapp: "💬 WhatsApp",
+                    };
+                    return (
                     <div key={platform} className="border border-gray-800 rounded-lg p-3 space-y-2">
-                      <p className="text-xs font-bold capitalize" style={{ color: platform === "linkedin" ? "#0066ff" : platform === "twitter" ? "#00ccff" : "#cc00ff" }}>{platform}</p>
+                      <p className="text-xs font-bold" style={{ color: platformColor[platform] }}>{platformLabel[platform]}</p>
                       {(lang === "both" ? ["fr", "en"] : [lang]).map(l => (
                         <div key={l}>
                           <p className="text-gray-600 text-xs mb-1">[{l.toUpperCase()}] <span className="text-gray-700">{(generatedPosts[`${platform}_${l}`] || "").length} car.</span></p>
@@ -2293,12 +2338,13 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                             value={generatedPosts[`${platform}_${l}`] || ""}
                             onChange={e => setGeneratedPosts(prev => prev ? { ...prev, [`${platform}_${l}`]: e.target.value } : prev)}
                             className="cyber-input w-full text-xs rounded p-2 resize-y text-gray-200"
-                            style={{ minHeight: platform === "twitter" ? "64px" : "130px" }}
+                            style={{ minHeight: platform === "twitter" || platform === "whatsapp" ? "64px" : "130px" }}
                           />
                         </div>
                       ))}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>{/* end scrollable body */}
@@ -2356,9 +2402,17 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                         if (lang !== "en") entries.push({ platform: "twitter", lang: "fr", content: generatedPosts.twitter_fr || "" });
                         if (lang !== "fr") entries.push({ platform: "twitter", lang: "en", content: generatedPosts.twitter_en || "" });
                       }
+                      if (platforms.facebook) {
+                        if (lang !== "en") entries.push({ platform: "facebook", lang: "fr", content: (generatedPosts.facebook_fr as string) || "" });
+                        if (lang !== "fr") entries.push({ platform: "facebook", lang: "en", content: (generatedPosts.facebook_en as string) || "" });
+                      }
                       if (platforms.instagram) {
                         if (lang !== "en") entries.push({ platform: "instagram", lang: "fr", content: generatedPosts.instagram_fr || "" });
                         if (lang !== "fr") entries.push({ platform: "instagram", lang: "en", content: generatedPosts.instagram_en || "" });
+                      }
+                      if (platforms.whatsapp) {
+                        if (lang !== "en") entries.push({ platform: "whatsapp", lang: "fr", content: (generatedPosts.whatsapp_fr as string) || "" });
+                        if (lang !== "fr") entries.push({ platform: "whatsapp", lang: "en", content: (generatedPosts.whatsapp_en as string) || "" });
                       }
                       for (const entry of entries) {
                         const postId = generatedPostIds[`${entry.platform}_${entry.lang}`];

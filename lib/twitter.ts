@@ -113,7 +113,6 @@ export async function publishTweet(text: string, imageUrl?: string): Promise<Twi
 }
 
 async function uploadMedia(imageUrl: string): Promise<string> {
-  // Fetch image bytes
   const imgRes = await fetch(imageUrl);
   if (!imgRes.ok) throw new Error(`Failed to fetch image for X upload: ${imgRes.status}`);
   const contentType = imgRes.headers.get("content-type") || "image/jpeg";
@@ -121,18 +120,19 @@ async function uploadMedia(imageUrl: string): Promise<string> {
   const totalBytes = buffer.byteLength;
   const b64 = buffer.toString("base64");
 
-  // INIT
-  const initUrl = `${UPLOAD_BASE}/media/upload.json`;
+  const uploadUrl = `${UPLOAD_BASE}/media/upload.json`;
+
+  // INIT — form-encoded body: params MUST be in the OAuth signature
   const initParams = {
     command: "INIT",
     total_bytes: totalBytes.toString(),
     media_type: contentType,
     media_category: "tweet_image",
   };
-  const initRes = await fetch(initUrl, {
+  const initRes = await fetch(uploadUrl, {
     method: "POST",
     headers: {
-      Authorization: authHeader("POST", initUrl),
+      Authorization: authHeader("POST", uploadUrl, initParams),
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: new URLSearchParams(initParams).toString(),
@@ -140,35 +140,36 @@ async function uploadMedia(imageUrl: string): Promise<string> {
   if (!initRes.ok) throw new Error(`X media INIT failed: ${await initRes.text()}`);
   const { media_id_string } = await initRes.json() as { media_id_string: string };
 
-  // APPEND (single chunk — max 5MB; GCS images should be under that)
-  const appendUrl = `${UPLOAD_BASE}/media/upload.json`;
-  const formData = new URLSearchParams({
-    command: "APPEND",
-    media_id: media_id_string,
-    media_data: b64,
-    segment_index: "0",
-  });
-  const appendRes = await fetch(appendUrl, {
+  // APPEND — multipart/form-data with raw binary `media` field.
+  // Per Twitter docs: multipart uses `media` (binary), not `media_data` (base64).
+  // Multipart body is NOT included in the OAuth signature (RFC 5849 §3.4.1),
+  // so only the non-binary params are signed.
+  const appendParams = { command: "APPEND", media_id: media_id_string, segment_index: "0" };
+  const form = new FormData();
+  form.append("command", "APPEND");
+  form.append("media_id", media_id_string);
+  form.append("segment_index", "0");
+  form.append("media", new Blob([buffer], { type: contentType }), "media");
+  const appendRes = await fetch(uploadUrl, {
     method: "POST",
     headers: {
-      Authorization: authHeader("POST", appendUrl),
-      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: authHeader("POST", uploadUrl, appendParams),
     },
-    body: formData.toString(),
+    body: form,
   });
   if (!appendRes.ok && appendRes.status !== 204) {
     throw new Error(`X media APPEND failed: ${await appendRes.text()}`);
   }
 
-  // FINALIZE
-  const finalizeUrl = `${UPLOAD_BASE}/media/upload.json`;
-  const finalizeRes = await fetch(finalizeUrl, {
+  // FINALIZE — form-encoded: params in signature
+  const finalizeParams = { command: "FINALIZE", media_id: media_id_string };
+  const finalizeRes = await fetch(uploadUrl, {
     method: "POST",
     headers: {
-      Authorization: authHeader("POST", finalizeUrl),
+      Authorization: authHeader("POST", uploadUrl, finalizeParams),
       "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: new URLSearchParams({ command: "FINALIZE", media_id: media_id_string }).toString(),
+    body: new URLSearchParams(finalizeParams).toString(),
   });
   if (!finalizeRes.ok) throw new Error(`X media FINALIZE failed: ${await finalizeRes.text()}`);
 

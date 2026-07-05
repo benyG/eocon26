@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     const batch = recipients.slice(i, i + 50);
     await Promise.all(batch.map(async (r) => {
       const c = pickContent(template, r.lang);
-      const html = wrapCampaignHtml(personalize(c.htmlBody, r), c.lang);
+      const html = await wrapCampaignHtml(personalize(c.htmlBody, r), c.lang);
       const subject = personalize(c.subject, r);
       try {
         const res = await resend.emails.send({ from: getFrom(), to: r.email, subject, html, ...(replyTo ? { replyTo } : {}) });

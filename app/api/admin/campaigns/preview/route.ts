@@ -11,5 +11,5 @@ export async function POST(req: NextRequest) {
   if (!(await hasPermission("campaigns", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { htmlBody } = await req.json();
   const sample = { email: "demo@example.com", fname: "Prénom", lname: "Nom", org: "Organisation", country: "Cameroun", ticketType: "Standard" };
-  return NextResponse.json({ html: wrapCampaignHtml(personalize(htmlBody || "", sample)) });
+  return NextResponse.json({ html: await wrapCampaignHtml(personalize(htmlBody || "", sample)) });
 }

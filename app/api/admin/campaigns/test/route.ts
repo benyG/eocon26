@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
   // Personalize with sample data so {{fname}} etc. are visible in the test.
   const sample = { email: to, fname: "Prénom", lname: "Nom", org: "Organisation", country: "Cameroun", ticketType: "Standard" };
-  const html = wrapCampaignHtml(personalize(htmlBody || "", sample));
+  const html = await wrapCampaignHtml(personalize(htmlBody || "", sample));
 
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);

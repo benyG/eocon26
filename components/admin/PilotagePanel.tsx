@@ -359,7 +359,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
             </button>
           )}
           {(canWriteKanban !== false ? canWriteKanban : canWrite) && view === "kanban" && <button onClick={createTask} className="text-sm px-5 py-2.5 rounded border border-neon-green/50 text-neon-green font-semibold font-mono">+ {__("Tâche", "Task")}</button>}
-          {canWrite && (
+          {canWrite && tasks.length === 0 && (
             <button onClick={() => seed(false)} disabled={seeding} className="text-xs px-3 py-1.5 rounded bg-neon-green text-black font-bold font-mono">
               {seeding ? "…" : `↻ ${__("Feuille de route", "Roadmap")}`}
             </button>

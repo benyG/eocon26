@@ -47,9 +47,11 @@ export async function publishFacebookPost(message: string, imageUrl?: string): P
   let postId: string;
 
   if (imageUrl) {
+    // published:true ensures Graph API creates a feed post (not just a photo in album)
     const body = new URLSearchParams({
       url: imageUrl,
       caption: message,
+      published: "true",
       access_token: pageToken,
     });
     const res = await fetch(`${GRAPH_BASE}/${pageId}/photos`, {
@@ -59,7 +61,8 @@ export async function publishFacebookPost(message: string, imageUrl?: string): P
     });
     if (!res.ok) {
       const err = await res.text();
-      throw new Error(`Facebook API error ${res.status}: ${err}`);
+      // Common cause: imageUrl is not publicly accessible (private GCS bucket).
+      throw new Error(`Facebook photo error ${res.status}: ${err}`);
     }
     const data = await res.json() as { id: string; post_id?: string };
     postId = data.post_id || data.id;

@@ -2319,9 +2319,18 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
               {generatedPosts && (
                 <div className="space-y-2">
                   <p className="text-xs text-gray-500 uppercase tracking-wider">{t.postsPreviewLabel}</p>
-                  {(["linkedin", "twitter", "instagram"] as const).filter(p => platforms[p]).map(platform => (
+                  {(["linkedin", "twitter", "facebook", "instagram", "whatsapp"] as const).filter(p => platforms[p]).map(platform => {
+                    const platformColor: Record<string, string> = {
+                      linkedin: "#0066ff", twitter: "#00ccff", facebook: "#1877f2",
+                      instagram: "#cc00ff", whatsapp: "#25d366",
+                    };
+                    const platformLabel: Record<string, string> = {
+                      linkedin: "💼 LinkedIn", twitter: "𝕏 Twitter/X", facebook: "📘 Facebook",
+                      instagram: "📷 Instagram", whatsapp: "💬 WhatsApp",
+                    };
+                    return (
                     <div key={platform} className="border border-gray-800 rounded-lg p-3 space-y-2">
-                      <p className="text-xs font-bold capitalize" style={{ color: platform === "linkedin" ? "#0066ff" : platform === "twitter" ? "#00ccff" : "#cc00ff" }}>{platform}</p>
+                      <p className="text-xs font-bold" style={{ color: platformColor[platform] }}>{platformLabel[platform]}</p>
                       {(lang === "both" ? ["fr", "en"] : [lang]).map(l => (
                         <div key={l}>
                           <p className="text-gray-600 text-xs mb-1">[{l.toUpperCase()}] <span className="text-gray-700">{(generatedPosts[`${platform}_${l}`] || "").length} car.</span></p>
@@ -2329,12 +2338,13 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                             value={generatedPosts[`${platform}_${l}`] || ""}
                             onChange={e => setGeneratedPosts(prev => prev ? { ...prev, [`${platform}_${l}`]: e.target.value } : prev)}
                             className="cyber-input w-full text-xs rounded p-2 resize-y text-gray-200"
-                            style={{ minHeight: platform === "twitter" ? "64px" : "130px" }}
+                            style={{ minHeight: platform === "twitter" || platform === "whatsapp" ? "64px" : "130px" }}
                           />
                         </div>
                       ))}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>{/* end scrollable body */}
@@ -2392,9 +2402,17 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                         if (lang !== "en") entries.push({ platform: "twitter", lang: "fr", content: generatedPosts.twitter_fr || "" });
                         if (lang !== "fr") entries.push({ platform: "twitter", lang: "en", content: generatedPosts.twitter_en || "" });
                       }
+                      if (platforms.facebook) {
+                        if (lang !== "en") entries.push({ platform: "facebook", lang: "fr", content: (generatedPosts.facebook_fr as string) || "" });
+                        if (lang !== "fr") entries.push({ platform: "facebook", lang: "en", content: (generatedPosts.facebook_en as string) || "" });
+                      }
                       if (platforms.instagram) {
                         if (lang !== "en") entries.push({ platform: "instagram", lang: "fr", content: generatedPosts.instagram_fr || "" });
                         if (lang !== "fr") entries.push({ platform: "instagram", lang: "en", content: generatedPosts.instagram_en || "" });
+                      }
+                      if (platforms.whatsapp) {
+                        if (lang !== "en") entries.push({ platform: "whatsapp", lang: "fr", content: (generatedPosts.whatsapp_fr as string) || "" });
+                        if (lang !== "fr") entries.push({ platform: "whatsapp", lang: "en", content: (generatedPosts.whatsapp_en as string) || "" });
                       }
                       for (const entry of entries) {
                         const postId = generatedPostIds[`${entry.platform}_${entry.lang}`];

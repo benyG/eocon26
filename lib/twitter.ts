@@ -140,19 +140,19 @@ async function uploadMedia(imageUrl: string): Promise<string> {
   if (!initRes.ok) throw new Error(`X media INIT failed: ${await initRes.text()}`);
   const { media_id_string } = await initRes.json() as { media_id_string: string };
 
-  // APPEND — send via multipart/form-data so the large media_data binary is
-  // NOT included in the OAuth signature (RFC 5849 §3.4.1: only
-  // application/x-www-form-urlencoded bodies are signed).
+  // APPEND — multipart/form-data with raw binary `media` field.
+  // Per Twitter docs: multipart uses `media` (binary), not `media_data` (base64).
+  // Multipart body is NOT included in the OAuth signature (RFC 5849 §3.4.1),
+  // so only the non-binary params are signed.
   const appendParams = { command: "APPEND", media_id: media_id_string, segment_index: "0" };
   const form = new FormData();
   form.append("command", "APPEND");
   form.append("media_id", media_id_string);
   form.append("segment_index", "0");
-  form.append("media_data", b64);
+  form.append("media", new Blob([buffer], { type: contentType }), "media");
   const appendRes = await fetch(uploadUrl, {
     method: "POST",
     headers: {
-      // Sign only the non-binary params; multipart body is not signed
       Authorization: authHeader("POST", uploadUrl, appendParams),
     },
     body: form,

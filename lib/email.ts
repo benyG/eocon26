@@ -390,10 +390,12 @@ interface PilotageTaskLike {
   priority?: string;
 }
 interface PilotageMeetingLike {
+  id?: number;
   title: string;
   scheduledAt: Date | string;
   location?: string | null;
   agenda?: string | null;
+  convenerEmail?: string | null;
 }
 
 function fmtFrDate(d?: Date | string | null): string {
@@ -450,18 +452,106 @@ export async function sendPilotageEscalation(coordoEmail: string, task: Pilotage
   await sendPilotage(coordoEmail, `🚨 Tâche en retard — ${task.title}`, body);
 }
 
+function buildMeetingICS(to: string, meeting: PilotageMeetingLike & { convenerName?: string | null }): Buffer {
+  const d = typeof meeting.scheduledAt === "string" ? new Date(meeting.scheduledAt) : (meeting.scheduledAt as Date);
+  // Africa/Douala = UTC+1 year-round (no DST)
+  const doualaMs = d.getTime() + 60 * 60000;
+  const localD = new Date(doualaMs);
+  const endD = new Date(doualaMs + 3600000); // +1 hour
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const fmt = (dt: Date) =>
+    `${dt.getUTCFullYear()}${pad(dt.getUTCMonth() + 1)}${pad(dt.getUTCDate())}T${pad(dt.getUTCHours())}${pad(dt.getUTCMinutes())}00`;
+  const dtStart = fmt(localD);
+  const dtEnd = fmt(endD);
+  const nowUtc = new Date();
+  const dtstamp = `${nowUtc.getUTCFullYear()}${pad(nowUtc.getUTCMonth() + 1)}${pad(nowUtc.getUTCDate())}T${pad(nowUtc.getUTCHours())}${pad(nowUtc.getUTCMinutes())}${pad(nowUtc.getUTCSeconds())}Z`;
+  const uid = `eocon-meeting-${meeting.id || d.getTime()}@eyesopensecurity.com`;
+  const descLine = meeting.agenda ? `DESCRIPTION:${meeting.agenda.replace(/\n/g, "\\n").replace(/,/g, "\\,")}` : "";
+  const locLine = meeting.location ? `LOCATION:${meeting.location.replace(/,/g, "\\,").replace(/\n/g, "\\n")}` : "";
+  const orgLine = meeting.convenerEmail ? `ORGANIZER;CN=${meeting.convenerName || "EOCON"}:mailto:${meeting.convenerEmail}` : "";
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//EOCON 2026//eyesopensecurity.com//FR",
+    "CALSCALE:GREGORIAN",
+    "METHOD:REQUEST",
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${dtstamp}`,
+    `DTSTART;TZID=Africa/Douala:${dtStart}`,
+    `DTEND;TZID=Africa/Douala:${dtEnd}`,
+    `SUMMARY:${meeting.title.replace(/,/g, "\\,")}`,
+    orgLine,
+    locLine,
+    descLine,
+    `ATTENDEE;RSVP=TRUE:mailto:${to}`,
+    "STATUS:CONFIRMED",
+    "SEQUENCE:0",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].filter(Boolean).join("\r\n");
+  return Buffer.from(lines, "utf-8");
+}
+
+function googleCalMeetingUrl(meeting: PilotageMeetingLike): string {
+  const d = typeof meeting.scheduledAt === "string" ? new Date(meeting.scheduledAt) : (meeting.scheduledAt as Date);
+  const doualaMs = d.getTime() + 60 * 60000;
+  const localD = new Date(doualaMs);
+  const endD = new Date(doualaMs + 3600000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const fmt = (dt: Date) =>
+    `${dt.getUTCFullYear()}${pad(dt.getUTCMonth() + 1)}${pad(dt.getUTCDate())}T${pad(dt.getUTCHours())}${pad(dt.getUTCMinutes())}00`;
+  const text = encodeURIComponent(meeting.title);
+  const loc = meeting.location ? encodeURIComponent(meeting.location) : "";
+  const desc = meeting.agenda ? encodeURIComponent(meeting.agenda) : "";
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${fmt(localD)}/${fmt(endD)}&ctz=Africa%2FDouala${loc ? `&location=${loc}` : ""}${desc ? `&details=${desc}` : ""}`;
+}
+
 export async function sendPilotageMeetingInvitation(to: string, meeting: PilotageMeetingLike & { convenerName?: string | null }) {
+  const d = typeof meeting.scheduledAt === "string" ? new Date(meeting.scheduledAt) : (meeting.scheduledAt as Date);
+  const dateFr = d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Africa/Douala" });
+  const timeFr = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Africa/Douala" });
+
+  const locationDisplay = meeting.location
+    ? (meeting.location.startsWith("https://")
+        ? `<a href="${esc(meeting.location)}" style="color:#00ccff;" target="_blank">${esc(meeting.location)}</a>`
+        : esc(meeting.location))
+    : null;
+
+  const gcalUrl = googleCalMeetingUrl(meeting);
+  const icsBuffer = buildMeetingICS(to, meeting);
+
+  const calLinks = `
+<div style="margin-top:20px;padding:16px;background:#050a05;border:1px solid #00ff9d20;border-radius:8px;text-align:center;">
+  <div style="font-family:'Courier New',Courier,monospace;font-size:10px;color:#00ff9d80;letter-spacing:2px;margin-bottom:10px;">📅 AJOUTER À VOTRE CALENDRIER</div>
+  <a href="${gcalUrl}" style="display:inline-block;margin:4px 6px;padding:7px 16px;background:#0d1117;border:1px solid #00ff9d40;border-radius:6px;color:#00ff9d;font-family:'Courier New',Courier,monospace;font-size:11px;text-decoration:none;" target="_blank">📅 Google Calendar</a>
+  <span style="display:inline-block;margin:4px 6px;padding:7px 16px;background:#0d1117;border:1px solid #00ff9d40;border-radius:6px;color:#00ff9d80;font-family:'Courier New',Courier,monospace;font-size:11px;">🗓 .ics joint (Outlook · Apple · iOS)</span>
+</div>`;
+
   const body = `<p>${greenLabel("Bonjour")},</p>
-     <p>Vous avez été ajouté(e) à une réunion de pilotage EOCON 2026.</p>
+     <p>Vous avez été convoqué(e) à une réunion de pilotage EOCON 2026.</p>
      ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
        ${neonRow("Réunion", `<strong style="color:#00ff9d;">${esc(meeting.title)}</strong>`)}
-       ${neonRow("Date", fmtFrDate(meeting.scheduledAt))}
-       ${meeting.location ? neonRow("Lieu", esc(meeting.location)) : ""}
-       ${meeting.agenda ? neonRow("Ordre du jour", esc(meeting.agenda)) : ""}
+       ${neonRow("Date", dateFr)}
+       ${neonRow("Heure", `${timeFr} <span style="color:#666;font-size:11px;">&mdash; Africa/Douala (UTC+1)</span>`)}
+       ${locationDisplay ? neonRow("Lieu / Lien", locationDisplay) : ""}
+       ${meeting.agenda ? neonRow("Ordre du jour", esc(meeting.agenda).replace(/\n/g, "<br>")) : ""}
        ${meeting.convenerName ? neonRow("Organisateur", esc(meeting.convenerName)) : ""}
      </tbody></table>`)}
-     <p>Pensez à noter cette date dans votre agenda.</p>`;
-  await sendPilotage(to, `📅 Invitation — ${meeting.title}`, body);
+     ${calLinks}`;
+  try {
+    await getResend().emails.send({
+      from: FROM,
+      to,
+      subject: `📅 Invitation — ${meeting.title}`,
+      html: emailWrap(body, true),
+      attachments: [
+        { filename: `reunion-${(meeting.id || "eocon")}.ics`, content: icsBuffer },
+      ],
+    });
+  } catch (e) {
+    console.error("[pilotage meeting invitation email]", e);
+  }
 }
 
 export async function sendPilotageMeetingReminder(to: string, meeting: PilotageMeetingLike, stage: string) {

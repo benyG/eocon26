@@ -18,7 +18,8 @@ const DECK_FILES = [
 export async function POST(req: NextRequest) {
   const canWrite = (await hasPermission("prospection", "write")) || (await hasPermission("sponsor-pipeline", "write"));
   if (!canWrite) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const { id, subject, body, attachDecks, markContacted } = await req.json();
+  const { id, subject, body, attachDecks, markContacted, docTypes, lang } = await req.json();
+  const docLang: "fr" | "en" = lang === "en" ? "en" : "fr";
   if (!id || !subject || !body) {
     return NextResponse.json({ error: "id, subject et body requis" }, { status: 400 });
   }
@@ -39,6 +40,19 @@ export async function POST(req: NextRequest) {
         attachments.push({ filename, content: await fs.readFile(path.join(dir, filename)) });
       } catch (e) {
         console.error("[prospect send-email] missing attachment", filename, e);
+      }
+    }
+  }
+
+  // Attach stage-relevant generated documents (one-pager, pricing, LOI, contract…).
+  if (Array.isArray(docTypes) && docTypes.length) {
+    const { buildDocument } = await import("@/lib/buildDocument");
+    for (const type of docTypes as string[]) {
+      try {
+        const d = await buildDocument({ type, sponsorId: prospect.sponsorId ?? undefined, prospectId: prospect.id, lang: docLang });
+        attachments.push({ filename: d.filename, content: d.buffer });
+      } catch (e) {
+        console.error("[prospect send-email] doc", type, e);
       }
     }
   }

@@ -2635,6 +2635,31 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
 }
 
 // ---- Sponsor Pipeline Panel ----
+// Documents typically needed at each kanban stage (keys from the documents registry).
+// Pre-conclusion stages use prospect-applicable docs; once concluded, sponsor docs.
+const STAGE_DOCS: Record<string, string[]> = {
+  demande: ["onepager", "pricing"],
+  prospect: ["onepager", "pricing"],
+  contacted: ["onepager", "pricing", "loi"],
+  meeting: ["pricing", "loi"],
+  positive: ["pricing", "loi"],
+  concluded: ["proforma", "contract", "invoice", "brand_assets", "comm_plan"],
+  paused: ["onepager"],
+  negative: [],
+  abandoned: [],
+};
+const DOC_LABELS: Record<string, { fr: string; en: string }> = {
+  onepager: { fr: "One-pager", en: "One-pager" },
+  pricing: { fr: "Grille tarifaire", en: "Pricing" },
+  loi: { fr: "Lettre d'intention", en: "Letter of Intent" },
+  proforma: { fr: "Proforma", en: "Pro-forma" },
+  contract: { fr: "Contrat", en: "Contract" },
+  exclusivity: { fr: "Exclusivité", en: "Exclusivity" },
+  invoice: { fr: "Facture", en: "Invoice" },
+  brand_assets: { fr: "Brand assets", en: "Brand assets" },
+  comm_plan: { fr: "Plan de com", en: "Comm plan" },
+};
+
 const PROSPECT_STATUSES = [
   { value: "demande", fr: "Demande", en: "Request", label: "Demande", color: "#ffaa00" },
   { value: "prospect", fr: "Prospect", en: "Prospect", label: "Prospect", color: "#888" },
@@ -2740,7 +2765,11 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
   const [form, setForm] = useState<Record<string, unknown>>({ status: "prospect" });
   const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
   const [aiEmail, setAiEmail] = useState<{ subjectFr: string; bodyFr: string; subjectEn: string; bodyEn: string } | null>(null);
-  const [aiEmailTarget, setAiEmailTarget] = useState<{ org: string; id: number; email: string | null } | null>(null);
+  const [aiEmailTarget, setAiEmailTarget] = useState<{ org: string; id: number; email: string | null; status: string; kind: "email" | "teaser" } | null>(null);
+  const [attachDocs, setAttachDocs] = useState<Set<string>>(new Set());
+  const [pitchTarget, setPitchTarget] = useState<{ org: string; id: number } | null>(null);
+  const [pitchResult, setPitchResult] = useState<Record<string, unknown> | null>(null);
+  const [generatingPitch, setGeneratingPitch] = useState(false);
   const [generatingFor, setGeneratingFor] = useState<number | null>(null);
   const [attachDecks, setAttachDecks] = useState(true);
   const [sendingLang, setSendingLang] = useState<string | null>(null);
@@ -2762,11 +2791,16 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
     fetch("/api/admin/sponsor-deadline").then(r => r.ok ? r.json() : null).then(d => setDeadline(d?.next || null)).catch(() => {});
   }, []);
 
-  const generateFollowupEmail = async (p: Record<string, unknown>) => {
-    setAiEmailTarget({ org: p.org as string, id: p.id as number, email: (p.email as string) || null });
+  // First-contact vs relance is driven by the prospect's current kanban status.
+  const isFirstContact = (status: string) => ["demande", "prospect"].includes(status);
+
+  const generateFollowupEmail = async (p: Record<string, unknown>, force = false) => {
+    const status = p.status as string;
+    setAttachDocs(new Set(STAGE_DOCS[status] || []));
+    setAiEmailTarget({ org: p.org as string, id: p.id as number, email: (p.email as string) || null, status, kind: "email" });
     setSentMsg("");
-    // Re-display the cached email instead of regenerating it.
-    if (p.emailJson) {
+    // Reuse the cache only if it was written for the CURRENT status (else it's stale).
+    if (!force && p.emailJson && p.emailStatus === status) {
       try { setAiEmail(JSON.parse(p.emailJson as string)); return; } catch { /* regenerate */ }
     }
     setAiEmail(null);
@@ -2774,7 +2808,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
     const res = await fetch("/api/admin/ai/sponsor-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ org: p.org, contact: p.contact, package: p.package, status: p.status, notes: p.notes, mode: "followup" }),
+      body: JSON.stringify({ org: p.org, contact: p.contact, package: p.package, status, notes: p.notes, mode: isFirstContact(status) ? "prospect" : "followup" }),
     });
     if (res.ok) {
       const result = await res.json();
@@ -2782,11 +2816,62 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
       await fetch(`/api/admin/sponsor-prospects/${p.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emailJson: JSON.stringify(result) }),
+        body: JSON.stringify({ emailJson: JSON.stringify(result), emailStatus: status }),
       }).catch(() => {});
       onRefresh();
     }
     setGeneratingFor(null);
+  };
+
+  // Short first-contact teaser (WhatsApp / LinkedIn), cached on the prospect.
+  const generateTeaser = async (p: Record<string, unknown>, force = false) => {
+    setAttachDocs(new Set());
+    setAiEmailTarget({ org: p.org as string, id: p.id as number, email: (p.email as string) || null, status: p.status as string, kind: "teaser" });
+    setSentMsg("");
+    if (!force && p.teaserJson) {
+      try { setAiEmail(JSON.parse(p.teaserJson as string)); return; } catch { /* regenerate */ }
+    }
+    setAiEmail(null);
+    setGeneratingFor(p.id as number);
+    const res = await fetch("/api/admin/ai/sponsor-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ org: p.org, contact: p.contact, package: p.package, mode: "teaser" }),
+    });
+    if (res.ok) {
+      const result = await res.json();
+      setAiEmail(result);
+      await fetch(`/api/admin/sponsor-prospects/${p.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teaserJson: JSON.stringify(result) }),
+      }).catch(() => {});
+      onRefresh();
+    }
+    setGeneratingFor(null);
+  };
+
+  // Meeting pitch strategy, cached on the prospect (no need to regenerate each time).
+  const generatePitch = async (p: Record<string, unknown>, force = false) => {
+    setPitchTarget({ org: p.org as string, id: p.id as number });
+    if (!force && p.pitchJson) {
+      try { setPitchResult(JSON.parse(p.pitchJson as string)); return; } catch { /* regenerate */ }
+    }
+    setPitchResult(null);
+    setGeneratingPitch(true);
+    const res = await fetch("/api/admin/ai/pitch-strategy", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ org: p.org, contactName: p.contact, website: p.website, recommendedPackage: p.package, aiScoreReason: p.notes }),
+    });
+    if (res.ok) {
+      const result = await res.json();
+      setPitchResult(result);
+      await fetch(`/api/admin/sponsor-prospects/${p.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pitchJson: JSON.stringify(result) }),
+      }).catch(() => {});
+      onRefresh();
+    }
+    setGeneratingPitch(false);
   };
 
   const sendProspectEmail = async (subject: string, body: string, langLabel: string) => {
@@ -2796,7 +2881,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
     const res = await fetch("/api/admin/sponsor-prospects/send-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: aiEmailTarget.id, subject, body, attachDecks, markContacted: true }),
+      body: JSON.stringify({ id: aiEmailTarget.id, subject, body, attachDecks, markContacted: true, lang: langLabel.toLowerCase(), docTypes: Array.from(attachDocs) }),
     });
     if (res.ok) {
       const d = await res.json();
@@ -2937,19 +3022,34 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
           <div className="cyber-card rounded-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
             <div className="flex justify-between items-start p-6 pb-4 border-b border-gray-800 shrink-0">
               <div>
-                <h3 className="text-white font-bold">Email — {aiEmailTarget.org}</h3>
-                <p className="text-gray-500 text-xs">{aiEmailTarget.email || (lang === "en" ? "no email on file" : "aucun email enregistré")}</p>
+                <h3 className="text-white font-bold">{aiEmailTarget.kind === "teaser" ? (lang === "en" ? "Short teaser" : "Message court") : (isFirstContact(aiEmailTarget.status) ? (lang === "en" ? "First contact" : "Premier contact") : (lang === "en" ? "Follow-up" : "Relance"))} — {aiEmailTarget.org}</h3>
+                <p className="text-gray-500 text-xs">{aiEmailTarget.email || (lang === "en" ? "no email on file" : "aucun email enregistré")}{aiEmailTarget.kind === "teaser" && <span className="text-cyan-400"> · {lang === "en" ? "WhatsApp / LinkedIn — copy it" : "WhatsApp / LinkedIn — à copier"}</span>}</p>
               </div>
               <button onClick={() => { setAiEmail(null); setAiEmailTarget(null); setSentMsg(""); }} className="text-gray-500 hover:text-white">✕</button>
             </div>
             <div className="p-6 overflow-y-auto">
-            {/* Attachment toggle */}
-            <label className="flex items-center gap-2 mb-4 text-xs text-gray-300 cursor-pointer">
-              <input type="checkbox" checked={attachDecks} onChange={e => setAttachDecks(e.target.checked)} />
-              {lang === "en"
-                ? "Attach the sponsorship deck (FR + EN, .pdf)"
-                : "Joindre le dossier de sponsoring (FR + EN, .pdf)"}
-            </label>
+            {/* Attachments — deck + stage-relevant generated documents */}
+            {aiEmailTarget.kind !== "teaser" && (
+              <div className="mb-4 space-y-2">
+                <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+                  <input type="checkbox" checked={attachDecks} onChange={e => setAttachDecks(e.target.checked)} />
+                  {lang === "en" ? "Attach the sponsorship deck (FR + EN, .pdf)" : "Joindre le dossier de sponsoring (FR + EN, .pdf)"}
+                </label>
+                {(STAGE_DOCS[aiEmailTarget.status] || []).length > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-600 mb-1">{lang === "en" ? "Documents for this stage:" : "Documents pour cette étape :"}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {(STAGE_DOCS[aiEmailTarget.status] || []).map(dk => (
+                        <label key={dk} className="flex items-center gap-1.5 text-xs px-2 py-1 rounded border cursor-pointer" style={{ borderColor: attachDocs.has(dk) ? "#00ff9d55" : "#333", color: attachDocs.has(dk) ? "#00ff9d" : "#888" }}>
+                          <input type="checkbox" checked={attachDocs.has(dk)} onChange={e => setAttachDocs(prev => { const n = new Set(prev); if (e.target.checked) n.add(dk); else n.delete(dk); return n; })} />
+                          {lang === "en" ? DOC_LABELS[dk]?.en : DOC_LABELS[dk]?.fr}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="space-y-4">
               {[
                 { lang: "FR", subject: aiEmail.subjectFr, body: aiEmail.bodyFr },
@@ -2975,14 +3075,61 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
               ))}
             </div>
             {sentMsg && <p className="text-xs text-center mt-3" style={{ color: "var(--ac)" }}>{sentMsg}</p>}
-            <div className="mt-4 pt-4 border-t border-gray-800">
-              {canWrite && <button
+            <div className="mt-4 pt-4 border-t border-gray-800 flex gap-2">
+              {canWrite && (
+                <button
+                  onClick={() => { const p = prospects.find(x => x.id === aiEmailTarget.id); if (p) (aiEmailTarget.kind === "teaser" ? generateTeaser(p, true) : generateFollowupEmail(p, true)); }}
+                  className="text-xs px-4 py-2 rounded border border-gray-700 text-gray-400 hover:text-white transition-all shrink-0"
+                >
+                  🔄 {lang === "en" ? "Regenerate" : "Régénérer"}
+                </button>
+              )}
+              {canWrite && aiEmailTarget.kind !== "teaser" && <button
                 onClick={() => markContacted(aiEmailTarget.id)}
-                className="w-full text-xs px-4 py-2 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-all"
+                className="flex-1 text-xs px-4 py-2 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10 transition-all"
               >
                 {t.markContacted}
               </button>}
             </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pitch strategy modal (cached on the prospect) */}
+      {pitchTarget && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => { setPitchTarget(null); setPitchResult(null); }}>
+          <div className="cyber-card rounded-xl max-w-2xl w-full max-h-[88vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-5 border-b border-gray-800 shrink-0">
+              <h3 className="text-white font-bold">🎯 {lang === "en" ? "Meeting pitch" : "Pitch de rencontre"} — {pitchTarget.org}</h3>
+              <button onClick={() => { setPitchTarget(null); setPitchResult(null); }} className="text-gray-500 hover:text-white">✕</button>
+            </div>
+            <div className="p-5 overflow-y-auto text-xs space-y-3">
+              {generatingPitch && <p className="text-gray-500">{lang === "en" ? "Generating…" : "Génération…"}</p>}
+              {pitchResult && (() => {
+                const pr = pitchResult as Record<string, unknown>;
+                const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+                  <div><p className="text-gray-500 uppercase tracking-wider text-xs mb-1">{title}</p><div className="text-gray-200 leading-relaxed">{children}</div></div>
+                );
+                return (
+                  <>
+                    {!!pr.accroche && <Section title={lang === "en" ? "Hook" : "Accroche"}>{pr.accroche as string}</Section>}
+                    {Array.isArray(pr.valeur) && <Section title={lang === "en" ? "Value" : "Valeur"}><ul className="list-disc pl-4 space-y-0.5">{(pr.valeur as string[]).map((v, i) => <li key={i}>{v}</li>)}</ul></Section>}
+                    {!!pr.objection && typeof pr.objection === "object" && (
+                      <Section title="Objection">
+                        <p className="italic text-gray-400">« {(pr.objection as Record<string, string>).question} »</p>
+                        <p>{(pr.objection as Record<string, string>).reponse}</p>
+                      </Section>
+                    )}
+                    {!!pr.ouverture && <Section title={lang === "en" ? "Opening" : "Ouverture"}>{pr.ouverture as string}</Section>}
+                    {!!pr.brief_complet && <Section title="Brief">{pr.brief_complet as string}</Section>}
+                  </>
+                );
+              })()}
+            </div>
+            <div className="flex items-center justify-between gap-2 p-4 border-t border-gray-800 shrink-0">
+              {pitchResult && <button onClick={() => navigator.clipboard.writeText(JSON.stringify(pitchResult, null, 2))} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white">{lang === "en" ? "Copy" : "Copier"}</button>}
+              <button onClick={() => { const p = prospects.find(x => x.id === pitchTarget.id); if (p) generatePitch(p, true); }} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white ml-auto">🔄 {lang === "en" ? "Regenerate" : "Régénérer"}</button>
             </div>
           </div>
         </div>
@@ -3185,14 +3332,42 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                   </p>
                 )}
 
-                {/* ── Action buttons ── */}
+                {/* ── AI generation (cached on the prospect) ── */}
                 {canWrite && !editingDetail && (
-                  <div className="border-t border-gray-800 pt-4 flex gap-2">
-                    <button onClick={() => { generateFollowupEmail(detail); setDetail(null); }} className="flex-1 text-xs px-3 py-2 rounded font-bold" style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}>
-                      {detail.emailJson ? (lang === "en" ? "✨ View / send email" : "✨ Voir / envoyer le courriel") : (lang === "en" ? "✨ Generate email (AI)" : "✨ Générer un courriel (IA)")}
-                    </button>
+                  <div className="border-t border-gray-800 pt-4 space-y-3">
+                    <div className="grid grid-cols-3 gap-2">
+                      <button onClick={() => { generateFollowupEmail(detail); setDetail(null); }} className="text-xs px-2 py-2 rounded font-bold" style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}>
+                        {isFirstContact(detail.status as string)
+                          ? (detail.emailJson && detail.emailStatus === detail.status ? (lang === "en" ? "✨ 1st message" : "✨ 1er message") : (lang === "en" ? "✨ Draft 1st contact" : "✨ 1er contact (IA)"))
+                          : (detail.emailJson && detail.emailStatus === detail.status ? (lang === "en" ? "✨ Follow-up" : "✨ Relance") : (lang === "en" ? "✨ Draft follow-up" : "✨ Relance (IA)"))}
+                      </button>
+                      <button onClick={() => { generateTeaser(detail); setDetail(null); }} className="text-xs px-2 py-2 rounded font-bold" style={{ background: "#00ccff20", color: "#00ccff", border: "1px solid #00ccff40" }}>
+                        {detail.teaserJson ? (lang === "en" ? "💬 Teaser" : "💬 Teaser") : (lang === "en" ? "💬 Teaser (AI)" : "💬 Teaser (IA)")}
+                      </button>
+                      <button onClick={() => { generatePitch(detail); setDetail(null); }} className="text-xs px-2 py-2 rounded font-bold" style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0040" }}>
+                        {detail.pitchJson ? (lang === "en" ? "🎯 Pitch" : "🎯 Pitch") : (lang === "en" ? "🎯 Pitch (AI)" : "🎯 Pitch (IA)")}
+                      </button>
+                    </div>
+
+                    {/* Documents recommended at this stage */}
+                    {(STAGE_DOCS[detail.status as string] || []).length > 0 && (
+                      <div>
+                        <p className="text-xs text-gray-600 mb-1.5">📎 {lang === "en" ? "Documents for this stage" : "Documents pour cette étape"}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {(STAGE_DOCS[detail.status as string] || []).map(dk => {
+                            const q = detail.sponsorId ? `sponsorId=${detail.sponsorId}` : `prospectId=${detail.id}`;
+                            return (
+                              <a key={dk} href={`/api/admin/documents/${dk}?${q}&lang=${lang}`} target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-300 hover:border-neon-green/40">
+                                📄 {lang === "en" ? DOC_LABELS[dk]?.en : DOC_LABELS[dk]?.fr}
+                              </a>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {detail.status !== "concluded" && (
-                      <button onClick={() => setConcludeTarget(detail)} className="flex-1 text-xs px-3 py-2 rounded font-bold" style={{ background: "#00e06620", color: "#00e066", border: "1px solid #00e06640" }}>
+                      <button onClick={() => setConcludeTarget(detail)} className="w-full text-xs px-3 py-2 rounded font-bold" style={{ background: "#00e06620", color: "#00e066", border: "1px solid #00e06640" }}>
                         ✅ {lang === "en" ? "Conclude (validate perks)" : "Conclure (valider les perks)"}
                       </button>
                     )}
@@ -3415,9 +3590,11 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                         >
                           {generatingFor === (p.id as number)
                             ? "…"
-                            : (p.emailJson
-                                ? (lang === "en" ? "✨ View / send email" : "✨ Voir / envoyer le courriel")
-                                : (lang === "en" ? "✨ Generate email (AI)" : "✨ Générer un courriel (IA)"))}
+                            : (p.emailJson && p.emailStatus === p.status
+                                ? (lang === "en" ? "✨ View / send message" : "✨ Voir / envoyer le message")
+                                : isFirstContact(p.status as string)
+                                  ? (lang === "en" ? "✨ Draft 1st contact" : "✨ Générer le 1er contact")
+                                  : (lang === "en" ? "✨ Draft follow-up" : "✨ Générer une relance"))}
                         </button>}
                         {canWrite && <div className="flex items-center gap-1">
                           <select

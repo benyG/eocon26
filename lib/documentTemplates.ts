@@ -21,56 +21,63 @@ export interface DocType {
 
 export const DOC_TYPES: DocType[] = [
   {
-    key: "pricing", order: 1, kind: "pricing", issuer: "organizer", appliesTo: "general",
+    key: "onepager", order: 1, kind: "template", issuer: "organizer", appliesTo: "prospect",
+    nameFr: "One-pager / Teaser", nameEn: "One-pager / Teaser",
+    stageFr: "Prospection", stageEn: "Prospecting",
+    objectiveFr: "Accrocher en 1 page : EOCON en bref + pourquoi sponsoriser + appel \u00e0 l'action, avant le dossier complet.",
+    objectiveEn: "Hook in one page: EOCON at a glance + why sponsor + call to action, before the full deck.",
+  },
+  {
+    key: "pricing", order: 2, kind: "pricing", issuer: "organizer", appliesTo: "general",
     nameFr: "Grille tarifaire & Packages", nameEn: "Pricing & Packages",
     stageFr: "Prospection", stageEn: "Prospecting",
     objectiveFr: "Présenter l'offre de partenariat et les tarifs par niveau.",
     objectiveEn: "Present the partnership offer and pricing per tier.",
   },
   {
-    key: "loi", order: 2, kind: "template", issuer: "organizer", appliesTo: "prospect",
+    key: "loi", order: 3, kind: "template", issuer: "organizer", appliesTo: "prospect",
     nameFr: "Lettre d'intention", nameEn: "Letter of Intent",
     stageFr: "Négociation", stageEn: "Negotiation",
     objectiveFr: "Acter l'intention réciproque de partenariat avant le contrat (non contraignant).",
     objectiveEn: "Record the mutual intent to partner before the contract (non-binding).",
   },
   {
-    key: "proforma", order: 3, kind: "proforma", issuer: "billing", appliesTo: "sponsor",
+    key: "proforma", order: 4, kind: "proforma", issuer: "billing", appliesTo: "sponsor",
     nameFr: "Proforma", nameEn: "Pro-forma",
     stageFr: "Négociation", stageEn: "Negotiation",
     objectiveFr: "Chiffrer formellement les contreparties retenues (devis).",
     objectiveEn: "Formally quote the selected benefits (estimate).",
   },
   {
-    key: "contract", order: 4, kind: "template", issuer: "organizer", appliesTo: "sponsor",
+    key: "contract", order: 5, kind: "template", issuer: "organizer", appliesTo: "sponsor",
     nameFr: "Contrat de partenariat", nameEn: "Partnership Agreement",
     stageFr: "Closing", stageEn: "Closing",
     objectiveFr: "Officialiser juridiquement l'accord : contreparties, montant, échéances, obligations, signatures.",
     objectiveEn: "Legally formalize the deal: benefits, amount, deadlines, obligations, signatures.",
   },
   {
-    key: "exclusivity", order: 5, kind: "template", issuer: "organizer", appliesTo: "sponsor",
+    key: "exclusivity", order: 6, kind: "template", issuer: "organizer", appliesTo: "sponsor",
     nameFr: "Clause d'exclusivité", nameEn: "Exclusivity Clause",
     stageFr: "Closing", stageEn: "Closing",
     objectiveFr: "Garantir au partenaire l'exclusivité sur son secteur (annexe optionnelle au contrat).",
     objectiveEn: "Grant the partner sector exclusivity (optional annex to the contract).",
   },
   {
-    key: "invoice", order: 6, kind: "invoice", issuer: "billing", appliesTo: "sponsor",
+    key: "invoice", order: 7, kind: "invoice", issuer: "billing", appliesTo: "sponsor",
     nameFr: "Facture", nameEn: "Invoice",
     stageFr: "Post-signature", stageEn: "Post-signing",
     objectiveFr: "Émettre l'appel de paiement une fois l'accord signé.",
     objectiveEn: "Issue the payment request once the deal is signed.",
   },
   {
-    key: "brand_assets", order: 7, kind: "template", issuer: "organizer", appliesTo: "sponsor",
+    key: "brand_assets", order: 8, kind: "template", issuer: "organizer", appliesTo: "sponsor",
     nameFr: "Demande d'éléments de marque", nameEn: "Brand Assets Request",
     stageFr: "Activation", stageEn: "Activation",
     objectiveFr: "Collecter logo, nom légal et éléments de marque nécessaires à la visibilité.",
     objectiveEn: "Collect logo, legal name and brand assets needed for visibility.",
   },
   {
-    key: "comm_plan", order: 8, kind: "template", issuer: "organizer", appliesTo: "sponsor",
+    key: "comm_plan", order: 9, kind: "template", issuer: "organizer", appliesTo: "sponsor",
     nameFr: "Plan de communication sponsor", nameEn: "Sponsor Communication Plan",
     stageFr: "Activation", stageEn: "Activation",
     objectiveFr: "Détailler la visibilité livrée : canaux, dates, posts, branding, échéances.",
@@ -86,6 +93,49 @@ export const docType = (key: string) => DOC_TYPES.find(d => d.key === key);
 export interface TemplateDefault { nameFr: string; nameEn: string; bodyFr: string; bodyEn: string; }
 
 export const DEFAULT_TEMPLATES: Record<string, TemplateDefault> = {
+  onepager: {
+    nameFr: "One-pager / Teaser", nameEn: "One-pager / Teaser",
+    bodyFr: `## EOCON 2026 — Sécuriser l'avenir
+{{organizer_name}} · 7ème édition · {{event_date}} · {{event_venue}}
+
+EOCON n'est pas une conférence, c'est un mouvement : la référence cybersécurité bilingue en Afrique francophone.
+
+## EOCON en bref
+- 1 000+ participants attendus · 15+ pays représentés · 91% de satisfaction (2024)
+- 27+ speakers internationaux · CTF 48h · workshops pratiques
+- Format hybride : 6 jours en ligne + 1 journée présentielle à {{event_venue}}
+
+## Pourquoi {{sponsor_name}} devrait s'associer
+- Accès direct à un vivier de talents cyber (recrutement, marque employeur)
+- Positionnement sur le marché africain de la cybersécurité, en pleine croissance
+- Visibilité internationale et diaspora, bien au-delà du Cameroun
+- Association à un mouvement porteur de sens et de crédibilité technique
+
+## Passons à l'action
+Niveau de partenariat suggéré : {{tier}}.
+Nous serions ravis de vous présenter le dossier complet et de co-construire une offre adaptée à vos objectifs.
+Contact : {{organizer_email}}`,
+    bodyEn: `## EOCON 2026 — Secure the future
+{{organizer_name}} · 7th edition · {{event_date}} · {{event_venue}}
+
+EOCON is not a conference, it is a movement: the leading bilingual cybersecurity event in Francophone Africa.
+
+## EOCON at a glance
+- 1,000+ expected attendees · 15+ countries · 91% satisfaction (2024)
+- 27+ international speakers · 48h CTF · hands-on workshops
+- Hybrid format: 6 online days + 1 in-person day in {{event_venue}}
+
+## Why {{sponsor_name}} should partner
+- Direct access to a pool of cyber talent (recruiting, employer brand)
+- Positioning on the fast-growing African cybersecurity market
+- International and diaspora visibility, well beyond Cameroon
+- Association with a meaningful movement and technical credibility
+
+## Let's make it happen
+Suggested partnership tier: {{tier}}.
+We would be glad to walk you through the full deck and co-build an offer tailored to your goals.
+Contact: {{organizer_email}}`,
+  },
   loi: {
     nameFr: "Lettre d'intention", nameEn: "Letter of Intent",
     bodyFr: `## Objet

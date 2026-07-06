@@ -33,7 +33,28 @@ export async function POST(req: NextRequest) {
 3. Visibilité internationale et diaspora : 15+ pays représentés, audience en ligne mondiale (Paris, Montréal, Lagos, Londres). Portée bien au-delà de l'Afrique.
 4. Image de marque alignée à un mouvement : EOCON n'est pas une conférence — c'est un mouvement. Associer votre marque à "Where Africa secures the future" envoie un signal fort à vos clients, talents et partenaires.`;
 
-  if (mode === "followup") {
+  if (mode === "teaser") {
+    prompt = `${eoconCtx}
+
+Tu es directeur partenariats pour EOCON — un mouvement, pas une conférence.
+
+${sponsorAngles}
+
+Prospect: ${org} (${sector || "secteur non précisé"})
+Contact: ${contact || "le/la responsable"}, ${contactTitle || ""}
+
+Rédige un TEASER TRÈS COURT de premier contact, pour WhatsApp ou LinkedIn (pas un email formel). Objectif : accrocher en 3-4 phrases max (60 mots max) et obtenir la permission d'envoyer le dossier ou décrocher un échange de 15 min. Ton direct, humain, professionnel. Pas de formule d'ouverture longue ni de signature. Termine par une question simple (« Puis-je vous envoyer le dossier ? »).
+${urgencyLine}
+IMPÉRATIF : 1ère personne du pluriel (Nous, We) — jamais Je, I.
+
+JSON uniquement :
+{
+  "subjectFr": "<accroche courte française (1 ligne)>",
+  "bodyFr": "<message court français>",
+  "subjectEn": "<short hook English (1 line)>",
+  "bodyEn": "<short message English>"
+}`;
+  } else if (mode === "followup") {
     prompt = `${eoconCtx}
 
 Tu es directeur partenariats pour EOCON — un mouvement, pas une conférence.

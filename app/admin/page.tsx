@@ -16,6 +16,7 @@ import ProspectionSpeakersPanel from "@/components/admin/ProspectionSpeakersPane
 import LogisticsProspectingPanel from "@/components/admin/LogisticsProspectingPanel";
 import SponsorConcludeModal from "@/components/admin/SponsorConcludeModal";
 import SponsorPerksChecklist from "@/components/admin/SponsorPerksChecklist";
+import SponsorTimeline from "@/components/admin/SponsorTimeline";
 import PerksCatalogManager from "@/components/admin/PerksCatalogManager";
 import PackagePerksEditor from "@/components/admin/PackagePerksEditor";
 import DocumentsPanel from "@/components/admin/DocumentsPanel";
@@ -2784,6 +2785,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
   const [concludeTarget, setConcludeTarget] = useState<Record<string, unknown> | null>(null);
   const [deadline, setDeadline] = useState<{ labelFr: string; labelEn: string; daysLeft: number } | null>(null);
   const [packages, setPackages] = useState<{ tier: string; nameFr: string; nameEn: string }[]>([]);
+  const [worklistOpen, setWorklistOpen] = useState(true);
 
   useEffect(() => {
     fetch("/api/admin/sponsor-prospects/assignees").then(r => r.ok ? r.json() : []).then(setAssignees).catch(() => {});
@@ -3015,6 +3017,52 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
           onConcluded={() => { setConcludeTarget(null); setDetail(null); onRefresh(); }}
         />
       )}
+
+      {/* #5 — "À traiter aujourd'hui" worklist (due follow-ups + never-contacted) */}
+      {(() => {
+        const now = Date.now();
+        const due = prospects
+          .filter(p => !!p.nextFollowupAt && new Date(p.nextFollowupAt as string).getTime() <= now && ["contacted", "meeting", "positive"].includes(p.status as string))
+          .sort((a, b) => new Date(a.nextFollowupAt as string).getTime() - new Date(b.nextFollowupAt as string).getTime());
+        const toContact = prospects.filter(p => ["demande", "prospect"].includes(p.status as string));
+        const total = due.length + toContact.length;
+        if (total === 0) return null;
+        const dayDiff = (d: string) => Math.round((now - new Date(d).getTime()) / 86400000);
+        const item = (p: Record<string, unknown>, mode: "due" | "contact") => {
+          const st = PROSPECT_STATUSES.find(s => s.value === p.status);
+          const a = assignees.find(x => x.id === (p.assigneeId as number));
+          return (
+            <div key={p.id as number} className="flex items-center gap-2 py-1.5 border-b border-gray-800/50 last:border-0">
+              <span className="text-xs shrink-0" style={{ color: mode === "due" ? "#ff6600" : "#0066ff" }}>{mode === "due" ? "⏰" : "📇"}</span>
+              <button onClick={() => setDetail(p)} className="text-left flex-1 min-w-0">
+                <span className="text-gray-200 text-xs font-bold">{p.org as string}</span>
+                <span className="text-xs ml-2" style={{ color: st?.color }}>{lang === "en" ? st?.en : st?.fr}</span>
+                {mode === "due" && <span className="text-orange-400/80 text-xs ml-2">{lang === "en" ? "due" : "à relancer"} · J+{dayDiff(p.nextFollowupAt as string)}</span>}
+                {mode === "contact" && <span className="text-blue-400/80 text-xs ml-2">{lang === "en" ? "to contact" : "à contacter"}</span>}
+              </button>
+              {a && <span className="text-xs text-gray-600 shrink-0">{a.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}</span>}
+              {canWrite && <button onClick={() => generateFollowupEmail(p)} className="text-xs px-2 py-1 rounded shrink-0" style={{ background: "#cc00ff15", color: "#cc00ff", border: "1px solid #cc00ff30" }}>✨ {lang === "en" ? "Message" : "Message"}</button>}
+            </div>
+          );
+        };
+        return (
+          <div className="cyber-card rounded-xl p-4 mb-4 border-neon-green/20">
+            <button onClick={() => setWorklistOpen(o => !o)} className="flex items-center gap-2 w-full text-left">
+              <span className="text-gray-500 text-xs">{worklistOpen ? "▾" : "▸"}</span>
+              <h3 className="text-sm font-black text-white">🗂️ {lang === "en" ? "To handle today" : "À traiter aujourd'hui"}</h3>
+              <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "#ff660020", color: "#ff6600" }}>{total}</span>
+              {due.length > 0 && <span className="text-xs text-gray-500">· {due.length} {lang === "en" ? "follow-ups" : "relances"}</span>}
+              {toContact.length > 0 && <span className="text-xs text-gray-500">· {toContact.length} {lang === "en" ? "to contact" : "à contacter"}</span>}
+            </button>
+            {worklistOpen && (
+              <div className="mt-3">
+                {due.map(p => item(p, "due"))}
+                {toContact.map(p => item(p, "contact"))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* AI Email Modal */}
       {aiEmail && aiEmailTarget && (
@@ -3319,6 +3367,9 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                         )}
                       </div>
                     )}
+
+                    {/* #4 — activity timeline */}
+                    <SponsorTimeline prospectId={detail.id as number} />
                   </>
                 )}
 

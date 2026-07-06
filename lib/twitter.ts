@@ -7,7 +7,7 @@
 
 import crypto from "crypto";
 
-const API_BASE = "https://api.twitter.com/2";
+const API_BASE = "https://api.x.com/2";
 const UPLOAD_BASE = "https://upload.twitter.com/1.1";
 
 function getCredentials() {

@@ -228,8 +228,8 @@ export async function renderPricingPdf(entity: DocEntity, packages: PricingPkg[]
     ctx.y += 14;
   }
   doc.fillColor(FAINT).font("Helvetica").fontSize(8).text(lang === "en"
-    ? "Custom package available on request — sponsors@eyesopensecurity.com"
-    : "Package sur-mesure disponible sur demande — sponsors@eyesopensecurity.com", M, ctx.y, { width: W });
+    ? `Custom package available on request — ${entity.email}`
+    : `Package sur-mesure disponible sur demande — ${entity.email}`, M, ctx.y, { width: W });
   footer(doc, entity, docNumber);
   return finish(doc);
 }

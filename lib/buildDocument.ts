@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getEventSettings } from "@/lib/settings";
 import { getSponsorDeadlines } from "@/lib/sponsorBilling";
-import { getOrganizerEntity } from "@/lib/documentEntities";
+import { getIssuerEntity } from "@/lib/documentEntities";
 import { DOC_TYPES, DEFAULT_TEMPLATES, fillTemplate, docType } from "@/lib/documentTemplates";
 import { renderBrandedDoc, renderPricingPdf, type PerkLine, type PricingPkg } from "@/lib/docPdf";
 import { buildInvoicePdf } from "@/lib/invoicePdf";
@@ -56,7 +56,7 @@ export async function buildDocument(opts: { type: string; sponsorId?: number; pr
 
   // ── Pricing sheet (no target) ──
   if (dt.kind === "pricing") {
-    const entity = await getOrganizerEntity();
+    const entity = await getIssuerEntity();
     const pkgs = await prisma.sponsorPackage.findMany({ where: { isVisible: true }, orderBy: { sortOrder: "asc" } });
     const pricing: PricingPkg[] = pkgs.map(p => ({
       tier: p.tier, nameFr: p.nameFr, nameEn: p.nameEn, price: p.price, maxSponsors: p.maxSponsors,
@@ -83,7 +83,7 @@ export async function buildDocument(opts: { type: string; sponsorId?: number; pr
   const ctx = opts.sponsorId ? await sponsorCtx(opts.sponsorId) : opts.prospectId ? await prospectCtx(opts.prospectId) : null;
   if (!ctx) throw new Error("A target (sponsor or prospect) is required");
 
-  const entity = await getOrganizerEntity();
+  const entity = await getIssuerEntity();
   const settings = await getEventSettings();
   const deadlines = await getSponsorDeadlines();
   const fmtDate = (d?: Date) => d ? d.toLocaleDateString(lang === "en" ? "en-GB" : "fr-FR") : "";

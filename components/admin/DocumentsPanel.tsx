@@ -102,7 +102,7 @@ export default function DocumentsPanel({ canWrite = true }: { canWrite?: boolean
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-white font-bold text-sm">{lang === "en" ? d.nameEn : d.nameFr}</span>
                     <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: color + "18", color }}>{stage}</span>
-                    <span className="text-xs text-gray-600">· {d.issuer === "billing" ? __("Facturation (Examboot)", "Billing (Examboot)") : __("Organisateur (EyesOpen)", "Organizer (EyesOpen)")}</span>
+                    <span className="text-xs text-gray-600">· Services Examboot Inc.</span>
                   </div>
                   <p className="text-gray-500 text-xs mt-1">{lang === "en" ? d.objectiveEn : d.objectiveFr}</p>
 

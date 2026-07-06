@@ -1,9 +1,8 @@
 # Branding assets
 
-Drop the logos here so they appear on generated documents (PNG/JPEG only — **not** SVG/WebP; pdfkit limitation). Recommended ~600×250 px.
+Drop the logo here so it appears on every generated document (PNG/JPEG only — **not** SVG/WebP; pdfkit limitation). Recommended ~600×250 px.
 
-- **`examboot-logo.png`** — **Services Examboot Inc.** → financial documents (proforma, invoice).
-- **`eyesopen-logo.png`** — **EyesOpen Association** → partnership documents (contract, letter of intent, exclusivity clause, brand assets request, communication plan, pricing sheet).
+- **`examboot-logo.png`** — **Services Examboot Inc.**, the single issuing entity that organizes EOCON, concludes partnerships and bills. Used on all documents: pricing sheet, letter of intent, proforma, partnership agreement, exclusivity clause, invoice, brand assets request, communication plan.
 
 The invoice generator (`app/api/admin/budget/[id]/invoice`) resolves the logo in this order:
 1. The `examboot_logo_url` setting (a remote URL), if set in Admin → Settings → Facturation.

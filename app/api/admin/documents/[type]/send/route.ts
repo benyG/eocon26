@@ -41,7 +41,7 @@ export async function POST(req: NextRequest, { params }: { params: { type: strin
     const { Resend } = await import("resend");
     const resend = new Resend(apiKey);
     await resend.emails.send({
-      from, to, subject: subj, html, replyTo: "sponsors@eyesopensecurity.com",
+      from, to, subject: subj, html, replyTo: process.env.EMAIL_REPLYTO_SPONSORS || "eocon@examboot.net",
       attachments: [{ filename: doc.filename, content: doc.buffer }],
     });
   } catch (e) {

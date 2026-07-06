@@ -49,7 +49,7 @@ export default function SponsorPerksChecklist({ sponsorId, canWrite = true }: { 
       </div>
       <div className="space-y-3">
         {rows.map(p => (
-          <div key={p.id} className="rounded-lg p-3" style={{ background: p.done ? "#00ff9d08" : "#0a0a0a", border: `1px solid ${p.done ? "#00ff9d20" : "#1a1a2e"}` }}>
+          <div key={p.id} className={`rounded-lg p-3 border ${p.done ? "border-neon-green/20 bg-neon-green/5" : "border-gray-800 bg-gray-900/30"}`}>
             <div className="flex items-start gap-2">
               <label className={`flex items-start gap-2 flex-1 ${canWrite ? "cursor-pointer" : ""}`}>
                 <input type="checkbox" checked={p.done} disabled={!canWrite} onChange={e => canWrite && patch(p.id, { done: e.target.checked })} className="mt-0.5 shrink-0" />

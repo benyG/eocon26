@@ -5533,14 +5533,6 @@ const SETTINGS_FIELDS = [
   { key: "examboot_logo_url", label: "Logo facturation (URL, sinon public/branding/examboot-logo.png)", type: "url", group: "Facturation" },
   { key: "examboot_payment_terms", label: "Modalités de paiement (coordonnées bancaires / mobile money)", type: "text", group: "Facturation" },
   { key: "examboot_accent_color", label: "Couleur d'accent du document (hex, ex: #0a7d4b)", type: "text", group: "Facturation" },
-  // Organizer entity — issues partnership documents (contract, LOI, exclusivity, comm plan, brand assets, pricing)
-  { key: "eyesopen_legal_name", label: "Raison sociale organisateur (contrats/LOI)", type: "text", group: "Organisateur" },
-  { key: "eyesopen_address", label: "Adresse organisateur", type: "text", group: "Organisateur" },
-  { key: "eyesopen_email", label: "Email organisateur", type: "text", group: "Organisateur" },
-  { key: "eyesopen_phone", label: "Téléphone organisateur", type: "text", group: "Organisateur" },
-  { key: "eyesopen_tax_id", label: "Identifiant légal organisateur", type: "text", group: "Organisateur" },
-  { key: "eyesopen_logo_url", label: "Logo organisateur (URL, sinon public/branding/eyesopen-logo.png)", type: "url", group: "Organisateur" },
-  { key: "eyesopen_accent_color", label: "Couleur d'accent documents organisateur (hex)", type: "text", group: "Organisateur" },
 ] as const;
 
 function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {

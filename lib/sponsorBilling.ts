@@ -17,7 +17,7 @@ export async function getBillingEntity(): Promise<BillingEntity> {
   return {
     legalName: s.examboot_legal_name || "Services Examboot Inc.",
     address: s.examboot_address || "",
-    email: s.examboot_email || "sponsors@eyesopensecurity.com",
+    email: s.examboot_email || "eocon@examboot.net",
     phone: s.examboot_phone || "+1 581-849-3838",
     taxId: s.examboot_tax_id || "",
     logoUrl: s.examboot_logo_url || "",

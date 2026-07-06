@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hasPermission } from "@/lib/adminPermissions";
 import { getOpenAI, getEoconContext } from "@/lib/openai";
+import { getNextSponsorDeadline } from "@/lib/sponsorBilling";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,13 @@ export async function POST(req: NextRequest) {
   const openai = getOpenAI();
 
   const eoconCtx = await getEoconContext();
+
+  // #3 — dynamic urgency: fold the nearest commitment deadline into the pitch.
+  const deadline = await getNextSponsorDeadline();
+  const urgencyLine = deadline
+    ? `Urgence à intégrer subtilement (sans pression excessive) : il reste ${deadline.daysLeft} jour(s) avant la deadline « ${deadline.labelFr} » (${deadline.date.toLocaleDateString("fr-FR")}). Les sponsors confirmés tôt bénéficient d'une visibilité dès la phase de pré-annonce.`
+    : "";
+
   let prompt = "";
   const sponsorAngles = `Angles stratégiques pour convaincre un sponsor :
 1. Accès à un vivier de talents : 1 000+ participants, ingénieurs, chercheurs, étudiants à fort potentiel — pour recruter ou faire rayonner votre marque employeur dans l'écosystème cyber africain.
@@ -40,6 +48,7 @@ Dernier contact: ${lastContactDate || "non précisé"}
 Notes: ${notes || "aucune"}
 
 Rédige un email de relance adapté au statut "${status}". Utilise un des angles stratégiques ci-dessus adapté au secteur. Ton professionnel mais chaleureux. 150 mots max.
+${urgencyLine}
 IMPÉRATIF : utilise exclusivement la 1ère personne du pluriel (Nous, We) — jamais Je, I, j', me.
 
 JSON uniquement :
@@ -61,6 +70,7 @@ Contact: ${contact || "le/la responsable"}, ${contactTitle || ""}
 Package ciblé: ${pkg || "partenariat sponsor"}
 
 Rédige un email de prospection personnalisé. Mentionne l'organisation par son nom. Choisis l'angle stratégique le plus pertinent pour leur secteur parmi les 4 ci-dessus. Ton professionnel mais chaleureux. 200 mots max.
+${urgencyLine}
 IMPÉRATIF : utilise exclusivement la 1ère personne du pluriel (Nous, We) — jamais Je, I, j', me.
 
 JSON uniquement :

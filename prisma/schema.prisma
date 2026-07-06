@@ -152,9 +152,68 @@ model Sponsor {
   isVisible  Boolean  @default(true)
   showOnLive Boolean  @default(false) @map("show_on_live")
   sortOrder  Int      @default(0)
+  // ── Closing / billing (Services Examboot Inc.) ──
+  dealAmount     Int?      @map("deal_amount")     // agreed sponsorship amount (FCFA) — defaults to package price
+  proformaNumber String?   @map("proforma_number") // assigned on first proforma generation
+  proformaAt     DateTime? @map("proforma_at")
+  invoiceNumber  String?   @map("invoice_number")  // assigned on first invoice generation
+  invoiceAt      DateTime? @map("invoice_at")
   createdAt DateTime @default(now())
+  perks       SponsorPerk[]
+  budgetItems BudgetItem[]
 
   @@map("sponsors")
+}
+
+// ── Perk catalog: flexible perks assigned to packages and validated per sponsor ──
+model Perk {
+  id           Int           @id @default(autoincrement())
+  labelFr      String
+  labelEn      String
+  category     String?       // Visibilité | Présence | Activation | Talents | Digital — optional grouping
+  isActivation Boolean       @default(false) // true = à-la-carte named activation (CTF, cocktail, Wi-Fi, lounge…)
+  isVisible    Boolean       @default(true)
+  sortOrder    Int           @default(0)
+  createdAt    DateTime      @default(now())
+  packagePerks PackagePerk[]
+  sponsorPerks SponsorPerk[]
+
+  @@map("perks")
+}
+
+// Which perks compose a package (with optional quantity, e.g. 15 VIP passes)
+model PackagePerk {
+  id        Int            @id @default(autoincrement())
+  packageId Int            @map("package_id")
+  package   SponsorPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  perkId    Int            @map("perk_id")
+  perk      Perk           @relation(fields: [perkId], references: [id], onDelete: Cascade)
+  quantity  Int?           // null = included without a count
+  sortOrder Int            @default(0)
+
+  @@unique([packageId, perkId])
+  @@index([packageId])
+  @@map("package_perks")
+}
+
+// Perks a concluded sponsor actually accepted — doubles as the delivery checklist.
+// Labels are snapshotted at conclusion so proformas/invoices stay stable.
+model SponsorPerk {
+  id        Int      @id @default(autoincrement())
+  sponsorId Int      @map("sponsor_id")
+  sponsor   Sponsor  @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+  perkId    Int?     @map("perk_id")
+  perk      Perk?    @relation(fields: [perkId], references: [id], onDelete: SetNull)
+  labelFr   String
+  labelEn   String
+  quantity  Int?
+  done      Boolean  @default(false) // delivery checklist state
+  note      String?  @db.Text
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([sponsorId])
+  @@map("sponsor_perks")
 }
 
 model ConferenceSession {
@@ -501,9 +560,15 @@ model SponsorProspect {
   status    String   @default("contacted") // contacted | meeting | negative | positive | concluded | abandoned | paused
   notes          String?  @db.Text
   emailJson      String?  @db.Text // cached AI follow-up email (JSON)
-  perkChecklist  String?  @db.Text // JSON: Record<perkText, { done: boolean; note: string }>
+  perkChecklist  String?  @db.Text // legacy JSON checklist (superseded by SponsorPerk once concluded)
   assigneeId     Int?
   assignee       AdminUser? @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  // ── Follow-up cadence (J+2 / J+5 / J+10 / J+15) ──
+  contactedAt    DateTime? @map("contacted_at")   // first outreach sent
+  lastContactAt  DateTime? @map("last_contact_at")
+  nextFollowupAt DateTime? @map("next_followup_at")
+  followupStage  String?   @map("followup_stage")  // CSV of reminders already sent: "J+2,J+5,…"
+  sponsorId      Int?      @map("sponsor_id")       // the Sponsor created when concluded
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -518,8 +583,11 @@ model BudgetItem {
   actual    Float    @default(0)
   status      String   @default("pending") // pending | paid | cancelled
   responsable String?
+  sponsorId Int?     @map("sponsor_id") // revenue line auto-created when a sponsor is concluded
+  sponsor   Sponsor? @relation(fields: [sponsorId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
 
+  @@index([sponsorId])
   @@map("budget_items")
 }
 
@@ -673,6 +741,7 @@ model SponsorPackage {
   sortOrder      Int      @default(0)
   highlightColor String?  // hex color for display
   createdAt      DateTime @default(now())
+  packagePerks   PackagePerk[]
 
   @@map("sponsor_packages")
 }

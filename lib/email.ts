@@ -452,6 +452,40 @@ export async function sendPilotageEscalation(coordoEmail: string, task: Pilotage
   await sendPilotage(coordoEmail, `🚨 Tâche en retard — ${task.title}`, body);
 }
 
+export interface SponsorProspectLike {
+  id: number;
+  org: string;
+  contact?: string | null;
+  email?: string | null;
+  package?: string | null;
+  status: string;
+}
+
+// Follow-up reminder to the prospect's assignee (J+2 / J+5 / J+10 / J+15 cadence).
+export async function sendSponsorFollowupReminder(
+  to: string,
+  name: string,
+  prospect: SponsorProspectLike,
+  stage: string,
+  deadlineNote?: string,
+) {
+  const statusLabels: Record<string, string> = {
+    contacted: "Contacté", meeting: "Réunion planifiée", positive: "Avancée positive",
+  };
+  const body = `<p>${greenLabel("Bonjour " + esc(name || ""))},</p>
+     <p>⏰ Relance <strong style="color:#ffaa00;">${esc(stage)}</strong> — ce prospect sponsor attend un suivi de votre part.</p>
+     ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
+       ${neonRow("Organisation", `<strong style="color:#00ff9d;">${esc(prospect.org)}</strong>`)}
+       ${prospect.contact ? neonRow("Contact", esc(prospect.contact)) : ""}
+       ${prospect.email ? neonRow("Email", esc(prospect.email)) : ""}
+       ${prospect.package ? neonRow("Package ciblé", esc(prospect.package)) : ""}
+       ${neonRow("Statut", esc(statusLabels[prospect.status] || prospect.status))}
+     </tbody></table>`)}
+     ${deadlineNote ? `<p style="color:#ff6666;">⚡ ${esc(deadlineNote)}</p>` : ""}
+     <p>Ouvrez le pipeline sponsors pour envoyer une relance ou planifier un échange.</p>`;
+  await sendPilotage(to, `⏰ Relance sponsor (${stage}) — ${prospect.org}`, body);
+}
+
 function buildMeetingICS(to: string, meeting: PilotageMeetingLike & { convenerName?: string | null }): Buffer {
   const d = typeof meeting.scheduledAt === "string" ? new Date(meeting.scheduledAt) : (meeting.scheduledAt as Date);
   // Africa/Douala = UTC+1 year-round (no DST)

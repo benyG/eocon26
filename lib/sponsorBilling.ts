@@ -8,6 +8,8 @@ export interface BillingEntity {
   phone: string;
   taxId: string;
   logoUrl: string; // remote URL; falls back to public/branding/examboot-logo.* if empty
+  paymentTerms: string; // shown in the payment box (bank / mobile money instructions)
+  accentColor: string;  // brand accent used on the document
 }
 
 export async function getBillingEntity(): Promise<BillingEntity> {
@@ -19,6 +21,8 @@ export async function getBillingEntity(): Promise<BillingEntity> {
     phone: s.examboot_phone || "+1 581-849-3838",
     taxId: s.examboot_tax_id || "",
     logoUrl: s.examboot_logo_url || "",
+    paymentTerms: s.examboot_payment_terms || "",
+    accentColor: s.examboot_accent_color || "#0a7d4b",
   };
 }
 

@@ -5530,6 +5530,8 @@ const SETTINGS_FIELDS = [
   { key: "examboot_phone", label: "Téléphone (facturation)", type: "text", group: "Facturation" },
   { key: "examboot_tax_id", label: "Identifiant fiscal", type: "text", group: "Facturation" },
   { key: "examboot_logo_url", label: "Logo facturation (URL, sinon public/branding/examboot-logo.png)", type: "url", group: "Facturation" },
+  { key: "examboot_payment_terms", label: "Modalités de paiement (coordonnées bancaires / mobile money)", type: "text", group: "Facturation" },
+  { key: "examboot_accent_color", label: "Couleur d'accent du document (hex, ex: #0a7d4b)", type: "text", group: "Facturation" },
 ] as const;
 
 function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {

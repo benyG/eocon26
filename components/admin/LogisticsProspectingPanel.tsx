@@ -219,65 +219,112 @@ function EmailModal({
   );
 }
 
-function AddProspectModal({
+// Shared add/edit form — exposes every prospect field. In edit mode it PATCHes the
+// existing record; otherwise it creates a new manual prospect.
+function ProspectFormModal({
   sector,
+  prospect,
   onClose,
-  onAdded,
+  onSaved,
 }: {
   sector: string;
+  prospect: LogisticsProspect | null;
   onClose: () => void;
-  onAdded: () => void;
+  onSaved: () => void;
 }) {
+  const isEdit = !!prospect;
   const [form, setForm] = useState({
-    name: "", contactName: "", contactTitle: "", email: "", phone: "",
-    website: "", address: "", city: "Douala",
+    name: prospect?.name ?? "",
+    sector: prospect?.sector ?? sector,
+    contactName: prospect?.contactName ?? "",
+    contactTitle: prospect?.contactTitle ?? "",
+    email: prospect?.email ?? "",
+    phone: prospect?.phone ?? "",
+    website: prospect?.website ?? "",
+    address: prospect?.address ?? "",
+    city: prospect?.city ?? "Douala",
+    status: prospect?.status ?? "new",
+    notes: prospect?.notes ?? "",
   });
   const [saving, setSaving] = useState(false);
+
+  const set = (key: keyof typeof form, v: string) => setForm(p => ({ ...p, [key]: v }));
 
   const save = async () => {
     if (!form.name.trim()) return;
     setSaving(true);
-    await fetch("/api/admin/logistics-prospects", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, sector, source: "manual" }),
-    });
+    if (isEdit) {
+      await fetch(`/api/admin/logistics-prospects/${prospect!.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+    } else {
+      await fetch("/api/admin/logistics-prospects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, source: "manual" }),
+      });
+    }
     setSaving(false);
-    onAdded();
+    onSaved();
     onClose();
   };
 
+  const textFields: { key: keyof typeof form; label: string; full?: boolean }[] = [
+    { key: "name", label: "Nom *", full: true },
+    { key: "contactName", label: "Contact" },
+    { key: "contactTitle", label: "Titre" },
+    { key: "email", label: "Email" },
+    { key: "phone", label: "Téléphone" },
+    { key: "website", label: "Site web" },
+    { key: "address", label: "Adresse", full: true },
+    { key: "city", label: "Ville" },
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="cyber-card rounded-2xl border border-gray-700 w-full max-w-lg">
-        <div className="flex items-center justify-between p-4 border-b border-gray-800">
-          <h3 className="font-black text-white text-sm">+ Ajouter un prospect</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+      <div className="cyber-card rounded-2xl border border-gray-700 w-full max-w-lg max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-4 border-b border-gray-800 shrink-0">
+          <h3 className="font-black text-white text-sm">{isEdit ? `✏️ Modifier — ${prospect!.name}` : "+ Ajouter un prospect"}</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-white">✕</button>
         </div>
-        <div className="p-4 grid grid-cols-2 gap-3">
-          {[
-            { key: "name", label: "Nom *", full: true },
-            { key: "contactName", label: "Contact" },
-            { key: "contactTitle", label: "Titre" },
-            { key: "email", label: "Email" },
-            { key: "phone", label: "Téléphone" },
-            { key: "website", label: "Site web" },
-            { key: "address", label: "Adresse", full: true },
-            { key: "city", label: "Ville" },
-          ].map(f => (
+        <div className="p-4 grid grid-cols-2 gap-3 overflow-y-auto">
+          {textFields.map(f => (
             <div key={f.key} className={f.full ? "col-span-2" : ""}>
               <label className="text-xs text-gray-500 block mb-1">{f.label}</label>
               <input
                 className="cyber-input w-full px-3 py-2 rounded text-xs"
-                value={form[f.key as keyof typeof form]}
-                onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                value={form[f.key]}
+                onChange={e => set(f.key, e.target.value)}
               />
             </div>
           ))}
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Secteur</label>
+            <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={form.sector} onChange={e => set("sector", e.target.value)}>
+              {SECTORS.map(s => <option key={s.id} value={s.id}>{s.emoji} {s.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Statut</label>
+            <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={form.status} onChange={e => set("status", e.target.value)}>
+              {STATUSES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </select>
+          </div>
+          <div className="col-span-2">
+            <label className="text-xs text-gray-500 block mb-1">Notes</label>
+            <textarea
+              className="cyber-input w-full px-3 py-2 rounded text-xs resize-none"
+              rows={3}
+              value={form.notes}
+              onChange={e => set("notes", e.target.value)}
+            />
+          </div>
         </div>
-        <div className="flex gap-2 p-4 border-t border-gray-800">
+        <div className="flex gap-2 p-4 border-t border-gray-800 shrink-0">
           <button onClick={save} disabled={saving || !form.name.trim()} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-40">
-            {saving ? "..." : "Ajouter"}
+            {saving ? "..." : isEdit ? "Enregistrer" : "Ajouter"}
           </button>
           <button onClick={onClose} className="px-4 py-2 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
         </div>
@@ -385,9 +432,7 @@ export default function LogisticsProspectingPanel({ canWrite = true }: { canWrit
   const [showPlacesSearch, setShowPlacesSearch] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [emailTarget, setEmailTarget] = useState<LogisticsProspect | null>(null);
-  const [editId, setEditId] = useState<number | null>(null);
-  const [editNotes, setEditNotes] = useState("");
-  const [editStatus, setEditStatus] = useState("");
+  const [editTarget, setEditTarget] = useState<LogisticsProspect | null>(null);
   // scraping state: prospectId → { scraping, found, error }
   const [scrapeState, setScrapeState] = useState<Record<number, { scraping: boolean; found: string[]; error: string | null }>>({});
 
@@ -415,18 +460,6 @@ export default function LogisticsProspectingPanel({ canWrite = true }: { canWrit
     if (!confirm("Supprimer ce prospect ?")) return;
     await fetch(`/api/admin/logistics-prospects/${id}`, { method: "DELETE" });
     load();
-  };
-
-  const startEdit = (p: LogisticsProspect) => {
-    setEditId(p.id);
-    setEditNotes(p.notes || "");
-    setEditStatus(p.status);
-  };
-
-  const saveEdit = async () => {
-    if (editId === null) return;
-    await updateProspect(editId, { notes: editNotes, status: editStatus });
-    setEditId(null);
   };
 
   const scrapeEmail = async (p: LogisticsProspect) => {
@@ -580,30 +613,7 @@ export default function LogisticsProspectingPanel({ canWrite = true }: { canWrit
                     {p.lastContactAt && <span>Dernier contact : {new Date(p.lastContactAt).toLocaleDateString("fr-FR")}</span>}
                   </div>
 
-                  {editId === p.id ? (
-                    <div className="mt-2 space-y-2">
-                      <select
-                        className="cyber-input px-2 py-1 rounded text-xs"
-                        value={editStatus}
-                        onChange={e => setEditStatus(e.target.value)}
-                      >
-                        {STATUSES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-                      </select>
-                      <textarea
-                        className="cyber-input w-full px-3 py-2 rounded text-xs resize-none"
-                        rows={3}
-                        placeholder="Notes..."
-                        value={editNotes}
-                        onChange={e => setEditNotes(e.target.value)}
-                      />
-                      <div className="flex gap-2">
-                        <button onClick={saveEdit} className="btn-neon px-3 py-1 rounded text-xs">Sauvegarder</button>
-                        <button onClick={() => setEditId(null)} className="px-3 py-1 rounded text-xs text-gray-500 hover:text-white">Annuler</button>
-                      </div>
-                    </div>
-                  ) : (
-                    p.notes && <p className="text-xs text-gray-500 italic mt-1 border-l-2 border-gray-700 pl-2">{p.notes}</p>
-                  )}
+                  {p.notes && <p className="text-xs text-gray-500 italic mt-1 border-l-2 border-gray-700 pl-2">{p.notes}</p>}
 
                   {(p.aiDraftEmailFr || p.aiDraftEmailEn) && (
                     <p className="text-xs text-neon-green/60 mt-1">✓ Brouillon email sauvegardé</p>
@@ -643,7 +653,7 @@ export default function LogisticsProspectingPanel({ canWrite = true }: { canWrit
                   )}
                 </div>
 
-                {canWrite && editId !== p.id && (
+                {canWrite && (
                   <div className="flex flex-col gap-1.5 shrink-0">
                     <button
                       onClick={() => setEmailTarget(p)}
@@ -662,7 +672,7 @@ export default function LogisticsProspectingPanel({ canWrite = true }: { canWrit
                       </button>
                     )}
                     <button
-                      onClick={() => startEdit(p)}
+                      onClick={() => setEditTarget(p)}
                       className="px-3 py-1.5 rounded text-xs border border-gray-700 text-gray-400 hover:text-white transition-colors"
                     >
                       Modifier
@@ -690,10 +700,20 @@ export default function LogisticsProspectingPanel({ canWrite = true }: { canWrit
       )}
 
       {showAddModal && (
-        <AddProspectModal
+        <ProspectFormModal
           sector={activeSector}
+          prospect={null}
           onClose={() => setShowAddModal(false)}
-          onAdded={load}
+          onSaved={load}
+        />
+      )}
+
+      {editTarget && (
+        <ProspectFormModal
+          sector={activeSector}
+          prospect={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSaved={load}
         />
       )}
     </div>

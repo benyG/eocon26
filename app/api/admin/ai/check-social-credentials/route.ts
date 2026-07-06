@@ -79,17 +79,25 @@ async function testTwitter(): Promise<{ status: string; hint?: string }> {
       .join(", ");
 
     const res = await fetch(url, { headers: { Authorization: authHeader } });
-    const data = await res.json() as { data?: { id: string; username: string }; errors?: { message: string; code?: number }[] };
+    const rawText = await res.text();
+    let data: { data?: { id: string; username: string }; errors?: { message: string; code?: number }[]; title?: string; detail?: string } = {};
+    try { data = JSON.parse(rawText); } catch { /* non-JSON response */ }
 
     if (!res.ok || data.errors) {
-      const msg = data.errors?.[0]?.message ?? `HTTP ${res.status}`;
-      const code = data.errors?.[0]?.code;
+      // X API v2 returns either v2-style {title, detail} or v1.1-style {errors:[{code,message}]}
+      const v1msg = data.errors?.[0]?.message;
+      const v1code = data.errors?.[0]?.code;
+      const v2detail = data.detail ?? data.title;
+      const msg = v1msg ?? v2detail ?? rawText.slice(0, 120);
+      const code = v1code;
+
       const hint = code === 89 ? "Token invalide ou expiré — régénérer dans le Developer Portal"
-        : code === 32 ? "Access Token généré sans permission Write. Dans le Developer Portal : (1) App Settings → User authentication settings → cocher Read+Write → Save, (2) Keys and Tokens → Regenerate Access Token & Secret → coller les nouvelles valeurs."
+        : code === 32 ? "Access Token généré sans permission Write. Dans le Developer Portal : User authentication settings → cocher Read+Write → Save, puis Keys and Tokens → Regenerate Access Token."
         : code === 135 ? "Timestamp invalide — problème d'horloge serveur"
-        : res.status === 403 ? "Accès refusé — vérifier le niveau d'accès de l'app (Free/Basic) et les permissions Read+Write"
+        : res.status === 401 ? "OAuth 1.0a non configuré. Dans le Developer Portal → ton app → Settings → User authentication settings : activer OAuth 1.0a, mettre les permissions en Read+Write, sauvegarder, puis Keys and Tokens → Regenerate Access Token & Secret."
+        : res.status === 403 ? "Accès refusé — vérifier le niveau d'accès (Basic requis pour l'API v2) et les permissions Read+Write"
         : "Vérifier les permissions (Read+Write requis) et régénérer l'Access Token";
-      return { status: `invalide (code ${code ?? res.status}) — ${msg}`, hint };
+      return { status: `invalide (HTTP ${res.status}${code ? ` / code ${code}` : ""}) — ${msg}`, hint };
     }
     return { status: `OK (@${data.data?.username ?? data.data?.id})` };
   } catch (e) {

@@ -5578,11 +5578,13 @@ function SponsorPackageEditor({ pkg, onSave, onDelete, canWrite = true }: { pkg:
 
   const save = async () => {
     setSaving(true);
-    // Perks are managed structurally by PackagePerksEditor (which regenerates the public
-    // perksFr/perksEn JSON server-side); never overwrite them from this form.
-    const { perksFr: _pf, perksEn: _pe, ...rest } = draft;
-    void _pf; void _pe;
-    await onSave(rest);
+    // Send only editable scalar fields — never the perksFr/perksEn JSON (managed by
+    // PackagePerksEditor) nor relation/id fields (packagePerks, id, createdAt).
+    await onSave({
+      tier: draft.tier, nameFr: draft.nameFr, nameEn: draft.nameEn, price: draft.price,
+      maxSponsors: draft.maxSponsors, sortOrder: draft.sortOrder,
+      highlightColor: draft.highlightColor, isVisible: draft.isVisible,
+    });
     setSaving(false);
   };
 

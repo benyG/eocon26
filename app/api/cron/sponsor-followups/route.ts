@@ -50,6 +50,12 @@ export async function GET(req: NextRequest) {
         current.stage,
         deadlineNote,
       );
+      // In-app notification for the assignee (refreshes if one already exists).
+      await prisma.adminNotification.upsert({
+        where: { recipientEmail_refType_refId: { recipientEmail: assigneeEmail, refType: "sponsor_prospect", refId: p.id } },
+        update: { type: "followup_due", title: `Relance sponsor ${current.stage} — ${p.org}`, body: `Le prospect ${p.org} attend un suivi (${current.stage}).`, readAt: null, createdAt: now },
+        create: { recipientEmail: assigneeEmail, type: "followup_due", refType: "sponsor_prospect", refId: p.id, title: `Relance sponsor ${current.stage} — ${p.org}`, body: `Le prospect ${p.org} attend un suivi (${current.stage}).` },
+      }).catch(() => {});
       const sentStages = [...parseStages(p.followupStage), current.stage];
       const upcoming = nextFollowup(p.contactedAt, sentStages.join(","));
       await prisma.sponsorProspect.update({

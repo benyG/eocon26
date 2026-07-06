@@ -141,7 +141,7 @@ export default function NotificationBell({ userEmail, onGoToPilotage }: Props) {
 }
 
 function NotifItem({ n, onClick }: { n: AdminNotification; onClick: () => void }) {
-  const icon = n.type === "task_overdue" ? "🔴" : n.type === "task_due_soon" ? "🟡" : "📅";
+  const icon = n.type === "task_overdue" ? "🔴" : n.type === "task_due_soon" ? "🟡" : n.type === "followup_due" ? "⏰" : "📅";
   const isRead = !!n.readAt;
 
   return (

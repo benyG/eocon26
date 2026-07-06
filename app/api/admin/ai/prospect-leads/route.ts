@@ -32,9 +32,13 @@ export async function PATCH(req: NextRequest) {
           contact: lead.contactName || undefined,
           email: lead.contactEmail || undefined,
           phone: lead.phone || undefined,
+          website: lead.website || undefined,
           package: lead.recommendedPackage || undefined,
           status: "prospect",
           notes: lead.aiScoreReason || undefined,
+          // Carry over the AI work already done on the lead so nothing is regenerated.
+          ...(lead.pitchJson ? { pitchJson: lead.pitchJson } : {}),
+          ...(lead.emailJson ? { emailJson: lead.emailJson, emailStatus: "prospect" } : {}),
           ...(assigneeId ? { assigneeId: parseInt(String(assigneeId), 10) } : {}),
         },
       });

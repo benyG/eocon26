@@ -1777,7 +1777,7 @@ function SocialCredentialsDiag({ adminLang }: { adminLang: string }) {
           {loading && <p className="text-xs text-gray-500 animate-pulse">Test en cours...</p>}
           {data && (
             <div className="space-y-3">
-              {(["twitter", "facebook", "instagram", "whatsapp"] as const).map(p => {
+              {(["openai", "twitter", "facebook", "instagram", "whatsapp"] as const).map(p => {
                 const pl = data[p] as { status: string; vars: Record<string, boolean> } | undefined;
                 if (!pl) return null;
                 const isOk = ok(pl.status);
@@ -1818,6 +1818,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [platforms, setPlatforms] = useState({ linkedin: true, twitter: true, instagram: false, facebook: true, whatsapp: false });
   const [lang, setLang] = useState<"fr" | "en" | "both">("both");
   const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
   const [generatedPosts, setGeneratedPosts] = useState<Record<string, string> | null>(null);
   const [generatedPostIds, setGeneratedPostIds] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
@@ -1943,6 +1944,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   const generatePosts = async () => {
     if (!brief.trim()) return;
     setGenerating(true);
+    setGenerateError(null);
     const res = await fetch("/api/admin/ai/generate-posts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1953,6 +1955,9 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
       const { _ids, ...postsData } = data;
       setGeneratedPosts(postsData as Record<string, string>);
       setGeneratedPostIds((_ids as Record<string, number>) || {});
+    } else {
+      const errData = await res.json().catch(() => ({ error: `Erreur serveur ${res.status}` })) as { error?: string };
+      setGenerateError(errData.error || `Erreur ${res.status}`);
     }
     setGenerating(false);
   };
@@ -2314,6 +2319,12 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
               <button onClick={generatePosts} disabled={generating || !brief.trim()} className="btn-neon w-full py-2 rounded text-xs">
                 {generating ? t.generatingPosts : t.generateWithAI}
               </button>
+
+              {generateError && (
+                <div className="rounded-lg border border-red-900 bg-red-950/40 px-3 py-2 text-xs text-red-400 whitespace-pre-wrap">
+                  ⚠️ {generateError}
+                </div>
+              )}
 
               {/* Generated posts preview — fully editable before save */}
               {generatedPosts && (

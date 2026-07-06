@@ -746,6 +746,23 @@ model SponsorPackage {
   @@map("sponsor_packages")
 }
 
+// Editable bilingual templates for generated documents (LOI, contract, exclusivity,
+// brand-assets request, communication plan). Bodies use {{placeholders}} + a light
+// markup (## heading, - bullet, {{SIGNATURE}}). Seeded from code defaults.
+model DocumentTemplate {
+  id        Int      @id @default(autoincrement())
+  docKey    String   @unique // loi | contract | exclusivity | brand_assets | comm_plan
+  nameFr    String
+  nameEn    String
+  bodyFr    String   @db.LongText
+  bodyEn    String   @db.LongText
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("document_templates")
+}
+
 model AuditLog {
   id         Int      @id @default(autoincrement())
   actor      String   @default("admin") // email or "admin" for shared-token sessions

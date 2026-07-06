@@ -1,9 +1,9 @@
 # Branding assets
 
-Drop the **Services Examboot Inc.** logo here so it appears on sponsor proformas & invoices:
+Drop the logos here so they appear on generated documents (PNG/JPEG only — **not** SVG/WebP; pdfkit limitation). Recommended ~600×250 px.
 
-- File name: `examboot-logo.png` (or `.jpg` / `.jpeg` — **not** SVG/WebP, pdfkit only embeds PNG/JPEG)
-- Recommended: ~600×250 px, transparent or white background.
+- **`examboot-logo.png`** — **Services Examboot Inc.** → financial documents (proforma, invoice).
+- **`eyesopen-logo.png`** — **EyesOpen Association** → partnership documents (contract, letter of intent, exclusivity clause, brand assets request, communication plan, pricing sheet).
 
 The invoice generator (`app/api/admin/budget/[id]/invoice`) resolves the logo in this order:
 1. The `examboot_logo_url` setting (a remote URL), if set in Admin → Settings → Facturation.

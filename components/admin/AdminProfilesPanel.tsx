@@ -27,6 +27,7 @@ const NAV_GROUPS: { label: { fr: string; en: string }; modules: { key: string; l
     { key: "tickets", label: "Billets" },
     { key: "sponsor-packages", label: "Packages Sponsors" },
     { key: "budget", label: "Budget" },
+    { key: "documents", label: "📄 Documents & Contrats" },
     { key: "transactions", label: "Transactions" },
   ] },
   { label: { fr: "CTF", en: "CTF" }, modules: [

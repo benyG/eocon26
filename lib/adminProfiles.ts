@@ -15,6 +15,7 @@ export interface AdminPermissions {
   tickets?: "read" | "write";
   "sponsor-packages"?: "read" | "write";
   budget?: "read" | "write";
+  documents?: "read" | "write";
   transactions?: "read" | "write";
   logistics?: "read" | "write";
   communication?: "read" | "write";
@@ -57,7 +58,7 @@ export const ADMIN_PROFILES: AdminProfile[] = [
       workshops: "write", volunteers: "write", registrations: "write",
       newsletter: "write", sponsors: "write", "sponsor-pipeline": "write",
       tickets: "write", "sponsor-packages": "write", budget: "write",
-      transactions: "write",
+      documents: "write", transactions: "write",
       logistics: "write", communication: "write", library: "write", "cyber-watch": "write",
       team: "write", video: "write", export: "write", users: "write",
       profiles: "write", audit: "write", settings: "write", prospection: "write",
@@ -95,7 +96,7 @@ export const ADMIN_PROFILES: AdminProfile[] = [
     color: "#ffaa00",
     permissions: {
       sponsors: "write", "sponsor-pipeline": "write",
-      "sponsor-packages": "write",
+      "sponsor-packages": "write", budget: "write", documents: "write",
       prospection: "write", "prospection-speakers": "write", export: "read",
     },
   },

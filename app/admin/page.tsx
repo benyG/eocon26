@@ -18,6 +18,7 @@ import SponsorConcludeModal from "@/components/admin/SponsorConcludeModal";
 import SponsorPerksChecklist from "@/components/admin/SponsorPerksChecklist";
 import PerksCatalogManager from "@/components/admin/PerksCatalogManager";
 import PackagePerksEditor from "@/components/admin/PackagePerksEditor";
+import DocumentsPanel from "@/components/admin/DocumentsPanel";
 import RegistrationsChart from "@/components/admin/RegistrationsChart";
 import NotificationBell from "@/components/admin/NotificationBell";
 import { adminI18n } from "@/lib/adminI18n";
@@ -29,7 +30,7 @@ const AdminThemeContext = createContext<{ theme: "dark" | "light"; toggleTheme: 
 });
 const useAdminTheme = () => useContext(AdminThemeContext);
 
-type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "prospection-speakers" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "live" | "sessions" | "video" | "transactions" | "testimony" | "campaigns" | "strategic-plan";
+type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "documents" | "logistics" | "certificates" | "export" | "prospection" | "prospection-speakers" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "live" | "sessions" | "video" | "transactions" | "testimony" | "campaigns" | "strategic-plan";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -5532,6 +5533,14 @@ const SETTINGS_FIELDS = [
   { key: "examboot_logo_url", label: "Logo facturation (URL, sinon public/branding/examboot-logo.png)", type: "url", group: "Facturation" },
   { key: "examboot_payment_terms", label: "Modalités de paiement (coordonnées bancaires / mobile money)", type: "text", group: "Facturation" },
   { key: "examboot_accent_color", label: "Couleur d'accent du document (hex, ex: #0a7d4b)", type: "text", group: "Facturation" },
+  // Organizer entity — issues partnership documents (contract, LOI, exclusivity, comm plan, brand assets, pricing)
+  { key: "eyesopen_legal_name", label: "Raison sociale organisateur (contrats/LOI)", type: "text", group: "Organisateur" },
+  { key: "eyesopen_address", label: "Adresse organisateur", type: "text", group: "Organisateur" },
+  { key: "eyesopen_email", label: "Email organisateur", type: "text", group: "Organisateur" },
+  { key: "eyesopen_phone", label: "Téléphone organisateur", type: "text", group: "Organisateur" },
+  { key: "eyesopen_tax_id", label: "Identifiant légal organisateur", type: "text", group: "Organisateur" },
+  { key: "eyesopen_logo_url", label: "Logo organisateur (URL, sinon public/branding/eyesopen-logo.png)", type: "url", group: "Organisateur" },
+  { key: "eyesopen_accent_color", label: "Couleur d'accent documents organisateur (hex)", type: "text", group: "Organisateur" },
 ] as const;
 
 function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
@@ -7179,6 +7188,7 @@ export default function AdminDashboard() {
     tickets: "tickets",
     "sponsor-packages": "sponsor-packages",
     budget: "budget",
+    documents: "documents",
     transactions: "transactions",
     ctf: "ctf",
     live: "live",
@@ -7447,6 +7457,7 @@ export default function AdminDashboard() {
         { id: "tickets", label: t.tickets, icon: "🎟️" },
         { id: "sponsor-packages", label: t.sponsorPackages, icon: "📦" },
         { id: "budget", label: t.budgetTracking, icon: "💸" },
+        { id: "documents", label: t.documents, icon: "📄" },
         { id: "transactions", label: "Transactions", icon: "💳" },
       ],
     },
@@ -8181,6 +8192,9 @@ export default function AdminDashboard() {
               canWrite={can("budget")}
             />
           )}
+
+          {/* DOCUMENTS & CONTRACTS */}
+          {activeTab === "documents" && <DocumentsPanel canWrite={can("documents")} />}
 
           {/* LOGISTICS */}
           {activeTab === "logistics" && (

@@ -34,6 +34,24 @@ type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
+
+// Sponsor package combobox — options come from the DB (sponsor_packages), the single
+// source of truth. Falls back to the current value so a legacy tier isn't lost.
+function PackageSelect({ value, onChange, lang, className, includeEmpty = false }: {
+  value: string; onChange: (v: string) => void; lang: "fr" | "en"; className?: string; includeEmpty?: boolean;
+}) {
+  const [pkgs, setPkgs] = useState<{ tier: string; nameFr: string; nameEn: string }[]>([]);
+  useEffect(() => { fetch("/api/admin/sponsor-packages").then(r => r.ok ? r.json() : []).then(setPkgs).catch(() => {}); }, []);
+  return (
+    <select className={className || "cyber-input w-full px-3 py-2 rounded text-xs"} value={value} onChange={e => onChange(e.target.value)}>
+      {includeEmpty && <option value="">{lang === "en" ? "— Select —" : "— Choisir —"}</option>}
+      {pkgs.map(pk => (
+        <option key={pk.tier} value={pk.tier} className="bg-dark-800">{pk.tier}{(lang === "en" ? pk.nameEn : pk.nameFr) ? ` — ${lang === "en" ? pk.nameEn : pk.nameFr}` : ""}</option>
+      ))}
+      {!!value && !pkgs.some(pk => pk.tier === value) && <option value={value} className="bg-dark-800">{value}</option>}
+    </select>
+  );
+}
 const typeColors: Record<string, string> = {
   keynote: "#00ff9d", talk: "#0066ff", workshop: "#ff6600",
   panel: "#cc00ff", break: "#444", logistics: "#888",
@@ -965,11 +983,27 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                 ] as { key: string; label: string }[]).map(f => (
                   <div key={f.key} className={f.key === "contactLinkedin" ? "col-span-2" : ""}>
                     <label className="text-xs text-gray-500 block mb-1">{f.label}</label>
-                    <input
-                      value={(editLeadForm[f.key] as string) || ""}
-                      onChange={e => setEditLeadForm(p => ({ ...p, [f.key]: e.target.value }))}
-                      className="cyber-input w-full px-3 py-1.5 rounded text-xs"
-                    />
+                    {f.key === "recommendedPackage" ? (
+                      <select
+                        value={(editLeadForm[f.key] as string) || ""}
+                        onChange={e => setEditLeadForm(p => ({ ...p, [f.key]: e.target.value }))}
+                        className="cyber-input w-full px-3 py-1.5 rounded text-xs"
+                      >
+                        <option value="">{lang === "en" ? "— Select —" : "— Choisir —"}</option>
+                        {packages.map(pk => (
+                          <option key={pk.tier as string} value={pk.tier as string}>{pk.tier as string}{(lang === "en" ? pk.nameEn : pk.nameFr) ? ` — ${(lang === "en" ? pk.nameEn : pk.nameFr) as string}` : ""}</option>
+                        ))}
+                        {!!editLeadForm.recommendedPackage && !packages.some(pk => pk.tier === editLeadForm.recommendedPackage) && (
+                          <option value={editLeadForm.recommendedPackage as string}>{editLeadForm.recommendedPackage as string}</option>
+                        )}
+                      </select>
+                    ) : (
+                      <input
+                        value={(editLeadForm[f.key] as string) || ""}
+                        onChange={e => setEditLeadForm(p => ({ ...p, [f.key]: e.target.value }))}
+                        className="cyber-input w-full px-3 py-1.5 rounded text-xs"
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -2680,9 +2714,7 @@ function SponsorFormPanel({
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">Tier</label>
-          <select className="cyber-input w-full px-3 py-2 rounded text-xs bg-transparent" value={(form.tier as string) || "GOLD"} onChange={e => setForm({ ...form, tier: e.target.value })}>
-            {TIER_ORDER.map(t => <option key={t} value={t} className="bg-dark-800">{t}</option>)}
-          </select>
+          <PackageSelect value={(form.tier as string) || "GOLD"} onChange={v => setForm({ ...form, tier: v })} lang={lang} className="cyber-input w-full px-3 py-2 rounded text-xs bg-transparent" />
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Order" : "Ordre"}</label>
@@ -2722,9 +2754,11 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
   const [assignees, setAssignees] = useState<{ id: number; name: string }[]>([]);
   const [concludeTarget, setConcludeTarget] = useState<Record<string, unknown> | null>(null);
   const [deadline, setDeadline] = useState<{ labelFr: string; labelEn: string; daysLeft: number } | null>(null);
+  const [packages, setPackages] = useState<{ tier: string; nameFr: string; nameEn: string }[]>([]);
 
   useEffect(() => {
     fetch("/api/admin/sponsor-prospects/assignees").then(r => r.ok ? r.json() : []).then(setAssignees).catch(() => {});
+    fetch("/api/admin/sponsor-packages").then(r => r.ok ? r.json() : []).then(setPackages).catch(() => {});
     fetch("/api/admin/sponsor-deadline").then(r => r.ok ? r.json() : null).then(d => setDeadline(d?.next || null)).catch(() => {});
   }, []);
 
@@ -3007,9 +3041,12 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                           className="cyber-input w-full px-3 py-1.5 rounded text-xs"
                         >
                           <option value="">{lang === "en" ? "— Select —" : "— Choisir —"}</option>
-                          {["PLATINUM", "GOLD", "SILVER", "BRONZE", "PARTNER"].map(tier => (
-                            <option key={tier} value={tier}>{tier}</option>
+                          {packages.map(pk => (
+                            <option key={pk.tier} value={pk.tier}>{pk.tier}{(lang === "en" ? pk.nameEn : pk.nameFr) ? ` — ${lang === "en" ? pk.nameEn : pk.nameFr}` : ""}</option>
                           ))}
+                          {!!detailForm.package && !packages.some(pk => pk.tier === detailForm.package) && (
+                            <option value={detailForm.package as string}>{detailForm.package as string}</option>
+                          )}
                         </select>
                       </div>
                     </div>
@@ -3187,9 +3224,12 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
               <label className="text-xs text-gray-500 block mb-1">{t.package}</label>
               <select className="cyber-input w-full px-3 py-2 rounded text-xs" value={(form.package as string) || ""} onChange={e => setForm(p => ({ ...p, package: e.target.value }))}>
                 <option value="">{lang === "en" ? "— Select —" : "— Choisir —"}</option>
-                {["PLATINUM", "GOLD", "SILVER", "BRONZE", "PARTNER"].map(tier => (
-                  <option key={tier} value={tier}>{tier}</option>
+                {packages.map(pk => (
+                  <option key={pk.tier} value={pk.tier}>{pk.tier}{(lang === "en" ? pk.nameEn : pk.nameFr) ? ` — ${lang === "en" ? pk.nameEn : pk.nameFr}` : ""}</option>
                 ))}
+                {!!form.package && !packages.some(pk => pk.tier === form.package) && (
+                  <option value={form.package as string}>{form.package as string}</option>
+                )}
               </select>
             </div>
             <div>
@@ -7718,9 +7758,7 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Tier</label>
-                      <select className="cyber-input w-full px-3 py-2 rounded text-xs bg-transparent" value={(form.tier as string) || "GOLD"} onChange={e => setForm({ ...form, tier: e.target.value })}>
-                        {TIER_ORDER.map(t => <option key={t} value={t} className="bg-dark-800">{t}</option>)}
-                      </select>
+                      <PackageSelect value={(form.tier as string) || "GOLD"} onChange={v => setForm({ ...form, tier: v })} lang={lang} className="cyber-input w-full px-3 py-2 rounded text-xs bg-transparent" />
                     </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Ordre</label>
@@ -7753,13 +7791,18 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {TIER_ORDER.map(tier => {
+              {(() => {
+                // Group by all tiers actually present (TIER_ORDER first, then any custom
+                // package tier) so sponsors on custom tiers are never hidden.
+                const sponsorTiers = Array.from(new Set(((data.sponsors || []) as Record<string, unknown>[]).map(s => s.tier as string).filter(Boolean)));
+                const allTiers = [...TIER_ORDER, ...sponsorTiers.filter(t => !TIER_ORDER.includes(t))];
+                return allTiers.map(tier => {
                 const tierSponsors = ((data.sponsors || []) as Record<string, unknown>[]).filter(s => s.tier === tier);
                 if (!tierSponsors.length) return null;
                 const colors: Record<string, string> = { PLATINUM: "#e5e4e2", GOLD: "#ffd700", SILVER: "#c0c0c0", BRONZE: "#cd7f32" };
                 return (
                   <div key={tier} className="mb-6">
-                    <h3 className="text-xs font-bold mb-3 uppercase tracking-widest" style={{ color: colors[tier] }}>◆ {tier}</h3>
+                    <h3 className="text-xs font-bold mb-3 uppercase tracking-widest" style={{ color: colors[tier] || "#00b368" }}>◆ {tier}</h3>
                     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {tierSponsors.map(s => (
                         <div key={s.id as number} className="cyber-card rounded-lg p-4 flex items-center gap-3">
@@ -7790,7 +7833,8 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 );
-              })}
+                });
+              })()}
               {!data.sponsors?.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No sponsors" : "Aucun sponsor"}</p>}
             </div>
           )}

@@ -41,7 +41,15 @@ export async function POST(req: NextRequest) {
     { label: "Partenariat sponsor", url: settings.url_sponsor },
   ].filter(c => c.url);
 
-  const openai = getOpenAI();
+  let openai;
+  try {
+    openai = getOpenAI();
+  } catch (e) {
+    return NextResponse.json(
+      { error: `Clé OpenAI manquante ou invalide : ${e instanceof Error ? e.message : String(e)}` },
+      { status: 503 }
+    );
+  }
 
   // The CTA for this content type is mandatory when configured — per-language instruction
   const ctaInstruction = cta
@@ -149,19 +157,25 @@ Réponds en JSON uniquement, sans markdown :
   "whatsapp_en": "..."
 }`;
 
-  const response = await openai.chat.completions.create({
-    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.7,
-    max_completion_tokens: 1500,
-  });
+  let response;
+  try {
+    response = await openai.chat.completions.create({
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+      max_tokens: 1500,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: `Erreur API OpenAI : ${msg}` }, { status: 502 });
+  }
 
   const text = response.choices[0]?.message?.content || "{}";
   let posts: PostsResult;
   try {
     posts = JSON.parse(text.replace(/```json?\n?/g, "").replace(/```/g, "").trim()) as PostsResult;
   } catch {
-    return NextResponse.json({ error: "Failed to parse AI response" }, { status: 500 });
+    return NextResponse.json({ error: `Réponse IA non parsable. Réessayez ou vérifiez la clé OpenAI.\n\nRéponse brute : ${text.slice(0, 300)}` }, { status: 500 });
   }
 
   // Save to DB

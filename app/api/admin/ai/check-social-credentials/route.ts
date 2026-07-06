@@ -72,7 +72,7 @@ async function testTwitter(): Promise<{ status: string; hint?: string }> {
       const code = data.errors[0]?.code;
       // Code 89 = invalid/expired token, 32 = auth failed, 135 = timestamp out of bounds
       const hint = code === 89 ? "Token invalide ou expiré — régénérer dans le Developer Portal"
-        : code === 32 ? "Authentification échouée — vérifier les 4 clés"
+        : code === 32 ? "Access Token généré sans permission Write. Dans le Developer Portal : (1) App Settings → User authentication settings → cocher Read+Write → Save, (2) Keys and Tokens → Regenerate Access Token & Secret → coller les nouvelles valeurs."
         : code === 135 ? "Timestamp invalide — problème d'horloge serveur"
         : "Vérifier les permissions (Read+Write requis) et régénérer l'Access Token";
       return { status: `invalide (code ${code}) — ${msg}`, hint };
@@ -100,6 +100,10 @@ export async function GET() {
   ]);
 
   return NextResponse.json({
+    openai: {
+      status: process.env.OPENAI_API_KEY ? "OK" : "manquant — OPENAI_API_KEY requis pour la génération de posts",
+      vars: { OPENAI_API_KEY: !!process.env.OPENAI_API_KEY },
+    },
     twitter: {
       status: twitterResult.status,
       hint: twitterResult.hint,

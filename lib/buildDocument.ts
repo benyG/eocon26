@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getEventSettings } from "@/lib/settings";
 import { getSponsorDeadlines } from "@/lib/sponsorBilling";
+import { getEventContext, eventContextLine } from "@/lib/eventContext";
 import { getIssuerEntity } from "@/lib/documentEntities";
 import { DOC_TYPES, DEFAULT_TEMPLATES, fillTemplate, docType } from "@/lib/documentTemplates";
 import { renderBrandedDoc, renderPricingPdf, type PerkLine, type PricingPkg } from "@/lib/docPdf";
@@ -63,7 +64,8 @@ export async function buildDocument(opts: { type: string; sponsorId?: number; pr
       highlightColor: p.highlightColor, perksFr: parseJson(p.perksFr), perksEn: parseJson(p.perksEn),
     }));
     const docNumber = `EOC-PRICING-2026`;
-    const buffer = await renderPricingPdf(entity, pricing, lang, docNumber);
+    const eventLine = eventContextLine(await getEventContext(), lang);
+    const buffer = await renderPricingPdf(entity, pricing, lang, docNumber, eventLine);
     return { buffer, filename: `grille-tarifaire-eocon2026-${lang}.pdf`, docNumber, recipientName: "", recipientEmail: null };
   }
 

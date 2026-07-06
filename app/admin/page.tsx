@@ -1333,7 +1333,7 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
                     {isCollapsed && (
                       <div className="flex gap-2 flex-wrap mb-2 pl-4">
                         {qLeads.slice(0, 6).map(l => (
-                          <span key={l.id as number} className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: "#0a0a0a", color: "#444", border: "1px solid #222" }}>
+                          <span key={l.id as number} className="text-xs px-2 py-0.5 rounded font-mono bg-gray-900/40 text-gray-500 border border-gray-800">
                             {(l.org as string).slice(0, 22)}
                           </span>
                         ))}

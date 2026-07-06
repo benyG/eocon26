@@ -17,6 +17,7 @@ export default function PerksCatalogManager({ canWrite = true, onChange }: { can
   const [loaded, setLoaded] = useState(false);
   const [form, setForm] = useState<Record<string, unknown>>({ ...BLANK });
   const [seeding, setSeeding] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const load = useCallback(() => {
     fetch("/api/admin/perks").then(r => r.ok ? r.json() : []).then((d) => { setPerks(d); setLoaded(true); }).catch(() => setLoaded(true));
@@ -47,19 +48,23 @@ export default function PerksCatalogManager({ canWrite = true, onChange }: { can
 
   return (
     <div className="cyber-card rounded-xl p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h3 className="text-white font-bold text-sm">🧩 {__("Catalogue de contreparties", "Perk catalog")}</h3>
-          <p className="text-gray-600 text-xs">{__("Table centrale : construit les packages et la validation des sponsors.", "Central table: builds packages and sponsor validation.")}</p>
-        </div>
+      <div className="flex items-center justify-between gap-2">
+        <button onClick={() => setOpen(o => !o)} className="flex items-center gap-2 text-left flex-1 min-w-0">
+          <span className="text-gray-500 text-xs w-3 shrink-0">{open ? "▾" : "▸"}</span>
+          <div className="min-w-0">
+            <h3 className="text-white font-bold text-sm">🧩 {__("Catalogue de contreparties", "Perk catalog")} <span className="text-gray-600 font-normal">({perks.length})</span></h3>
+            <p className="text-gray-600 text-xs">{__("Table centrale : construit les packages et la validation des sponsors.", "Central table: builds packages and sponsor validation.")}</p>
+          </div>
+        </button>
         {canWrite && perks.length === 0 && loaded && (
-          <button onClick={seed} disabled={seeding} className="text-xs px-3 py-1.5 rounded border border-neon-green/30 text-neon-green">
+          <button onClick={seed} disabled={seeding} className="text-xs px-3 py-1.5 rounded border border-neon-green/30 text-neon-green shrink-0">
             {seeding ? "…" : __("Initialiser le catalogue", "Seed catalog")}
           </button>
         )}
       </div>
 
-      <div className="space-y-1">
+      {open && (<>
+      <div className="space-y-1 mt-3">
         {perks.map(p => (
           <div key={p.id} className="flex items-center gap-2 py-1.5 border-b border-gray-800/50">
             <input value={p.labelFr} disabled={!canWrite} onChange={e => setPerks(prev => prev.map(x => x.id === p.id ? { ...x, labelFr: e.target.value } : x))} onBlur={e => patch(p.id, { labelFr: e.target.value })} className="cyber-input flex-1 px-2 py-1 rounded text-xs" />
@@ -81,6 +86,7 @@ export default function PerksCatalogManager({ canWrite = true, onChange }: { can
           <button onClick={create} className="btn-neon px-3 py-1 rounded text-xs shrink-0">+ {__("Ajouter", "Add")}</button>
         </div>
       )}
+      </>)}
     </div>
   );
 }

@@ -43,9 +43,14 @@ async function testTwitter(): Promise<{ status: string; hint?: string }> {
   }
   try {
     const crypto = await import("crypto");
+
+    // Use X API v2 on api.x.com (canonical domain since 2024).
+    // The signature must be computed for the exact URL used — a redirect to api.x.com
+    // would invalidate a signature computed for api.twitter.com.
+    const url = "https://api.x.com/2/users/me";
+
     const nonce = crypto.randomBytes(16).toString("hex");
     const timestamp = Math.floor(Date.now() / 1000).toString();
-    const url = "https://api.twitter.com/1.1/account/verify_credentials.json";
     const oauthParams: Record<string, string> = {
       oauth_consumer_key: key,
       oauth_nonce: nonce,
@@ -54,30 +59,39 @@ async function testTwitter(): Promise<{ status: string; hint?: string }> {
       oauth_token: token,
       oauth_version: "1.0",
     };
-    const sortedKeys = Object.keys(oauthParams).sort();
-    const paramString = sortedKeys
-      .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(oauthParams[k])}`)
+
+    // RFC 3986 percent-encoding (encodes ! ' ( ) * too, unlike encodeURIComponent)
+    const pct = (s: string) =>
+      encodeURIComponent(s).replace(/[!'()*]/g, c => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+
+    const paramString = Object.keys(oauthParams)
+      .sort()
+      .map(k => `${pct(k)}=${pct(oauthParams[k])}`)
       .join("&");
-    const baseString = ["GET", encodeURIComponent(url), encodeURIComponent(paramString)].join("&");
-    const signingKey = `${encodeURIComponent(secret)}&${encodeURIComponent(tokenSecret)}`;
+    const baseString = `GET&${pct(url)}&${pct(paramString)}`;
+    const signingKey = `${pct(secret)}&${pct(tokenSecret)}`;
     const signature = crypto.createHmac("sha1", signingKey).update(baseString).digest("base64");
     oauthParams.oauth_signature = signature;
-    const authHeader = "OAuth " + Object.keys(oauthParams).sort()
-      .map(k => `${encodeURIComponent(k)}="${encodeURIComponent(oauthParams[k])}"`)
+
+    const authHeader = "OAuth " + Object.keys(oauthParams)
+      .sort()
+      .map(k => `${pct(k)}="${pct(oauthParams[k])}"`)
       .join(", ");
+
     const res = await fetch(url, { headers: { Authorization: authHeader } });
-    const data = await res.json() as { screen_name?: string; errors?: { message: string; code?: number }[] };
-    if (data.errors) {
-      const msg = data.errors[0]?.message ?? "inconnu";
-      const code = data.errors[0]?.code;
-      // Code 89 = invalid/expired token, 32 = auth failed, 135 = timestamp out of bounds
+    const data = await res.json() as { data?: { id: string; username: string }; errors?: { message: string; code?: number }[] };
+
+    if (!res.ok || data.errors) {
+      const msg = data.errors?.[0]?.message ?? `HTTP ${res.status}`;
+      const code = data.errors?.[0]?.code;
       const hint = code === 89 ? "Token invalide ou expiré — régénérer dans le Developer Portal"
         : code === 32 ? "Access Token généré sans permission Write. Dans le Developer Portal : (1) App Settings → User authentication settings → cocher Read+Write → Save, (2) Keys and Tokens → Regenerate Access Token & Secret → coller les nouvelles valeurs."
         : code === 135 ? "Timestamp invalide — problème d'horloge serveur"
+        : res.status === 403 ? "Accès refusé — vérifier le niveau d'accès de l'app (Free/Basic) et les permissions Read+Write"
         : "Vérifier les permissions (Read+Write requis) et régénérer l'Access Token";
-      return { status: `invalide (code ${code}) — ${msg}`, hint };
+      return { status: `invalide (code ${code ?? res.status}) — ${msg}`, hint };
     }
-    return { status: `OK (@${data.screen_name})`, hint: "Vérifier que l'app a les permissions Read+Write dans le Developer Portal" };
+    return { status: `OK (@${data.data?.username ?? data.data?.id})` };
   } catch (e) {
     return { status: `erreur réseau: ${e instanceof Error ? e.message : String(e)}` };
   }

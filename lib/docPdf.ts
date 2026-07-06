@@ -11,6 +11,16 @@ const INK = "#0f172a", SUB = "#475569", FAINT = "#94a3b8", LINE = "#e2e8f0", PAN
 const M = 46;
 const W = A4_W - M * 2;
 
+// pdfkit has no alpha; blend a color toward white to get a solid readable light tint.
+function tint(hex: string, weight = 0.12): string {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex);
+  if (!m) return "#f1f5f9";
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const mix = (c: number) => Math.round(255 - weight * (255 - c));
+  return `#${[mix(r), mix(g), mix(b)].map(c => c.toString(16).padStart(2, "0")).join("")}`;
+}
+
 export interface PerkLine { labelFr: string; labelEn: string; quantity: number | null; }
 
 export async function loadEntityLogo(entity: DocEntity): Promise<Buffer | null> {
@@ -195,15 +205,15 @@ export async function renderBrandedDoc(entity: DocEntity, opts: {
 
 // ── Public: render the pricing / packages sheet ──
 export interface PricingPkg { tier: string; nameFr: string; nameEn: string; price: number; maxSponsors: number; highlightColor: string | null; perksFr: string[]; perksEn: string[]; }
-export async function renderPricingPdf(entity: DocEntity, packages: PricingPkg[], lang: "fr" | "en", docNumber: string): Promise<Buffer> {
+export async function renderPricingPdf(entity: DocEntity, packages: PricingPkg[], lang: "fr" | "en", docNumber: string, eventLine: string): Promise<Buffer> {
   const accent = /^#[0-9a-fA-F]{6}$/.test(entity.accentColor) ? entity.accentColor : "#0a7d4b";
   const doc = new PDFDocument({ size: "A4", margin: M, bufferPages: true, info: { Title: `EOCON 2026 — ${lang === "en" ? "Pricing" : "Grille tarifaire"}` } });
   const logo = await loadEntityLogo(entity);
   const ctx: Doc = { doc, accent, y: M };
   header(ctx, entity, logo, lang === "en" ? "PRICING" : "GRILLE TARIFAIRE", "EOCON 2026 · Packages", [["Réf.", docNumber]]);
-  doc.fillColor(SUB).font("Helvetica").fontSize(9).text(lang === "en"
-    ? "Partnership tiers for EOCON 2026 — 7th edition · 28 Nov 2026 · Douala, hybrid."
-    : "Niveaux de partenariat pour EOCON 2026 — 7ème édition · 28 nov. 2026 · Douala, hybride.", M, ctx.y, { width: W });
+  doc.fillColor(SUB).font("Helvetica").fontSize(9).text((lang === "en"
+    ? "Partnership tiers for EOCON 2026 — "
+    : "Niveaux de partenariat pour EOCON 2026 — ") + eventLine, M, ctx.y, { width: W });
   ctx.y += 26;
 
   for (const p of packages) {
@@ -211,8 +221,8 @@ export async function renderPricingPdf(entity: DocEntity, packages: PricingPkg[]
     const color = /^#[0-9a-fA-F]{6}$/.test(p.highlightColor || "") ? p.highlightColor! : accent;
     const estH = 46 + perks.length * 13 + 14;
     ensure(ctx, estH);
-    // tier header band
-    doc.roundedRect(M, ctx.y, W, 30, 6).fill(color + "18");
+    // tier header band (solid light tint — pdfkit has no alpha)
+    doc.roundedRect(M, ctx.y, W, 30, 6).fill(tint(color, 0.12));
     doc.rect(M, ctx.y, 4, 30).fill(color);
     doc.fillColor(INK).font("Helvetica-Bold").fontSize(13).text(lang === "en" ? p.nameEn : p.nameFr, M + 14, ctx.y + 8, { width: W - 180 });
     doc.fillColor(color).font("Helvetica-Bold").fontSize(13).text(p.price > 0 ? `${p.price.toLocaleString("fr-FR")} FCFA` : (lang === "en" ? "Partnership" : "Partenariat"), M + W - 170, ctx.y + 8, { width: 156, align: "right" });

@@ -18,7 +18,8 @@ const DECK_FILES = [
 export async function POST(req: NextRequest) {
   const canWrite = (await hasPermission("prospection", "write")) || (await hasPermission("sponsor-pipeline", "write"));
   if (!canWrite) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const { id, subject, body, attachDecks, markContacted } = await req.json();
+  const { id, subject, body, attachDecks, markContacted, docTypes, lang } = await req.json();
+  const docLang: "fr" | "en" = lang === "en" ? "en" : "fr";
   if (!id || !subject || !body) {
     return NextResponse.json({ error: "id, subject et body requis" }, { status: 400 });
   }
@@ -43,15 +44,29 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Attach stage-relevant generated documents (one-pager, pricing, LOI, contract…).
+  if (Array.isArray(docTypes) && docTypes.length) {
+    const { buildDocument } = await import("@/lib/buildDocument");
+    for (const type of docTypes as string[]) {
+      try {
+        const d = await buildDocument({ type, sponsorId: prospect.sponsorId ?? undefined, prospectId: prospect.id, lang: docLang });
+        attachments.push({ filename: d.filename, content: d.buffer });
+      } catch (e) {
+        console.error("[prospect send-email] doc", type, e);
+      }
+    }
+  }
+
   const from = process.env.EMAIL_FROM_SPONSORS || "EOCON 2026 <sponsors@eyesopensecurity.com>";
   // The body is plain text (AI output) — wrap it minimally, preserving line breaks.
   const html = `<!DOCTYPE html><html><body style="background:#030408;color:#fff;font-family:'Courier New',monospace;padding:32px;white-space:pre-wrap;">${String(body)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</body></html>`;
 
+  let resendId: string | null = null;
   try {
     const { Resend } = await import("resend");
     const resend = new Resend(apiKey);
-    await resend.emails.send({
+    const sent = await resend.emails.send({
       from,
       to: prospect.email,
       subject,
@@ -59,10 +74,14 @@ export async function POST(req: NextRequest) {
       replyTo: process.env.EMAIL_REPLYTO_SPONSORS || "eocon@examboot.net",
       attachments: attachments.map(a => ({ filename: a.filename, content: a.content })),
     });
+    resendId = sent.data?.id ?? null;
   } catch (e) {
     console.error("[prospect send-email]", e);
     return NextResponse.json({ error: "Échec de l'envoi" }, { status: 502 });
   }
+
+  // Record the send so it appears in the prospect timeline and gets open/click tracking.
+  await prisma.emailLog.create({ data: { recipient: prospect.email, subject, status: "sent", resendId } }).catch(() => {});
 
   // Move fresh prospects to "contacted", and (re)start the follow-up cadence whenever
   // we reach out to an active-stage prospect so the J+2/J+5/J+10/J+15 clock is fresh.

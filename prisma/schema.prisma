@@ -559,7 +559,10 @@ model SponsorProspect {
   package   String?  // tier/package name
   status    String   @default("contacted") // contacted | meeting | negative | positive | concluded | abandoned | paused
   notes          String?  @db.Text
-  emailJson      String?  @db.Text // cached AI follow-up email (JSON)
+  emailJson      String?  @db.Text // cached AI email (JSON) — kept for the current status
+  emailStatus    String?  @map("email_status") // status the cached email was written for
+  pitchJson      String?  @db.Text // cached AI meeting pitch strategy (JSON)
+  teaserJson     String?  @db.Text // cached AI short teaser message (JSON)
   perkChecklist  String?  @db.Text // legacy JSON checklist (superseded by SponsorPerk once concluded)
   assigneeId     Int?
   assignee       AdminUser? @relation(fields: [assigneeId], references: [id], onDelete: SetNull)

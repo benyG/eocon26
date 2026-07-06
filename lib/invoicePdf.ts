@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getBillingEntity } from "@/lib/sponsorBilling";
+import { getEventContext, eventContextLine } from "@/lib/eventContext";
 import PDFDocument from "pdfkit";
 import { promises as fs } from "fs";
 import path from "path";
@@ -9,6 +10,17 @@ const MM = 72 / 25.4;
 const A4_W = 210 * MM;
 const A4_H = 297 * MM;
 const INK = "#0f172a", SUB = "#64748b", FAINT = "#94a3b8", LINE = "#e2e8f0", PANEL = "#f8fafc";
+
+// pdfkit does NOT understand 8-digit hex (alpha). Produce a solid light tint of a color
+// by blending it toward white — used for section bands so dark text stays readable.
+function tint(hex: string, weight = 0.12): string {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex);
+  if (!m) return "#f1f5f9";
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const mix = (c: number) => Math.round(255 - weight * (255 - c));
+  return `#${[mix(r), mix(g), mix(b)].map(c => c.toString(16).padStart(2, "0")).join("")}`;
+}
 
 type ItemWithSponsor = Prisma.BudgetItemGetPayload<{ include: { sponsor: { include: { perks: true } } } }>;
 
@@ -31,7 +43,8 @@ export async function buildInvoicePdf(item: ItemWithSponsor, type: "proforma" | 
   const entity = await getBillingEntity();
   const logo = await loadLogo(entity.logoUrl);
   const accent = /^#[0-9a-fA-F]{6}$/.test(entity.accentColor) ? entity.accentColor : "#0a7d4b";
-  const accentSoft = accent + "14";
+  const accentSoft = tint(accent, 0.12);
+  const eventLine = eventContextLine(await getEventContext(), "fr");
   const now = new Date();
 
   let docNumber = type === "invoice" ? sponsor.invoiceNumber : sponsor.proformaNumber;
@@ -86,7 +99,7 @@ export async function buildInvoicePdf(item: ItemWithSponsor, type: "proforma" | 
 
   doc.fillColor(SUB).font("Helvetica").fontSize(9).text("Objet · Subject", M, y);
   doc.fillColor(INK).font("Helvetica-Bold").fontSize(10).text(`Partenariat EOCON 2026 — Sponsor ${sponsor.tier}`, M, y + 12, { width: W });
-  doc.fillColor(FAINT).font("Helvetica").fontSize(8).text("7ème édition · 28 novembre 2026 · Douala, Cameroun · Format hybride", M, y + 27, { width: W });
+  doc.fillColor(FAINT).font("Helvetica").fontSize(8).text(eventLine, M, y + 27, { width: W });
   y += 46;
 
   const qtyW = 70, descX = M + 14, descW = W - qtyW - 28;

@@ -14,6 +14,11 @@ import StrategicPlanPanel from "@/components/admin/StrategicPlanPanel";
 import LivePanel from "@/components/admin/LivePanel";
 import ProspectionSpeakersPanel from "@/components/admin/ProspectionSpeakersPanel";
 import LogisticsProspectingPanel from "@/components/admin/LogisticsProspectingPanel";
+import SponsorConcludeModal from "@/components/admin/SponsorConcludeModal";
+import SponsorPerksChecklist from "@/components/admin/SponsorPerksChecklist";
+import PerksCatalogManager from "@/components/admin/PerksCatalogManager";
+import PackagePerksEditor from "@/components/admin/PackagePerksEditor";
+import DocumentsPanel from "@/components/admin/DocumentsPanel";
 import RegistrationsChart from "@/components/admin/RegistrationsChart";
 import NotificationBell from "@/components/admin/NotificationBell";
 import { adminI18n } from "@/lib/adminI18n";
@@ -25,7 +30,7 @@ const AdminThemeContext = createContext<{ theme: "dark" | "light"; toggleTheme: 
 });
 const useAdminTheme = () => useContext(AdminThemeContext);
 
-type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "logistics" | "certificates" | "export" | "prospection" | "prospection-speakers" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "live" | "sessions" | "video" | "transactions" | "testimony" | "campaigns" | "strategic-plan";
+type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "documents" | "logistics" | "certificates" | "export" | "prospection" | "prospection-speakers" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "live" | "sessions" | "video" | "transactions" | "testimony" | "campaigns" | "strategic-plan";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -2714,12 +2719,13 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
   const [findEmailBusy, setFindEmailBusy] = useState(false);
   const [findEmailResults, setFindEmailResults] = useState<Array<{ email: string; name?: string; title?: string; source: string; confidence?: number }>>([]);
   const [findEmailDone, setFindEmailDone] = useState(false);
-  const [packages, setPackages] = useState<Record<string, unknown>[]>([]);
   const [assignees, setAssignees] = useState<{ id: number; name: string }[]>([]);
+  const [concludeTarget, setConcludeTarget] = useState<Record<string, unknown> | null>(null);
+  const [deadline, setDeadline] = useState<{ labelFr: string; labelEn: string; daysLeft: number } | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/sponsor-packages").then(r => r.json()).then(setPackages).catch(() => {});
     fetch("/api/admin/sponsor-prospects/assignees").then(r => r.ok ? r.json() : []).then(setAssignees).catch(() => {});
+    fetch("/api/admin/sponsor-deadline").then(r => r.ok ? r.json() : null).then(d => setDeadline(d?.next || null)).catch(() => {});
   }, []);
 
   const generateFollowupEmail = async (p: Record<string, unknown>) => {
@@ -2834,46 +2840,29 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
     onRefresh();
   };
 
-  const savePerkChecklist = async (id: number, checklist: Record<string, { done: boolean; note: string }>) => {
-    await fetch(`/api/admin/sponsor-prospects/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ perkChecklist: JSON.stringify(checklist) }),
-    });
+  const updateStatus = async (id: number, status: string) => {
+    // #2 — concluding routes through the validation modal (perk selection → public
+    // sponsor + delivery checklist + revenue line), rather than a bare status flip.
+    if (status === "concluded") {
+      const p = prospects.find(x => x.id === id);
+      if (p) setConcludeTarget(p);
+      return;
+    }
+    await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
     onRefresh();
   };
 
-  const updateStatus = async (id: number, status: string) => {
-    await fetch(`/api/admin/sponsor-prospects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
-    if (status === "concluded") {
-      const sponsor = prospects.find(p => p.id === id);
-      if (sponsor) {
-        // Auto-add to active sponsors list
-        await fetch("/api/admin/sponsors", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: sponsor.org || sponsor.name,
-            logoUrl: sponsor.logoUrl || "",
-            website: sponsor.website || "",
-            tier: sponsor.package || sponsor.tier || "BRONZE",
-            isVisible: true,
-          }),
-        }).catch(() => {});
-        // Auto-generate announcement post in FR and EN
-        await fetch("/api/admin/social/posts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            platform: "linkedin",
-            lang: "fr",
-            content: `🎉 [EOCON 2026 · Sponsor ${sponsor.package || sponsor.tier || "BRONZE"}] Nous sommes ravis d'accueillir ${sponsor.org || sponsor.name} comme partenaire ${sponsor.package || sponsor.tier || "BRONZE"} d'EOCON 2026 ! 🙏\n\nMerci pour votre soutien à la communauté cybersécurité africaine.\n\n📅 28 Novembre 2026 · Hotel Onomo, Douala\n\n#EOCON2026 #Cybersecurity #Cameroun`,
-            scheduledAt: null,
-            status: "draft",
-          }),
-        }).catch(() => {});
-      }
-    }
+  // #1 — restart the J+2/J+5/J+10/J+15 follow-up cadence from now.
+  const resetFollowup = async (p: Record<string, unknown>) => {
+    const now = new Date();
+    await fetch(`/api/admin/sponsor-prospects/${p.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contactedAt: now.toISOString(), lastContactAt: now.toISOString(),
+        followupStage: "", nextFollowupAt: new Date(now.getTime() + 2 * 86400000).toISOString(),
+      }),
+    });
+    setDetail(d => d && d.id === p.id ? { ...d, nextFollowupAt: new Date(now.getTime() + 2 * 86400000).toISOString() } : d);
     onRefresh();
   };
 
@@ -2889,6 +2878,24 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
         <h1 className="text-2xl font-black text-white">{t.pipelineTitle}</h1>
         {canWrite && <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">{t.addProspect}</button>}
       </div>
+
+      {/* #3 — urgency countdown to the next commitment deadline */}
+      {deadline && (
+        <div className={`rounded-lg border px-4 py-2.5 mb-4 text-xs flex flex-wrap items-center gap-x-3 gap-y-1 ${deadline.daysLeft <= 14 ? "border-red-500/40 bg-red-500/10 text-red-300" : "border-yellow-600/40 bg-yellow-500/10 text-yellow-300"}`}>
+          <span className="font-bold">⚡ {deadline.daysLeft <= 0 ? (lang === "en" ? "Deadline passed" : "Deadline dépassée") : `J-${deadline.daysLeft}`}</span>
+          <span className="text-gray-300">{lang === "en" ? deadline.labelEn : deadline.labelFr}</span>
+          <span className="text-gray-500">{lang === "en" ? "— close deals early to lock in maximum visibility." : "— concluez tôt pour verrouiller un maximum de visibilité."}</span>
+        </div>
+      )}
+
+      {/* #2 — sponsor conclusion modal (perk validation) */}
+      {concludeTarget && (
+        <SponsorConcludeModal
+          prospect={{ id: concludeTarget.id as number, org: concludeTarget.org as string, package: concludeTarget.package as string | null, website: concludeTarget.website as string | null }}
+          onClose={() => setConcludeTarget(null)}
+          onConcluded={() => { setConcludeTarget(null); setDetail(null); onRefresh(); }}
+        />
+      )}
 
       {/* AI Email Modal */}
       {aiEmail && aiEmailTarget && (
@@ -2950,14 +2957,6 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
       {/* Prospect detail / edit modal */}
       {detail && (() => {
         const statusColor = PROSPECT_STATUSES.find(s => s.value === detail.status)?.color || "#888";
-        const pkgPerks = (() => {
-          const pkg = packages.find(p => String(p.tier).toUpperCase() === String(detail.package).toUpperCase());
-          if (!pkg) return [] as string[];
-          try { return JSON.parse((pkg.perksFr as string) || "[]") as string[]; } catch { return [] as string[]; }
-        })();
-        const checklist: Record<string, { done: boolean; note: string }> = (() => {
-          try { return JSON.parse((detail.perkChecklist as string) || "{}"); } catch { return {}; }
-        })();
 
         return (
           <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => { setDetail(null); setEditingDetail(false); setFindEmailResults([]); setFindEmailDone(false); }}>
@@ -3118,61 +3117,35 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                     {!!detail.emailJson && (
                       <p className="text-neon-green/60 text-xs">{lang === "en" ? "✓ A follow-up email has been generated." : "✓ Un courriel de relance a été généré."}</p>
                     )}
+
+                    {/* #1 — follow-up cadence status */}
+                    {["contacted", "meeting", "positive"].includes(detail.status as string) && (
+                      <div className="border-t border-gray-800 pt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                        <span className="text-gray-600">{lang === "en" ? "Next follow-up" : "Prochaine relance"} :</span>
+                        {detail.nextFollowupAt ? (
+                          <span style={{ color: new Date(detail.nextFollowupAt as string).getTime() <= Date.now() ? "#ff6600" : "#9ca3af" }} className="font-mono">
+                            {new Date(detail.nextFollowupAt as string).toLocaleDateString("fr-FR")}
+                            {new Date(detail.nextFollowupAt as string).getTime() <= Date.now() && ` ⏰ ${lang === "en" ? "due" : "à faire"}`}
+                          </span>
+                        ) : <span className="text-gray-700">{lang === "en" ? "cadence not started" : "cadence non démarrée"}</span>}
+                        {canWrite && (
+                          <button onClick={() => resetFollowup(detail)} className="ml-auto text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white">
+                            🔄 {lang === "en" ? "Mark contacted (restart J+2…)" : "Marquer relancé (redémarre J+2…)"}
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </>
                 )}
 
-                {/* ── Perks checklist (only for concluded) ── */}
-                {detail.status === "concluded" && pkgPerks.length > 0 && !editingDetail && (
-                  <div className="border-t border-gray-800 pt-4">
-                    <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#ffaa00" }}>
-                      {lang === "en" ? "Deliverables checklist" : "Checklist des livrables"} · {detail.package as string}
-                    </p>
-                    <div className="space-y-3">
-                      {pkgPerks.map((perk, i) => {
-                        const item = checklist[perk] || { done: false, note: "" };
-                        return (
-                          <div key={i} className="rounded-lg p-3" style={{ background: item.done ? "#00ff9d08" : "#0a0a0a", border: `1px solid ${item.done ? "#00ff9d20" : "#1a1a2e"}` }}>
-                            <label className={`flex items-start gap-2 ${canWrite ? "cursor-pointer" : "cursor-default"}`}>
-                              <input
-                                type="checkbox"
-                                checked={item.done}
-                                disabled={!canWrite}
-                                onChange={e => {
-                                  if (!canWrite) return;
-                                  const next = { ...checklist, [perk]: { ...item, done: e.target.checked } };
-                                  savePerkChecklist(detail.id as number, next);
-                                  setDetail(d => d ? { ...d, perkChecklist: JSON.stringify(next) } : d);
-                                }}
-                                className="mt-0.5 shrink-0"
-                              />
-                              <span className={`text-xs ${item.done ? "line-through text-gray-600" : "text-gray-300"}`}>{perk}</span>
-                            </label>
-                            <textarea
-                              rows={1}
-                              placeholder={lang === "en" ? "Notes…" : "Notes…"}
-                              value={item.note}
-                              readOnly={!canWrite}
-                              onChange={e => {
-                                if (!canWrite) return;
-                                const next = { ...checklist, [perk]: { ...item, note: e.target.value } };
-                                setDetail(d => d ? { ...d, perkChecklist: JSON.stringify(next) } : d);
-                              }}
-                              onBlur={e => {
-                                if (!canWrite) return;
-                                const next = { ...checklist, [perk]: { ...item, note: e.target.value } };
-                                savePerkChecklist(detail.id as number, next);
-                              }}
-                              className="cyber-input w-full mt-2 px-2 py-1 rounded text-xs resize-none read-only:opacity-60"
-                              style={{ minHeight: 28 }}
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <p className="text-xs text-gray-700 mt-2">
-                      {Object.values(checklist).filter(v => v.done).length}/{pkgPerks.length} {lang === "en" ? "delivered" : "livrés"}
-                    </p>
-                  </div>
+                {/* ── Deliverables checklist (concluded → validated SponsorPerks) ── */}
+                {detail.status === "concluded" && !editingDetail && detail.sponsorId != null && (
+                  <SponsorPerksChecklist sponsorId={detail.sponsorId as number} canWrite={canWrite} />
+                )}
+                {detail.status === "concluded" && !editingDetail && detail.sponsorId == null && (
+                  <p className="text-xs text-gray-600 border-t border-gray-800 pt-4">
+                    {lang === "en" ? "Re-run \"Conclude\" on this prospect to generate the sponsor & deliverables checklist." : "Relancez « Conclure » sur ce prospect pour générer le sponsor et sa checklist de livrables."}
+                  </p>
                 )}
 
                 {/* ── Action buttons ── */}
@@ -3181,6 +3154,11 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                     <button onClick={() => { generateFollowupEmail(detail); setDetail(null); }} className="flex-1 text-xs px-3 py-2 rounded font-bold" style={{ background: "#cc00ff20", color: "#cc00ff", border: "1px solid #cc00ff40" }}>
                       {detail.emailJson ? (lang === "en" ? "✨ View / send email" : "✨ Voir / envoyer le courriel") : (lang === "en" ? "✨ Generate email (AI)" : "✨ Générer un courriel (IA)")}
                     </button>
+                    {detail.status !== "concluded" && (
+                      <button onClick={() => setConcludeTarget(detail)} className="flex-1 text-xs px-3 py-2 rounded font-bold" style={{ background: "#00e06620", color: "#00e066", border: "1px solid #00e06640" }}>
+                        ✅ {lang === "en" ? "Conclude (validate perks)" : "Conclure (valider les perks)"}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -3377,6 +3355,14 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                           {p.package as string}
                         </span>
                       )}
+                      {(() => {
+                        const due = !!p.nextFollowupAt && new Date(p.nextFollowupAt as string).getTime() <= Date.now() && ["contacted", "meeting", "positive"].includes(p.status as string);
+                        return due ? (
+                          <span className="inline-block mt-1 ml-1 px-1.5 py-0.5 rounded text-xs font-bold" style={{ background: "#ff660020", color: "#ff6600", border: "1px solid #ff660040" }}>
+                            ⏰ {lang === "en" ? "follow up" : "à relancer"}
+                          </span>
+                        ) : null;
+                      })()}
                       {(p.notes as string) && (
                         <p className="text-gray-600 text-xs mt-1 truncate" title={p.notes as string}>{p.notes as string}</p>
                       )}
@@ -3520,9 +3506,24 @@ function BudgetPanel({ items, onRefresh, canWrite = true }: { items: Record<stri
           </tr>
         </thead>
         <tbody>
-          {rows.map(r => (
+          {rows.map(r => {
+            const sp = r.sponsor as { proformaNumber?: string | null; invoiceNumber?: string | null } | null;
+            return (
             <tr key={r.id as number} className="border-b border-gray-900 hover:bg-white/[0.01]">
-              <td className="py-2 px-2 text-white">{r.label as string}</td>
+              <td className="py-2 px-2 text-white">
+                {r.label as string}
+                {r.sponsorId != null && (
+                  // #2 — proforma / invoice issued by Services Examboot Inc. for this sponsor.
+                  <div className="flex gap-1.5 mt-1">
+                    <a href={`/api/admin/budget/${r.id}/invoice?type=proforma`} target="_blank" rel="noreferrer" className="text-xs px-2 py-0.5 rounded border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/10">
+                      🧾 Proforma{sp?.proformaNumber ? " ✓" : ""}
+                    </a>
+                    <a href={`/api/admin/budget/${r.id}/invoice?type=invoice`} target="_blank" rel="noreferrer" className="text-xs px-2 py-0.5 rounded border border-neon-green/30 text-neon-green hover:bg-neon-green/10">
+                      📄 {lang === "en" ? "Invoice" : "Facture"}{sp?.invoiceNumber ? " ✓" : ""}
+                    </a>
+                  </div>
+                )}
+              </td>
               <td className="py-2 px-2 text-right">
                 <input type="number" className="cyber-input w-24 px-2 py-1 rounded text-xs text-right"
                   defaultValue={(r.planned as number) || 0}
@@ -3548,7 +3549,8 @@ function BudgetPanel({ items, onRefresh, canWrite = true }: { items: Record<stri
                 {canWrite && <button onClick={() => del(r.id as number)} className="text-red-400 text-xs hover:text-red-300">✗</button>}
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
       {!rows.length && <p className="text-gray-600 text-xs py-4 text-center">{t.noItems}</p>}
@@ -5302,23 +5304,18 @@ interface SponsorPkg {
 function SponsorPackageEditor({ pkg, onSave, onDelete, canWrite = true }: { pkg: SponsorPkg; onSave: (data: Partial<SponsorPkg>) => Promise<void>; onDelete: () => Promise<void>; canWrite?: boolean }) {
   const { lang } = useAdminT();
   const [draft, setDraft] = useState<SponsorPkg>({ ...pkg });
-  const [perksFr, setPerksFr] = useState<string[]>(() => { try { return JSON.parse(pkg.perksFr || "[]"); } catch { return []; } });
-  const [perksEn, setPerksEn] = useState<string[]>(() => { try { return JSON.parse(pkg.perksEn || "[]"); } catch { return []; } });
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const color = draft.highlightColor || "#888";
 
   const save = async () => {
     setSaving(true);
-    await onSave({ ...draft, perksFr: JSON.stringify(perksFr), perksEn: JSON.stringify(perksEn) });
+    // Perks are managed structurally by PackagePerksEditor (which regenerates the public
+    // perksFr/perksEn JSON server-side); never overwrite them from this form.
+    const { perksFr: _pf, perksEn: _pe, ...rest } = draft;
+    void _pf; void _pe;
+    await onSave(rest);
     setSaving(false);
-  };
-
-  const updatePerk = (list: string[], setList: (v: string[]) => void, i: number, val: string) => {
-    const next = [...list]; next[i] = val; setList(next);
-  };
-  const removePerk = (list: string[], setList: (v: string[]) => void, i: number) => {
-    setList(list.filter((_, j) => j !== i));
   };
 
   return (
@@ -5369,37 +5366,8 @@ function SponsorPackageEditor({ pkg, onSave, onDelete, canWrite = true }: { pkg:
             </div>
           </div>
 
-          {/* Perks FR + EN */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-500 uppercase">{lang === "en" ? "Perks FR" : "Avantages FR"}</p>
-                <button onClick={() => setPerksFr(p => [...p, ""])} className="text-xs text-neon-green hover:text-neon-green/70">{lang === "en" ? "+ Add" : "+ Ajouter"}</button>
-              </div>
-              <div className="space-y-1">
-                {perksFr.map((p, i) => (
-                  <div key={i} className="flex gap-1">
-                    <input className="cyber-input flex-1 px-2 py-1 rounded text-xs" value={p} onChange={e => updatePerk(perksFr, setPerksFr, i, e.target.value)} />
-                    <button onClick={() => removePerk(perksFr, setPerksFr, i)} className="text-red-500/60 hover:text-red-400 text-xs px-1">✕</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-gray-500 uppercase">Perks EN</p>
-                <button onClick={() => setPerksEn(p => [...p, ""])} className="text-xs text-neon-green hover:text-neon-green/70">+ Add</button>
-              </div>
-              <div className="space-y-1">
-                {perksEn.map((p, i) => (
-                  <div key={i} className="flex gap-1">
-                    <input className="cyber-input flex-1 px-2 py-1 rounded text-xs" value={p} onChange={e => updatePerk(perksEn, setPerksEn, i, e.target.value)} />
-                    <button onClick={() => removePerk(perksEn, setPerksEn, i)} className="text-red-500/60 hover:text-red-400 text-xs px-1">✕</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          {/* Perks — built from the shared catalog (with optional quantities) */}
+          <PackagePerksEditor packageId={pkg.id} canWrite={canWrite} />
 
           {/* Actions */}
           {canWrite && (
@@ -5495,6 +5463,11 @@ function SponsorPackagesPanel({ canWrite = true }: { canWrite?: boolean }) {
         </div>
       )}
 
+      {/* Shared perk catalog — builds packages and sponsor validation */}
+      <div className="mb-4">
+        <PerksCatalogManager canWrite={canWrite} />
+      </div>
+
       <div className="space-y-3">
         {packages.map(pkg => (
           <SponsorPackageEditor
@@ -5548,6 +5521,18 @@ const SETTINGS_FIELDS = [
   { key: "url_programme", label: "Lien → Programme", type: "url", group: "Liens" },
   { key: "url_ctf", label: "Lien → CTF", type: "url", group: "Liens" },
   { key: "url_sponsor", label: "Lien → Sponsor", type: "url", group: "Liens" },
+  // #3 — sponsor commitment deadlines (feed the urgency banner + AI emails)
+  { key: "sponsor_deadline_print", label: "Deadline supports imprimés (ISO)", type: "date", group: "Sponsors" },
+  { key: "sponsor_deadline_digital", label: "Deadline supports digitaux (ISO)", type: "date", group: "Sponsors" },
+  // #2 — billing entity that issues proformas & invoices (logo → public/branding/examboot-logo.png)
+  { key: "examboot_legal_name", label: "Raison sociale (facturation)", type: "text", group: "Facturation" },
+  { key: "examboot_address", label: "Adresse (facturation)", type: "text", group: "Facturation" },
+  { key: "examboot_email", label: "Email (facturation)", type: "text", group: "Facturation" },
+  { key: "examboot_phone", label: "Téléphone (facturation)", type: "text", group: "Facturation" },
+  { key: "examboot_tax_id", label: "Identifiant fiscal", type: "text", group: "Facturation" },
+  { key: "examboot_logo_url", label: "Logo facturation (URL, sinon public/branding/examboot-logo.png)", type: "url", group: "Facturation" },
+  { key: "examboot_payment_terms", label: "Modalités de paiement (coordonnées bancaires / mobile money)", type: "text", group: "Facturation" },
+  { key: "examboot_accent_color", label: "Couleur d'accent du document (hex, ex: #0a7d4b)", type: "text", group: "Facturation" },
 ] as const;
 
 function EventSettingsPanel({ canWrite = true }: { canWrite?: boolean }) {
@@ -7195,6 +7180,7 @@ export default function AdminDashboard() {
     tickets: "tickets",
     "sponsor-packages": "sponsor-packages",
     budget: "budget",
+    documents: "documents",
     transactions: "transactions",
     ctf: "ctf",
     live: "live",
@@ -7463,6 +7449,7 @@ export default function AdminDashboard() {
         { id: "tickets", label: t.tickets, icon: "🎟️" },
         { id: "sponsor-packages", label: t.sponsorPackages, icon: "📦" },
         { id: "budget", label: t.budgetTracking, icon: "💸" },
+        { id: "documents", label: t.documents, icon: "📄" },
         { id: "transactions", label: "Transactions", icon: "💳" },
       ],
     },
@@ -8197,6 +8184,9 @@ export default function AdminDashboard() {
               canWrite={can("budget")}
             />
           )}
+
+          {/* DOCUMENTS & CONTRACTS */}
+          {activeTab === "documents" && <DocumentsPanel canWrite={can("documents")} />}
 
           {/* LOGISTICS */}
           {activeTab === "logistics" && (

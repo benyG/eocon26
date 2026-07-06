@@ -129,7 +129,10 @@ const DEFAULT_PACKAGES = [
 
 export async function GET() {
   if (!(await hasPermission("sponsor-packages", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  return NextResponse.json(await prisma.sponsorPackage.findMany({ orderBy: { sortOrder: "asc" } }));
+  return NextResponse.json(await prisma.sponsorPackage.findMany({
+    orderBy: { sortOrder: "asc" },
+    include: { packagePerks: { include: { perk: true }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] } },
+  }));
 }
 
 export async function POST(req: NextRequest) {

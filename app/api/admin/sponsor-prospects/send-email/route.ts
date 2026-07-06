@@ -4,6 +4,7 @@ import path from "path";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
 import { logAction } from "@/lib/auditLog";
+import { followupResetFields, ACTIVE_FOLLOWUP_STATUSES } from "@/lib/sponsorFollowup";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
       to: prospect.email,
       subject,
       html,
-      replyTo: "sponsors@eyesopensecurity.com",
+      replyTo: process.env.EMAIL_REPLYTO_SPONSORS || "eocon@examboot.net",
       attachments: attachments.map(a => ({ filename: a.filename, content: a.content })),
     });
   } catch (e) {
@@ -63,8 +64,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Échec de l'envoi" }, { status: 502 });
   }
 
-  if (markContacted && (prospect.status === "prospect" || prospect.status === "demande")) {
-    await prisma.sponsorProspect.update({ where: { id: prospect.id }, data: { status: "contacted" } });
+  // Move fresh prospects to "contacted", and (re)start the follow-up cadence whenever
+  // we reach out to an active-stage prospect so the J+2/J+5/J+10/J+15 clock is fresh.
+  const movesToContacted = markContacted && (prospect.status === "prospect" || prospect.status === "demande");
+  const effectiveStatus = movesToContacted ? "contacted" : prospect.status;
+  const updateData: Record<string, unknown> = {};
+  if (movesToContacted) updateData.status = "contacted";
+  if (ACTIVE_FOLLOWUP_STATUSES.includes(effectiveStatus)) {
+    Object.assign(updateData, followupResetFields(new Date(), prospect.contactedAt));
+  }
+  if (Object.keys(updateData).length > 0) {
+    await prisma.sponsorProspect.update({ where: { id: prospect.id }, data: updateData });
   }
 
   logAction(req, "UPDATE", "sponsor", prospect.id, { sentEmail: true, attached: attachments.length });

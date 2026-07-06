@@ -6,7 +6,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   if (!(await hasPermission("budget", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  return NextResponse.json(await prisma.budgetItem.findMany({ orderBy: { category: "asc" } }));
+  return NextResponse.json(await prisma.budgetItem.findMany({
+    orderBy: { category: "asc" },
+    include: { sponsor: { select: { id: true, name: true, proformaNumber: true, invoiceNumber: true } } },
+  }));
 }
 
 export async function POST(req: NextRequest) {

@@ -124,7 +124,7 @@ export async function GET(_req: NextRequest, { params }: { params: { uuid: strin
 
   // Footer
   doc.fillColor("#222222").fontSize(6).font("Helvetica")
-    .text("EyesOpen Association · EOCON 2026 · eyesopensecurity.com · Open Badges V3 · W3C Verifiable Credential", margin, y, { width: contentW, align: "center" });
+    .text("Services ExamBoot Inc. · EOCON 2026 · eyesopensecurity.com · Open Badges V3 · W3C Verifiable Credential", margin, y, { width: contentW, align: "center" });
 
   doc.end();
   await new Promise<void>(res => doc.on("end", res));

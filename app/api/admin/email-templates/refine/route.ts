@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
   const prompt = `Tu es expert en communication événementielle pour des évènements tech. Tu dois améliorer ce template d'email pour EOCON 2026, 7ème édition de l'évènement cybersécurité de référence en Afrique centrale. EOCON est un évènement (et non une simple conférence) : emploie toujours le mot « évènement », jamais « conférence ».
 Contexte EOCON :
-EOCON 2026 est la 7e édition d'un événement cybersécurité majeur porté par EyesOpen Association. EOCON ne doit jamais être réduit à une simple conférence : c'est un rendez-vous stratégique, une plateforme d'écosystème et un mouvement qui rassemble talents, experts, entreprises, institutions, étudiants, décideurs et diaspora autour du futur de la cybersécurité en Afrique.
+EOCON 2026 est la 7e édition d'un événement cybersécurité majeur porté par Services ExamBoot Inc. EOCON ne doit jamais être réduit à une simple conférence : c'est un rendez-vous stratégique, une plateforme d'écosystème et un mouvement qui rassemble talents, experts, entreprises, institutions, étudiants, décideurs et diaspora autour du futur de la cybersécurité en Afrique.
 Évènement : EOCON 2026
 Date : 23-28 novembre 2026
 Format: Bilingue, francais et anglais

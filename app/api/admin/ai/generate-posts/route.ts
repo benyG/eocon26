@@ -19,6 +19,58 @@ interface PostsResult {
   whatsapp_en: string;
 }
 
+type SocialPlatform = "linkedin" | "twitter" | "instagram" | "facebook" | "whatsapp";
+
+interface PostValidation {
+  platform: SocialPlatform;
+  lang: "fr" | "en";
+  warnings: string[];
+}
+
+const URL_RE = /https?:\/\/[^\s)>\]"']+/g;
+const HASHTAG_RE = /#[A-Za-zÀ-ÖØ-öø-ÿ0-9_-]+/g;
+
+function normalizeUrl(url: string): string {
+  return url.replace(/[.,;:!?]+$/, "");
+}
+
+function validateGeneratedPost(
+  post: { platform: SocialPlatform; lang: "fr" | "en"; content: string },
+  opts: { cta?: { url: string; text: string; textEn: string } | null; allowedUrls: string[] },
+): PostValidation {
+  const text = post.content.trim();
+  const urls = (text.match(URL_RE) || []).map(normalizeUrl);
+  const hashtags = text.match(HASHTAG_RE) || [];
+  const warnings: string[] = [];
+
+  for (const url of urls) {
+    if (!opts.allowedUrls.includes(url)) warnings.push(`URL non autorisée détectée : ${url}`);
+  }
+
+  if (opts.cta) {
+    const ctaText = post.lang === "en" ? opts.cta.textEn : opts.cta.text;
+    if (!text.includes(opts.cta.url)) warnings.push("CTA URL imposée absente.");
+    if (!text.includes(ctaText)) warnings.push("Libellé CTA imposé absent.");
+  }
+
+  if (post.platform === "whatsapp") {
+    if (hashtags.length) warnings.push("WhatsApp ne doit pas contenir de hashtags.");
+    if (opts.cta && !text.endsWith(opts.cta.url)) warnings.push("WhatsApp doit terminer par le lien CTA.");
+  } else if (hashtags.length) {
+    const firstHashtag = text.indexOf(hashtags[0] ?? "");
+    const tail = text.slice(firstHashtag).trim();
+    const tailWithoutHashtags = tail.replace(HASHTAG_RE, "").trim();
+    if (tailWithoutHashtags) warnings.push("Les hashtags doivent former le dernier bloc, sans texte après ou entre eux.");
+    if (opts.cta && text.indexOf(opts.cta.url) > firstHashtag) warnings.push("Le CTA doit être placé avant le bloc de hashtags.");
+  }
+
+  if (post.platform === "twitter" && text.length > 260) {
+    warnings.push(`Twitter/X dépasse 260 caractères (${text.length}).`);
+  }
+
+  return { platform: post.platform, lang: post.lang, warnings };
+}
+
 export async function POST(req: NextRequest) {
   if (!(await hasPermission("communication", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { brief, contextType, contextItem } = await req.json() as { brief: string; contextType?: string; contextItem?: Record<string, unknown> };
@@ -53,7 +105,7 @@ export async function POST(req: NextRequest) {
 
   // The CTA for this content type is mandatory when configured — per-language instruction
   const ctaInstruction = cta
-    ? `\n🔗 CTA IMPOSÉ — tu DOIS terminer chaque post par le CTA exact correspondant à la langue du post. :\n  • Posts en français : "${cta.text}" → ${cta.url}\n  • Posts en anglais : "${cta.textEn}" → ${cta.url}\nN'utilise AUCUNE autre URL EOCON. N'invente rien. Ce lien et ce libellé (dans la bonne langue) uniquement.`
+    ? `\n🔗 CTA IMPOSÉ — tu DOIS inclure dans chaque post le CTA exact correspondant à la langue du post :\n  • Posts en français : "${cta.text}" → ${cta.url}\n  • Posts en anglais : "${cta.textEn}" → ${cta.url}\nPlace ce CTA juste AVANT le bloc final de hashtags quand la plateforme utilise des hashtags. Pour WhatsApp (pas de hashtags), le CTA doit rester la dernière phrase. N'utilise AUCUNE autre URL EOCON. N'invente rien. Ce lien et ce libellé (dans la bonne langue) uniquement.`
     : `\nAucun CTA configuré pour ce type de contenu. N'invente aucune URL liée à l'événement EOCON.`;
 
   const prompt = `${eoconCtx}${contextSection ? "\n" + contextSection : ""}
@@ -87,6 +139,7 @@ Règles éditoriales :
 — Ne pas inventer de chiffres, de noms, de sponsors, de speakers ou de partenaires.
 — Utiliser les chiffres uniquement s'ils sont présents dans le contexte fourni.
 — Adapter naturellement la langue, la culture et le ton à chaque plateforme.
+— Quand une plateforme utilise des hashtags, les hashtags doivent toujours être le tout dernier bloc du post, après le CTA et après tout autre texte.
 
 À partir du brief suivant, génère des posts optimisés pour chaque réseau social.
 
@@ -99,15 +152,15 @@ LinkedIn :
 - Ton professionnel, stratégique et inspirant.
 - Storytelling autour du mouvement EOCON.
 - Mettre en avant l'écosystème, les talents, les décideurs et l'impact africain.
-- Hashtags avant le CTA.
-- Terminer par le CTA imposé.
+- Placer le CTA imposé avant les hashtags.
+- Terminer par un bloc de hashtags.
 
 Twitter/X :
 - 260 caractères maximum, CTA inclus.
 - Message direct, mémorable et percutant.
 - 2 à 3 hashtags maximum.
-- Hashtags avant le CTA.
-- Terminer par le CTA imposé.
+- Placer le CTA imposé avant les hashtags.
+- Terminer par les hashtags.
 - Si le CTA rend les 260 caractères impossibles, prioriser le CTA et produire le message le plus court possible.
 
 Instagram :
@@ -115,16 +168,16 @@ Instagram :
 - Ton visuel, émotionnel, engageant.
 - Créer un sentiment d'appartenance et d'urgence.
 - 8 à 10 hashtags variés.
-- Hashtags avant le CTA.
-- Terminer par le CTA imposé.
+- Placer le CTA imposé avant les hashtags.
+- Terminer par un bloc de hashtags.
 
 Facebook :
 - 100 à 200 mots.
 - Ton communautaire, chaleureux et engageant, adapté à une page événementielle.
 - Favoriser l'interaction : poser une question ou inviter à partager.
 - 4 à 6 hashtags pertinents.
-- Hashtags avant le CTA.
-- Terminer par le CTA imposé.
+- Placer le CTA imposé avant les hashtags.
+- Terminer par un bloc de hashtags.
 
 WhatsApp :
 - 50 à 100 mots maximum — message court, direct et conversationnel.
@@ -181,7 +234,7 @@ Réponds en JSON uniquement, sans markdown :
   }
 
   // Save to DB
-  const platforms: Array<{ platform: string; lang: string; content: string }> = [
+  const platforms: Array<{ platform: SocialPlatform; lang: "fr" | "en"; content: string }> = [
     { platform: "linkedin", lang: "fr", content: posts.linkedin_fr },
     { platform: "linkedin", lang: "en", content: posts.linkedin_en },
     { platform: "twitter", lang: "fr", content: posts.twitter_fr },
@@ -193,6 +246,12 @@ Réponds en JSON uniquement, sans markdown :
     { platform: "whatsapp", lang: "fr", content: posts.whatsapp_fr },
     { platform: "whatsapp", lang: "en", content: posts.whatsapp_en },
   ];
+  const allowedUrls = Array.from(new Set([
+    ...allCtas.map(c => c.url).filter((url): url is string => !!url),
+    cta?.url,
+    settings.site_base_url,
+  ].filter((url): url is string => !!url)));
+  const validation = platforms.map(p => validateGeneratedPost(p, { cta, allowedUrls }));
 
   // Create records individually so we can return the IDs (createMany doesn't return them)
   const created = await Promise.all(
@@ -201,7 +260,7 @@ Réponds en JSON uniquement, sans markdown :
   const idMap: Record<string, number> = {};
   for (const r of created) { idMap[`${r.platform}_${r.lang}`] = r.id; }
 
-  return NextResponse.json({ ...posts, _ids: idMap });
+  return NextResponse.json({ ...posts, _ids: idMap, _validation: validation });
 }
 
 export async function GET() {

@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
           </div>
           <p><a href="${process.env.NEXT_PUBLIC_URL || "https://eocon.eyesopensecurity.com"}/admin/login" style="color:#00ff9d">Accéder à l'espace admin →</a></p>
           <hr style="border-color:#222;margin:24px 0"/>
-          <p style="color:#555;font-size:12px">EOCON 2026 · EyesOpen Association</p>
+          <p style="color:#555;font-size:12px">EOCON 2026 · Services ExamBoot Inc.</p>
         </div>`,
     }).catch(e => console.error("[Admin user email]", e));
   }

@@ -21,7 +21,7 @@ export default function Footer({ t, eventSettings }: { t: Translations; eventSet
 
   const socials = [
     { label: "Twitter/X", href: "https://twitter.com/237HACKERS", icon: "𝕏" },
-    { label: "LinkedIn", href: "https://linkedin.com/company/eyesopen-association", icon: "in" },
+    { label: "LinkedIn", href: "https://linkedin.com/company/eyesopensecurity", icon: "in" },
     { label: "Instagram", href: "https://instagram.com/eyesopsi", icon: "◎" },
     { label: "YouTube", href: "https://youtube.com/@eyesopensecurity", icon: "▶" },
   ];
@@ -89,7 +89,7 @@ export default function Footer({ t, eventSettings }: { t: Translations; eventSet
             </div>
             <p className="text-gray-500 text-sm mb-4">{t.footer.tagline}</p>
             <p className="text-gray-600 text-xs leading-relaxed">
-              Operator Services examboot inc.<br />
+              Operator Services ExamBoot Inc.<br />
               events@eyesopensecurity.com<br />
               via WhatsApp: +1 581-988-9001
             </p>

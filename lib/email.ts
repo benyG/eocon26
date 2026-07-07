@@ -38,7 +38,7 @@ function emailWrap(body: string, isFr: boolean, s?: Record<string, string>): str
         <td>
           <div style="font-family:'Courier New',Courier,monospace;font-size:9px;color:#00ff9d;letter-spacing:4px;margin-bottom:4px;">&gt;_ EOCON_SYSTEM</div>
           <div style="font-family:'Courier New',Courier,monospace;font-size:28px;font-weight:900;color:#00ff9d;letter-spacing:3px;text-shadow:-2px 0 #ff00ff40, 2px 0 #00ffff40;">EOCON 2026</div>
-          <div style="font-family:'Courier New',Courier,monospace;font-size:9px;color:#00ff9d80;letter-spacing:3px;margin-top:4px;">EyesOpen Security Conference</div>
+          <div style="font-family:'Courier New',Courier,monospace;font-size:9px;color:#00ff9d80;letter-spacing:3px;margin-top:4px;">EOCON Cybersecurity Event</div>
         </td>
         <td align="right" style="vertical-align:top;">
           <div style="font-family:'Courier New',Courier,monospace;font-size:9px;color:#00ff9d40;letter-spacing:2px;">28.11.2026</div>
@@ -119,7 +119,7 @@ function buildEventICS(isFr: boolean, s?: Record<string, string>): Buffer {
     `DTSTAMP:${new Date().toISOString().replace(/[-:.]/g, "").slice(0, 15)}Z`,
     `DTSTART;TZID=Africa/Douala:${dtStart}`,
     `DTEND;TZID=Africa/Douala:${rawDate}T190000`,
-    `SUMMARY:EOCON 2026 — EyesOpen Security Conference`,
+    `SUMMARY:EOCON 2026 — EOCON Cybersecurity Event`,
     `LOCATION:${venue}\\, ${city}\\, ${country}`,
     `DESCRIPTION:${isFr
       ? `Évènement cybersécurité africain — EyesOpen Security. ${city}, ${country}.`
@@ -138,7 +138,7 @@ function googleCalEventUrl(isFr: boolean, s?: Record<string, string>): string {
   const rawDate = (s?.event_date || "2026-11-28").replace(/-/g, "");
   const rawTime = (s?.event_time_start || "08:00").replace(":", "") + "00";
   const dtStart = `${rawDate}T${rawTime}`;
-  const text = encodeURIComponent("EOCON 2026 — EyesOpen Security Conference");
+  const text = encodeURIComponent("EOCON 2026 — EOCON Cybersecurity Event");
   const loc = encodeURIComponent(`${venue}, ${city}, ${country}`);
   const desc = encodeURIComponent(isFr
     ? `Évènement cybersécurité africain. eyesopensecurity.com`
@@ -780,8 +780,8 @@ export async function sendRegistrationTicket(
          </p>
          <p style="font-size:11px;color:#888;margin:0 0 10px;">
            ${isFr
-             ? "Accédez à la conférence en ligne via votre lien personnel de suivi."
-             : "Join the online conference via your personal tracking link."}
+             ? "Accédez à l’évènement en ligne via votre lien personnel de suivi."
+             : "Join the online event via your personal tracking link."}
          </p>
          <a href="${livePresenceBaseUrl}/live?t=${liveToken}" style="display:inline-block;padding:8px 20px;background:#00ff9d;color:#000;font-family:'Courier New',Courier,monospace;font-size:11px;font-weight:bold;text-decoration:none;border-radius:6px;letter-spacing:1px;">
            ${isFr ? "🔗 REJOINDRE EN LIGNE" : "🔗 JOIN ONLINE"}
@@ -866,7 +866,7 @@ export async function sendOnlineAccessLink(
     </p>
     <p style="color:#ccc;margin:0 0 24px;">
       ${isFr
-        ? "Votre lien d'accès personnel à la conférence EOCON 2026 en ligne est prêt."
+        ? "Votre lien d'accès personnel à l’évènement EOCON 2026 en ligne est prêt."
         : "Your personal access link to EOCON 2026 online is ready."}
     </p>
     ${neonBox(`
@@ -875,8 +875,8 @@ export async function sendOnlineAccessLink(
       </p>
       <p style="margin:0;font-size:12px;color:#888;">
         ${isFr
-          ? "Cliquez sur le bouton ci-dessous pour rejoindre la conférence. Ce lien est personnel et sécurisé."
-          : "Click the button below to join the conference. This link is personal and secure."}
+          ? "Cliquez sur le bouton ci-dessous pour rejoindre l’évènement en ligne. Ce lien est personnel et sécurisé."
+          : "Click the button below to join the online event. This link is personal and secure."}
       </p>
     `)}
     ${ctaButton(link, isFr ? "🚀 REJOINDRE LA CONFÉRENCE" : "🚀 JOIN THE CONFERENCE")}

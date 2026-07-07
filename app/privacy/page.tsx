@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Privacy Policy — EOCON 2026",
-  description: "Privacy Policy for EOCON 2026 — EyesOpen Security Conference. Politique de confidentialité.",
+  description: "Privacy Policy for EOCON 2026 — EOCON Cybersecurity Event. Politique de confidentialité.",
 };
 
 export default function PrivacyPage() {

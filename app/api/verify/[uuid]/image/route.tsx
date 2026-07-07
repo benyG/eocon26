@@ -78,7 +78,7 @@ export async function GET(_req: Request, { params }: { params: { uuid: string } 
             Issued {issued}
           </div>
           <div style={{ display: "flex", fontSize: "22px", color: "#9aa" }}>
-            EyesOpen Association · EOCON 2026
+            Services ExamBoot Inc. · EOCON 2026
           </div>
           <div style={{ display: "flex", fontSize: "18px", color: "#555", marginTop: "8px" }}>
             Open Badges V3 · eyesopensecurity.com

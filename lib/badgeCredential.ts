@@ -4,17 +4,17 @@ import { generateBadgeSvg, svgToDataUrl, BadgeType } from "./badgeSvg";
 
 const BADGE_ACHIEVEMENTS: Record<BadgeType, { name: string; description: string; criteria: string }> = {
   participant: {
-    name: "EOCON 2026 — Conference Participant",
-    description: "Awarded to attendees who participated in the 7th edition of EyesOpen Security Conference (EOCON 2026).",
-    criteria: "The recipient attended EOCON 2026, the 7th edition of the EyesOpen Security Conference, held in Douala, Cameroon.",
+    name: "EOCON 2026 — Event Participant",
+    description: "Awarded to attendees who participated in EOCON 2026, the 7th edition of the cybersecurity event.",
+    criteria: "The recipient attended EOCON 2026, the 7th edition of the cybersecurity event held in Douala, Cameroon.",
   },
   speaker: {
-    name: "EOCON 2026 — Conference Speaker",
-    description: "Awarded to speakers who delivered a conference talk at EOCON 2026.",
+    name: "EOCON 2026 — Speaker",
+    description: "Awarded to speakers who delivered a talk or presentation at EOCON 2026.",
     criteria: "The recipient delivered a talk or presentation at EOCON 2026, demonstrating expertise shared with the cybersecurity community.",
   },
   volunteer: {
-    name: "EOCON 2026 — Conference Volunteer",
+    name: "EOCON 2026 — Event Volunteer",
     description: "Awarded to volunteers who contributed to the organization of EOCON 2026.",
     criteria: "The recipient volunteered their time and skills to help organize and run EOCON 2026.",
   },
@@ -30,7 +30,7 @@ const BADGE_ACHIEVEMENTS: Record<BadgeType, { name: string; description: string;
   },
   organizer: {
     name: "EOCON 2026 — Organizing Team",
-    description: "Awarded to members of the EyesOpen organizing team for EOCON 2026.",
+    description: "Awarded to members of the EOCON 2026 organizing team.",
     criteria: "The recipient was a core member of the EOCON 2026 organizing team.",
   },
 };
@@ -75,7 +75,7 @@ export function generateBadgeCredential(
       type: "Profile",
       name: "ExamBoot",
       url: "https://eyesopensecurity.com",
-      description: "ExamBoot — Certification platform by EyesOpen Association, cybersecurity community in Cameroon and Africa",
+      description: "ExamBoot — certification platform supporting cybersecurity communities in Cameroon and Africa",
       image: { id: `${baseUrl}/logo.png`, type: "Image" },
     },
     issuanceDate: now,

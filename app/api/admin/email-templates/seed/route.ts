@@ -111,13 +111,13 @@ const SEED_TEMPLATES = [
 <p>Bonjour {{fname}},</p>
 <p>EOCON 2026 s'est clôturé et c'était exceptionnel. Merci à vous !</p>
 <p>Les slides et ressources seront disponibles sous 48h sur notre site.</p>
-<p>À l'année prochaine pour EOCON 2027 !<br>L'équipe EyesOpen Association</p>`,
+<p>À l'année prochaine pour EOCON 2027 !<br>L'équipe EOCON 2026</p>`,
     subjectEn: "EOCON 2026 — Thank you for attending!",
     htmlBodyEn: `<h1>Thank you for EOCON 2026! 🙏</h1>
 <p>Hi {{fname}},</p>
 <p>EOCON 2026 has wrapped up and it was exceptional. Thank you!</p>
 <p>Slides and resources will be available within 48h on our website.</p>
-<p>See you next year for EOCON 2027!<br>The EyesOpen Association team</p>`,
+<p>See you next year for EOCON 2027!<br>The EOCON 2026 team</p>`,
   },
   {
     name: "🙋 Appel à bénévoles",

@@ -36,10 +36,10 @@ function participantCertHtml(name: string, lang: "fr" | "en" = "en"): string {
   <div class="body">${isFr ? "Nous certifions que" : "This is to certify that"}</div>
   <div class="name" style="color:#00ff9d">${n}</div>
   <div class="body">${isFr ? "a participé à la" : "has participated in the"}</div>
-  <div class="event">7${isFr ? "ème" : "th"} ${isFr ? "Édition — EyesOpen Security Conference" : "Edition — EyesOpen Security Conference"}</div>
+  <div class="event">7${isFr ? "ème" : "th"} ${isFr ? "Édition — EOCON Cybersecurity Event" : "Edition — EOCON Cybersecurity Event"}</div>
   <div class="body">${isFr ? "28 Novembre 2026 · Hotel Onomo, Douala, Cameroun" : "November 28, 2026 · Hotel Onomo, Douala, Cameroon"}</div>
   <div class="date">${isFr ? "Émis le" : "Issued on"} ${issuedOn}</div>
-  <div class="sig">EyesOpen Association · eyesopensecurity.com</div>
+  <div class="sig">Services ExamBoot Inc. · eyesopensecurity.com</div>
 </div></body></html>`;
 }
 
@@ -57,10 +57,10 @@ function speakerCertHtml(name: string, talkTitle: string, lang: "fr" | "en" = "e
   <div class="body">${isFr ? "a présenté un talk intitulé" : "delivered a talk titled"}</div>
   <div class="talk">&ldquo;${t}&rdquo;</div>
   <div class="body">${isFr ? "lors de la" : "at the"}</div>
-  <div class="event">7${isFr ? "ème" : "th"} ${isFr ? "Édition — EyesOpen Security Conference" : "Edition — EyesOpen Security Conference"}</div>
+  <div class="event">7${isFr ? "ème" : "th"} ${isFr ? "Édition — EOCON Cybersecurity Event" : "Edition — EOCON Cybersecurity Event"}</div>
   <div class="body">${isFr ? "28 Novembre 2026 · Hotel Onomo, Douala, Cameroun" : "November 28, 2026 · Hotel Onomo, Douala, Cameroon"}</div>
   <div class="date">${isFr ? "Émis le" : "Issued on"} ${issuedOn}</div>
-  <div class="sig">EyesOpen Association · eyesopensecurity.com</div>
+  <div class="sig">Services ExamBoot Inc. · eyesopensecurity.com</div>
 </div></body></html>`;
 }
 

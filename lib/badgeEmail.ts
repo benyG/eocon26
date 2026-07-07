@@ -19,9 +19,9 @@ export async function sendBadgeEmail(opts: {
   const svgDataUrl = svgToDataUrl(generateBadgeSvg(badgeType, recipientName, "2026", subtype));
 
   const badgeLabels: Record<BadgeType, { fr: string; en: string }> = {
-    participant:    { fr: "Participant·e à la conférence", en: "Conference Participant" },
-    speaker:        { fr: "Intervenant·e",                en: "Conference Speaker" },
-    volunteer:      { fr: "Bénévole",                     en: "Conference Volunteer" },
+    participant:    { fr: "Participant·e à l’évènement", en: "Event Participant" },
+    speaker:        { fr: "Intervenant·e",                en: "Speaker" },
+    volunteer:      { fr: "Bénévole",                     en: "Event Volunteer" },
     ctf_competitor: { fr: "Compétiteur CTF",              en: "CTF Competitor" },
     ctf_winner:     { fr: "Lauréat·e CTF",                en: "CTF Winner" },
     organizer:      { fr: "Équipe organisatrice",          en: "Organizing Team" },
@@ -167,7 +167,7 @@ export async function sendBadgeEmail(opts: {
 
         <!-- Footer -->
         <tr><td style="padding:24px 40px 0;border-top:1px solid #1a1a2e;">
-          <p style="font-size:11px;color:#333;margin:0;">EyesOpen Association &middot; EOCON 2026 &middot; eyesopensecurity.com</p>
+          <p style="font-size:11px;color:#333;margin:0;">Services ExamBoot Inc. &middot; EOCON 2026 &middot; eyesopensecurity.com</p>
           <p style="font-size:10px;color:#222;margin:4px 0 0;">
             ${isFr
               ? "Ce badge utilise le standard Open Badges V3 et est cryptographiquement signé."

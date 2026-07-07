@@ -107,6 +107,12 @@ export async function publishTweet(text: string, imageUrl?: string): Promise<Twi
 
   if (!res.ok) {
     const err = await res.text();
+    // 402 CreditsDepleted: the X account has no API write credits. This is an account/
+    // billing matter on X's side (posting via the X API requires a paid plan) — nothing the
+    // app can fix. Surface a clear, actionable message instead of the raw JSON.
+    if (res.status === 402 || /CreditsDepleted|"credits"/i.test(err)) {
+      throw new Error("X (Twitter) : le compte n'a plus de crédits API. La publication sur X nécessite un plan X API payant (Basic/Pro) avec des crédits — rien à corriger côté application. Rechargez le compte X ou publiez manuellement.");
+    }
     throw new Error(`X API error ${res.status}: ${err}`);
   }
 

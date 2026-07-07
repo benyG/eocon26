@@ -98,11 +98,12 @@ Contact : ${contact || "—"}${contactTitle ? ` (${contactTitle})` : ""}
 
 Informations factuelles à utiliser telles quelles (NE RIEN INVENTER) :
 - Organisateur : ${entity.legalName}
-- Événement : EOCON 2026, ${evt.edition}e édition, conférence internationale de cybersécurité
-- Date et lieu : ${evt.dateFr} à ${evt.venue}, format hybride
-- Audience : plus de 1 000 participants issus de 15+ pays (professionnels IT, ingénieurs, chercheurs, étudiants à fort potentiel, décideurs, entrepreneurs, acteurs institutionnels)
+- Événement : EOCON 2026, ${evt.edition}e édition, conférence bilingue internationale de cybersécurité
+- Date et lieu : ${evt.dateFr} à ${evt.venue}, format hybride (ligne et en présentiel)
+- Audience : plus de 1 000 participants combinés en ligne et en présentiel issus de 15+ pays (professionnels IT, ingénieurs, chercheurs, étudiants à fort potentiel, décideurs, entrepreneurs, acteurs institutionnels)
 - Promesse : "Where we secure the future."
 - Deadline (FR) : ${printDeadlineFr} — (EN) : ${printDeadlineEn}
+- Site web officiel : https://eyesopensecurity.com
 
 MODÈLE DE RÉFÉRENCE (à adapter, ne pas copier les crochets) :
 """
@@ -118,7 +119,7 @@ Au-delà d'une simple conférence, EOCON est un mouvement international porté p
 
 Nous serions heureux d'explorer avec vous une formule de partenariat adaptée à vos objectifs, notamment en matière de visibilité, recrutement, innovation, cybersécurité et engagement institutionnel.
 
-À noter : les sponsors confirmés avant le ${printDeadlineFr} pourront bénéficier d'une inclusion dans certains supports imprimés et éléments de branding liés au CTF.
+À noter : les sponsors confirmés avant le ${printDeadlineFr} pourront bénéficier d'une inclusion dans certains supports imprimés et éléments de branding associés à la compétition de cybersécurité organisé pendant l’événement..
 
 Seriez-vous disponible pour un échange de 15 minutes afin d'évaluer les pistes de collaboration possibles ?
 

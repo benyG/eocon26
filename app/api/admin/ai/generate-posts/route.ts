@@ -163,7 +163,9 @@ Réponds en JSON uniquement, sans markdown :
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
-      max_tokens: 1500,
+      // Newer OpenAI models reject `max_tokens` — use `max_completion_tokens` like the
+      // other AI routes. Raised to fit all 10 posts (5 platforms × FR/EN) without truncation.
+      max_completion_tokens: 4000,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

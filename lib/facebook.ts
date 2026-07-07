@@ -44,7 +44,7 @@ export async function publishFacebookPost(message: string, imageUrl?: string): P
   const { pageId, systemToken } = getCredentials();
   const pageToken = await getPageToken(pageId, systemToken);
 
-  let postId: string;
+  const feedUrl = (postId: string) => `https://www.facebook.com/${pageId}/posts/${postId.split("_")[1] || postId}`;
 
   if (imageUrl) {
     // published:true ensures Graph API creates a feed post (not just a photo in album)
@@ -59,33 +59,27 @@ export async function publishFacebookPost(message: string, imageUrl?: string): P
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: body.toString(),
     });
-    if (!res.ok) {
-      const err = await res.text();
-      // Common cause: imageUrl is not publicly accessible (private GCS bucket).
-      throw new Error(`Facebook photo error ${res.status}: ${err}`);
+    if (res.ok) {
+      const data = await res.json() as { id: string; post_id?: string };
+      const postId = data.post_id || data.id;
+      return { id: postId, url: feedUrl(postId) };
     }
-    const data = await res.json() as { id: string; post_id?: string };
-    postId = data.post_id || data.id;
-  } else {
-    const body = new URLSearchParams({
-      message,
-      access_token: pageToken,
-    });
-    const res = await fetch(`${GRAPH_BASE}/${pageId}/feed`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: body.toString(),
-    });
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Facebook API error ${res.status}: ${err}`);
-    }
-    const data = await res.json() as { id: string };
-    postId = data.id;
+    // Photo upload failed (e.g. Graph "Please reduce the amount of data" — image too large
+    // or not fetchable by Facebook). Rather than failing the whole post, fall back to a
+    // text-only feed post so the content still goes out.
+    console.warn(`[facebook] photo post failed (${res.status}), falling back to text-only: ${await res.text()}`);
   }
 
-  return {
-    id: postId,
-    url: `https://www.facebook.com/${pageId}/posts/${postId.split("_")[1] || postId}`,
-  };
+  const body = new URLSearchParams({ message, access_token: pageToken });
+  const res = await fetch(`${GRAPH_BASE}/${pageId}/feed`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Facebook API error ${res.status}: ${err}`);
+  }
+  const data = await res.json() as { id: string };
+  return { id: data.id, url: feedUrl(data.id) };
 }

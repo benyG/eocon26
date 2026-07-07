@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Terms & Conditions — EOCON 2026",
-  description: "Terms and conditions for EOCON 2026 — EyesOpen Security Conference. Conditions générales d'utilisation.",
+  description: "Terms and conditions for EOCON 2026 — EOCON Cybersecurity Event. Conditions générales d'utilisation.",
 };
 
 export default function TermsPage() {

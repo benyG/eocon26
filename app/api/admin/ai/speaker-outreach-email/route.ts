@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   if (mode === "followup") {
     prompt = `${eoconCtx}
 
-Tu rédiges un email de relance d'invitation speaker pour EOCON 2026 (conférence pro bono).
+Tu rédiges un email de relance d'invitation speaker pour EOCON 2026 (évènement communautaire et pro bono).
 
 Speaker: ${name}${title ? ` — ${title}` : ""}${org ? ` @ ${org}` : ""}
 Expertise: ${topicLabel}

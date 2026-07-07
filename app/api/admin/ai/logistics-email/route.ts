@@ -38,7 +38,7 @@ function buildSectorRfp(
         ],
         contrepartie: [
           "logo sur tous nos supports de communication (site web, programme, réseaux sociaux)",
-          "mention officielle pendant la conférence",
+          "mention officielle pendant l’évènement",
           `visibilité comme partenaire logistique officiel d'EOCON 2026`,
         ],
       },
@@ -53,7 +53,7 @@ function buildSectorRfp(
         ],
         counterpart: [
           "logo on all our communication materials (website, program, social media)",
-          "official mention during the conference",
+          "official mention during the event",
           "visibility as official logistics partner of EOCON 2026",
         ],
       },
@@ -252,7 +252,7 @@ Tu dois rédiger un courriel de prospection logistique EN FRANÇAIS pour EOCON 2
 RÈGLES ABSOLUES :
 - Utilise exclusivement la 1ère personne du pluriel (Nous, notre, nos) — jamais Je, j', me, mon, ma, mes.
 - Style : direct, professionnel, appel d'offres — EOCON est l'acheteur qui compare des propositions.
-- Ne pas vendre EOCON à l'hôtel. Aller droit au but : demander une proposition commerciale.
+- Ne pas vendre EOCON au prestataire. Aller droit au but : demander une proposition commerciale.
 - Chiffres réalistes : ${attendeesFr}.
 - Le lien officiel EOCON est : https://eyesopensecurity.com — l'inclure en fin de courriel.
 - Signature : "Le Comité Organisateur / EOCON 2026 / Services ExamBoot Inc. / eocon@examboot.net"

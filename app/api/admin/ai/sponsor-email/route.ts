@@ -98,10 +98,10 @@ Contact : ${contact || "—"}${contactTitle ? ` (${contactTitle})` : ""}
 
 Informations factuelles à utiliser telles quelles (NE RIEN INVENTER) :
 - Organisateur : ${entity.legalName}
-- Événement : EOCON 2026, ${evt.edition}e édition, conférence bilingue internationale de cybersécurité
-- Date et lieu : ${evt.dateFr} à ${evt.venue}, format hybride (ligne et en présentiel)
+- Événement : EOCON 2026, ${evt.edition}e édition de l’évènement bilingue international de cybersécurité
+- Date et lieu : ${evt.dateFr} à ${evt.venue}, format hybride (en ligne et en présentiel)
 - Audience : plus de 1 000 participants combinés en ligne et en présentiel issus de 15+ pays (professionnels IT, ingénieurs, chercheurs, étudiants à fort potentiel, décideurs, entrepreneurs, acteurs institutionnels)
-- Promesse : "Where we secure the future."
+- Promesse : "Where Africa secures the future."
 - Deadline (FR) : ${printDeadlineFr} — (EN) : ${printDeadlineEn}
 - Site web officiel : https://eyesopensecurity.com
 
@@ -109,17 +109,17 @@ MODÈLE DE RÉFÉRENCE (à adapter, ne pas copier les crochets) :
 """
 Bonjour[ {Prénom/Nom du contact} si connu],
 
-Nous vous contactons au nom de ${entity.legalName}, organisateur d'EOCON 2026 — ${evt.edition}e édition de la conférence internationale de cybersécurité, prévue le ${evt.dateFr} à ${evt.venue}, en format hybride.
+Nous vous contactons au nom de ${entity.legalName}, organisateur d'EOCON 2026 — ${evt.edition}e édition de l’évènement international de cybersécurité, prévue le ${evt.dateFr} à ${evt.venue}, en format hybride.
 
 Pour {Organisation}, EOCON représente une opportunité stratégique de renforcer votre présence auprès d'un écosystème cyber en pleine structuration, tout en vous donnant accès à un vivier qualifié de talents africains.
 
 L'événement réunit plus de 1 000 participants issus de 15+ pays : professionnels IT, ingénieurs, chercheurs, étudiants à fort potentiel, décideurs, entrepreneurs et acteurs institutionnels. Pour {un acteur de ce secteur}, ce positionnement offre plusieurs leviers concrets : {2 à 4 leviers adaptés au secteur — ex. marque employeur, identification de profils cyber, visibilité auprès d'une audience technique, rapprochement avec les acteurs clés de la transformation numérique}.
 
-Au-delà d'une simple conférence, EOCON est un mouvement international porté par une promesse forte : "Where we secure the future."
+Au-delà d'un simple rendez-vous ponctuel, EOCON est un mouvement international porté par une promesse forte : "Where Africa secures the future."
 
 Nous serions heureux d'explorer avec vous une formule de partenariat adaptée à vos objectifs, notamment en matière de visibilité, recrutement, innovation, cybersécurité et engagement institutionnel.
 
-À noter : les sponsors confirmés avant le ${printDeadlineFr} pourront bénéficier d'une inclusion dans certains supports imprimés et éléments de branding associés à la compétition de cybersécurité organisé pendant l’événement..
+À noter : les sponsors confirmés avant le ${printDeadlineFr} pourront bénéficier d'une inclusion dans certains supports imprimés et éléments de branding associés à la compétition de cybersécurité organisée pendant l’évènement.
 
 Seriez-vous disponible pour un échange de 15 minutes afin d'évaluer les pistes de collaboration possibles ?
 

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
 import { getOpenAI, getEoconContext } from "@/lib/openai";
 import { enrichOrganization } from "@/lib/apollo";
+import { findProspectEmails } from "@/lib/findEmail";
 
 export const dynamic = "force-dynamic";
 
@@ -12,11 +14,13 @@ interface EnrichResult {
   recommendedPackage?: string;
   hook?: string;
   apolloData?: Record<string, unknown>;
+  foundEmails?: { email: string; name?: string; title?: string; source: string; confidence?: number }[];
+  savedEmail?: string;
 }
 
 export async function POST(req: NextRequest) {
   if (!(await hasPermission("prospection", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const { org, website } = await req.json();
+  const { id, org, website } = await req.json();
   if (!org) return NextResponse.json({ error: "Missing org" }, { status: 400 });
 
   // Try Apollo enrichment first if website provided
@@ -70,6 +74,30 @@ JSON uniquement :
     if (apolloData) result.apolloData = apolloData as unknown as Record<string, unknown>;
   } catch {
     return NextResponse.json({ error: "Failed to parse AI response" }, { status: 500 });
+  }
+
+  // Load the lead (if an id was passed) so we only fill empty fields.
+  const lead = id ? await prisma.prospectLead.findUnique({ where: { id: Number(id) } }) : null;
+
+  // Scrape the website for a contact email (Hunter.io + page scrape) and keep the best one.
+  if (website && !lead?.contactEmail) {
+    try {
+      const emails = await findProspectEmails(website);
+      if (emails.length) {
+        result.foundEmails = emails;
+        result.savedEmail = [...emails].sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))[0].email;
+      }
+    } catch { /* scrape unavailable */ }
+  }
+
+  // Persist enrichment onto the lead — only fill fields that are still empty.
+  if (lead) {
+    const data: Record<string, unknown> = {};
+    if (result.sector && !lead.sector) data.sector = result.sector;
+    if (result.recommendedPackage && !lead.recommendedPackage) data.recommendedPackage = result.recommendedPackage;
+    if (result.whySponsor && !lead.aiScoreReason) data.aiScoreReason = result.whySponsor;
+    if (result.savedEmail && !lead.contactEmail) data.contactEmail = result.savedEmail;
+    if (Object.keys(data).length) await prisma.prospectLead.update({ where: { id: lead.id }, data }).catch(() => {});
   }
 
   return NextResponse.json(result);

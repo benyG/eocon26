@@ -16,7 +16,7 @@ const EOCON_CONTEXT_BODY = (edition: string, dateFr: string, venue: string, city
 EOCON n'est pas une conférence cybersécurité. EOCON est le rendez-vous annuel où l'écosystème cyber mondial et particulièrement africain se retrouvent pour construire l'avenir de la cybersécurité.
 Piliers stratégiques :
 1. EOCON connecte communauté cyber internationale avec l'Afrique.
-2. EOCON révèle et accélère la prochaine génération de talents cyber à travers ses sessions, ateliers et CTF.
+2. EOCON révèle et accélère la prochaine génération de talents cyber à travers ses sessions, ateliers et sa Cybersecurity Competition (CTF).
 3. EOCON est un mouvement qui contribue au développement de la souveraineté numérique africaine.
 4. EOCON réunit décideurs, experts techniques, recruteurs, chercheurs, entrepreneurs et étudiants à fort potentiel.
 5. Participer à EOCON — en présentiel à ${city} ou en ligne depuis plusieurs pays — c'est être là où se créent les opportunités, collaborations, carrières et business de demain dans la sécurité.
@@ -25,14 +25,15 @@ Format : interventions d'experts, ateliers techniques, panels stratégiques, Eye
 Organisateur : Services ExamBoot Inc. 
 Langue : Événement bilingue français/anglais.
 Phrase de référence: "Where Africa secures the future."
-Directives de ton : ambitieux, visionnaire, international, premium, inspirant. Ne jamais vendre uniquement des talks ou des speakers — vendre l'accès à une communauté, à des opportunités et à un mouvement. Faire sentir que rater EOCON, c'est rater un moment important dans l'évolution de l'écosystème cyber mondial et africain en particulier.`;
+Directives de ton : ambitieux, visionnaire, international, premium, inspirant. Ne jamais vendre uniquement des talks ou des speakers — vendre l'accès à une communauté, à des opportunités et à un mouvement. Faire sentir que rater EOCON, c'est rater un moment important dans l'évolution de l'écosystème cyber mondial et africain en particulier.
+⚠️ TERMINOLOGIE IMPOSÉE : dans toute communication, n'utilise JAMAIS les abréviations seules. Écris toujours « Call For Speakers » (jamais « CFP », ni « appel à contributions ») et « Cybersecurity Competition (CTF) » (jamais « CTF » seul) — sauf dans un hashtag (#EyesOpenCTF, #CTF) qui reste autorisé tel quel.`;
 
 function buildUrlBlock(s: Record<string, string>): string {
   const lines: string[] = [];
   if (s.url_inscription) lines.push(`  • Inscriptions : ${s.url_inscription}`);
   if (s.url_programme)   lines.push(`  • Programme    : ${s.url_programme}`);
-  if (s.url_cfp)         lines.push(`  • CFP          : ${s.url_cfp}`);
-  if (s.url_ctf)         lines.push(`  • CTF / EyesOpenCTF : ${s.url_ctf}`);
+  if (s.url_cfp)         lines.push(`  • Call For Speakers : ${s.url_cfp}`);
+  if (s.url_ctf)         lines.push(`  • Cybersecurity Competition (CTF) : ${s.url_ctf}`);
   if (s.url_sponsor)     lines.push(`  • Partenariat  : ${s.url_sponsor}`);
   if (s.site_base_url)   lines.push(`  • Site officiel : ${s.site_base_url}`);
 
@@ -44,7 +45,7 @@ function buildUrlBlock(s: Record<string, string>): string {
 }
 
 export const EOCON_CONTEXT = EOCON_CONTEXT_BODY("7", "28 novembre 2026", "Hotel Onomo", "Douala", "Cameroun")
-  + `\n⚠️ RÈGLE ABSOLUE SUR LES URLs : N'invente AUCUNE URL liée à l'événement EOCON. Si tu dois mentionner un lien (inscription, programme, CTF, etc.), écris [LIEN À COMPLÉTER] à la place.`;
+  + `\n⚠️ RÈGLE ABSOLUE SUR LES URLs : N'invente AUCUNE URL liée à l'événement EOCON. Si tu dois mentionner un lien (inscription, programme, Cybersecurity Competition (CTF), etc.), écris [LIEN À COMPLÉTER] à la place.`;
 
 export async function getEoconContext(): Promise<string> {
   try {

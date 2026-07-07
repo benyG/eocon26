@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       q_organization_keyword_tags: keywords || ["cybersecurity", "technology", "finance"],
       organization_locations: locations || ["Cameroon", "Ivory Coast", "Senegal", "Nigeria"],
       organization_num_employees_ranges: employeeRange || ["51,200", "201,1000", "1001,10000"],
-      per_page: 10,
+      per_page: 30,
     });
   } catch (e) {
     return NextResponse.json({ error: `Apollo API : ${e instanceof Error ? e.message : String(e)}` }, { status: 502 });
@@ -29,8 +29,12 @@ export async function POST(req: NextRequest) {
 
   const openai = getOpenAI();
   const results = [];
+  let skipped = 0;
 
   for (const org of orgs) {
+    // Dedup: skip organizations already captured by a previous search.
+    const dup = await prisma.prospectLead.findFirst({ where: { org: org.name } });
+    if (dup) { skipped++; continue; }
     // Find decision maker
     let contact = null;
     try {

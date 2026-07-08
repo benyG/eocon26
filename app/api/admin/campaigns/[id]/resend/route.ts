@@ -86,20 +86,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     try {
       const res = await resend.batch.send(emails);
-      await Promise.all(batch.map(async (r, idx) => {
-        const resendId = (res.data as Array<{ id: string }> | null)?.[idx]?.id ?? null;
-        await prisma.emailLog.create({
-          data: { campaignId: id, recipient: r.email, subject: emails[idx].subject, status: "sent", resendId },
-        });
-        sent++;
-      }));
+      // One query instead of 100 concurrent creates (avoids pool exhaustion / P2024).
+      await prisma.emailLog.createMany({
+        data: batch.map((r, idx) => ({
+          campaignId: id, recipient: r.email, subject: emails[idx].subject, status: "sent",
+          resendId: (res.data as Array<{ id: string }> | null)?.[idx]?.id ?? null,
+        })),
+      });
+      sent += batch.length;
     } catch {
-      await Promise.all(batch.map(async (r, idx) => {
-        await prisma.emailLog.create({
-          data: { campaignId: id, recipient: r.email, subject: emails[idx].subject, status: "failed" },
-        });
-        failed++;
-      }));
+      await prisma.emailLog.createMany({
+        data: batch.map((r, idx) => ({ campaignId: id, recipient: r.email, subject: emails[idx].subject, status: "failed" })),
+      });
+      failed += batch.length;
     }
 
     if (i + BATCH_SIZE < recipients.length) await new Promise(res => setTimeout(res, 1000));

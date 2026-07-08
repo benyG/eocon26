@@ -8,6 +8,7 @@ import { publishInstagramPost } from "@/lib/instagram";
 import { publishWhatsAppMessage } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // Instagram container polling can take up to ~30s
 
 export async function POST(req: NextRequest) {
   if (!(await hasPermission("communication", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });

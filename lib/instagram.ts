@@ -19,6 +19,33 @@ export interface InstagramPostResult {
   url: string;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Poll a media container until Instagram has finished processing it. Publishing
+// before the container is FINISHED yields error 9007 / subcode 2207027
+// ("Media ID is not available ... please wait for a moment").
+async function waitForContainerReady(creationId: string, token: string): Promise<void> {
+  const MAX_ATTEMPTS = 12; // ~30s total (image containers usually finish in a few seconds)
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const res = await fetch(
+      `${GRAPH_BASE}/${creationId}?fields=status_code,status&access_token=${encodeURIComponent(token)}`,
+    );
+    if (res.ok) {
+      const { status_code: statusCode, status } = (await res.json()) as {
+        status_code?: string;
+        status?: string;
+      };
+      if (statusCode === "FINISHED") return;
+      if (statusCode === "ERROR" || statusCode === "EXPIRED") {
+        throw new Error(`Instagram media container ${statusCode}${status ? `: ${status}` : ""}`);
+      }
+      // IN_PROGRESS (or unknown) → keep waiting
+    }
+    await sleep(2500);
+  }
+  throw new Error("Instagram media container not ready after 30s (still processing)");
+}
+
 export async function publishInstagramPost(caption: string, imageUrl: string): Promise<InstagramPostResult> {
   const { accountId, token } = getCredentials();
 
@@ -38,7 +65,10 @@ export async function publishInstagramPost(caption: string, imageUrl: string): P
   }
   const { id: creationId } = await containerRes.json() as { id: string };
 
-  // Step 2 — Publish the container
+  // Step 2 — Wait for the container to finish processing before publishing.
+  await waitForContainerReady(creationId, token);
+
+  // Step 3 — Publish the container
   const publishRes = await fetch(`${GRAPH_BASE}/${accountId}/media_publish`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -53,8 +83,20 @@ export async function publishInstagramPost(caption: string, imageUrl: string): P
   }
   const { id: mediaId } = await publishRes.json() as { id: string };
 
-  return {
-    id: mediaId,
-    url: `https://www.instagram.com/p/${mediaId}/`,
-  };
+  // Step 4 — Resolve the real public permalink (the numeric media id is NOT a
+  // valid /p/<shortcode>/ URL). Fall back gracefully if the lookup fails.
+  let url = `https://www.instagram.com/`;
+  try {
+    const permaRes = await fetch(
+      `${GRAPH_BASE}/${mediaId}?fields=permalink&access_token=${encodeURIComponent(token)}`,
+    );
+    if (permaRes.ok) {
+      const { permalink } = (await permaRes.json()) as { permalink?: string };
+      if (permalink) url = permalink;
+    }
+  } catch {
+    /* keep fallback url */
+  }
+
+  return { id: mediaId, url };
 }

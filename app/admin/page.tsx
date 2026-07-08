@@ -3043,7 +3043,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                 {mode === "contact" && <span className="text-blue-400/80 text-xs ml-2">{lang === "en" ? "to contact" : "à contacter"}</span>}
               </button>
               {a && <span className="text-xs text-gray-600 shrink-0">{a.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}</span>}
-              {canWrite && <button onClick={() => generateFollowupEmail(p)} className="text-xs px-2 py-1 rounded shrink-0" style={{ background: "#cc00ff15", color: "#cc00ff", border: "1px solid #cc00ff30" }}>✨ {lang === "en" ? "Message" : "Message"}</button>}
+              {canWrite && <button onClick={() => generateFollowupEmail(p)} disabled={generatingFor === (p.id as number)} className="text-xs px-2 py-1 rounded shrink-0 disabled:opacity-50" style={{ background: "#cc00ff15", color: "#cc00ff", border: "1px solid #cc00ff30" }}>{generatingFor === (p.id as number) ? "…" : `✨ ${lang === "en" ? "Message" : "Message"}`}</button>}
             </div>
           );
         };
@@ -3066,8 +3066,8 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
         );
       })()}
 
-      {/* AI Email Modal */}
-      {aiEmail && aiEmailTarget && (
+      {/* AI Email Modal — opens immediately on target so the click has instant feedback */}
+      {aiEmailTarget && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <div className="cyber-card rounded-xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
             <div className="flex justify-between items-start p-6 pb-4 border-b border-gray-800 shrink-0">
@@ -3078,6 +3078,12 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
               <button onClick={() => { setAiEmail(null); setAiEmailTarget(null); setSentMsg(""); }} className="text-gray-500 hover:text-white">✕</button>
             </div>
             <div className="p-6 overflow-y-auto">
+            {!aiEmail ? (
+              <div className="py-16 flex flex-col items-center justify-center gap-3">
+                <div className="w-8 h-8 border-2 border-neon-green/30 border-t-neon-green rounded-full animate-spin" />
+                <p className="text-gray-400 text-xs">{lang === "en" ? "Generating…" : "Génération en cours…"}</p>
+              </div>
+            ) : (<>
             {/* Attachments — deck + stage-relevant generated documents */}
             {aiEmailTarget.kind !== "teaser" && (
               <div className="mb-4 space-y-2">
@@ -3141,6 +3147,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                 {t.markContacted}
               </button>}
             </div>
+            </>)}
             </div>
           </div>
         </div>

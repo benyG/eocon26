@@ -757,10 +757,12 @@ function ProspectionPanel({ leads, onRefresh, canWrite = true }: { leads: Record
 
   const enrichLead = async (lead: Record<string, unknown>) => {
     setEnrichingId(lead.id as number);
+    // Passing the id lets the route persist the enrichment (sector, package, why-sponsor)
+    // and the scraped website email directly onto the lead.
     await fetch("/api/admin/ai/enrich-prospect", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ org: lead.org, website: lead.website }),
+      body: JSON.stringify({ id: lead.id, org: lead.org, website: lead.website }),
     });
     await onRefresh();
     setEnrichingId(null);

@@ -33,7 +33,7 @@ export async function searchPlaces(query: string, location = "Douala,Cameroun"):
   if (!OK_STATUSES.has(data.status)) {
     throw new Error(`Google Places API error: ${data.status}${data.error_message ? ` — ${data.error_message}` : ""}`);
   }
-  return (data.results || []).slice(0, 10);
+  return (data.results || []).slice(0, 20);
 }
 
 export async function getPlaceDetails(placeId: string): Promise<PlaceResult | null> {

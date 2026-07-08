@@ -14,8 +14,13 @@ export async function POST(req: NextRequest) {
   const places = await searchPlaces(query, location || "Douala,Cameroun");
   const openai = getOpenAI();
   const results = [];
+  let skipped = 0;
 
-  for (const place of places.slice(0, 8)) {
+  for (const place of places.slice(0, 15)) {
+    // Dedup: skip places already captured by a previous search.
+    const dup = await prisma.prospectLead.findFirst({ where: { org: place.name } });
+    if (dup) { skipped++; continue; }
+
     let details = null;
     try {
       details = await getPlaceDetails(place.place_id);

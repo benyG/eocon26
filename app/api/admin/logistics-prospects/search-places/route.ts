@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const places = await searchPlaces(searchQuery, location || "Douala,Cameroun");
 
   const results = [];
-  for (const place of places.slice(0, 8)) {
+  for (const place of places.slice(0, 15)) {
     let details = null;
     try { details = await getPlaceDetails(place.place_id); } catch { /* skip */ }
 

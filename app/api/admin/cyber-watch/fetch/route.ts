@@ -202,7 +202,7 @@ export async function POST() {
   const minScore: number = settings.minScore ?? 0.55;
   const dailyCount: number = settings.dailyCount ?? 3;
   const daysExpiry: number = 5;
-  const maxAgeDays: number = settings.maxAgeDays ?? 7; // default: keep articles up to 7 days old
+  const maxAgeDays: number = settings.maxAgeDays ?? 14; // default: keep articles up to 14 days old
 
   const feeds = RSS_FEEDS.filter(f => activeSources.includes(f.id));
   if (!feeds.length) return NextResponse.json({ fetched: 0, scored: 0, saved: 0 });

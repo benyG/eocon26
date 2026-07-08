@@ -122,7 +122,7 @@ Phrase de référence disponible :
 Axes éditoriaux prioritaires :
 1. EOCON comme carrefour cyber bilingue : francophone, anglophone, international et africain en particulier, 15+ pays, accessibilité en ligne.
 2. EOCON comme plateforme d'opportunités : apprendre, recruter, networker, se rendre visible, créer des collaborations.
-3. EOCON comme espace de crédibilité technique : workshops, compétition CTF, experts, pratiques concrètes, montée en compétence.
+3. EOCON comme espace de crédibilité technique : workshops, Cybersecurity Competition (CTF), experts, pratiques concrètes, montée en compétence.
 4. EOCON comme mouvement d'écosystème : entreprises, institutions, étudiants, professionnels, communautés techniques.
 5. EOCON comme rendez-vous stratégique africain à Douala, au cœur du hub économique de l'Afrique centrale.
 6. EOCON comme dynamique durable : 7e édition, communauté établie, plateforme construite pour le long terme.

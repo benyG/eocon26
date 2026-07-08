@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
 
     const updated = await prisma.socialPost.update({
       where: { id },
-      data: { status: "published", publishedAt: new Date(), linkedinPostId: postId },
+      data: { status: "published", publishedAt: new Date(), linkedinPostId: postId, postUrl },
     });
     return NextResponse.json({ ...updated, postUrl });
   } catch (err) {

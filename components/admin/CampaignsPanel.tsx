@@ -696,6 +696,7 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
   const [showPreview, setShowPreview] = useState(false);
   const [testEmail, setTestEmail] = useState("");
   const [testLang, setTestLang] = useState<"fr" | "en">("fr");
+  const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -776,11 +777,12 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
 
   const sendTest = async () => {
     if (!testEmail.trim() || !tpl) return;
-    setMsg(null);
+    setMsg(null); setTesting(true);
     const subject = testLang === "en" ? content.subjectEn : content.subject;
     const htmlBody = testLang === "en" ? content.htmlBodyEn : content.htmlBody;
     const r = await fetch("/api/admin/campaigns/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: testEmail, subject, htmlBody }) });
     setMsg(r.ok ? `✓ ${__("Email de test", "Test email")} (${testLang.toUpperCase()}) ${__("envoyé à", "sent to")} ${testEmail}` : `✗ ${__("Échec de l'envoi du test", "Test send failed")}`);
+    setTesting(false);
   };
 
   const sendCampaign = async () => {
@@ -906,7 +908,7 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
               </div>
               <div className="flex gap-2">
                 <input value={testEmail} onChange={e => setTestEmail(e.target.value)} className="cyber-input flex-1 px-3 py-2 rounded text-xs" placeholder="votre@email.com" />
-                <button onClick={sendTest} disabled={!testEmail.trim()} className="text-xs px-4 py-2 rounded border border-gray-700 text-gray-300 hover:border-neon-green hover:text-neon-green disabled:opacity-40">{__("Tester", "Test")}</button>
+                <button onClick={sendTest} disabled={!testEmail.trim() || testing} className="text-xs px-4 py-2 rounded border border-gray-700 text-gray-300 hover:border-neon-green hover:text-neon-green disabled:opacity-40">{testing ? `${__("Envoi", "Sending")}…` : __("Tester", "Test")}</button>
               </div>
             </div>
           )}

@@ -433,6 +433,7 @@ export default function LogisticsProspectingPanel({ canWrite = true }: { canWrit
   const [showAddModal, setShowAddModal] = useState(false);
   const [emailTarget, setEmailTarget] = useState<LogisticsProspect | null>(null);
   const [editTarget, setEditTarget] = useState<LogisticsProspect | null>(null);
+  const [bulkScraping, setBulkScraping] = useState(false);
   // scraping state: prospectId → { scraping, found, error }
   const [scrapeState, setScrapeState] = useState<Record<number, { scraping: boolean; found: string[]; error: string | null }>>({});
 
@@ -512,13 +513,15 @@ export default function LogisticsProspectingPanel({ canWrite = true }: { canWrit
             <button
               onClick={async () => {
                 const targets = prospects.filter(p => p.website && !p.email);
+                setBulkScraping(true);
                 for (const p of targets) await scrapeEmail(p);
+                setBulkScraping(false);
               }}
-              disabled={prospects.filter(p => p.website && !p.email).length === 0}
+              disabled={bulkScraping || prospects.filter(p => p.website && !p.email).length === 0}
               title="Scraper les emails sur tous les sites sans email"
               className="px-3 py-2 rounded text-xs border border-gray-700 text-gray-400 hover:text-white disabled:opacity-30 transition-colors"
             >
-              🔎 Scraper tous ({prospects.filter(p => p.website && !p.email).length})
+              {bulkScraping ? "🔎 Scraping…" : `🔎 Scraper tous (${prospects.filter(p => p.website && !p.email).length})`}
             </button>
             <button
               onClick={() => setShowAddModal(true)}

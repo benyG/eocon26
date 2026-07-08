@@ -53,21 +53,20 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
     try {
       const res = await resend.batch.send(emails);
-      // Log each recipient individually so per-user delivery state can be tracked.
-      await Promise.all(batch.map(async (r, idx) => {
-        const resendId = (res.data as Array<{ id: string }> | null)?.[idx]?.id ?? null;
-        await prisma.emailLog.create({
-          data: { campaignId: id, recipient: r.email, subject: emails[idx].subject, status: "sent", resendId },
-        });
-        sent++;
-      }));
+      // Log all recipients in a single query (one connection) — firing 100 concurrent
+      // creates exhausts the pool (P2024).
+      await prisma.emailLog.createMany({
+        data: batch.map((r, idx) => ({
+          campaignId: id, recipient: r.email, subject: emails[idx].subject, status: "sent",
+          resendId: (res.data as Array<{ id: string }> | null)?.[idx]?.id ?? null,
+        })),
+      });
+      sent += batch.length;
     } catch {
-      await Promise.all(batch.map(async (r, idx) => {
-        await prisma.emailLog.create({
-          data: { campaignId: id, recipient: r.email, subject: emails[idx].subject, status: "failed" },
-        });
-        failed++;
-      }));
+      await prisma.emailLog.createMany({
+        data: batch.map((r, idx) => ({ campaignId: id, recipient: r.email, subject: emails[idx].subject, status: "failed" })),
+      });
+      failed += batch.length;
     }
 
     // Brief pause between batches to stay within Resend's per-second limits.

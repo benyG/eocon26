@@ -12,10 +12,15 @@ function dbUrl(): string | undefined {
   return `${url}${sep}connection_limit=10&pool_timeout=20`;
 }
 
+// Only override the datasource url when we actually have one. Passing
+// `{ url: undefined }` makes the PrismaClient constructor throw (e.g. during
+// `next build` page-data collection when DATABASE_URL isn't in the env).
+const _dbUrl = dbUrl();
+
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    datasources: { db: { url: dbUrl() } },
+    ...(_dbUrl ? { datasources: { db: { url: _dbUrl } } } : {}),
     log: process.env.NODE_ENV === "development" ? ["error"] : [],
   });
 

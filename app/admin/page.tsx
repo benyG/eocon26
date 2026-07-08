@@ -1849,6 +1849,31 @@ function SocialCredentialsDiag({ adminLang }: { adminLang: string }) {
 
 // ---- Communication Panel ----
 
+// Recommended character budgets per platform. `max` is a hard cap (over → error),
+// `ideal` is the upper end of the comfortable-reading range (over → warning).
+const PLATFORM_CHAR_LIMITS: Record<string, { max: number; ideal: number }> = {
+  twitter: { max: 280, ideal: 260 },
+  instagram: { max: 2200, ideal: 1500 },
+  facebook: { max: 63206, ideal: 1200 },
+  linkedin: { max: 3000, ideal: 2200 },
+  whatsapp: { max: 4096, ideal: 700 },
+};
+
+// Best public URL for a published post: prefer the stored postUrl, then reconstruct
+// per platform from the platform post id (legacy records saved before postUrl existed).
+function postPublicUrl(post: Record<string, unknown>): string | null {
+  const stored = post.postUrl as string | null | undefined;
+  if (stored) return stored;
+  const pid = post.linkedinPostId as string | null | undefined;
+  if (!pid) return null;
+  switch (post.platform as string) {
+    case "linkedin": return `https://www.linkedin.com/feed/update/${pid}/`;
+    case "twitter": return `https://x.com/i/web/status/${pid}`;
+    case "facebook": return `https://www.facebook.com/${pid}`;
+    default: return null; // instagram / whatsapp have no id-derivable public URL
+  }
+}
+
 function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   const { t, lang: adminLang } = useAdminT();
   const today = new Date();
@@ -2384,17 +2409,31 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                     return (
                     <div key={platform} className="border border-gray-800 rounded-lg p-3 space-y-2">
                       <p className="text-xs font-bold" style={{ color: platformColor[platform] }}>{platformLabel[platform]}</p>
-                      {(lang === "both" ? ["fr", "en"] : [lang]).map(l => (
+                      {(lang === "both" ? ["fr", "en"] : [lang]).map(l => {
+                        const val = generatedPosts[`${platform}_${l}`] || "";
+                        const lim = PLATFORM_CHAR_LIMITS[platform];
+                        const over = lim ? val.length > lim.max : false;
+                        const warn = lim ? val.length > lim.ideal : false;
+                        const counterColor = over ? "#ff5555" : warn ? "#ffaa00" : "#6b7280";
+                        return (
                         <div key={l}>
-                          <p className="text-gray-600 text-xs mb-1">[{l.toUpperCase()}] <span className="text-gray-700">{(generatedPosts[`${platform}_${l}`] || "").length} car.</span></p>
+                          <p className="text-gray-600 text-xs mb-1 flex items-center gap-1">
+                            <span>[{l.toUpperCase()}]</span>
+                            <span style={{ color: counterColor }}>
+                              {val.length}{lim ? ` / ${lim.max}` : ""} car.
+                            </span>
+                            {over && <span style={{ color: "#ff5555" }}>{adminLang === "en" ? "· over limit" : "· dépasse la limite"}</span>}
+                            {!over && warn && <span style={{ color: "#ffaa00" }}>{adminLang === "en" ? "· long" : "· un peu long"}</span>}
+                          </p>
                           <textarea
-                            value={generatedPosts[`${platform}_${l}`] || ""}
+                            value={val}
                             onChange={e => setGeneratedPosts(prev => prev ? { ...prev, [`${platform}_${l}`]: e.target.value } : prev)}
                             className="cyber-input w-full text-xs rounded p-2 resize-y text-gray-200"
-                            style={{ minHeight: platform === "twitter" || platform === "whatsapp" ? "64px" : "130px" }}
+                            style={{ minHeight: platform === "twitter" || platform === "whatsapp" ? "64px" : "130px", borderColor: over ? "#ff555560" : undefined }}
                           />
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                     );
                   })}
@@ -2595,14 +2634,15 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                             <button onClick={() => { setScheduleId(post.id as number); setScheduleDate(getTomorrow09h()); }} className="text-xs px-2 py-1 rounded" style={{ background: "#ffaa0020", color: "#ffaa00", border: "1px solid #ffaa0030" }}>{adminLang === "en" ? "🕐 Schedule" : "🕐 Planifier"}</button>
                           </>
                         )}
-                        {post.status === "published" && !!post.linkedinPostId && (
-                          <a
-                            href={post.platform === "twitter"
-                              ? `https://x.com/i/web/status/${post.linkedinPostId as string}`
-                              : `https://www.linkedin.com/feed/update/${post.linkedinPostId as string}/`}
-                            target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded" style={{ color: "var(--ac)" }}
-                          >↗ Voir</a>
-                        )}
+                        {post.status === "published" && (() => {
+                          const href = postPublicUrl(post);
+                          return href ? (
+                            <a
+                              href={href}
+                              target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded" style={{ color: "var(--ac)" }}
+                            >↗ Voir</a>
+                          ) : null;
+                        })()}
                         {canWrite && post.status === "failed" && (
                           <button onClick={() => publishNow(post.id as number)} disabled={publishing === (post.id as number)} className="text-xs px-2 py-1 rounded" style={{ background: "#ff006615", color: "#ff6666", border: "1px solid #ff006630" }}>
                             {publishing === (post.id as number) ? "..." : (adminLang === "en" ? "🔄 Retry" : "🔄 Réessayer")}
@@ -3107,19 +3147,33 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
               </div>
             )}
             <div className="space-y-4">
-              {[
-                { lang: "FR", subject: aiEmail.subjectFr, body: aiEmail.bodyFr },
-                { lang: "EN", subject: aiEmail.subjectEn, body: aiEmail.bodyEn },
-              ].map(e => (
+              {([
+                { lang: "FR", subjectKey: "subjectFr" as const, bodyKey: "bodyFr" as const },
+                { lang: "EN", subjectKey: "subjectEn" as const, bodyKey: "bodyEn" as const },
+              ]).map(e => {
+                const subject = aiEmail[e.subjectKey];
+                const body = aiEmail[e.bodyKey];
+                return (
                 <div key={e.lang} className="border border-gray-800 rounded-lg p-4">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-bold text-gray-400">{e.lang}</span>
-                    <button onClick={() => navigator.clipboard.writeText(`${e.subject}\n\n${e.body}`)} className="text-xs hover:underline" style={{ color: "var(--ac)" }}>{lang === "en" ? "Copy" : "Copier"}</button>
+                    <span className="text-xs font-bold text-gray-400">{e.lang} · <span className="text-gray-600 font-normal">{lang === "en" ? "editable before sending" : "modifiable avant envoi"}</span></span>
+                    <button onClick={() => navigator.clipboard.writeText(`${subject}\n\n${body}`)} className="text-xs hover:underline" style={{ color: "var(--ac)" }}>{lang === "en" ? "Copy" : "Copier"}</button>
                   </div>
-                  <p className="text-white text-xs font-bold mb-2">{lang === "en" ? "Subject:" : "Objet:"} {e.subject}</p>
-                  <p className="text-gray-400 text-xs whitespace-pre-wrap">{e.body}</p>
+                  <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Subject" : "Objet"}</label>
+                  <input
+                    value={subject}
+                    onChange={ev => setAiEmail(prev => prev ? { ...prev, [e.subjectKey]: ev.target.value } : prev)}
+                    className="cyber-input w-full text-xs rounded p-2 mb-2 text-white font-bold"
+                  />
+                  <label className="block text-xs text-gray-500 mb-1">{lang === "en" ? "Message" : "Message"}</label>
+                  <textarea
+                    value={body}
+                    onChange={ev => setAiEmail(prev => prev ? { ...prev, [e.bodyKey]: ev.target.value } : prev)}
+                    className="cyber-input w-full text-xs rounded p-2 resize-y text-gray-200"
+                    style={{ minHeight: aiEmailTarget.kind === "teaser" ? "100px" : "220px" }}
+                  />
                   {canWrite && <button
-                    onClick={() => sendProspectEmail(e.subject, e.body, e.lang)}
+                    onClick={() => sendProspectEmail(subject, body, e.lang)}
                     disabled={!aiEmailTarget.email || sendingLang !== null}
                     title={!aiEmailTarget.email ? (lang === "en" ? "No email address for this prospect" : "Ce prospect n'a pas d'email") : undefined}
                     className="mt-3 w-full text-xs px-3 py-2 rounded border transition-all disabled:opacity-40 disabled:cursor-not-allowed"
@@ -3128,7 +3182,8 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
                     {sendingLang === e.lang ? "…" : (lang === "en" ? `Send this email (${e.lang})` : `Envoyer ce courriel (${e.lang})`)}
                   </button>}
                 </div>
-              ))}
+                );
+              })}
             </div>
             {sentMsg && <p className="text-xs text-center mt-3" style={{ color: "var(--ac)" }}>{sentMsg}</p>}
             <div className="mt-4 pt-4 border-t border-gray-800 flex gap-2">

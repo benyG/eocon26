@@ -27,26 +27,27 @@ export async function GET(req: NextRequest) {
   for (const post of due) {
     try {
       let postId: string;
+      let postUrl: string;
       if (post.platform === "linkedin") {
         const r = await publishLinkedIn(post.content, post.imageUrl ?? undefined);
-        postId = r.id;
+        postId = r.id; postUrl = r.url;
       } else if (post.platform === "facebook") {
         const r = await publishFacebookPost(post.content, post.imageUrl ?? undefined);
-        postId = r.id;
+        postId = r.id; postUrl = r.url;
       } else if (post.platform === "instagram") {
         if (!post.imageUrl) throw new Error("Instagram requires imageUrl");
         const r = await publishInstagramPost(post.content, post.imageUrl);
-        postId = r.id;
+        postId = r.id; postUrl = r.url;
       } else if (post.platform === "whatsapp") {
         const r = await publishWhatsAppMessage(post.content, post.imageUrl ?? undefined);
-        postId = r.id;
+        postId = r.id; postUrl = r.url;
       } else {
         const r = await publishTweet(post.content, post.imageUrl ?? undefined);
-        postId = r.id;
+        postId = r.id; postUrl = r.url;
       }
       await prisma.socialPost.update({
         where: { id: post.id },
-        data: { status: "published", publishedAt: now, linkedinPostId: postId },
+        data: { status: "published", publishedAt: now, linkedinPostId: postId, postUrl },
       });
       results.push({ id: post.id, platform: post.platform, status: "published" });
     } catch (err) {

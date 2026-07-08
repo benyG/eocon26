@@ -621,6 +621,7 @@ model SocialPost {
   scheduledAt    DateTime?
   publishedAt    DateTime?
   linkedinPostId String?
+  postUrl        String?   @db.Text // public URL of the published post (all platforms)
   status         String    @default("draft") // draft | scheduled | published | failed
   errorMessage   String?   @db.Text
   createdAt      DateTime  @default(now())

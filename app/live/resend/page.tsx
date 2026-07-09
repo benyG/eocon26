@@ -8,7 +8,7 @@ type Theme = "dark" | "light";
 
 const tx = {
   fr: {
-    title: "Accès à la conférence en ligne",
+    title: "Accès à la convention en ligne",
     desc: "Entrez votre adresse email d'inscription pour recevoir votre lien d'accès personnel.",
     email: "Adresse email",
     emailPlaceholder: "votre@email.com",
@@ -16,7 +16,7 @@ const tx = {
     sending: "Envoi en cours...",
     successTitle: "Email envoyé !",
     successDesc: "Si cette adresse est associée à une inscription validée, vous recevrez votre lien dans quelques secondes.",
-    back: "← Retour à la conférence",
+    back: "← Retour à la convention",
     errorInvalid: "Veuillez entrer une adresse email valide.",
     errorNotvalidated: "Votre inscription n'est pas encore validée. Contactez-nous à contact@eyesopensecurity.com",
     errorCooldown: "Veuillez patienter avant de renvoyer.",
@@ -26,7 +26,7 @@ const tx = {
     darkMode: "🌙 Sombre",
   },
   en: {
-    title: "Online conference access",
+    title: "Online convention access",
     desc: "Enter your registration email address to receive your personal access link.",
     email: "Email address",
     emailPlaceholder: "your@email.com",
@@ -34,7 +34,7 @@ const tx = {
     sending: "Sending...",
     successTitle: "Email sent!",
     successDesc: "If this address is associated with a validated registration, you will receive your link within seconds.",
-    back: "← Back to conference",
+    back: "← Back to convention",
     errorInvalid: "Please enter a valid email address.",
     errorNotvalidated: "Your registration is not yet validated. Contact us at contact@eyesopensecurity.com",
     errorCooldown: "Please wait before resending.",

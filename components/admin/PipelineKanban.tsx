@@ -136,7 +136,7 @@ function AiAnalysis({ raw }: { raw: string }) {
           if (v == null) return null;
           return (
             <span key={m.key} className="text-xs font-mono px-2 py-0.5 rounded border border-gray-800 text-gray-400">
-              {m.label} <span className="text-white font-bold">{v}</span>/5
+              {m.label} <span className="text-white font-bold">{v}</span>/10
             </span>
           );
         })}

@@ -325,7 +325,7 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                           {([
                             { key: "sessions", label: lang === "fr" ? "Talks" : "Talks", icon: "🎤", included: ticket.includesSessions, color: "#00ff9d" },
                             { key: "workshops", label: "Workshop", icon: "🛠", included: ticket.includesWorkshops, color: "#ff9500" },
-                            { key: "ctf", label: "CTF", icon: "⚡", included: ticket.includesCTF, color: "#00ccff" },
+                            { key: "ctf", label: "CTF", icon: "🏆", included: ticket.includesCTF, color: "#00ccff" },
                           ] as const).map(({ key, label, icon, included, color }) => (
                             <div
                               key={key}

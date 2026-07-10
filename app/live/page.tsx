@@ -10,7 +10,7 @@ const tx = {
   fr: {
     checking: "Vérification de votre accès...",
     welcome: "Bienvenue",
-    subtitle: "Vous êtes connecté(e) à la conférence EOCON 2026 en ligne.",
+    subtitle: "Vous êtes connecté(e) à la convention EOCON 2026 en ligne.",
     noAccess: "Accès requis",
     noAccessDesc: "Cette page est réservée aux participants inscrits et validés à EOCON 2026.",
     lostLink: "Lien d'accès perdu ?",
@@ -39,7 +39,7 @@ const tx = {
   en: {
     checking: "Verifying your access...",
     welcome: "Welcome",
-    subtitle: "You are connected to EOCON 2026 online conference.",
+    subtitle: "You are connected to the EOCON 2026 online convention.",
     noAccess: "Access required",
     noAccessDesc: "This page is reserved for registered and validated EOCON 2026 attendees.",
     lostLink: "Lost your access link?",

@@ -871,7 +871,7 @@ export async function sendOnlineAccessLink(
     </p>
     ${neonBox(`
       <p style="margin:0 0 8px;font-size:12px;color:#00ff9d;letter-spacing:2px;">
-        ${isFr ? "▸ ACCÈS DIRECT À LA CONFÉRENCE" : "▸ DIRECT CONFERENCE ACCESS"}
+        ${isFr ? "▸ ACCÈS DIRECT À LA CONVENTION" : "▸ DIRECT CONVENTION ACCESS"}
       </p>
       <p style="margin:0;font-size:12px;color:#888;">
         ${isFr
@@ -879,7 +879,7 @@ export async function sendOnlineAccessLink(
           : "Click the button below to join the online event. This link is personal and secure."}
       </p>
     `)}
-    ${ctaButton(link, isFr ? "🚀 REJOINDRE LA CONFÉRENCE" : "🚀 JOIN THE CONFERENCE")}
+    ${ctaButton(link, isFr ? "🚀 REJOINDRE LA CONVENTION" : "🚀 JOIN THE CONVENTION")}
     <p style="font-size:11px;color:#666;margin:16px 0 0;text-align:center;">
       ${isFr
         ? "Ce lien est à usage unique et vous est réservé. Ne le partagez pas."

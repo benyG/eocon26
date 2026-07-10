@@ -34,15 +34,22 @@ export async function GET() {
         if (u.profileId) {
           const dbProfile = await prisma.adminProfile.findUnique({ where: { id: u.profileId } });
           if (dbProfile) {
-            // System profiles use their static definition (always current);
-            // custom profiles use the permissions stored in DB so the profile
-            // editor takes effect.
-            const staticProfile = ADMIN_PROFILES.find(p => p.name === dbProfile.name);
-            if (staticProfile) {
-              permissions = { ...staticProfile.permissions } as Record<string, string>;
+            // IMPORTANT: this MUST match getCurrentPermissions() in
+            // lib/adminPermissions.ts (the server-side gate). If the two diverge,
+            // the server can authorize an action while the client hides its button
+            // (or vice-versa) — which is exactly why WRITE on "pilotage-meetings"
+            // was granted server-side but the "+ Meeting" button never showed.
+            // Rule: DB permissions are the source of truth (profile-editor edits
+            // apply immediately); fall back to the static definition only when the
+            // DB JSON is empty (legacy / migration safety).
+            let dbPerms: Record<string, string> = {};
+            try { dbPerms = JSON.parse(dbProfile.permissions || "{}") as Record<string, string>; }
+            catch { dbPerms = {}; }
+            if (Object.keys(dbPerms).length > 0) {
+              permissions = dbPerms;
             } else {
-              try { permissions = JSON.parse(dbProfile.permissions || "{}") as Record<string, string>; }
-              catch { permissions = {}; }
+              const staticProfile = ADMIN_PROFILES.find(p => p.name === dbProfile.name);
+              if (staticProfile) permissions = { ...staticProfile.permissions } as Record<string, string>;
             }
           }
         }

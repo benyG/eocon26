@@ -6,6 +6,8 @@ import { publishFacebookPost } from "@/lib/facebook";
 import { publishInstagramPost } from "@/lib/instagram";
 import { publishWhatsAppMessage } from "@/lib/whatsapp";
 
+export const maxDuration = 300; // multiple posts + Instagram container polling
+
 // Called by an external cron (e.g. cURL every 5 min, or Vercel Cron)
 // Protect with a shared secret: GET /api/cron/publish-scheduled?secret=CRON_SECRET
 export async function GET(req: NextRequest) {

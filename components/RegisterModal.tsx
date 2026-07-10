@@ -321,28 +321,29 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                           )}
                         </div>
                         {/* Access type badges */}
-                        <div className="grid grid-cols-3 gap-1.5 mt-3">
+                        <div className="grid grid-cols-4 gap-1 mt-3">
                           {([
                             { key: "sessions", label: lang === "fr" ? "Talks" : "Talks", icon: "🎤", included: ticket.includesSessions, color: "#00ff9d" },
                             { key: "workshops", label: "Workshop", icon: "🛠", included: ticket.includesWorkshops, color: "#ff9500" },
-                            { key: "ctf", label: "CTF", icon: "⚡", included: ticket.includesCTF, color: "#00ccff" },
+                            { key: "ctf", label: "CTF", icon: "🏆", included: ticket.includesCTF, color: "#00ccff" },
+                            { key: "cocktail", label: "Cocktail", icon: "🍸", included: getPerks(ticket).some(p => /cocktail/i.test(p)), color: "#ff2d78" },
                           ] as const).map(({ key, label, icon, included, color }) => (
                             <div
                               key={key}
-                              className="flex flex-col items-center justify-center rounded-lg py-2 px-1 gap-0.5"
+                              className="flex flex-col items-center justify-center rounded-lg py-1.5 px-0.5 gap-0.5"
                               style={{
                                 background: included ? color + "18" : "#ffffff04",
                                 border: `1px solid ${included ? color + "55" : "#ffffff0a"}`,
                               }}
                             >
-                              <span className="text-base leading-none">{icon}</span>
+                              <span className="text-sm leading-none">{icon}</span>
                               <span
-                                className="text-[9px] font-bold uppercase leading-tight text-center"
-                                style={{ color: included ? color : "#2a2a2a", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.5px" }}
+                                className="text-[8px] font-bold uppercase leading-tight text-center"
+                                style={{ color: included ? color : "#2a2a2a", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0px" }}
                               >
                                 {label}
                               </span>
-                              <span className="text-[10px] font-bold leading-none" style={{ color: included ? color : "#2a2a2a" }}>
+                              <span className="text-[9px] font-bold leading-none" style={{ color: included ? color : "#2a2a2a" }}>
                                 {included ? "✓" : "—"}
                               </span>
                             </div>

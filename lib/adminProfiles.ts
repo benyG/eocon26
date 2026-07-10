@@ -1,6 +1,7 @@
 export interface AdminPermissions {
   dashboard?: "read";
   pilotage?: "read" | "write";
+  "pilotage-meetings"?: "read" | "write";
   checkin?: "read" | "write";
   cfp?: "read" | "write";
   speakers?: "read" | "write";

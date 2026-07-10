@@ -202,11 +202,11 @@ export default function PrivacyPage() {
             </h3>
             <p className="text-gray-300 mb-3">
               All data is stored in encrypted databases with access controls. Communications are encrypted in transit (HTTPS/TLS).
-              We apply industry-standard security practices, consistent with our mission as a cybersecurity conference.
+              We apply industry-standard security practices, consistent with our mission as a cybersecurity convention.
             </p>
             <p className="text-gray-400">
               Toutes les données sont stockées dans des bases de données chiffrées avec contrôles d'accès. Les communications sont chiffrées en transit (HTTPS/TLS).
-              Nous appliquons les bonnes pratiques de sécurité du secteur, conformément à notre mission de conférence cybersécurité.
+              Nous appliquons les bonnes pratiques de sécurité du secteur, conformément à notre mission de convention cybersécurité.
             </p>
           </section>
 

@@ -98,7 +98,7 @@ export const DEFAULT_TEMPLATES: Record<string, TemplateDefault> = {
     bodyFr: `## EOCON 2026 — Sécuriser l'avenir
 {{organizer_name}} · 7e édition · {{event_date}} · {{event_venue}}
 
-EOCON est la conférence internationale de cybersécurité portée par {{organizer_name}} pour connecter les talents, les entreprises, les institutions et les décideurs qui construisent l'avenir numérique de l'Afrique francophone.
+EOCON est la convention internationale de cybersécurité portée par {{organizer_name}} pour connecter les talents, les entreprises, les institutions et les décideurs qui construisent l'avenir numérique de l'Afrique francophone.
 
 ## EOCON en bref
 - 1 000+ participants attendus · 15+ pays représentés · 91% de satisfaction lors de l'édition 2024
@@ -120,7 +120,7 @@ Contact : {{organizer_email}}`,
     bodyEn: `## EOCON 2026 — Secure the future
 {{organizer_name}} · 7th edition · {{event_date}} · {{event_venue}}
 
-EOCON is the international cybersecurity conference led by {{organizer_name}} to connect the talent, companies, institutions and decision-makers shaping the digital future of Francophone Africa.
+EOCON is the international cybersecurity convention led by {{organizer_name}} to connect the talent, companies, institutions and decision-makers shaping the digital future of Francophone Africa.
 
 ## EOCON at a glance
 - 1,000+ expected attendees · 15+ countries represented · 91% satisfaction in the 2024 edition

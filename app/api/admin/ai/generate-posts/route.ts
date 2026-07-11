@@ -91,6 +91,7 @@ export async function POST(req: NextRequest) {
     { label: "CTF / EyesOpenCTF", url: settings.url_ctf },
     { label: "Programme", url: settings.url_programme },
     { label: "Partenariat sponsor", url: settings.url_sponsor },
+    { label: "Bénévoles", url: settings.url_benevoles },
   ].filter(c => c.url);
 
   let openai;

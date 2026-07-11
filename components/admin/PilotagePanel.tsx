@@ -188,6 +188,7 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [injectingComm, setInjectingComm] = useState(false);
   // Auto-start on meetings view for users who only have pilotage-meetings access (no kanban access)
   const [view, setView] = useState<"kanban" | "meetings">(
     canReadKanban === false && !canWrite && canReadMeetings !== false ? "meetings" : "kanban"
@@ -338,6 +339,23 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
     }
   };
 
+  // Additive injection of the communication plan — never resets the kanban.
+  const injectCommPlan = async () => {
+    setInjectingComm(true);
+    try {
+      const res = await fetch("/api/admin/pilotage/comm-plan", { method: "POST" });
+      if (res.ok) {
+        const r = await res.json();
+        alert(`${__("Plan de communication injecté", "Communication plan injected")} : ${r.added} ${__("ajoutée(s)", "added")}, ${r.skipped} ${__("déjà présente(s)", "already present")}.`);
+        await load();
+      } else {
+        alert(__("Échec de l'injection du plan comm.", "Comm plan injection failed."));
+      }
+    } finally {
+      setInjectingComm(false);
+    }
+  };
+
   const assigneeOptions = members.filter((m: Member) => m.email);
 
   return (
@@ -362,6 +380,16 @@ export default function PilotagePanel({ canWrite = true, canReadKanban, canWrite
           {canWrite && tasks.length === 0 && (
             <button onClick={() => seed(false)} disabled={seeding} className="text-xs px-3 py-1.5 rounded bg-neon-green text-black font-bold font-mono">
               {seeding ? "…" : `↻ ${__("Feuille de route", "Roadmap")}`}
+            </button>
+          )}
+          {canWrite && (
+            <button
+              onClick={injectCommPlan}
+              disabled={injectingComm}
+              title={__("Ajoute les tâches du plan de communication au kanban, sans rien supprimer (idempotent).", "Adds the communication-plan tasks to the board without deleting anything (idempotent).")}
+              className="text-xs px-3 py-1.5 rounded border border-neon-green/50 text-neon-green font-mono hover:bg-neon-green/10"
+            >
+              {injectingComm ? "…" : `➕ ${__("Plan comm", "Comm plan")}`}
             </button>
           )}
           <button onClick={load} className="text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white font-mono">{loading ? "…" : "↻"}</button>

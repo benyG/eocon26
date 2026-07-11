@@ -1874,6 +1874,127 @@ function postPublicUrl(post: Record<string, unknown>): string | null {
   }
 }
 
+// ── Weekly communication checklist (shown above the social calendar) ──────────
+// Derived from the communication plan: the current week's phase drives the
+// recurring cadence, and any dated plan moment/gate falling in the week is added.
+// Check state is persisted per week in localStorage so the operator can tick off.
+const COMM_PLAN_PHASES: { start: string; end: string; fr: string; en: string; weeklyFr: string[]; weeklyEn: string[] }[] = [
+  { start: "2026-07-11", end: "2026-07-31", fr: "Fondations & blitz", en: "Foundations & blitz",
+    weeklyFr: ["5 posts (Call For Speakers, Compétition, Workshop opportunité, Sponsor opportunité, Bénévoles)", "2 posts « réaction » veille cyber", "1 batch publications ciblées (canaux prioritaires)", "1 batch prospection Apollo (speakers + sponsors)", "Relancer les non-cliqueurs du dernier email"],
+    weeklyEn: ["5 posts (Call For Speakers, Competition, Workshop opportunity, Sponsor opportunity, Volunteers)", "2 cyber-watch reaction posts", "1 targeted-publications batch (priority channels)", "1 Apollo prospecting batch (speakers + sponsors)", "Follow up last email's non-clickers"] },
+  { start: "2026-08-01", end: "2026-08-31", fr: "Contenu & sponsors", en: "Content & sponsors",
+    weeklyFr: ["5 posts (annonces speakers confirmés + sponsor)", "2 posts veille cyber", "Pitchs médias (communiqués)", "Séquence sponsors (deck aux prospects tièdes)", "1 batch prospection Apollo"],
+    weeklyEn: ["5 posts (confirmed-speaker announcements + sponsor)", "2 cyber-watch posts", "Media pitches (press releases)", "Sponsor sequence (deck to warm prospects)", "1 Apollo prospecting batch"] },
+  { start: "2026-09-01", end: "2026-09-30", fr: "Inscriptions & étudiants", en: "Registrations & students",
+    weeklyFr: ["1–2 posts/jour (Inscriptions, Speaker, Session)", "Campagne étudiants (universités, clubs)", "Email de la semaine + relance non-cliqueurs", "2 posts veille cyber"],
+    weeklyEn: ["1–2 posts/day (Registrations, Speaker, Session)", "Student campaign (universities, clubs)", "Weekly email + non-clicker follow-up", "2 cyber-watch posts"] },
+  { start: "2026-10-01", end: "2026-10-31", fr: "Programme & médias", en: "Programme & media",
+    weeklyFr: ["1–2 posts/jour (Session, Speaker, Sponsor)", "Campagne médias (communiqués)", "Alimenter le compte à rebours", "Email de la semaine + relance"],
+    weeklyEn: ["1–2 posts/day (Session, Speaker, Sponsor)", "Media campaign (press releases)", "Feed the countdown", "Weekly email + follow-up"] },
+  { start: "2026-11-01", end: "2026-11-21", fr: "Conversion massive", en: "Mass conversion",
+    weeklyFr: ["2–3 posts/jour (urgence, teasers, CTF, témoignages)", "Diffusion quotidienne WhatsApp / Telegram / Discord", "Relances email de conversion (J-14/7/3/1)", "Boost payant sur le post pivot de la semaine"],
+    weeklyEn: ["2–3 posts/day (urgency, teasers, CTF, testimonials)", "Daily WhatsApp / Telegram / Discord blast", "Conversion email relances (D-14/7/3/1)", "Paid boost on the week's pivotal post"] },
+  { start: "2026-11-22", end: "2026-11-28", fr: "Semaine EOCON", en: "EOCON week",
+    weeklyFr: ["Couverture live quotidienne (extraits, moments forts)", "Emails d'accès aux inscrits", "Relayer sur communautés & médias partenaires"],
+    weeklyEn: ["Daily live coverage (clips, highlights)", "Access emails to registrants", "Relay on partner communities & media"] },
+  { start: "2026-11-29", end: "2027-01-31", fr: "Capitalisation", en: "Capitalisation",
+    weeklyFr: ["Récaps & témoignages (post-événement)", "Remerciements + rapport sponsors", "Save the date 2027"],
+    weeklyEn: ["Recaps & testimonials (post-event)", "Thank-yous + sponsor report", "Save the date 2027"] },
+];
+
+const COMM_PLAN_MOMENTS: { date: string; fr: string; en: string; gate?: boolean }[] = [
+  { date: "2026-07-11", fr: "Post d'ouverture (Call For Speakers + appel formateurs) — toutes plateformes", en: "Kickoff post (Call For Speakers + trainer call) — all platforms" },
+  { date: "2026-07-12", fr: "Lancer l'appel à volontaires (post « Bénévoles »)", en: "Launch the volunteer call (\"Volunteers\" post)" },
+  { date: "2026-07-15", fr: "Email de lancement + séquence de bienvenue automatisée", en: "Launch email + automated welcome sequence" },
+  { date: "2026-07-31", fr: "GATE : canaux P1 actifs · pipeline sponsors ≥40 · ≥25 candidatures bénévoles", en: "GATE: P1 channels live · sponsor pipeline ≥40 · ≥25 volunteer applications", gate: true },
+  { date: "2026-08-31", fr: "GATE : ≥1 sponsor Gold/Platinum signé", en: "GATE: ≥1 Gold/Platinum sponsor signed", gate: true },
+  { date: "2026-09-15", fr: "Ouverture des inscriptions (post + email + boost payant)", en: "Registration opening (post + email + paid boost)" },
+  { date: "2026-09-30", fr: "GATE : 4 workshops retenus · programme quasi complet", en: "GATE: 4 workshops selected · programme near-complete", gate: true },
+  { date: "2026-10-14", fr: "Lancer le compte à rebours (≈ J-45)", en: "Launch the countdown (≈ D-45)" },
+  { date: "2026-10-31", fr: "GATE : 10 sponsors · ~650 inscrits (65 %) · ~200 compétiteurs", en: "GATE: 10 sponsors · ~650 registrations (65%) · ~200 competitors", gate: true },
+  { date: "2026-11-01", fr: "Passer à 2–3 posts/jour + diffusion quotidienne WhatsApp/Telegram/Discord", en: "Switch to 2–3 posts/day + daily WhatsApp/Telegram/Discord", gate: false },
+  { date: "2026-11-21", fr: "GATE : ~1 000 inscrits · 500 compétiteurs · 20 bénévoles", en: "GATE: ~1,000 registrations · 500 competitors · 20 volunteers", gate: true },
+  { date: "2026-11-28", fr: "Cérémonie de la Compétition (CTF)", en: "Competition (CTF) ceremony" },
+  { date: "2026-12-15", fr: "Remerciements officiels + rapport sponsors + save-the-date 2027", en: "Official thank-yous + sponsor report + save-the-date 2027" },
+];
+
+function isoDay(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function SocialWeekChecklist({ adminLang }: { adminLang: string }) {
+  const now = new Date();
+  const monday = new Date(now); monday.setHours(0, 0, 0, 0);
+  monday.setDate(now.getDate() + (now.getDay() === 0 ? -6 : 1 - now.getDay()));
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6); sunday.setHours(23, 59, 59, 999);
+  const weekKey = isoDay(monday);
+
+  const phase = COMM_PLAN_PHASES.find(p => now >= new Date(p.start + "T00:00:00") && now <= new Date(p.end + "T23:59:59"));
+  const beforeStart = now < new Date(COMM_PLAN_PHASES[0].start + "T00:00:00");
+  const recurring = phase ? (adminLang === "en" ? phase.weeklyEn : phase.weeklyFr) : [];
+  const moments = COMM_PLAN_MOMENTS.filter(m => { const d = new Date(m.date + "T12:00:00"); return d >= monday && d <= sunday; });
+
+  const items: { id: string; label: string; date?: string; gate?: boolean }[] = [
+    ...moments.map((m, i) => ({ id: `m:${m.date}:${i}`, label: adminLang === "en" ? m.en : m.fr, date: m.date, gate: m.gate })),
+    ...recurring.map((r, i) => ({ id: `r:${weekKey}:${i}`, label: r })),
+  ];
+
+  const storeKey = `commWeekChecklist:${weekKey}`;
+  const [checked, setChecked] = useState<Record<string, boolean>>(() => {
+    if (typeof window === "undefined") return {};
+    try { return JSON.parse(localStorage.getItem(storeKey) || "{}"); } catch { return {}; }
+  });
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("commWeekChecklistCollapsed") === "1";
+  });
+  const toggle = (id: string) => {
+    setChecked(prev => {
+      const next = { ...prev, [id]: !prev[id] };
+      try { localStorage.setItem(storeKey, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+  const setCollapse = (v: boolean) => { setCollapsed(v); try { localStorage.setItem("commWeekChecklistCollapsed", v ? "1" : "0"); } catch { /* ignore */ } };
+
+  const doneCount = items.filter(it => checked[it.id]).length;
+  const fmtRange = (d: Date) => d.toLocaleDateString(adminLang === "en" ? "en-GB" : "fr-FR", { day: "numeric", month: "short" });
+
+  return (
+    <div className="cyber-card rounded-xl p-4 mb-4 border-l-2" style={{ borderLeftColor: "var(--ac)" }}>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-bold" style={{ color: "var(--ac)" }}>🗓️ {adminLang === "en" ? "This week's checklist" : "Checklist de la semaine"}</span>
+          <span className="text-xs text-gray-500 font-mono">{fmtRange(monday)} – {fmtRange(sunday)}</span>
+          {phase && <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "1px solid var(--ac-bdr)" }}>{adminLang === "en" ? phase.en : phase.fr}</span>}
+        </div>
+        <div className="flex items-center gap-2">
+          {items.length > 0 && <span className="text-xs font-mono text-gray-400">{doneCount}/{items.length}</span>}
+          <button onClick={() => setCollapse(!collapsed)} className="text-xs text-gray-500 hover:text-white px-1">{collapsed ? "▸" : "▾"}</button>
+        </div>
+      </div>
+      {!collapsed && (
+        <div className="mt-3">
+          {beforeStart && <p className="text-xs text-gray-500 mb-2">{adminLang === "en" ? "The communication plan starts on 11 July 2026." : "Le plan de communication démarre le 11 juillet 2026."}</p>}
+          {items.length === 0 && !beforeStart && <p className="text-xs text-gray-500">{adminLang === "en" ? "No plan item scheduled this week." : "Aucune action planifiée cette semaine."}</p>}
+          <div className="space-y-1.5">
+            {items.map(it => (
+              <label key={it.id} className="flex items-start gap-2 cursor-pointer group">
+                <input type="checkbox" checked={!!checked[it.id]} onChange={() => toggle(it.id)} className="mt-0.5 shrink-0" style={{ accentColor: "var(--ac)" }} />
+                <span className={`text-xs leading-snug ${checked[it.id] ? "line-through text-gray-600" : "text-gray-300"}`}>
+                  {it.date && <span className="font-mono mr-1.5" style={{ color: it.gate ? "#ff0066" : "var(--ac)" }}>{it.gate ? "⚑ " : ""}{new Date(it.date + "T12:00:00").toLocaleDateString(adminLang === "en" ? "en-GB" : "fr-FR", { day: "numeric", month: "short" })}</span>}
+                  {it.label}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   const { t, lang: adminLang } = useAdminT();
   const today = new Date();
@@ -1901,7 +2022,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T09:00`;
   };
   // Dynamic context
-  const [contextType, setContextType] = useState<"speaker" | "session" | "workshop" | "sponsor" | "countdown" | "cfp" | "inscriptions" | "ctf" | "custom">("speaker");
+  const [contextType, setContextType] = useState<"speaker" | "session" | "workshop" | "sponsor" | "countdown" | "cfp" | "inscriptions" | "ctf" | "volunteer" | "custom">("speaker");
   // For "workshop" and "sponsor": choose the communication angle.
   //  - "announce": announce/highlight a specific workshop or sponsor picked from the combobox.
   //  - "opportunity": encourage trainers to host a paid workshop / companies to become a sponsor.
@@ -1966,6 +2087,10 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
         return adminLang === "en"
           ? "Announcement of the EyesOpenCTF — the Capture The Flag of EOCON 2026. Present the cybersecurity challenge, its categories, prizes to win and the expected level of participants. Invite teams and individuals to register and compete."
           : "Annonce de l'EyesOpenCTF — le Capture The Flag d'EOCON 2026. Présenter le challenge cybersécurité, ses catégories, les lots à remporter et le niveau attendu des participants. Inviter les équipes et individus à s'inscrire et à se challenger.";
+      case "volunteer":
+        return adminLang === "en"
+          ? "Volunteer call for EOCON 2026 (open since 12 July). Recruit volunteers to help run the event — online support, chat moderation, on-site logistics, welcome & protocol. Highlight what they gain: hands-on experience, certificate, networking, being part of the team building Africa's cybersecurity future. Invite them to apply."
+          : "Appel à volontaires pour EOCON 2026 (ouvert depuis le 12 juillet). Recruter des bénévoles pour aider à faire vivre l'événement — support en ligne, modération du chat, logistique sur place, accueil & protocole. Mettre en avant ce qu'ils y gagnent : expérience concrète, certificat, réseau, faire partie de l'équipe qui construit l'avenir cyber de l'Afrique. Inviter à candidater.";
       case "custom":
         return "";
       default:
@@ -2136,6 +2261,9 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
       {/* ── RÉSEAUX SOCIAUX ── */}
       <>
 
+      {/* Weekly communication checklist — so the operator never misses a plan action */}
+      <SocialWeekChecklist adminLang={adminLang} />
+
       {/* Calendar + Panel */}
       <div className="flex gap-4">
         {/* Calendar */}
@@ -2211,6 +2339,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                   { key: "cfp", icon: "📝", label: "CFP" },
                   { key: "inscriptions", icon: "🎟", label: "Inscriptions" },
                   { key: "ctf", icon: "🏆", label: "CTF" },
+                  { key: "volunteer", icon: "🙌", label: adminLang === "en" ? "Volunteer" : "Bénévoles" },
                   { key: "custom", icon: "✏️", label: adminLang === "en" ? "Custom" : "Personnalisé" },
                 ] as const).map(ctx => (
                   <button
@@ -2368,15 +2497,17 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                 inscriptions: { text: "S'inscrire à EOCON 2026 →", urlKey: "url_inscription" },
                 cfp: { text: "Soumettre mon talk →", urlKey: "url_cfp" },
                 ctf: { text: "Rejoindre l'EyesOpenCTF →", urlKey: "url_ctf" },
+                volunteer: { text: "Devenir bénévole →", urlKey: "url_benevoles" },
                 speaker: { text: "Voir le programme →", urlKey: "url_programme" },
                 session: { text: "Voir le programme →", urlKey: "url_programme" },
                 workshop: { text: "S'inscrire →", urlKey: "url_inscription" },
                 countdown: { text: "S'inscrire →", urlKey: "url_inscription" },
                 sponsor: { text: "Devenir partenaire →", urlKey: "url_sponsor" },
               };
-              // Workshop on the "opportunity" axis invites trainers to propose a workshop.
+              // Workshop on the "opportunity" axis invites trainers to propose a workshop
+              // (same submission entry point as the Call For Speakers).
               const cta = (contextType === "workshop" && commAxis === "opportunity")
-                ? { text: "Proposer un workshop →", urlKey: "url_sponsor" }
+                ? { text: "Proposer un workshop →", urlKey: "url_cfp" }
                 : ctaMap[contextType];
               if (!cta) return null;
               const url = eventSettings[cta.urlKey] || "";
@@ -7242,6 +7373,57 @@ function MetricRow({ label, value, color }: { label: string; value: string | num
   );
 }
 
+// ── Objectifs vs réalisé (plan de communication) ──────────────────────────────
+// Cibles validées du plan de communication EOCON 2026. Comparées aux compteurs
+// live renvoyés par /api/admin/stats. Ajustez les cibles ici si elles évoluent.
+const EOCON_GOALS: { key: string; fr: string; en: string; target: number; color: string }[] = [
+  { key: "registrations", fr: "Inscrits", en: "Registrations", target: 1000, color: "#3b82f6" },
+  { key: "ctfCompetitors", fr: "Compétiteurs (CTF)", en: "CTF competitors", target: 500, color: "#db2777" },
+  { key: "cfp", fr: "Soumissions speakers", en: "Speaker submissions", target: 70, color: "#7c3aed" },
+  { key: "volunteers", fr: "Bénévoles", en: "Volunteers", target: 20, color: "#0e7490" },
+  { key: "sponsors", fr: "Sponsors", en: "Sponsors", target: 10, color: "#c2680a" },
+  { key: "workshops", fr: "Workshops", en: "Workshops", target: 4, color: "#0d9488" },
+];
+
+function GoalsPanel({ stats, lang }: { stats: Record<string, number>; lang: string }) {
+  const eventDate = new Date("2026-11-28T09:00:00");
+  const daysLeft = Math.max(0, Math.ceil((eventDate.getTime() - Date.now()) / 86400000));
+  return (
+    <div className="cyber-card rounded-xl p-5 mb-6">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <h2 className="text-sm font-bold uppercase tracking-widest" style={{ color: "var(--ac)" }}>🎯 {lang === "en" ? "Goals vs actuals" : "Objectifs vs réalisé"}</h2>
+        <span className="text-xs font-mono text-gray-500">J-{daysLeft} · {lang === "en" ? "target 28 Nov 2026" : "cible 28 nov. 2026"}</span>
+      </div>
+      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}>
+        {EOCON_GOALS.map(g => {
+          const val = stats[g.key] || 0;
+          const pct = g.target > 0 ? Math.min(100, Math.round((val / g.target) * 100)) : 0;
+          const reached = val >= g.target;
+          return (
+            <div key={g.key} className="rounded-lg p-3 border" style={{ borderColor: g.color + "40", background: g.color + "12" }}>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ background: g.color }} />
+                <span className="text-xs text-gray-400 uppercase tracking-wide truncate">{lang === "en" ? g.en : g.fr}</span>
+              </div>
+              <div style={{ fontVariantNumeric: "tabular-nums" }}>
+                <span className="text-2xl font-black text-white font-mono">{val.toLocaleString(lang === "en" ? "en" : "fr")}</span>
+                <span className="text-sm text-gray-500 font-mono"> / {g.target.toLocaleString(lang === "en" ? "en" : "fr")}</span>
+              </div>
+              <div className="h-1.5 rounded-full mt-2 overflow-hidden" style={{ background: g.color + "26" }}>
+                <div className="h-full rounded-full transition-all" style={{ width: pct + "%", background: g.color }} />
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-xs font-mono" style={{ color: g.color }}>{pct}%</span>
+                {reached && <span className="text-xs font-bold" style={{ color: "#00ff9d" }}>✓ {lang === "en" ? "reached" : "atteint"}</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function DashboardHealthPanel({
   stats, extra, analyticsData, onNavigate, canNavigate,
 }: {
@@ -8058,6 +8240,7 @@ export default function AdminDashboard() {
                   <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ background: "#ff0066" }} />Critique</span>
                 </div>
               </div>
+              <GoalsPanel stats={stats} lang={lang} />
               <DashboardHealthPanel
                 stats={stats}
                 extra={dashboardExtra}

@@ -83,6 +83,26 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Auto-subscribe every registrant (incl. pre-registrations) to the newsletter.
+    // Idempotent by email; never overwrites an existing subscriber, and a failure
+    // here must not break the registration.
+    try {
+      await prisma.newsletterSubscriber.upsert({
+        where: { email },
+        create: {
+          email,
+          firstName: fname.slice(0, 80),
+          lastName: lname.slice(0, 80),
+          company: org?.slice(0, 200) || undefined,
+          linkedin: linkedin?.slice(0, 191) || undefined,
+          source: "registration",
+        },
+        update: {},
+      });
+    } catch (e) {
+      console.error("[Register newsletter subscribe]", e);
+    }
+
     // ── No tickets on sale: send the "notify me when tickets are available" email ──
     if (preRegistration) {
       const isFr = lang_expression !== "en";

@@ -129,6 +129,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [seedingPlan, setSeedingPlan] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadSubscribers = useCallback(async () => {
@@ -538,12 +539,34 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
               </p>
             </div>
             {canWrite && (
-              <button
-                onClick={() => { setShowImport(true); setCsvText(""); setImportResult(null); setImportError(null); }}
-                className="btn-neon px-4 py-2 rounded text-xs"
-              >
-                ⬆ {__("Importer CSV Mailchimp", "Import Mailchimp CSV")}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    if (backfilling) return;
+                    if (!confirm(__("Ajouter tous les inscrits/préinscrits à la newsletter ? (aucun doublon, aucune suppression)", "Add all registrants/pre-registrants to the newsletter? (no duplicates, no deletion)"))) return;
+                    setBackfilling(true);
+                    try {
+                      const r = await fetch("/api/admin/newsletter/backfill-registrants", { method: "POST" });
+                      if (r.ok) {
+                        const d = await r.json();
+                        alert(`${__("Préinscrits ajoutés", "Registrants added")} : ${d.added} ${__("nouveau(x)", "new")}, ${d.alreadyPresent} ${__("déjà présent(s)", "already present")}.`);
+                        await loadSubscribers();
+                      } else { alert(__("Échec de l'import des préinscrits.", "Failed to import registrants.")); }
+                    } finally { setBackfilling(false); }
+                  }}
+                  disabled={backfilling}
+                  title={__("Ajoute tous les inscrits/préinscrits à la liste newsletter (idempotent).", "Adds all registrants/pre-registrants to the newsletter list (idempotent).")}
+                  className="text-xs px-3 py-2 rounded border border-neon-green/50 text-neon-green font-mono hover:bg-neon-green/10"
+                >
+                  {backfilling ? "…" : `➕ ${__("Préinscrits", "Registrants")}`}
+                </button>
+                <button
+                  onClick={() => { setShowImport(true); setCsvText(""); setImportResult(null); setImportError(null); }}
+                  className="btn-neon px-4 py-2 rounded text-xs"
+                >
+                  ⬆ {__("Importer CSV Mailchimp", "Import Mailchimp CSV")}
+                </button>
+              </div>
             )}
           </div>
 

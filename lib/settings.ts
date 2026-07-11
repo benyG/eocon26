@@ -19,7 +19,7 @@ export function getCtaForContentType(type: string, settings: Record<string, stri
   // Workshop on the "opportunity" axis = a call to trainers to host a paid
   // workshop, so the CTA invites them to propose one rather than to attend.
   if (type === "workshop" && axis === "opportunity") {
-    return { text: "Proposer un workshop →", textEn: "Host a workshop →", url: settings.url_sponsor || `${base}/#contact` };
+    return { text: "Proposer un workshop →", textEn: "Host a workshop →", url: settings.url_cfp || `${base}/#cfp` };
   }
   const ctaMap: Record<string, { text: string; textEn: string; url: string }> = {
     speaker:      { text: "Voir le programme →",        textEn: "View the programme →",      url: settings.url_programme  || `${base}/#programme` },

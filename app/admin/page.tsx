@@ -2374,9 +2374,10 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                 countdown: { text: "S'inscrire →", urlKey: "url_inscription" },
                 sponsor: { text: "Devenir partenaire →", urlKey: "url_sponsor" },
               };
-              // Workshop on the "opportunity" axis invites trainers to propose a workshop.
+              // Workshop on the "opportunity" axis invites trainers to propose a workshop
+              // (same submission entry point as the Call For Speakers).
               const cta = (contextType === "workshop" && commAxis === "opportunity")
-                ? { text: "Proposer un workshop →", urlKey: "url_sponsor" }
+                ? { text: "Proposer un workshop →", urlKey: "url_cfp" }
                 : ctaMap[contextType];
               if (!cta) return null;
               const url = eventSettings[cta.urlKey] || "";

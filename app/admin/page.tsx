@@ -1902,6 +1902,10 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
   // Dynamic context
   const [contextType, setContextType] = useState<"speaker" | "session" | "workshop" | "sponsor" | "countdown" | "cfp" | "inscriptions" | "ctf" | "custom">("speaker");
+  // For "workshop" and "sponsor": choose the communication angle.
+  //  - "announce": announce/highlight a specific workshop or sponsor picked from the combobox.
+  //  - "opportunity": encourage trainers to host a paid workshop / companies to become a sponsor.
+  const [commAxis, setCommAxis] = useState<"announce" | "opportunity">("announce");
   const [contextData, setContextData] = useState<{
     speakers: Record<string, unknown>[];
     sessions: Record<string, unknown>[];
@@ -1915,7 +1919,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [eventSettings, setEventSettings] = useState<Record<string, string>>({});
 
-  const generateBriefFromContext = (type: string, item: Record<string, unknown> | null, data: typeof contextData): string => {
+  const generateBriefFromContext = (type: string, item: Record<string, unknown> | null, data: typeof contextData, axis: "announce" | "opportunity" = "announce"): string => {
     if (!data) return "";
     switch (type) {
       case "speaker":
@@ -1929,11 +1933,19 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
           ? `Highlight of the session "${item.title as string}"${item.speakerName ? ` by ${item.speakerName}` : ""}${item.date ? ` on ${item.date}` : ""}${item.time ? ` at ${item.time}` : ""}. ${item.description ? `Context: ${(item.description as string).slice(0, 150)}...` : ""}`
           : `Mise en avant de la session "${item.title as string}"${item.speakerName ? ` par ${item.speakerName}` : ""}${item.date ? ` le ${item.date}` : ""}${item.time ? ` à ${item.time}` : ""}. ${item.description ? `Contexte : ${(item.description as string).slice(0, 150)}...` : ""}`;
       case "workshop":
+        if (axis === "opportunity")
+          return adminLang === "en"
+            ? "Call for trainers and experts: host your own paid training workshop at EOCON 2026. Facilitators can sell access to their workshop and monetize their expertise in front of a qualified cybersecurity audience. Emphasize the revenue opportunity, the professional visibility and the international audience, and invite them to submit a workshop proposal."
+            : "Appel aux formateurs et experts : organisez votre propre atelier de formation payant à EOCON 2026. Les intervenants peuvent vendre l'accès à leur workshop et monétiser leur expertise devant une audience cyber qualifiée. Mettre en avant l'opportunité de revenus, la visibilité professionnelle et l'audience internationale, et inviter à proposer un workshop.";
         if (!item) return adminLang === "en" ? "Announcement of an EOCON 2026 workshop. Select a workshop below to customize this brief with its title, instructor, level and duration." : "Annonce d'un workshop EOCON 2026. Sélectionner un workshop ci-dessous pour personnaliser ce brief avec son titre, son animateur, son niveau et sa durée.";
         return adminLang === "en"
           ? `Announcement of the workshop "${item.title as string}"${item.instructor ? ` led by ${item.instructor}` : ""}, level ${item.level as string}, duration ${item.duration as string}. ${(item.description as string).slice(0, 150)}... Invite participants to register.`
           : `Annonce du workshop "${item.title as string}"${item.instructor ? ` animé par ${item.instructor}` : ""}, niveau ${item.level as string}, durée ${item.duration as string}. ${(item.description as string).slice(0, 150)}... Inviter les participants à s'inscrire.`;
       case "sponsor":
+        if (axis === "opportunity")
+          return adminLang === "en"
+            ? "Sponsorship opportunity for EOCON 2026: invite companies to seize the chance to become a partner. Highlight the value of associating their brand with the leading bilingual cybersecurity convention in Africa — visibility with a qualified audience, employer branding, lead generation and impact — and invite them to become a partner."
+            : "Opportunité de sponsoring pour EOCON 2026 : inviter les entreprises à saisir l'opportunité de devenir partenaire. Mettre en avant la valeur d'associer leur marque à la convention de cybersécurité bilingue de référence en Afrique — visibilité auprès d'une audience qualifiée, marque employeur, génération de leads et impact — et les inviter à devenir partenaire.";
         if (!item) return adminLang === "en" ? "Highlight of an EOCON 2026 partner. Select a sponsor below to customize this brief with their name and partnership level." : "Mise en avant d'un partenaire EOCON 2026. Sélectionner un sponsor ci-dessous pour personnaliser ce brief avec son nom et son niveau de partenariat.";
         return adminLang === "en"
           ? `Highlight and thanks to ${item.name as string}, ${item.tier as string} partner of EOCON 2026. Showcase their support and commitment to cybersecurity in Africa.`
@@ -2004,7 +2016,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
     const pad = (n: number) => String(n).padStart(2, "0");
     const clickedStr = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
     setScheduleDate(date <= todayStart ? getTomorrow09h() : `${clickedStr}T09:00`);
-    const newBrief = generateBriefFromContext(contextType, selectedItem, contextData);
+    const newBrief = generateBriefFromContext(contextType, selectedItem, contextData, commAxis);
     setBrief(newBrief);
   };
 
@@ -2015,7 +2027,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
     const res = await fetch("/api/admin/ai/generate-posts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brief, contextType, contextItem: selectedItem }),
+      body: JSON.stringify({ brief, contextType, contextItem: selectedItem, axis: ["workshop", "sponsor"].includes(contextType) ? commAxis : undefined }),
     });
     if (res.ok) {
       const data = await res.json() as Record<string, unknown>;
@@ -2206,7 +2218,8 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                     onClick={() => {
                       setContextType(ctx.key);
                       setSelectedItem(null);
-                      const newBrief = generateBriefFromContext(ctx.key, null, contextData);
+                      setCommAxis("announce");
+                      const newBrief = generateBriefFromContext(ctx.key, null, contextData, "announce");
                       setBrief(newBrief);
                       setGeneratedPosts(null);
                       setGeneratedPostIds({});
@@ -2220,8 +2233,36 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
               </div>
             </div>
 
-            {/* Item selector (for speaker/session/workshop/sponsor) */}
-            {contextData && ["speaker", "session", "workshop", "sponsor"].includes(contextType) && (
+            {/* Communication axis selector (workshop / sponsor) */}
+            {["workshop", "sponsor"].includes(contextType) && (
+              <div className="mb-3">
+                <p className="text-xs text-gray-500 mb-1 uppercase tracking-wider">{adminLang === "en" ? "Communication angle" : "Axe de communication"}</p>
+                <div className="grid grid-cols-2 gap-1">
+                  {([
+                    { key: "announce", label: contextType === "workshop" ? (adminLang === "en" ? "📣 Announce a workshop" : "📣 Annoncer un workshop") : (adminLang === "en" ? "📣 Highlight a sponsor" : "📣 Mettre en avant un sponsor") },
+                    { key: "opportunity", label: contextType === "workshop" ? (adminLang === "en" ? "💡 Trainer opportunity" : "💡 Opportunité formateur") : (adminLang === "en" ? "💡 Sponsorship opportunity" : "💡 Opportunité sponsor") },
+                  ] as const).map(a => (
+                    <button
+                      key={a.key}
+                      onClick={() => {
+                        setCommAxis(a.key);
+                        setSelectedItem(null);
+                        const newBrief = generateBriefFromContext(contextType, null, contextData, a.key);
+                        setBrief(newBrief);
+                        setGeneratedPosts(null);
+                        setGeneratedPostIds({});
+                      }}
+                      className={`p-2 rounded-lg border text-xs text-left transition-all ${commAxis === a.key ? "border-neon-green/50 bg-neon-green/10 text-neon-green" : "border-gray-800 hover:border-gray-600 text-gray-500"}`}
+                    >
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Item selector: always for speaker/session; for workshop/sponsor only on the "announce" axis */}
+            {contextData && (["speaker", "session"].includes(contextType) || (["workshop", "sponsor"].includes(contextType) && commAxis === "announce")) && (
               <div className="mb-3">
                 <p className="text-xs text-gray-500 mb-1 uppercase tracking-wider">
                   {contextType === "speaker" ? t.selectSpeakerLabel :
@@ -2241,7 +2282,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                     else if (contextType === "sponsor") items = contextData.sponsors;
                     const item = items.find(i => i.id === id) || null;
                     setSelectedItem(item);
-                    const newBrief = generateBriefFromContext(contextType, item, contextData);
+                    const newBrief = generateBriefFromContext(contextType, item, contextData, commAxis);
                     setBrief(newBrief);
                     setGeneratedPosts(null);
                     setGeneratedPostIds({});
@@ -2333,7 +2374,10 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                 countdown: { text: "S'inscrire →", urlKey: "url_inscription" },
                 sponsor: { text: "Devenir partenaire →", urlKey: "url_sponsor" },
               };
-              const cta = ctaMap[contextType];
+              // Workshop on the "opportunity" axis invites trainers to propose a workshop.
+              const cta = (contextType === "workshop" && commAxis === "opportunity")
+                ? { text: "Proposer un workshop →", urlKey: "url_sponsor" }
+                : ctaMap[contextType];
               if (!cta) return null;
               const url = eventSettings[cta.urlKey] || "";
               return (

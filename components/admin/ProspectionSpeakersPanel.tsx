@@ -546,9 +546,11 @@ function EmailModal({ profile, contact, onClose, onSave }: { profile: SpeakerPro
   const [generating, setGenerating] = useState(false);
   const [displayLang, setDisplayLang] = useState<"fr" | "en">(langPref);
   const [savedEmail, setSavedEmail] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const generate = async () => {
     setGenerating(true);
+    setError(null);
     try {
       const res = await fetch("/api/admin/ai/speaker-outreach-email", {
         method: "POST",
@@ -559,9 +561,23 @@ function EmailModal({ profile, contact, onClose, onSave }: { profile: SpeakerPro
           contactStatus: contact?.contactStatus, langPref, mode,
         }),
       });
-      if (res.ok) setEmailResult(await res.json());
+      if (res.ok) {
+        setEmailResult(await res.json());
+      } else {
+        const d = await res.json().catch(() => ({ error: `Erreur ${res.status}` }));
+        setError((d as { error?: string }).error || `Erreur ${res.status}`);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur réseau");
     } finally { setGenerating(false); }
   };
+
+  // Auto-generate on open when there is no saved draft, so the button
+  // immediately produces a visible result instead of an empty form.
+  useEffect(() => {
+    if (!emailResult) generate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const subject = emailResult ? (displayLang === "fr" ? emailResult.subjectFr : emailResult.subjectEn) : "";
   const body = emailResult ? (displayLang === "fr" ? emailResult.bodyFr : emailResult.bodyEn) : "";
@@ -592,8 +608,13 @@ function EmailModal({ profile, contact, onClose, onSave }: { profile: SpeakerPro
           </div>
         </div>
         <button onClick={generate} disabled={generating} className="btn-neon px-4 py-2 rounded text-xs w-full mb-4">
-          {generating ? "Génération IA…" : "✨ Générer l'email"}
+          {generating ? "Génération IA…" : emailResult ? "🔄 Régénérer l'email" : "✨ Générer l'email"}
         </button>
+        {error && (
+          <div className="rounded-lg border border-red-900 bg-red-950/40 px-3 py-2 text-xs text-red-400 mb-4 whitespace-pre-wrap">
+            ⚠️ {error}
+          </div>
+        )}
         {emailResult && (
           <div className="space-y-3">
             <div className="flex gap-2 mb-2">
@@ -640,16 +661,33 @@ function BriefModal({ profile, onClose, onSave }: { profile: SpeakerProfile; onC
   });
   const [loading, setLoading] = useState(false);
   const [savedBrief, setSavedBrief] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadBrief = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/ai/speaker-brief", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: profile.name, title: profile.title, org: profile.org, topicMain: profile.topicMain, linkedin: profile.linkedin, notes: profile.notes, p1: profile.p1, p3: profile.p3, p4: profile.p4 }),
+      });
+      if (res.ok) {
+        setBrief(await res.json());
+      } else {
+        const d = await res.json().catch(() => ({ error: `Erreur ${res.status}` }));
+        setError((d as { error?: string }).error || `Erreur ${res.status}`);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur réseau");
+    } finally { setLoading(false); }
+  };
 
   useEffect(() => {
     if (brief) return; // already loaded from saved draft
-    setLoading(true);
-    fetch("/api/admin/ai/speaker-brief", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: profile.name, title: profile.title, org: profile.org, topicMain: profile.topicMain, linkedin: profile.linkedin, notes: profile.notes, p1: profile.p1, p3: profile.p3, p4: profile.p4 }),
-    }).then(r => r.ok ? r.json() : null).then(d => { if (d) setBrief(d); }).finally(() => setLoading(false));
-  }, [profile]); // eslint-disable-line react-hooks/exhaustive-deps
+    loadBrief();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile]);
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
@@ -659,6 +697,12 @@ function BriefModal({ profile, onClose, onSave }: { profile: SpeakerProfile; onC
           <button onClick={onClose} className="text-gray-500 hover:text-white text-xs">✕</button>
         </div>
         {loading && <p className="text-gray-500 text-xs">Génération du brief…</p>}
+        {error && !loading && (
+          <div className="rounded-lg border border-red-900 bg-red-950/40 px-3 py-3 text-xs text-red-400 flex items-center justify-between gap-3">
+            <span className="whitespace-pre-wrap">⚠️ {error}</span>
+            <button onClick={loadBrief} className="shrink-0 px-3 py-1.5 rounded btn-neon">🔄 Réessayer</button>
+          </div>
+        )}
         {brief && (
           <div className="space-y-4 text-xs">
             <div>

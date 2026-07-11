@@ -1879,12 +1879,12 @@ function postPublicUrl(post: Record<string, unknown>): string | null {
 // recurring cadence, and any dated plan moment/gate falling in the week is added.
 // Check state is persisted per week in localStorage so the operator can tick off.
 const COMM_PLAN_PHASES: { start: string; end: string; fr: string; en: string; weeklyFr: string[]; weeklyEn: string[] }[] = [
-  { start: "2026-07-11", end: "2026-07-31", fr: "Fondations & blitz", en: "Foundations & blitz",
-    weeklyFr: ["5 posts (Call For Speakers, Compétition, Workshop opportunité, Sponsor opportunité, Bénévoles)", "2 posts « réaction » veille cyber", "1 batch publications ciblées (canaux prioritaires)", "1 batch prospection Apollo (speakers + sponsors)", "Relancer les non-cliqueurs du dernier email"],
-    weeklyEn: ["5 posts (Call For Speakers, Competition, Workshop opportunity, Sponsor opportunity, Volunteers)", "2 cyber-watch reaction posts", "1 targeted-publications batch (priority channels)", "1 Apollo prospecting batch (speakers + sponsors)", "Follow up last email's non-clickers"] },
-  { start: "2026-08-01", end: "2026-08-31", fr: "Contenu & sponsors", en: "Content & sponsors",
-    weeklyFr: ["5 posts (annonces speakers confirmés + sponsor)", "2 posts veille cyber", "Pitchs médias (communiqués)", "Séquence sponsors (deck aux prospects tièdes)", "1 batch prospection Apollo"],
-    weeklyEn: ["5 posts (confirmed-speaker announcements + sponsor)", "2 cyber-watch posts", "Media pitches (press releases)", "Sponsor sequence (deck to warm prospects)", "1 Apollo prospecting batch"] },
+  { start: "2026-07-11", end: "2026-07-31", fr: "Fondations · fer de lance : Call For Speakers", en: "Foundations · spearhead: Call For Speakers",
+    weeklyFr: ["5 posts — contexte dominant : Call For Speakers (+ appel formateurs & bénévoles)", "2 posts « réaction » veille cyber", "1 batch publications ciblées — fondations + canaux Call For Speakers uniquement", "1 batch prospection speakers (Apollo) + pipeline sponsors en coulisses", "Relancer les non-cliqueurs du dernier email"],
+    weeklyEn: ["5 posts — dominant context: Call For Speakers (+ trainer & volunteer call)", "2 cyber-watch reaction posts", "1 targeted-publications batch — foundations + Call For Speakers channels only", "1 speaker prospecting batch (Apollo) + build sponsor pipeline behind the scenes", "Follow up last email's non-clickers"] },
+  { start: "2026-08-01", end: "2026-08-31", fr: "Fer de lance : sponsors (+ speakers confirmés)", en: "Spearhead: sponsors (+ confirmed speakers)",
+    weeklyFr: ["5 posts (annonces speakers confirmés + sponsor)", "2 posts veille cyber", "Poussée sponsors (deck aux prospects tièdes + LinkedIn/médias business)", "Activer les canaux communauté Compétition (rodage)", "1 batch prospection Apollo"],
+    weeklyEn: ["5 posts (confirmed-speaker announcements + sponsor)", "2 cyber-watch posts", "Sponsor push (deck to warm prospects + LinkedIn/business media)", "Activate Competition community channels (warm-up)", "1 Apollo prospecting batch"] },
   { start: "2026-09-01", end: "2026-09-30", fr: "Inscriptions & étudiants", en: "Registrations & students",
     weeklyFr: ["1–2 posts/jour (Inscriptions, Speaker, Session)", "Campagne étudiants (universités, clubs)", "Email de la semaine + relance non-cliqueurs", "2 posts veille cyber"],
     weeklyEn: ["1–2 posts/day (Registrations, Speaker, Session)", "Student campaign (universities, clubs)", "Weekly email + non-clicker follow-up", "2 cyber-watch posts"] },
@@ -1906,7 +1906,8 @@ const COMM_PLAN_MOMENTS: { date: string; fr: string; en: string; gate?: boolean 
   { date: "2026-07-11", fr: "Post d'ouverture (Call For Speakers + appel formateurs) — toutes plateformes", en: "Kickoff post (Call For Speakers + trainer call) — all platforms" },
   { date: "2026-07-12", fr: "Lancer l'appel à volontaires (post « Bénévoles »)", en: "Launch the volunteer call (\"Volunteers\" post)" },
   { date: "2026-07-15", fr: "Email de lancement + séquence de bienvenue automatisée", en: "Launch email + automated welcome sequence" },
-  { date: "2026-07-31", fr: "GATE : canaux P1 actifs · pipeline sponsors ≥40 · ≥25 candidatures bénévoles", en: "GATE: P1 channels live · sponsor pipeline ≥40 · ≥25 volunteer applications", gate: true },
+  { date: "2026-07-31", fr: "GATE : fondations + canaux Call For Speakers actifs · pipeline sponsors ≥40 · ≥25 candidatures bénévoles", en: "GATE: foundations + Call For Speakers channels live · sponsor pipeline ≥40 · ≥25 volunteer applications", gate: true },
+  { date: "2026-08-24", fr: "Activer les canaux communauté Compétition (CTFtime, Discord, Root-Me, HTB/THM)", en: "Activate Competition community channels (CTFtime, Discord, Root-Me, HTB/THM)" },
   { date: "2026-08-31", fr: "GATE : ≥1 sponsor Gold/Platinum signé", en: "GATE: ≥1 Gold/Platinum sponsor signed", gate: true },
   { date: "2026-09-15", fr: "Ouverture des inscriptions (post + email + boost payant)", en: "Registration opening (post + email + paid boost)" },
   { date: "2026-09-30", fr: "GATE : 4 workshops retenus · programme quasi complet", en: "GATE: 4 workshops selected · programme near-complete", gate: true },

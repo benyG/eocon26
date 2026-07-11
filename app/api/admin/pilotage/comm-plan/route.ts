@@ -12,20 +12,21 @@ export const dynamic = "force-dynamic";
 type SeedTask = { title: string; date: string; phase: number; priority: string; milestone?: boolean; desc?: string };
 
 const COMM_TASKS: SeedTask[] = [
-  // ── Phase A — Fondations & blitz d'activation (juillet) ──
-  { title: "Post d'ouverture — Call For Speakers + appel formateurs (toutes plateformes)", date: "2026-07-11", phase: 1, priority: "critical", milestone: true },
+  // ── Phase A — Fondations · fer de lance = Call For Speakers (juillet) ──
+  { title: "Post d'ouverture — Call For Speakers + appel formateurs (réseaux principaux)", date: "2026-07-11", phase: 1, priority: "critical", milestone: true },
   { title: "Lancer l'appel à volontaires (post « Bénévoles » + publications ciblées)", date: "2026-07-12", phase: 1, priority: "high", milestone: true, desc: "L'appel à volontaires débute le 12 juillet." },
-  { title: "Blitz : activer tous les canaux prioritaires (LinkedIn Event, Eventbrite/Luma, Facebook Event, WhatsApp, Telegram, Discord, CTFtime)", date: "2026-07-25", phase: 1, priority: "high" },
+  { title: "Poser les fondations (pages officielles, LinkedIn Event, Eventbrite/Luma, Facebook Event, WhatsApp, Telegram) + activer uniquement les canaux du Call For Speakers (Sessionize, WikiCFP, Papercall, OWASP/ISACA/ISC2)", date: "2026-07-25", phase: 1, priority: "high", desc: "Ne pas activer les canaux CTF, médias, étudiants maintenant : ils viendront à leur phase." },
   { title: "Email de lancement + séquence de bienvenue automatisée (J0/J+3/J+7)", date: "2026-07-15", phase: 1, priority: "high" },
-  { title: "Mettre en place la cadence sociale (5 posts/semaine via le calendrier)", date: "2026-07-15", phase: 1, priority: "medium" },
+  { title: "Cadence sociale : 5 posts/semaine — contexte dominant Call For Speakers", date: "2026-07-15", phase: 1, priority: "medium", desc: "On ne mélange pas encore tous les messages : un domaine phare à la fois." },
   { title: "Recruter 15–20 ambassadeurs (rediffusion des posts clés)", date: "2026-07-20", phase: 1, priority: "medium" },
-  { title: "Prospection en volume : batches Apollo hebdo (speakers + sponsors)", date: "2026-07-18", phase: 1, priority: "medium" },
-  { title: "GATE 31 juil — canaux P1 actifs · pipeline sponsors ≥40 · ≥25 candidatures bénévoles · Compétition ouverte", date: "2026-07-31", phase: 1, priority: "critical", milestone: true },
+  { title: "Prospection speakers en volume (Apollo) + constituer le pipeline sponsors en coulisses", date: "2026-07-18", phase: 1, priority: "medium", desc: "La poussée publique sponsors démarre en août." },
+  { title: "GATE 31 juil — fondations + canaux Call For Speakers actifs · pipeline sponsors ≥40 · ≥25 candidatures bénévoles · Compétition ouverte", date: "2026-07-31", phase: 1, priority: "critical", milestone: true },
 
-  // ── Phase B — Contenu & sponsors (août) ──
+  // ── Phase B — Fer de lance = sponsors (+ speakers confirmés) (août) ──
   { title: "Annonces speakers confirmés (contexte « Speaker », cadence quotidienne)", date: "2026-08-03", phase: 1, priority: "high" },
-  { title: "Lancer les pitchs médias (premiers communiqués)", date: "2026-08-10", phase: 1, priority: "medium" },
-  { title: "Séquence sponsors : envoi du deck aux prospects tièdes", date: "2026-08-10", phase: 1, priority: "high" },
+  { title: "Poussée sponsors : deck aux prospects tièdes + canaux LinkedIn/médias business", date: "2026-08-10", phase: 1, priority: "high" },
+  { title: "Premiers contacts médias (préparer la campagne d'octobre, sans publier encore)", date: "2026-08-17", phase: 1, priority: "low" },
+  { title: "Activer les canaux communauté Compétition (CTFtime, Discord, Root-Me, HTB/THM)", date: "2026-08-24", phase: 1, priority: "medium", desc: "Donne du temps de rodage avant la poussée Compétition d'octobre." },
   { title: "GATE 31 août — ≥1 sponsor Gold/Platinum signé", date: "2026-08-31", phase: 1, priority: "critical", milestone: true },
 
   // ── Phase C — Ouverture inscriptions & étudiants (septembre) ──

@@ -14,8 +14,13 @@ export async function getEventSettings(): Promise<Record<string, string>> {
   return map;
 }
 
-export function getCtaForContentType(type: string, settings: Record<string, string>): { text: string; textEn: string; url: string } | null {
+export function getCtaForContentType(type: string, settings: Record<string, string>, axis?: string): { text: string; textEn: string; url: string } | null {
   const base = settings.site_base_url || "https://eyesopensecurity.com";
+  // Workshop on the "opportunity" axis = a call to trainers to host a paid
+  // workshop, so the CTA invites them to propose one rather than to attend.
+  if (type === "workshop" && axis === "opportunity") {
+    return { text: "Proposer un workshop →", textEn: "Host a workshop →", url: settings.url_sponsor || `${base}/#contact` };
+  }
   const ctaMap: Record<string, { text: string; textEn: string; url: string }> = {
     speaker:      { text: "Voir le programme →",        textEn: "View the programme →",      url: settings.url_programme  || `${base}/#programme` },
     session:      { text: "Voir le programme →",        textEn: "View the programme →",      url: settings.url_programme  || `${base}/#programme` },

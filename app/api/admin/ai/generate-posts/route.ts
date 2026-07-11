@@ -73,7 +73,7 @@ function validateGeneratedPost(
 
 export async function POST(req: NextRequest) {
   if (!(await hasPermission("communication", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const { brief, contextType, contextItem } = await req.json() as { brief: string; contextType?: string; contextItem?: Record<string, unknown> };
+  const { brief, contextType, contextItem, axis } = await req.json() as { brief: string; contextType?: string; contextItem?: Record<string, unknown>; axis?: string };
   if (!brief) return NextResponse.json({ error: "Missing brief" }, { status: 400 });
 
   let contextSection = "";
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
   }
 
   const [eoconCtx, settings] = await Promise.all([getEoconContext(), getEventSettings()]);
-  const cta = getCtaForContentType(contextType || "custom", settings);
+  const cta = getCtaForContentType(contextType || "custom", settings, axis);
 
   // Build the full CTA reference block — all authorized URLs
   const allCtas = [

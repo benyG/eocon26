@@ -8,7 +8,7 @@ export async function GET() {
   if (!(await getCurrentPermissions())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const [cfpTotal, cfpPending, cfpAccepted, cfpRejected, volunteers, registrations, checkedIn, speakers, sponsors, subscribers, team, pastSpeakers, workshops] =
+  const [cfpTotal, cfpPending, cfpAccepted, cfpRejected, volunteers, registrations, checkedIn, speakers, sponsors, subscribers, team, pastSpeakers, workshops, ctfCompetitors] =
     await Promise.all([
       prisma.cFPSubmission.count(),
       prisma.cFPSubmission.count({ where: { status: "pending" } }),
@@ -23,6 +23,8 @@ export async function GET() {
       prisma.teamMember.count(),
       prisma.pastSpeaker.count(),
       prisma.workshop.count(),
+      // CTF competitors = registrations that provided a CTF competitor handle.
+      prisma.registration.count({ where: { ctfCompetitorName: { not: null } } }),
     ]);
   return NextResponse.json({
     cfp: cfpTotal,
@@ -36,5 +38,6 @@ export async function GET() {
     team,
     pastSpeakers,
     workshops,
+    ctfCompetitors,
   });
 }

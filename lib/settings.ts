@@ -28,6 +28,7 @@ export function getCtaForContentType(type: string, settings: Record<string, stri
     inscriptions: { text: "S'inscrire à EOCON 2026 →", textEn: "Register for EOCON 2026 →", url: settings.url_inscription || `${base}/#inscription` },
     cfp:          { text: "Soumettre mon talk →",       textEn: "Submit my talk →",           url: settings.url_cfp       || `${base}/#cfp` },
     ctf:          { text: "Rejoindre l'EyesOpenCTF →", textEn: "Join EyesOpenCTF →",         url: settings.url_ctf       || `${base}/#ctf` },
+    volunteer:    { text: "Devenir bénévole →",        textEn: "Become a volunteer →",       url: settings.url_benevoles || `${base}/#benevoles` },
     countdown:    { text: "S'inscrire →",               textEn: "Register →",                 url: settings.url_inscription || `${base}/#inscription` },
     sponsor:      { text: "Devenir partenaire →",       textEn: "Become a partner →",         url: settings.url_sponsor   || `${base}/#sponsors` },
     custom: null as unknown as { text: string; textEn: string; url: string },

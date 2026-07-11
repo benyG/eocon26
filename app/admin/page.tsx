@@ -2121,7 +2121,10 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   // Posts by date for calendar
   const postsByDate: Record<string, Record<string, unknown>[]> = {};
   linkedinPosts.forEach(p => {
-    const d = p.scheduledAt || p.publishedAt;
+    // Failed posts have no scheduledAt/publishedAt (e.g. an Instagram post that
+    // errored because it needs an image). Surface them on their creation day so
+    // they stay visible with their error + retry, like every other platform.
+    const d = p.scheduledAt || p.publishedAt || (p.status === "failed" ? p.createdAt : null);
     if (d) {
       const key = new Date(d as string).toISOString().slice(0, 10);
       if (!postsByDate[key]) postsByDate[key] = [];
@@ -2302,7 +2305,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                   <span className="w-full text-center">{day}</span>
                   {dayPosts.slice(0, 2).map((p, i) => (
                     <span key={i} className="block text-left truncate text-gray-500 leading-tight mt-0.5 w-full" style={{ fontSize: "9px" }}>
-                      {p.platform === "linkedin" ? "in" : p.platform === "twitter" ? "𝕏" : "ig"} {(p.content as string).substring(0, 25)}…
+                      {({ linkedin: "in", twitter: "𝕏", instagram: "ig", facebook: "fb", whatsapp: "wa" } as Record<string, string>)[p.platform as string] || (p.platform as string).slice(0, 2)} {(p.content as string).substring(0, 25)}…
                     </span>
                   ))}
                   {dayPosts.length > 2 && <span style={{ fontSize: "9px" }} className="text-gray-600">+{dayPosts.length - 2}</span>}

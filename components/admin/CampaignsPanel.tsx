@@ -128,6 +128,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
   const [importResult, setImportResult] = useState<{ imported: number; updated: number; skipped: number; total: number } | null>(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [seedingPlan, setSeedingPlan] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadSubscribers = useCallback(async () => {
@@ -300,6 +301,25 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
                     {__("+ Créer un modèle d'abord", "+ Create a template first")}
                   </button>
                 )}
+                <button
+                  onClick={async () => {
+                    if (seedingPlan) return;
+                    setSeedingPlan(true);
+                    try {
+                      const r = await fetch("/api/admin/campaigns/seed-plan", { method: "POST" });
+                      if (r.ok) {
+                        const d = await r.json();
+                        alert(`${__("Brouillons du plan créés", "Plan drafts created")} : ${d.added} ${__("ajouté(s)", "added")}, ${d.skipped} ${__("déjà présent(s)", "already present")}.`);
+                        await load();
+                      } else { alert(__("Échec de la création des brouillons.", "Failed to create drafts.")); }
+                    } finally { setSeedingPlan(false); }
+                  }}
+                  disabled={seedingPlan}
+                  title={__("Crée les brouillons d'emails du plan de communication (aucun envoi, aucune suppression).", "Creates the communication-plan email drafts (no send, no deletion).")}
+                  className="text-xs px-3 py-1.5 rounded border border-neon-green/50 text-neon-green font-mono hover:bg-neon-green/10"
+                >
+                  {seedingPlan ? "…" : `➕ ${__("Brouillons du plan", "Plan drafts")}`}
+                </button>
                 <button onClick={() => openNew()} className="btn-neon px-4 py-2 rounded text-xs">{__("+ Nouvelle campagne", "+ New campaign")}</button>
               </div>
             )}

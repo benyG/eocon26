@@ -80,7 +80,8 @@ JSON uniquement:
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.7,
-      max_completion_tokens: 900,
+      max_completion_tokens: 1500,
+      response_format: { type: "json_object" },
     });
     const text = r.choices[0]?.message?.content || "{}";
     const result = JSON.parse(text.replace(/```json?\n?/g, "").replace(/```/g, "").trim());

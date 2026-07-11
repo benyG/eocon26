@@ -48,6 +48,38 @@ export interface AdminProfile {
   permissions: AdminPermissions;
 }
 
+/**
+ * Resolve the effective permissions for a stored profile.
+ *
+ * This is the SINGLE source of truth used by BOTH the server-side gate
+ * (getCurrentPermissions in lib/adminPermissions.ts) and the client hydration
+ * route (/api/admin/me). They MUST resolve identically — if they diverge, the
+ * server can authorize an action while the client hides its button (or vice
+ * versa).
+ *
+ * Rules:
+ *  - System profile (name matches a built-in ADMIN_PROFILES entry): the static
+ *    code definition is the always-current baseline, so newly shipped
+ *    permission keys (e.g. "prospection-speakers", "pilotage-meetings") are
+ *    immediately available to built-in roles WITHOUT re-seeding the DB. Any
+ *    customization stored via the profile editor is layered on top.
+ *  - Custom profile (no static match): the DB permissions are authoritative.
+ */
+export function resolveProfilePermissions(
+  profileName: string,
+  storedPermissionsJson: string | null | undefined,
+): Record<string, string> {
+  let dbPerms: Record<string, string> = {};
+  try { dbPerms = JSON.parse(storedPermissionsJson || "{}") as Record<string, string>; }
+  catch { dbPerms = {}; }
+
+  const staticProfile = ADMIN_PROFILES.find(p => p.name === profileName);
+  if (staticProfile) {
+    return { ...(staticProfile.permissions as Record<string, string>), ...dbPerms };
+  }
+  return dbPerms;
+}
+
 export const ADMIN_PROFILES: AdminProfile[] = [
   {
     id: "super_admin",

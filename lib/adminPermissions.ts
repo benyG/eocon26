@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { verifyUserSession, isValidToken } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
-import { ADMIN_PROFILES } from "@/lib/adminProfiles";
+import { resolveProfilePermissions } from "@/lib/adminProfiles";
 
 export interface CurrentPerms {
   isLegacy: boolean;
@@ -26,17 +26,7 @@ export async function getCurrentPermissions(): Promise<CurrentPerms | null> {
         if (u.profileId) {
           const dbProfile = await prisma.adminProfile.findUnique({ where: { id: u.profileId } });
           if (dbProfile) {
-            // Always prefer DB permissions (source of truth — UI edits are reflected immediately).
-            // Fall back to static definition only when the DB JSON is empty (legacy / migration safety).
-            let dbPerms: Record<string, string> = {};
-            try { dbPerms = JSON.parse(dbProfile.permissions || "{}") as Record<string, string>; }
-            catch { /* ignore */ }
-            if (Object.keys(dbPerms).length > 0) {
-              permissions = dbPerms;
-            } else {
-              const staticProfile = ADMIN_PROFILES.find(p => p.name === dbProfile.name);
-              if (staticProfile) permissions = { ...staticProfile.permissions } as Record<string, string>;
-            }
+            permissions = resolveProfilePermissions(dbProfile.name, dbProfile.permissions);
           }
         }
         try { permissions = { ...permissions, ...(JSON.parse(u.permissions || "{}") as Record<string, string>) }; }

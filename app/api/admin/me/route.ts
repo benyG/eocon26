@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { isValidToken, verifyUserSession } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
-import { ADMIN_PROFILES } from "@/lib/adminProfiles";
+import { resolveProfilePermissions } from "@/lib/adminProfiles";
 
 export const dynamic = "force-dynamic";
 
@@ -34,23 +34,12 @@ export async function GET() {
         if (u.profileId) {
           const dbProfile = await prisma.adminProfile.findUnique({ where: { id: u.profileId } });
           if (dbProfile) {
-            // IMPORTANT: this MUST match getCurrentPermissions() in
-            // lib/adminPermissions.ts (the server-side gate). If the two diverge,
-            // the server can authorize an action while the client hides its button
-            // (or vice-versa) — which is exactly why WRITE on "pilotage-meetings"
-            // was granted server-side but the "+ Meeting" button never showed.
-            // Rule: DB permissions are the source of truth (profile-editor edits
-            // apply immediately); fall back to the static definition only when the
-            // DB JSON is empty (legacy / migration safety).
-            let dbPerms: Record<string, string> = {};
-            try { dbPerms = JSON.parse(dbProfile.permissions || "{}") as Record<string, string>; }
-            catch { dbPerms = {}; }
-            if (Object.keys(dbPerms).length > 0) {
-              permissions = dbPerms;
-            } else {
-              const staticProfile = ADMIN_PROFILES.find(p => p.name === dbProfile.name);
-              if (staticProfile) permissions = { ...staticProfile.permissions } as Record<string, string>;
-            }
+            // Shared resolver — MUST stay identical to the server-side gate
+            // (getCurrentPermissions in lib/adminPermissions.ts). See
+            // resolveProfilePermissions for the rules (system profiles get the
+            // always-current static baseline so newly shipped keys like
+            // "prospection-speakers" work without re-seeding the DB).
+            permissions = resolveProfilePermissions(dbProfile.name, dbProfile.permissions);
           }
         }
         // User-level JSON overrides (stored as { cfp: "write", ... })

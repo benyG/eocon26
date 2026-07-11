@@ -1874,6 +1874,127 @@ function postPublicUrl(post: Record<string, unknown>): string | null {
   }
 }
 
+// ── Weekly communication checklist (shown above the social calendar) ──────────
+// Derived from the communication plan: the current week's phase drives the
+// recurring cadence, and any dated plan moment/gate falling in the week is added.
+// Check state is persisted per week in localStorage so the operator can tick off.
+const COMM_PLAN_PHASES: { start: string; end: string; fr: string; en: string; weeklyFr: string[]; weeklyEn: string[] }[] = [
+  { start: "2026-07-11", end: "2026-07-31", fr: "Fondations & blitz", en: "Foundations & blitz",
+    weeklyFr: ["5 posts (Call For Speakers, Compétition, Workshop opportunité, Sponsor opportunité, Bénévoles)", "2 posts « réaction » veille cyber", "1 batch publications ciblées (canaux prioritaires)", "1 batch prospection Apollo (speakers + sponsors)", "Relancer les non-cliqueurs du dernier email"],
+    weeklyEn: ["5 posts (Call For Speakers, Competition, Workshop opportunity, Sponsor opportunity, Volunteers)", "2 cyber-watch reaction posts", "1 targeted-publications batch (priority channels)", "1 Apollo prospecting batch (speakers + sponsors)", "Follow up last email's non-clickers"] },
+  { start: "2026-08-01", end: "2026-08-31", fr: "Contenu & sponsors", en: "Content & sponsors",
+    weeklyFr: ["5 posts (annonces speakers confirmés + sponsor)", "2 posts veille cyber", "Pitchs médias (communiqués)", "Séquence sponsors (deck aux prospects tièdes)", "1 batch prospection Apollo"],
+    weeklyEn: ["5 posts (confirmed-speaker announcements + sponsor)", "2 cyber-watch posts", "Media pitches (press releases)", "Sponsor sequence (deck to warm prospects)", "1 Apollo prospecting batch"] },
+  { start: "2026-09-01", end: "2026-09-30", fr: "Inscriptions & étudiants", en: "Registrations & students",
+    weeklyFr: ["1–2 posts/jour (Inscriptions, Speaker, Session)", "Campagne étudiants (universités, clubs)", "Email de la semaine + relance non-cliqueurs", "2 posts veille cyber"],
+    weeklyEn: ["1–2 posts/day (Registrations, Speaker, Session)", "Student campaign (universities, clubs)", "Weekly email + non-clicker follow-up", "2 cyber-watch posts"] },
+  { start: "2026-10-01", end: "2026-10-31", fr: "Programme & médias", en: "Programme & media",
+    weeklyFr: ["1–2 posts/jour (Session, Speaker, Sponsor)", "Campagne médias (communiqués)", "Alimenter le compte à rebours", "Email de la semaine + relance"],
+    weeklyEn: ["1–2 posts/day (Session, Speaker, Sponsor)", "Media campaign (press releases)", "Feed the countdown", "Weekly email + follow-up"] },
+  { start: "2026-11-01", end: "2026-11-21", fr: "Conversion massive", en: "Mass conversion",
+    weeklyFr: ["2–3 posts/jour (urgence, teasers, CTF, témoignages)", "Diffusion quotidienne WhatsApp / Telegram / Discord", "Relances email de conversion (J-14/7/3/1)", "Boost payant sur le post pivot de la semaine"],
+    weeklyEn: ["2–3 posts/day (urgency, teasers, CTF, testimonials)", "Daily WhatsApp / Telegram / Discord blast", "Conversion email relances (D-14/7/3/1)", "Paid boost on the week's pivotal post"] },
+  { start: "2026-11-22", end: "2026-11-28", fr: "Semaine EOCON", en: "EOCON week",
+    weeklyFr: ["Couverture live quotidienne (extraits, moments forts)", "Emails d'accès aux inscrits", "Relayer sur communautés & médias partenaires"],
+    weeklyEn: ["Daily live coverage (clips, highlights)", "Access emails to registrants", "Relay on partner communities & media"] },
+  { start: "2026-11-29", end: "2027-01-31", fr: "Capitalisation", en: "Capitalisation",
+    weeklyFr: ["Récaps & témoignages (post-événement)", "Remerciements + rapport sponsors", "Save the date 2027"],
+    weeklyEn: ["Recaps & testimonials (post-event)", "Thank-yous + sponsor report", "Save the date 2027"] },
+];
+
+const COMM_PLAN_MOMENTS: { date: string; fr: string; en: string; gate?: boolean }[] = [
+  { date: "2026-07-11", fr: "Post d'ouverture (Call For Speakers + appel formateurs) — toutes plateformes", en: "Kickoff post (Call For Speakers + trainer call) — all platforms" },
+  { date: "2026-07-12", fr: "Lancer l'appel à volontaires (post « Bénévoles »)", en: "Launch the volunteer call (\"Volunteers\" post)" },
+  { date: "2026-07-15", fr: "Email de lancement + séquence de bienvenue automatisée", en: "Launch email + automated welcome sequence" },
+  { date: "2026-07-31", fr: "GATE : canaux P1 actifs · pipeline sponsors ≥40 · ≥25 candidatures bénévoles", en: "GATE: P1 channels live · sponsor pipeline ≥40 · ≥25 volunteer applications", gate: true },
+  { date: "2026-08-31", fr: "GATE : ≥1 sponsor Gold/Platinum signé", en: "GATE: ≥1 Gold/Platinum sponsor signed", gate: true },
+  { date: "2026-09-15", fr: "Ouverture des inscriptions (post + email + boost payant)", en: "Registration opening (post + email + paid boost)" },
+  { date: "2026-09-30", fr: "GATE : 4 workshops retenus · programme quasi complet", en: "GATE: 4 workshops selected · programme near-complete", gate: true },
+  { date: "2026-10-14", fr: "Lancer le compte à rebours (≈ J-45)", en: "Launch the countdown (≈ D-45)" },
+  { date: "2026-10-31", fr: "GATE : 10 sponsors · ~650 inscrits (65 %) · ~200 compétiteurs", en: "GATE: 10 sponsors · ~650 registrations (65%) · ~200 competitors", gate: true },
+  { date: "2026-11-01", fr: "Passer à 2–3 posts/jour + diffusion quotidienne WhatsApp/Telegram/Discord", en: "Switch to 2–3 posts/day + daily WhatsApp/Telegram/Discord", gate: false },
+  { date: "2026-11-21", fr: "GATE : ~1 000 inscrits · 500 compétiteurs · 20 bénévoles", en: "GATE: ~1,000 registrations · 500 competitors · 20 volunteers", gate: true },
+  { date: "2026-11-28", fr: "Cérémonie de la Compétition (CTF)", en: "Competition (CTF) ceremony" },
+  { date: "2026-12-15", fr: "Remerciements officiels + rapport sponsors + save-the-date 2027", en: "Official thank-yous + sponsor report + save-the-date 2027" },
+];
+
+function isoDay(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function SocialWeekChecklist({ adminLang }: { adminLang: string }) {
+  const now = new Date();
+  const monday = new Date(now); monday.setHours(0, 0, 0, 0);
+  monday.setDate(now.getDate() + (now.getDay() === 0 ? -6 : 1 - now.getDay()));
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6); sunday.setHours(23, 59, 59, 999);
+  const weekKey = isoDay(monday);
+
+  const phase = COMM_PLAN_PHASES.find(p => now >= new Date(p.start + "T00:00:00") && now <= new Date(p.end + "T23:59:59"));
+  const beforeStart = now < new Date(COMM_PLAN_PHASES[0].start + "T00:00:00");
+  const recurring = phase ? (adminLang === "en" ? phase.weeklyEn : phase.weeklyFr) : [];
+  const moments = COMM_PLAN_MOMENTS.filter(m => { const d = new Date(m.date + "T12:00:00"); return d >= monday && d <= sunday; });
+
+  const items: { id: string; label: string; date?: string; gate?: boolean }[] = [
+    ...moments.map((m, i) => ({ id: `m:${m.date}:${i}`, label: adminLang === "en" ? m.en : m.fr, date: m.date, gate: m.gate })),
+    ...recurring.map((r, i) => ({ id: `r:${weekKey}:${i}`, label: r })),
+  ];
+
+  const storeKey = `commWeekChecklist:${weekKey}`;
+  const [checked, setChecked] = useState<Record<string, boolean>>(() => {
+    if (typeof window === "undefined") return {};
+    try { return JSON.parse(localStorage.getItem(storeKey) || "{}"); } catch { return {}; }
+  });
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("commWeekChecklistCollapsed") === "1";
+  });
+  const toggle = (id: string) => {
+    setChecked(prev => {
+      const next = { ...prev, [id]: !prev[id] };
+      try { localStorage.setItem(storeKey, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+  const setCollapse = (v: boolean) => { setCollapsed(v); try { localStorage.setItem("commWeekChecklistCollapsed", v ? "1" : "0"); } catch { /* ignore */ } };
+
+  const doneCount = items.filter(it => checked[it.id]).length;
+  const fmtRange = (d: Date) => d.toLocaleDateString(adminLang === "en" ? "en-GB" : "fr-FR", { day: "numeric", month: "short" });
+
+  return (
+    <div className="cyber-card rounded-xl p-4 mb-4 border-l-2" style={{ borderLeftColor: "var(--ac)" }}>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-bold" style={{ color: "var(--ac)" }}>🗓️ {adminLang === "en" ? "This week's checklist" : "Checklist de la semaine"}</span>
+          <span className="text-xs text-gray-500 font-mono">{fmtRange(monday)} – {fmtRange(sunday)}</span>
+          {phase && <span className="text-xs px-2 py-0.5 rounded font-mono" style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "1px solid var(--ac-bdr)" }}>{adminLang === "en" ? phase.en : phase.fr}</span>}
+        </div>
+        <div className="flex items-center gap-2">
+          {items.length > 0 && <span className="text-xs font-mono text-gray-400">{doneCount}/{items.length}</span>}
+          <button onClick={() => setCollapse(!collapsed)} className="text-xs text-gray-500 hover:text-white px-1">{collapsed ? "▸" : "▾"}</button>
+        </div>
+      </div>
+      {!collapsed && (
+        <div className="mt-3">
+          {beforeStart && <p className="text-xs text-gray-500 mb-2">{adminLang === "en" ? "The communication plan starts on 11 July 2026." : "Le plan de communication démarre le 11 juillet 2026."}</p>}
+          {items.length === 0 && !beforeStart && <p className="text-xs text-gray-500">{adminLang === "en" ? "No plan item scheduled this week." : "Aucune action planifiée cette semaine."}</p>}
+          <div className="space-y-1.5">
+            {items.map(it => (
+              <label key={it.id} className="flex items-start gap-2 cursor-pointer group">
+                <input type="checkbox" checked={!!checked[it.id]} onChange={() => toggle(it.id)} className="mt-0.5 shrink-0" style={{ accentColor: "var(--ac)" }} />
+                <span className={`text-xs leading-snug ${checked[it.id] ? "line-through text-gray-600" : "text-gray-300"}`}>
+                  {it.date && <span className="font-mono mr-1.5" style={{ color: it.gate ? "#ff0066" : "var(--ac)" }}>{it.gate ? "⚑ " : ""}{new Date(it.date + "T12:00:00").toLocaleDateString(adminLang === "en" ? "en-GB" : "fr-FR", { day: "numeric", month: "short" })}</span>}
+                  {it.label}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
   const { t, lang: adminLang } = useAdminT();
   const today = new Date();
@@ -2139,6 +2260,9 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
 
       {/* ── RÉSEAUX SOCIAUX ── */}
       <>
+
+      {/* Weekly communication checklist — so the operator never misses a plan action */}
+      <SocialWeekChecklist adminLang={adminLang} />
 
       {/* Calendar + Panel */}
       <div className="flex gap-4">

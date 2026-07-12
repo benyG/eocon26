@@ -1902,29 +1902,17 @@ const COMM_PLAN_PHASES: { start: string; end: string; fr: string; en: string; we
     weeklyEn: ["Recaps & testimonials (post-event)", "Thank-yous + sponsor report", "Save the date 2027"] },
 ];
 
-const COMM_PLAN_MOMENTS: { date: string; fr: string; en: string; gate?: boolean }[] = [
-  { date: "2026-07-11", fr: "Post d'ouverture (Call For Speakers + appel formateurs) — toutes plateformes", en: "Kickoff post (Call For Speakers + trainer call) — all platforms" },
-  { date: "2026-07-12", fr: "Lancer l'appel à volontaires (post « Bénévoles »)", en: "Launch the volunteer call (\"Volunteers\" post)" },
-  { date: "2026-07-15", fr: "Email de lancement + séquence de bienvenue automatisée", en: "Launch email + automated welcome sequence" },
-  { date: "2026-07-31", fr: "GATE : fondations + canaux Call For Speakers actifs · pipeline sponsors ≥40 · ≥25 candidatures bénévoles", en: "GATE: foundations + Call For Speakers channels live · sponsor pipeline ≥40 · ≥25 volunteer applications", gate: true },
-  { date: "2026-08-24", fr: "Activer les canaux communauté Compétition (CTFtime, Discord, Root-Me, HTB/THM)", en: "Activate Competition community channels (CTFtime, Discord, Root-Me, HTB/THM)" },
-  { date: "2026-08-31", fr: "GATE : ≥1 sponsor Gold/Platinum signé", en: "GATE: ≥1 Gold/Platinum sponsor signed", gate: true },
-  { date: "2026-09-15", fr: "Ouverture des inscriptions (post + email + boost payant)", en: "Registration opening (post + email + paid boost)" },
-  { date: "2026-09-30", fr: "GATE : 4 workshops retenus · programme quasi complet", en: "GATE: 4 workshops selected · programme near-complete", gate: true },
-  { date: "2026-10-14", fr: "Lancer le compte à rebours (≈ J-45)", en: "Launch the countdown (≈ D-45)" },
-  { date: "2026-10-31", fr: "GATE : 10 sponsors · ~650 inscrits (65 %) · ~200 compétiteurs", en: "GATE: 10 sponsors · ~650 registrations (65%) · ~200 competitors", gate: true },
-  { date: "2026-11-01", fr: "Passer à 2–3 posts/jour + diffusion quotidienne WhatsApp/Telegram/Discord", en: "Switch to 2–3 posts/day + daily WhatsApp/Telegram/Discord", gate: false },
-  { date: "2026-11-21", fr: "GATE : ~1 000 inscrits · 500 compétiteurs · 20 bénévoles", en: "GATE: ~1,000 registrations · 500 competitors · 20 volunteers", gate: true },
-  { date: "2026-11-28", fr: "Cérémonie de la Compétition (CTF)", en: "Competition (CTF) ceremony" },
-  { date: "2026-12-15", fr: "Remerciements officiels + rapport sponsors + save-the-date 2027", en: "Official thank-yous + sponsor report + save-the-date 2027" },
-];
-
 function isoDay(d: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-function SocialWeekChecklist({ adminLang }: { adminLang: string }) {
+const CHANNEL_ICON: Record<string, string> = { social: "📱", email: "📧", targeted: "📣", milestone: "⚑" };
+
+// `items` = every CommPlanItem (all channels: social/email/targeted/milestone)
+// planned for the current week, fetched from the unified editorial calendar —
+// single source of truth shared with the calendar grid and the Pilotage plan.
+function SocialWeekChecklist({ adminLang, planItems }: { adminLang: string; planItems: Record<string, unknown>[] }) {
   const now = new Date();
   const monday = new Date(now); monday.setHours(0, 0, 0, 0);
   monday.setDate(now.getDate() + (now.getDay() === 0 ? -6 : 1 - now.getDay()));
@@ -1934,10 +1922,17 @@ function SocialWeekChecklist({ adminLang }: { adminLang: string }) {
   const phase = COMM_PLAN_PHASES.find(p => now >= new Date(p.start + "T00:00:00") && now <= new Date(p.end + "T23:59:59"));
   const beforeStart = now < new Date(COMM_PLAN_PHASES[0].start + "T00:00:00");
   const recurring = phase ? (adminLang === "en" ? phase.weeklyEn : phase.weeklyFr) : [];
-  const moments = COMM_PLAN_MOMENTS.filter(m => { const d = new Date(m.date + "T12:00:00"); return d >= monday && d <= sunday; });
+  const moments = planItems.filter(m => { const d = new Date(m.date as string); return d >= monday && d <= sunday; });
 
-  const items: { id: string; label: string; date?: string; gate?: boolean }[] = [
-    ...moments.map((m, i) => ({ id: `m:${m.date}:${i}`, label: adminLang === "en" ? m.en : m.fr, date: m.date, gate: m.gate })),
+  const items: { id: string; label: string; date?: string; gate?: boolean; icon?: string; overdue?: boolean }[] = [
+    ...moments.map((m) => ({
+      id: `m:${m.id}`,
+      label: String(m.title),
+      date: isoDay(new Date(m.date as string)),
+      gate: !!m.isGate,
+      icon: CHANNEL_ICON[m.channelType as string] || "•",
+      overdue: !!m.overdue,
+    })),
     ...recurring.map((r, i) => ({ id: `r:${weekKey}:${i}`, label: r })),
   ];
 
@@ -1983,9 +1978,9 @@ function SocialWeekChecklist({ adminLang }: { adminLang: string }) {
             {items.map(it => (
               <label key={it.id} className="flex items-start gap-2 cursor-pointer group">
                 <input type="checkbox" checked={!!checked[it.id]} onChange={() => toggle(it.id)} className="mt-0.5 shrink-0" style={{ accentColor: "var(--ac)" }} />
-                <span className={`text-xs leading-snug ${checked[it.id] ? "line-through text-gray-600" : "text-gray-300"}`}>
-                  {it.date && <span className="font-mono mr-1.5" style={{ color: it.gate ? "#ff0066" : "var(--ac)" }}>{it.gate ? "⚑ " : ""}{new Date(it.date + "T12:00:00").toLocaleDateString(adminLang === "en" ? "en-GB" : "fr-FR", { day: "numeric", month: "short" })}</span>}
-                  {it.label}
+                <span className={`text-xs leading-snug ${checked[it.id] ? "line-through text-gray-600" : it.overdue ? "text-orange-400" : "text-gray-300"}`}>
+                  {it.date && <span className="font-mono mr-1.5" style={{ color: it.gate ? "#ff0066" : it.overdue ? "#ffaa00" : "var(--ac)" }}>{it.icon ? `${it.icon} ` : ""}{new Date(it.date + "T12:00:00").toLocaleDateString(adminLang === "en" ? "en-GB" : "fr-FR", { day: "numeric", month: "short" })}</span>}
+                  {it.label}{it.overdue && <span className="ml-1 text-orange-400">({adminLang === "en" ? "overdue" : "en retard"})</span>}
                 </span>
               </label>
             ))}
@@ -1996,13 +1991,24 @@ function SocialWeekChecklist({ adminLang }: { adminLang: string }) {
   );
 }
 
-function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
+function CommunicationPanel({ canWrite = true, canWriteCampaigns, canWriteStrategic, onNavigateTab }: { canWrite?: boolean; canWriteCampaigns?: boolean; canWriteStrategic?: boolean; onNavigateTab?: (tab: string) => void }) {
   const { t, lang: adminLang } = useAdminT();
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  // Unified editorial calendar — planned items across social/email/targeted-
+  // publication/milestones (see CommPlanItem). Read here, executed elsewhere.
+  const [planItems, setPlanItems] = useState<Record<string, unknown>[]>([]);
+  const [initingMailing, setInitingMailing] = useState(false);
+  const [initingStrategic, setInitingStrategic] = useState(false);
+  const [configuringId, setConfiguringId] = useState<number | null>(null);
+  const loadPlanItems = useCallback(async () => {
+    const r = await fetch("/api/admin/comm-plan-items");
+    if (r.ok) setPlanItems(await r.json());
+  }, []);
+  useEffect(() => { loadPlanItems(); }, [loadPlanItems]);
   const [brief, setBrief] = useState("");
   const [platforms, setPlatforms] = useState({ linkedin: true, twitter: true, instagram: false, facebook: true, whatsapp: false });
   const [lang, setLang] = useState<"fr" | "en" | "both">("both");
@@ -2132,6 +2138,67 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
       postsByDate[key].push(p);
     }
   });
+
+  // Unified editorial calendar overlay — planned items not (yet) backed by a
+  // real SocialPost, grouped by day, so the calendar shows the FULL plan.
+  const planItemsByDate: Record<string, Record<string, unknown>[]> = {};
+  planItems.forEach(it => {
+    const key = new Date(it.date as string).toISOString().slice(0, 10);
+    if (!planItemsByDate[key]) planItemsByDate[key] = [];
+    planItemsByDate[key].push(it);
+  });
+
+  const initMailing = async () => {
+    setInitingMailing(true);
+    try {
+      const r = await fetch("/api/admin/comm-plan-items/init-mailing", { method: "POST" });
+      if (r.ok) {
+        const d = await r.json();
+        alert(`${adminLang === "en" ? "Mailing plan initialized" : "Plan mailing initialisé"} : ${d.added} ${adminLang === "en" ? "added" : "ajouté(s)"}, ${d.skipped} ${adminLang === "en" ? "already present" : "déjà présent(s)"}.`);
+        await loadPlanItems();
+      } else { alert(adminLang === "en" ? "Failed to initialize the mailing plan." : "Échec de l'initialisation du plan mailing."); }
+    } finally { setInitingMailing(false); }
+  };
+
+  const initStrategic = async () => {
+    setInitingStrategic(true);
+    try {
+      const r = await fetch("/api/admin/comm-plan-items/init-strategic", { method: "POST" });
+      if (r.ok) {
+        const d = await r.json();
+        alert(`${adminLang === "en" ? "Strategic actions initialized" : "Actions stratégiques initialisées"} : ${d.added} ${adminLang === "en" ? "added" : "ajoutée(s)"}, ${d.skipped} ${adminLang === "en" ? "already present" : "déjà présente(s)"}.`);
+        await loadPlanItems();
+      } else { alert(adminLang === "en" ? "Failed to initialize strategic actions." : "Échec de l'initialisation des actions stratégiques."); }
+    } finally { setInitingStrategic(false); }
+  };
+
+  const configureEmailItem = async (id: number) => {
+    setConfiguringId(id);
+    try {
+      const r = await fetch(`/api/admin/comm-plan-items/${id}/create-campaign`, { method: "POST" });
+      if (r.ok) {
+        await loadPlanItems();
+        if (onNavigateTab) onNavigateTab("campaigns");
+        else alert(adminLang === "en" ? "Draft created — find it in Communication → Campaigns." : "Brouillon créé — retrouvez-le dans Communication → Campagnes.");
+      } else { const d = await r.json().catch(() => ({})); alert((d as { error?: string }).error || (adminLang === "en" ? "Failed to create the draft." : "Échec de la création du brouillon.")); }
+    } finally { setConfiguringId(null); }
+  };
+
+  const configureTargetedItem = async (id: number) => {
+    setConfiguringId(id);
+    try {
+      const r = await fetch(`/api/admin/comm-plan-items/${id}/activate-strategic`, { method: "POST" });
+      if (r.ok) {
+        await loadPlanItems();
+        if (onNavigateTab) onNavigateTab("strategic-plan");
+      } else { const d = await r.json().catch(() => ({})); alert((d as { error?: string }).error || (adminLang === "en" ? "Failed to activate the channel." : "Échec de l'activation du canal.")); }
+    } finally { setConfiguringId(null); }
+  };
+
+  const skipPlanItem = async (id: number) => {
+    await fetch(`/api/admin/comm-plan-items/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "skipped" }) });
+    await loadPlanItems();
+  };
 
   const handleDayClick = (day: number) => {
     const date = new Date(currentYear, currentMonth, day);
@@ -2266,7 +2333,25 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
       <>
 
       {/* Weekly communication checklist — so the operator never misses a plan action */}
-      <SocialWeekChecklist adminLang={adminLang} />
+      <SocialWeekChecklist adminLang={adminLang} planItems={planItems} />
+
+      {/* Unified editorial calendar — initialize the full plan (additive, idempotent) */}
+      {(canWriteCampaigns || canWriteStrategic) && (
+        <div className="cyber-card rounded-xl p-3 mb-4 flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-500 uppercase tracking-wider">{adminLang === "en" ? "Editorial calendar" : "Calendrier éditorial"}</span>
+          {canWriteCampaigns && (
+            <button onClick={initMailing} disabled={initingMailing} className="text-xs px-3 py-1.5 rounded border border-neon-green/50 text-neon-green font-mono hover:bg-neon-green/10">
+              {initingMailing ? "…" : `➕ ${adminLang === "en" ? "Initialize mailing plan" : "Initialiser le plan mailing"}`}
+            </button>
+          )}
+          {canWriteStrategic && (
+            <button onClick={initStrategic} disabled={initingStrategic} className="text-xs px-3 py-1.5 rounded border border-neon-green/50 text-neon-green font-mono hover:bg-neon-green/10">
+              {initingStrategic ? "…" : `➕ ${adminLang === "en" ? "Initialize strategic actions" : "Initialiser les actions stratégiques"}`}
+            </button>
+          )}
+          <span className="text-xs text-gray-600">{adminLang === "en" ? "Places every planned item on the calendar, pending configuration — never sends, never deletes." : "Place chaque action prévue sur le calendrier, en attente de configuration — n'envoie et ne supprime jamais rien."}</span>
+        </div>
+      )}
 
       {/* Calendar + Panel */}
       <div className="flex gap-4">
@@ -2291,6 +2376,7 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
               const day = i + 1;
               const dateKey = `${currentYear}-${String(currentMonth+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
               const dayPosts = postsByDate[dateKey] || [];
+              const dayPlanItems = planItemsByDate[dateKey] || [];
               const isToday = today.getDate() === day && today.getMonth() === currentMonth && today.getFullYear() === currentYear;
               const isSelected = selectedDay?.getDate() === day && selectedDay?.getMonth() === currentMonth && selectedDay?.getFullYear() === currentYear;
               return (
@@ -2310,6 +2396,15 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                     </span>
                   ))}
                   {dayPosts.length > 2 && <span style={{ fontSize: "9px" }} className="text-gray-600">+{dayPosts.length - 2}</span>}
+                  {dayPlanItems.length > 0 && (
+                    <span className="flex gap-0.5 mt-0.5 w-full" style={{ fontSize: "9px" }}>
+                      {dayPlanItems.slice(0, 4).map((it, idx) => (
+                        <span key={idx} title={String(it.title)} style={{ color: it.isGate ? "#ff0066" : it.overdue ? "#ffaa00" : "#555" }}>
+                          {CHANNEL_ICON[it.channelType as string] || "•"}
+                        </span>
+                      ))}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -2756,6 +2851,13 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
         ) : (() => {
           const dateKey = `${selectedDay.getFullYear()}-${String(selectedDay.getMonth()+1).padStart(2,"0")}-${String(selectedDay.getDate()).padStart(2,"0")}`;
           const dayPostsList = postsByDate[dateKey] || [];
+          const dayPlanItemsList = planItemsByDate[dateKey] || [];
+          const planStatusLabel: Record<string, { fr: string; en: string; color: string }> = {
+            pending_setup: { fr: "à configurer", en: "to configure", color: "#888" },
+            scheduled: { fr: "configuré", en: "configured", color: "#0066ff" },
+            done: { fr: "fait", en: "done", color: "#00ff9d" },
+            skipped: { fr: "ignoré", en: "skipped", color: "#555" },
+          };
           return (
             <>
               <div className="flex items-center justify-between mb-4">
@@ -2846,6 +2948,44 @@ function CommunicationPanel({ canWrite = true }: { canWrite?: boolean }) {
                   );
                 })}
               </div>
+
+              {/* Unified plan items — email / targeted publications / milestones planned this day */}
+              {dayPlanItemsList.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-800 space-y-2">
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">{adminLang === "en" ? "Planned (calendar)" : "Prévu (calendrier)"}</p>
+                  {dayPlanItemsList.map(it => {
+                    const st = planStatusLabel[it.status as string] || planStatusLabel.pending_setup;
+                    const icon = CHANNEL_ICON[it.channelType as string] || "•";
+                    return (
+                      <div key={it.id as number} className="border rounded-lg p-2.5 text-xs flex items-start gap-2" style={{ borderColor: it.isGate ? "#ff006650" : "#333" }}>
+                        <span className="shrink-0">{icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`${it.isGate ? "text-red-400 font-bold" : "text-gray-300"}`}>{String(it.title)}</p>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <span className="px-1.5 py-0.5 rounded font-mono" style={{ color: st.color, background: st.color + "20" }}>{adminLang === "en" ? st.en : st.fr}</span>
+                            {!!it.overdue && <span className="text-orange-400 font-mono">{adminLang === "en" ? "overdue" : "en retard"}</span>}
+                            {canWriteCampaigns && it.channelType === "email" && it.status === "pending_setup" && (
+                              <button onClick={() => configureEmailItem(it.id as number)} disabled={configuringId === it.id} className="text-xs px-2 py-0.5 rounded btn-neon">
+                                {configuringId === it.id ? "…" : (adminLang === "en" ? "Configure →" : "Configurer →")}
+                              </button>
+                            )}
+                            {canWriteStrategic && it.channelType === "targeted" && it.status === "pending_setup" && (
+                              <button onClick={() => configureTargetedItem(it.id as number)} disabled={configuringId === it.id} className="text-xs px-2 py-0.5 rounded btn-neon">
+                                {configuringId === it.id ? "…" : (adminLang === "en" ? "Configure →" : "Configurer →")}
+                              </button>
+                            )}
+                            {canWrite && it.status === "pending_setup" && it.channelType !== "milestone" && (
+                              <button onClick={() => skipPlanItem(it.id as number)} className="text-xs px-2 py-0.5 rounded text-gray-500 hover:text-gray-300">
+                                {adminLang === "en" ? "Skip" : "Ignorer"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </>
           );
         })()}
@@ -8734,7 +8874,7 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === "communication" && (
-            <CommunicationPanel canWrite={can("communication")} />
+            <CommunicationPanel canWrite={can("communication")} canWriteCampaigns={can("campaigns")} canWriteStrategic={can("strategic-plan")} onNavigateTab={(t: string) => setTab(t as Tab)} />
           )}
 
           {/* CAMPAIGNS */}

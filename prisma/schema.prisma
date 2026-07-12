@@ -1054,7 +1054,7 @@ model CommPlanItem {
   emailSubjectEn String? @db.Text
   emailBodyFr    String? @db.LongText
   emailBodyEn    String? @db.LongText
-  emailSegment   String? @db.VarChar(50)
+  emailSegment   String? @db.VarChar(191) // ready-to-store JSON matching CampaignSegment
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

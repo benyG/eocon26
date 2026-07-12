@@ -7,33 +7,62 @@ export const dynamic = "force-dynamic";
 
 // Places every planned email touchpoint on the unified calendar as
 // "pending_setup" — no Campaign is created yet, the team configures/validates
-// each one from the calendar (or in bulk from Campagnes). Purely ADDITIVE:
-// dedup by (title, date), never deletes, safe to re-run if the plan evolves.
+// each one from the calendar (or in bulk from Campagnes).
+//
+// Matched by title. Never touches an item once it has left "pending_setup"
+// (a Campaign draft was created for it) — only items still awaiting
+// configuration are corrected in place if the source data changed (new/edited
+// items, e.g. the speaker/volunteer/CTF broadcasts added to close domain
+// gaps). Never deletes.
 export async function POST(req: NextRequest) {
   if (!(await hasPermission("campaigns", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const existing = await prisma.commPlanItem.findMany({
     where: { channelType: "email" },
-    select: { title: true, date: true },
+    select: { id: true, title: true, date: true, axis: true, status: true, emailSubjectFr: true, emailSegment: true },
   });
-  const existingKeys = new Set(existing.map((e) => `${e.title}::${e.date.toISOString().slice(0, 10)}`));
+  const byTitle = new Map(existing.map((e) => [e.title, e]));
 
-  const toCreate = PLAN_EMAIL_ITEMS.filter((e) => !existingKeys.has(`${e.title}::${e.date}`));
+  let added = 0;
+  let corrected = 0;
+  let skipped = 0;
 
-  if (toCreate.length) {
-    await prisma.commPlanItem.createMany({
-      data: toCreate.map((e) => ({
-        date: new Date(`${e.date}T09:00:00`),
-        channelType: "email",
-        title: e.title,
-        axis: e.axis,
-        status: "pending_setup",
-        emailSubjectFr: e.subjectFr, emailSubjectEn: e.subjectEn,
-        emailBodyFr: e.bodyFr, emailBodyEn: e.bodyEn,
-        emailSegment: e.segment,
-      })),
-    });
+  for (const e of PLAN_EMAIL_ITEMS) {
+    const found = byTitle.get(e.title);
+    if (!found) {
+      await prisma.commPlanItem.create({
+        data: {
+          date: new Date(`${e.date}T09:00:00`),
+          channelType: "email",
+          title: e.title,
+          axis: e.axis,
+          status: "pending_setup",
+          emailSubjectFr: e.subjectFr, emailSubjectEn: e.subjectEn,
+          emailBodyFr: e.bodyFr, emailBodyEn: e.bodyEn,
+          emailSegment: e.segment,
+        },
+      });
+      added++;
+      continue;
+    }
+    if (found.status !== "pending_setup") { skipped++; continue; } // a draft already exists — leave untouched
+    const currentDate = found.date.toISOString().slice(0, 10);
+    const drifted = currentDate !== e.date || found.axis !== e.axis || found.emailSubjectFr !== e.subjectFr || found.emailSegment !== e.segment;
+    if (drifted) {
+      await prisma.commPlanItem.update({
+        where: { id: found.id },
+        data: {
+          date: new Date(`${e.date}T09:00:00`), axis: e.axis,
+          emailSubjectFr: e.subjectFr, emailSubjectEn: e.subjectEn,
+          emailBodyFr: e.bodyFr, emailBodyEn: e.bodyEn,
+          emailSegment: e.segment,
+        },
+      });
+      corrected++;
+    } else {
+      skipped++;
+    }
   }
 
-  return NextResponse.json({ added: toCreate.length, skipped: PLAN_EMAIL_ITEMS.length - toCreate.length, total: PLAN_EMAIL_ITEMS.length });
+  return NextResponse.json({ added, corrected, skipped, total: PLAN_EMAIL_ITEMS.length });
 }

@@ -7200,24 +7200,27 @@ function VideoPanel({ canWrite = true }: { canWrite?: boolean }) {
 }
 
 function AuditPanel({ canWrite = true }: { canWrite?: boolean } = {}) {
-  const { t } = useAdminT();
+  const { t, lang } = useAdminT();
   const [logs, setLogs] = useState<Record<string, unknown>[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [resource, setResource] = useState("");
   const [action, setAction] = useState("");
+  const [actor, setActor] = useState("");
+  const [actors, setActors] = useState<string[]>([]);
+  const [resources, setResources] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [purging, setPurging] = useState(false);
 
-  const RESOURCES = ["", "cfp", "registration", "volunteer", "speaker", "session", "user", "speaker_onboarding"];
-  const ACTIONS = ["", "CREATE", "UPDATE", "DELETE", "VALIDATE", "REJECT", "ACCEPT", "LOGIN"];
+  const ACTIONS = ["", "LOGIN", "LOGOUT", "LOGIN_FAILED", "CREATE", "UPDATE", "UPSERT", "DELETE", "VALIDATE", "REJECT", "ACCEPT", "ARCHIVE"];
 
-  const load = async (p: number, res: string, act: string) => {
+  const load = async (p: number, res: string, act: string, who: string) => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(p) });
     if (res) params.set("resource", res);
     if (act) params.set("action", act);
+    if (who) params.set("actor", who);
     const r = await fetch(`/api/admin/audit?${params}`);
     if (r.ok) {
       const j = await r.json();
@@ -7225,28 +7228,34 @@ function AuditPanel({ canWrite = true }: { canWrite?: boolean } = {}) {
       setTotal(j.total);
       setPage(j.page);
       setPages(j.pages);
+      if (Array.isArray(j.actors)) setActors(j.actors);
+      if (Array.isArray(j.resources)) setResources(j.resources);
     }
     setLoading(false);
   };
 
-  useEffect(() => { load(page, resource, action); }, [page, resource, action]);
+  useEffect(() => { load(page, resource, action, actor); }, [page, resource, action, actor]);
 
   const purge = async () => {
     if (!confirm(t.confirmPurge)) return;
     setPurging(true);
     const r = await fetch("/api/admin/audit", { method: "DELETE" });
-    if (r.ok) { const j = await r.json(); alert(`${j.deleted} ${t.deletedEntries}`); load(1, resource, action); }
+    if (r.ok) { const j = await r.json(); alert(`${j.deleted} ${t.deletedEntries}`); load(1, resource, action, actor); }
     setPurging(false);
   };
 
   const actionColor: Record<string, string> = {
-    CREATE: "#00ff9d", UPDATE: "#0066ff", DELETE: "#ff0066",
-    VALIDATE: "#00ff9d", ACCEPT: "#00ff9d", REJECT: "#ff6600", LOGIN: "#ffaa00",
+    CREATE: "#00ff9d", UPDATE: "#0066ff", UPSERT: "#0066ff", DELETE: "#ff0066",
+    VALIDATE: "#00ff9d", ACCEPT: "#00ff9d", ARCHIVE: "#888", REJECT: "#ff6600",
+    LOGIN: "#ffaa00", LOGOUT: "#ff8800", LOGIN_FAILED: "#ff0066", LOGIN_LOCKED: "#ff0066",
   };
+  const selCls = "bg-black/40 border border-gray-800 rounded px-3 py-1.5 text-sm text-white focus:border-neon-green/50 outline-none";
+  const isConnection = (a: string) => a === "LOGIN" || a === "LOGOUT" || a.startsWith("LOGIN_");
+  const short = (a: string) => a.length > 22 ? a.slice(0, 20) + "…" : a;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
         <div>
           <h1 className="text-2xl font-black text-white">{t.auditTitle}</h1>
           <p className="text-xs text-gray-600 mt-1 font-mono">{t.retention60} · {total} {t.entry}</p>
@@ -7257,13 +7266,16 @@ function AuditPanel({ canWrite = true }: { canWrite?: boolean } = {}) {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3 mb-5">
-        <select className="bg-black/40 border border-gray-800 rounded px-3 py-1.5 text-sm text-white focus:border-neon-green/50 outline-none"
-          value={resource} onChange={e => { setResource(e.target.value); setPage(1); }}>
-          {RESOURCES.map(r => <option key={r} value={r}>{r || t.allResources}</option>)}
+      <div className="flex gap-3 mb-5 flex-wrap">
+        <select className={selCls} value={actor} onChange={e => { setActor(e.target.value); setPage(1); }}>
+          <option value="">{lang === "en" ? "All admins" : "Tous les admins"}</option>
+          {actors.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
-        <select className="bg-black/40 border border-gray-800 rounded px-3 py-1.5 text-sm text-white focus:border-neon-green/50 outline-none"
-          value={action} onChange={e => { setAction(e.target.value); setPage(1); }}>
+        <select className={selCls} value={resource} onChange={e => { setResource(e.target.value); setPage(1); }}>
+          <option value="">{t.allResources}</option>
+          {resources.map(r => <option key={r} value={r}>{r}</option>)}
+        </select>
+        <select className={selCls} value={action} onChange={e => { setAction(e.target.value); setPage(1); }}>
           {ACTIONS.map(a => <option key={a} value={a}>{a || t.allActions}</option>)}
         </select>
       </div>
@@ -7274,16 +7286,28 @@ function AuditPanel({ canWrite = true }: { canWrite?: boolean } = {}) {
         <p className="text-gray-600 text-sm font-mono">{t.noEntries}</p>
       ) : (
         <>
+          {/* Column header */}
+          <div className="hidden sm:flex items-center gap-3 px-3 pb-2 text-[10px] uppercase tracking-wider text-gray-600 font-mono">
+            <span className="w-32 shrink-0">{lang === "en" ? "When" : "Quand"}</span>
+            <span className="w-44 shrink-0">{lang === "en" ? "Who" : "Qui"}</span>
+            <span className="w-24 shrink-0">Action</span>
+            <span className="w-40 shrink-0">{lang === "en" ? "Resource" : "Ressource"}</span>
+            <span className="w-28 shrink-0">IP</span>
+            <span>{lang === "en" ? "Details" : "Détails"}</span>
+          </div>
           <div className="space-y-1 mb-4">
             {logs.map(log => {
-              const actColor = actionColor[String(log.action)] || "#888";
+              const act = String(log.action);
+              const actColor = actionColor[act] || "#888";
+              const conn = isConnection(act);
               return (
-                <div key={String(log.id)} className="flex items-start gap-3 p-3 rounded bg-white/[0.02] border border-white/[0.04] text-xs font-mono">
-                  <span className="text-gray-600 shrink-0 w-32">{new Date(String(log.createdAt)).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</span>
-                  <span className="px-1.5 py-0.5 rounded shrink-0" style={{ color: actColor, background: actColor + "20" }}>{String(log.action)}</span>
-                  <span className="text-gray-400 shrink-0">{String(log.resource)}{log.resourceId ? `#${log.resourceId}` : ""}</span>
-                  <span className="text-gray-600 shrink-0">{String(log.ip || "")}</span>
-                  {!!log.details && <span className="text-gray-700 truncate">{JSON.stringify(log.details)}</span>}
+                <div key={String(log.id)} className="flex items-start gap-3 p-3 rounded text-xs font-mono border" style={{ background: conn ? actColor + "0d" : "rgba(255,255,255,0.02)", borderColor: conn ? actColor + "30" : "rgba(255,255,255,0.04)" }}>
+                  <span className="text-gray-500 shrink-0 w-32">{new Date(String(log.createdAt)).toLocaleString(lang === "en" ? "en-GB" : "fr-FR", { dateStyle: "short", timeStyle: "short" })}</span>
+                  <span className="shrink-0 w-44 truncate font-bold" style={{ color: "var(--ac)" }} title={String(log.actor)}>{conn ? "👤 " : ""}{short(String(log.actor))}</span>
+                  <span className="px-1.5 py-0.5 rounded shrink-0 self-start" style={{ color: actColor, background: actColor + "20" }}>{act}</span>
+                  <span className="text-gray-300 shrink-0 w-40 truncate">{String(log.resource)}{log.resourceId ? `#${log.resourceId}` : ""}</span>
+                  <span className="text-gray-600 shrink-0 w-28 truncate">{String(log.ip || "")}</span>
+                  {!!log.details && <span className="text-gray-600 truncate">{JSON.stringify(log.details)}</span>}
                 </div>
               );
             })}

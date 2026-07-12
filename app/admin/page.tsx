@@ -1440,6 +1440,7 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [newCatName, setNewCatName] = useState("");
   const [addingCat, setAddingCat] = useState(false);
   const [movingFile, setMovingFile] = useState<string | null>(null);
+  const [zoomIndex, setZoomIndex] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -1502,6 +1503,20 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
   });
 
   const uncategorizedCount = files.filter(f => f.categoryId === null).length;
+
+  const zoomFile = zoomIndex !== null ? filtered[zoomIndex] : null;
+  const closeZoom = useCallback(() => setZoomIndex(null), []);
+
+  useEffect(() => {
+    if (zoomIndex === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeZoom();
+      else if (e.key === "ArrowRight") setZoomIndex(i => (i === null ? i : Math.min(i + 1, filtered.length - 1)));
+      else if (e.key === "ArrowLeft") setZoomIndex(i => (i === null ? i : Math.max(i - 1, 0)));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoomIndex, filtered.length, closeZoom]);
 
   return (
     <div>
@@ -1614,11 +1629,21 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
             <>
               <p className="text-xs text-gray-600 mb-3 font-mono">{filtered.length} fichier{filtered.length !== 1 ? "s" : ""}</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                {filtered.map(f => (
+                {filtered.map((f, idx) => (
                   <div key={f.name} className="group relative rounded-lg overflow-hidden border border-gray-800 hover:border-gray-600 transition-all">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={f.url} alt={f.name} className="w-full aspect-square object-contain bg-gray-900 p-1" loading="lazy" />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors" />
+                    <img
+                      src={f.url}
+                      alt={f.name}
+                      className="w-full aspect-square object-contain bg-gray-900 p-1 cursor-zoom-in"
+                      loading="lazy"
+                      onDoubleClick={() => setZoomIndex(idx)}
+                      title={lang === "en" ? "Double-click to zoom" : "Double-cliquer pour zoomer"}
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors pointer-events-none" />
+                    <div className="absolute top-1 left-1/2 -translate-x-1/2 text-xs text-gray-300 bg-black/70 px-2 py-0.5 rounded font-mono opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      🔍 {lang === "en" ? "Double-click to zoom" : "Double-clic pour zoomer"}
+                    </div>
 
                     {/* Category badge */}
                     {f.categoryName && (
@@ -1669,6 +1694,45 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
           )}
         </div>
       </div>
+
+      {/* Zoom lightbox — double-click an image to open */}
+      {zoomFile && (
+        <div
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-6"
+          onClick={closeZoom}
+        >
+          <button
+            onClick={closeZoom}
+            className="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl leading-none"
+          >✕</button>
+
+          {zoomIndex !== null && zoomIndex > 0 && (
+            <button
+              onClick={e => { e.stopPropagation(); setZoomIndex(i => (i === null ? i : i - 1)); }}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-3xl px-3 py-2"
+            >‹</button>
+          )}
+          {zoomIndex !== null && zoomIndex < filtered.length - 1 && (
+            <button
+              onClick={e => { e.stopPropagation(); setZoomIndex(i => (i === null ? i : i + 1)); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-3xl px-3 py-2"
+            >›</button>
+          )}
+
+          <div className="flex flex-col items-center gap-3 max-w-full max-h-full" onClick={e => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={zoomFile.url} alt={zoomFile.name} className="max-w-[88vw] max-h-[78vh] object-contain rounded" />
+            <div className="flex items-center gap-3 text-xs text-gray-400 font-mono">
+              <span>{zoomFile.name.split("/").pop()}</span>
+              <span className="text-gray-600">{fmt(zoomFile.size)}</span>
+              {zoomIndex !== null && <span className="text-gray-600">{zoomIndex + 1} / {filtered.length}</span>}
+              <a href={zoomFile.url} target="_blank" rel="noreferrer" className="text-neon-green hover:underline">
+                {lang === "en" ? "Open original ↗" : "Ouvrir l'original ↗"}
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

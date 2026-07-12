@@ -3,6 +3,7 @@ import { timingSafeEqual } from "crypto";
 import { signToken } from "@/lib/adminAuth";
 import { checkRateLimit, getIp } from "@/lib/rateLimit";
 import { isIpLocked, registerIpFailure, clearIpFailures, notifyFailedAdminLogin } from "@/lib/loginSecurity";
+import { logAction } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
   }
 
   clearIpFailures(ip);
+  logAction(req, "LOGIN", "auth", null, { method: "shared-password" }, "admin (mot de passe partagé)");
   const token = signToken(password);
   const res = NextResponse.json({ success: true });
   res.cookies.set("admin_token", token, {

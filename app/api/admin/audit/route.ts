@@ -16,13 +16,15 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, parseInt(search.get("page") || "1"));
   const resource = search.get("resource") || undefined;
   const action = search.get("action") || undefined;
+  const actor = search.get("actor") || undefined;
 
   const where = {
     ...(resource ? { resource } : {}),
     ...(action ? { action } : {}),
+    ...(actor ? { actor } : {}),
   };
 
-  const [total, logs] = await Promise.all([
+  const [total, logs, actorGroups, resourceGroups] = await Promise.all([
     prisma.auditLog.count({ where }),
     prisma.auditLog.findMany({
       where,
@@ -30,9 +32,16 @@ export async function GET(req: NextRequest) {
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
+    // Distinct actors / resources for the filter dropdowns (most active first).
+    prisma.auditLog.groupBy({ by: ["actor"], _count: { actor: true }, orderBy: { _count: { actor: "desc" } }, take: 100 }),
+    prisma.auditLog.groupBy({ by: ["resource"], _count: { resource: true }, orderBy: { _count: { resource: "desc" } }, take: 100 }),
   ]);
 
-  return NextResponse.json({ logs, total, page, pages: Math.ceil(total / PAGE_SIZE) });
+  return NextResponse.json({
+    logs, total, page, pages: Math.ceil(total / PAGE_SIZE),
+    actors: actorGroups.map(a => a.actor),
+    resources: resourceGroups.map(r => r.resource),
+  });
 }
 
 // Manually purge entries older than retention period

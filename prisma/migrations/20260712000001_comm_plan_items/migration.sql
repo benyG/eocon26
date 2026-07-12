@@ -1,0 +1,26 @@
+CREATE TABLE `comm_plan_items` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `date` DATETIME(3) NOT NULL,
+  `channelType` VARCHAR(20) NOT NULL,
+  `title` TEXT NOT NULL,
+  `axis` VARCHAR(50) NULL,
+  `phase` VARCHAR(4) NULL,
+  `status` VARCHAR(191) NOT NULL DEFAULT 'pending_setup',
+  `isGate` BOOLEAN NOT NULL DEFAULT false,
+  `notes` TEXT NULL,
+  `socialPostId` INT NULL,
+  `campaignId` INT NULL,
+  `strategicChannelKey` VARCHAR(100) NULL,
+  `steeringTaskId` INT NULL,
+  `emailSubjectFr` TEXT NULL,
+  `emailSubjectEn` TEXT NULL,
+  `emailBodyFr` LONGTEXT NULL,
+  `emailBodyEn` LONGTEXT NULL,
+  `emailSegment` VARCHAR(50) NULL,
+  `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updatedAt` DATETIME(3) NOT NULL,
+
+  PRIMARY KEY (`id`),
+  INDEX `comm_plan_items_date_idx` (`date`),
+  INDEX `comm_plan_items_channelType_idx` (`channelType`)
+) DEFAULT CHARACTER SET utf8mb4;

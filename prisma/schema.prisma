@@ -1022,3 +1022,44 @@ model SessionPlanning {
 
   @@map("session_plannings")
 }
+
+// ── Unified editorial calendar ──────────────────────────────────────────────
+// One row = one planned communication action, regardless of channel. The real
+// execution always happens in its owning module (SocialPost, Campaign, the
+// strategic-plan channel tracker) — this table is the planning/overview layer
+// that lets the calendar show everything at once, including items that don't
+// have a real resource yet ("pending_setup"). Soft links (plain Int columns,
+// no FK) to the resource once it's created, so deleting a campaign etc. never
+// cascades into the plan.
+model CommPlanItem {
+  id          Int       @id @default(autoincrement())
+  date        DateTime                              // planned day (+ time for social)
+  channelType String    @db.VarChar(20)              // social | email | targeted | milestone
+  title       String    @db.Text
+  axis        String?   @db.VarChar(50)              // speaker | workshop | sponsor | ctf | volunteer | inscriptions | cfp | custom
+  phase       String?   @db.VarChar(4)                // A..G — matches the communication plan phases
+  status      String    @default("pending_setup")     // pending_setup | scheduled | done | skipped
+  isGate      Boolean   @default(false)
+  notes       String?   @db.Text
+
+  // Soft links to the concrete resource once created/executed
+  socialPostId        Int?
+  campaignId           Int?
+  strategicChannelKey  String?  @db.VarChar(100)      // platform key in the strategic-plan tracker
+  steeringTaskId       Int?
+
+  // Content snapshot for email items — copied verbatim into the Campaign draft
+  // when the operator clicks "Configurer" from the calendar.
+  emailSubjectFr String? @db.Text
+  emailSubjectEn String? @db.Text
+  emailBodyFr    String? @db.LongText
+  emailBodyEn    String? @db.LongText
+  emailSegment   String? @db.VarChar(50)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([date])
+  @@index([channelType])
+  @@map("comm_plan_items")
+}

@@ -201,7 +201,7 @@ export const translations = {
       ],
       roles_title: "Volunteer Roles",
       roles: [
-        { title: "Registration Desk", desc: "Welcome and register attendees on arrival." },
+        { title: "Registration Team", desc: "Welcome and register attendees on arrival." },
         { title: "Session Support", desc: "Online session moderation, assist speakers or manage Q&A sessions (on-site or online)." },
         { title: "CTF Support", desc: "Assists in the creation of CTF challenges, provides technical support to participants." },
         { title: "Media & Social", desc: "Cover the event on social media and act as an ambassador." },

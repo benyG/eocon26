@@ -27,6 +27,7 @@ model CFPSubmission {
   status         String    @default("pending")
   pipelineStage  String    @default("submitted")
   deferred       Boolean   @default(false) // submitted outside the CFP window — kept for a later edition
+  flagRequalifyWorkshop Boolean @default(false) // committee thinks this talk should become a workshop — needs contacting the speaker
   notes          String?   @db.Text
   decisionSentAt DateTime?
   aiScore        Float?

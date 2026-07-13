@@ -21,13 +21,17 @@ export async function GET() {
   return NextResponse.json(cfps);
 }
 
-// Move a CFP card to a new pipeline stage — triggers side effects
+// Move a CFP card to a new pipeline stage — triggers side effects.
+// `stage` is optional: when omitted, this is a plain field edit (notes,
+// deferred, flagRequalifyWorkshop) and none of the stage-transition side
+// effects below run — important because "confirmed" creates social posts and
+// re-running it on every flag toggle would spam duplicate announcements.
 export async function PATCH(req: NextRequest) {
   if (!(await hasPermission("cfp", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { id, stage, notes, deferred } = await req.json() as { id: number; stage: Stage; notes?: string; deferred?: boolean };
+  const { id, stage, notes, deferred, flagRequalifyWorkshop } = await req.json() as { id: number; stage?: Stage; notes?: string; deferred?: boolean; flagRequalifyWorkshop?: boolean };
 
-  if (!STAGES.includes(stage)) {
+  if (stage !== undefined && !STAGES.includes(stage)) {
     return NextResponse.json({ error: "Invalid stage" }, { status: 400 });
   }
 
@@ -36,6 +40,19 @@ export async function PATCH(req: NextRequest) {
     include: { speaker: true },
   });
   if (!cfp) return NextResponse.json({ error: "CFP not found" }, { status: 404 });
+
+  if (stage === undefined) {
+    const updated = await prisma.cFPSubmission.update({
+      where: { id },
+      data: {
+        ...(notes !== undefined && { notes }),
+        ...(deferred !== undefined && { deferred }),
+        ...(flagRequalifyWorkshop !== undefined && { flagRequalifyWorkshop }),
+      },
+      include: { speaker: true },
+    });
+    return NextResponse.json(updated);
+  }
 
   // Determine legacy status field
   const statusMap: Record<Stage, string> = {

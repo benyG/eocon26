@@ -34,6 +34,7 @@ interface CFPCard {
   status: string;
   pipelineStage: Stage | "deferred";
   deferred?: boolean;
+  flagRequalifyWorkshop?: boolean;
   notes?: string | null;
   aiScore?: number | null;
   aiAnalysis?: string | null;
@@ -247,6 +248,22 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
       const updated: CFPCard = await res.json();
       setCards(prev => prev.map(c => c.id === id ? updated : c));
       setSelectedCard(updated);
+    }
+  };
+
+  // Plain flag edit (no `stage`) — does not touch pipelineStage/status and
+  // never re-triggers the stage-transition side effects (e.g. re-scheduling
+  // speaker announcement posts on every toggle).
+  const toggleRequalifyWorkshop = async (card: CFPCard) => {
+    const res = await fetch("/api/admin/pipeline", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: card.id, flagRequalifyWorkshop: !card.flagRequalifyWorkshop }),
+    });
+    if (res.ok) {
+      const updated: CFPCard = await res.json();
+      setCards(prev => prev.map(c => c.id === card.id ? updated : c));
+      setSelectedCard(prev => prev && prev.id === card.id ? updated : prev);
     }
   };
 
@@ -577,7 +594,18 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
                       onClick={() => setSelectedCard(card)}
                       className={`w-full text-left rounded-xl border p-3 transition-all hover:border-gray-500 ${selectedCard?.id === card.id ? "border-neon-green/50 bg-neon-green/5" : "border-gray-800 bg-black/20"}`}
                     >
-                      <p className="text-white text-xs font-bold line-clamp-1">{card.name}</p>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-white text-xs font-bold line-clamp-1">{card.name}</p>
+                        {card.flagRequalifyWorkshop && (
+                          <span
+                            title={__("À requalifier en workshop — contacter le speaker", "Should be requalified as a workshop — contact the speaker")}
+                            className="shrink-0 text-xs font-bold px-1.5 py-0.5 rounded"
+                            style={{ color: "#cc00ff", background: "#cc00ff20", border: "1px solid #cc00ff40" }}
+                          >
+                            🔁 Requalify
+                          </span>
+                        )}
+                      </div>
                       <p className="text-gray-500 text-xs line-clamp-1 mt-0.5">{card.talkTitle}</p>
                       <div className="flex items-center gap-2 mt-2">
                         {card.org && <span className="text-gray-600 text-xs line-clamp-1">{card.org}</span>}
@@ -651,6 +679,25 @@ export default function PipelineKanban({ canWrite = true }: { canWrite?: boolean
               <Field label={__("Format", "Format")}>{selectedCard.format || "—"}</Field>
               <Field label={__("Langue de présentation", "Presentation language")}>{selectedCard.langPresentation === "en" ? __("Anglais", "English") : selectedCard.langPresentation === "fr" ? __("Français", "French") : (selectedCard.langPresentation || "—")}</Field>
               <Field label={__("Soumis le", "Submitted on")}>{new Date(selectedCard.createdAt).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" })}</Field>
+              {canWrite ? (
+                <div className="pt-1">
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!selectedCard.flagRequalifyWorkshop}
+                      onChange={() => toggleRequalifyWorkshop(selectedCard)}
+                    />
+                    <span style={{ color: selectedCard.flagRequalifyWorkshop ? "#cc00ff" : undefined }} className={selectedCard.flagRequalifyWorkshop ? "" : "text-gray-500"}>
+                      🔁 {__("Potentiel workshop", "Potential workshop")}
+                    </span>
+                  </label>
+                  {selectedCard.flagRequalifyWorkshop && (
+                    <p className="text-gray-600 text-xs mt-1">{__("À contacter pour proposer une requalification en workshop.", "To be contacted to propose requalifying this as a workshop.")}</p>
+                  )}
+                </div>
+              ) : selectedCard.flagRequalifyWorkshop && (
+                <p className="text-xs" style={{ color: "#cc00ff" }}>🔁 {__("Potentiel workshop", "Potential workshop")}</p>
+              )}
             </div>
 
             {/* Abstract complet */}

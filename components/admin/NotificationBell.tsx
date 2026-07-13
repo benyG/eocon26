@@ -41,7 +41,7 @@ export default function NotificationBell({ userEmail, onGoToPilotage }: Props) {
   useEffect(() => {
     if (!userEmail) return;
     fetchNotifications();
-    intervalRef.current = setInterval(fetchNotifications, 60_000);
+    intervalRef.current = setInterval(fetchNotifications, 120_000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [userEmail, fetchNotifications]);
 

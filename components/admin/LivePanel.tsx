@@ -495,7 +495,7 @@ export default function LivePanel({ canWrite }: { canWrite: boolean }) {
 
   useEffect(() => {
     if (mode !== "live") return;
-    const t = setInterval(() => { loadDashboard(); loadRestreamStatus(); }, 30000);
+    const t = setInterval(() => { loadDashboard(); loadRestreamStatus(); }, 60000);
     return () => clearInterval(t);
   }, [mode, loadDashboard, loadRestreamStatus]);
 

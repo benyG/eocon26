@@ -2218,7 +2218,7 @@ function CommunicationPanel({ canWrite = true, canWriteCampaigns, canWriteStrate
       const r = await fetch("/api/admin/comm-plan-items/init-mailing", { method: "POST" });
       if (r.ok) {
         const d = await r.json();
-        alert(`${adminLang === "en" ? "Mailing plan initialized" : "Plan mailing initialisé"} : ${d.added} ${adminLang === "en" ? "added" : "ajouté(s)"}, ${d.skipped} ${adminLang === "en" ? "already present" : "déjà présent(s)"}.`);
+        alert(`${adminLang === "en" ? "Mailing plan initialized" : "Plan mailing initialisé"} : ${d.added} ${adminLang === "en" ? "added" : "ajouté(s)"}, ${d.corrected || 0} ${adminLang === "en" ? "corrected" : "corrigé(s)"}, ${d.skipped} ${adminLang === "en" ? "unchanged" : "inchangé(s)"}.`);
         await loadPlanItems();
       } else { alert(adminLang === "en" ? "Failed to initialize the mailing plan." : "Échec de l'initialisation du plan mailing."); }
     } finally { setInitingMailing(false); }
@@ -2230,7 +2230,7 @@ function CommunicationPanel({ canWrite = true, canWriteCampaigns, canWriteStrate
       const r = await fetch("/api/admin/comm-plan-items/init-strategic", { method: "POST" });
       if (r.ok) {
         const d = await r.json();
-        alert(`${adminLang === "en" ? "Strategic actions initialized" : "Actions stratégiques initialisées"} : ${d.added} ${adminLang === "en" ? "added" : "ajoutée(s)"}, ${d.skipped} ${adminLang === "en" ? "already present" : "déjà présente(s)"}.`);
+        alert(`${adminLang === "en" ? "Strategic actions initialized" : "Actions stratégiques initialisées"} : ${d.added} ${adminLang === "en" ? "added" : "ajoutée(s)"}, ${d.corrected || 0} ${adminLang === "en" ? "corrected" : "corrigée(s)"}, ${d.skipped} ${adminLang === "en" ? "unchanged" : "inchangée(s)"}.`);
         await loadPlanItems();
       } else { alert(adminLang === "en" ? "Failed to initialize strategic actions." : "Échec de l'initialisation des actions stratégiques."); }
     } finally { setInitingStrategic(false); }

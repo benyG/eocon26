@@ -24,7 +24,8 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
       subjectEn: item.emailSubjectEn,
       htmlBody: item.emailBodyFr || "",
       htmlBodyEn: item.emailBodyEn,
-      segment: JSON.stringify({ audience: item.emailSegment || "newsletter" }),
+      // emailSegment already holds the ready-to-store JSON (e.g. {"audience":"registrations","hasCtf":true}).
+      segment: item.emailSegment || JSON.stringify({ audience: "newsletter" }),
       status: "draft",
     },
   });

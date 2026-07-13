@@ -1,13 +1,16 @@
+import { cache } from "react";
 import { PrismaClient, Prisma } from "@prisma/client";
 
 // Ensure a healthy connection pool. Prisma's default limit (num_cpus*2+1) can be as low
-// as 3 on a 1-vCPU container, which the campaign/email routes exhaust. Raise it unless the
-// DATABASE_URL already configures it explicitly.
+// as 3 on a 1-vCPU container, which the campaign/email routes exhaust. This app runs as a
+// single persistent container against a MySQL server allowing 2000 connections, so a
+// generous pool is safe and lets concurrent admins load their dashboards without queueing.
+// Overridable by putting connection_limit=… directly in DATABASE_URL.
 function dbUrl(): string | undefined {
   const url = process.env.DATABASE_URL;
   if (!url || /[?&]connection_limit=/.test(url)) return url;
   const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}connection_limit=10&pool_timeout=20`;
+  return `${url}${sep}connection_limit=25&pool_timeout=20`;
 }
 
 // Only override the datasource url when we actually have one. Passing
@@ -43,7 +46,9 @@ const AUDIT_SKIP = new Set<string>([
 
 // Resolve the acting admin (and their IP) from the current request. Returns null
 // for public/cron/system writes, which are intentionally not audited.
-async function resolveActor(base: PrismaClient): Promise<{ actor: string; ip: string } | null> {
+// Wrapped in React `cache()` so a request performing several mutations resolves
+// the actor (one adminSession query) only once instead of per write.
+const resolveActor = cache(async (base: PrismaClient): Promise<{ actor: string; ip: string } | null> => {
   try {
     const nh = await import("next/headers");
     const cookieStore = await nh.cookies();
@@ -71,7 +76,7 @@ async function resolveActor(base: PrismaClient): Promise<{ actor: string; ip: st
     /* not in a request scope (script/build) → skip */
   }
   return null;
-}
+});
 
 function extractId(args: unknown, result: unknown): string | null {
   if (result && typeof result === "object" && "id" in result && (result as { id?: unknown }).id != null) {

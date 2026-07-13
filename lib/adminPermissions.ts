@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { verifyUserSession, isValidToken } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
@@ -9,7 +10,11 @@ export interface CurrentPerms {
 }
 
 // Resolve the current request's permissions (same logic as /api/admin/me).
-export async function getCurrentPermissions(): Promise<CurrentPerms | null> {
+// Wrapped in React `cache()` so it runs its session+profile DB lookup AT MOST
+// ONCE per request, no matter how many times hasPermission()/getSessionEmail()
+// are called (some routes check 2–3 permissions). Without this every check
+// re-queried the DB, multiplying auth queries and exhausting the pool.
+export const getCurrentPermissions = cache(async (): Promise<CurrentPerms | null> => {
   const c = await cookies();
 
   const userCookie = c.get("admin_user_token")?.value;
@@ -40,10 +45,10 @@ export async function getCurrentPermissions(): Promise<CurrentPerms | null> {
   if (legacy && isValidToken(legacy)) return { isLegacy: true, permissions: {} };
 
   return null;
-}
+});
 
 /** Returns the email of the currently logged-in admin, or null for legacy/unauthenticated. */
-export async function getSessionEmail(): Promise<string | null> {
+export const getSessionEmail = cache(async (): Promise<string | null> => {
   const c = await cookies();
   const userCookie = c.get("admin_user_token")?.value;
   if (!userCookie) return null;
@@ -55,7 +60,7 @@ export async function getSessionEmail(): Promise<string | null> {
   });
   if (session?.user?.isActive) return session.user.email;
   return null;
-}
+});
 
 // True when the current request may act on `module` at the given level.
 export async function hasPermission(module: string, level: "read" | "write" = "write"): Promise<boolean> {

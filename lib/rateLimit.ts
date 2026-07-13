@@ -3,6 +3,11 @@ const store = new Map<string, Entry>();
 
 export function rateLimit(key: string, max: number, windowMs: number): boolean {
   const now = Date.now();
+  // Lazy sweep: drop expired windows so the map can't grow unbounded over the
+  // container's lifetime (one entry per unique IP×route otherwise stays forever).
+  if (store.size > 5000) {
+    store.forEach((v, k) => { if (now > v.resetAt) store.delete(k); });
+  }
   const entry = store.get(key);
   if (!entry || now > entry.resetAt) {
     store.set(key, { count: 1, resetAt: now + windowMs });

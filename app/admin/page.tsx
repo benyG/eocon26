@@ -7947,8 +7947,11 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     refreshMe();
-    // Re-fetch permissions every 30 s so changes take effect without reconnecting
-    const interval = setInterval(refreshMe, 30_000);
+    // Re-fetch permissions every 60 s so changes take effect without reconnecting.
+    // The visibilitychange listener below re-fetches instantly on tab focus, so a
+    // longer interval doesn't hurt responsiveness but roughly halves the steady
+    // auth-query load each open dashboard puts on the DB pool.
+    const interval = setInterval(refreshMe, 60_000);
     // Re-fetch immediately when the user switches back to this tab
     const onVisible = () => { if (document.visibilityState === "visible") refreshMe(); };
     document.addEventListener("visibilitychange", onVisible);

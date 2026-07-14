@@ -19,14 +19,14 @@ const BADGE_ACHIEVEMENTS: Record<BadgeType, { name: string; description: string;
     criteria: "The recipient volunteered their time and skills to help organize and run EOCON 2026.",
   },
   ctf_competitor: {
-    name: "EOCTF 2026 — CTF Competitor",
-    description: "Awarded to participants who competed in the EOCTF 2026 Capture The Flag competition.",
-    criteria: "The recipient participated in the EOCTF 2026 48-hour Capture The Flag competition.",
+    name: "EyesOpenCTF 2026 — CTF Competitor",
+    description: "Awarded to participants who competed in the EyesOpenCTF 2026 Capture The Flag competition.",
+    criteria: "The recipient participated in the EyesOpenCTF 2026 48-hour Capture The Flag competition.",
   },
   ctf_winner: {
-    name: "EOCTF 2026 — CTF Winner",
-    description: "Awarded to top-ranking competitors in the EOCTF 2026 Capture The Flag competition.",
-    criteria: "The recipient achieved a top ranking in the EOCTF 2026 48-hour Capture The Flag competition.",
+    name: "EyesOpenCTF 2026 — CTF Winner",
+    description: "Awarded to top-ranking competitors in the EyesOpenCTF 2026 Capture The Flag competition.",
+    criteria: "The recipient achieved a top ranking in the EyesOpenCTF 2026 48-hour Capture The Flag competition.",
   },
   organizer: {
     name: "EOCON 2026 — Organizing Team",

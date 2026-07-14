@@ -22,6 +22,7 @@ const ROLES = [
   "Ambassadeur réseaux sociaux",
   "Support CTF",
   "Médias & Réseaux Sociaux",
+  "Ambassadeur de Sponsoring",
   "Logistique",
 ];
 

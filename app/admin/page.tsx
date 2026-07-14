@@ -21,6 +21,7 @@ import SponsorTimeline from "@/components/admin/SponsorTimeline";
 import PerksCatalogManager from "@/components/admin/PerksCatalogManager";
 import PackagePerksEditor from "@/components/admin/PackagePerksEditor";
 import DocumentsPanel from "@/components/admin/DocumentsPanel";
+import SponsorProspectImportModal from "@/components/admin/SponsorProspectImportModal";
 import RegistrationsChart from "@/components/admin/RegistrationsChart";
 import NotificationBell from "@/components/admin/NotificationBell";
 import { adminI18n } from "@/lib/adminI18n";
@@ -3243,6 +3244,20 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
   const [deadline, setDeadline] = useState<{ labelFr: string; labelEn: string; daysLeft: number } | null>(null);
   const [packages, setPackages] = useState<{ tier: string; nameFr: string; nameEn: string }[]>([]);
   const [worklistOpen, setWorklistOpen] = useState(true);
+  const [showImport, setShowImport] = useState(false);
+  const [assigningId, setAssigningId] = useState<number | null>(null);
+
+  // Assign an imported (unassigned) prospect to a team member so it enters the pipeline.
+  const assignProspect = async (id: number, assigneeId: number) => {
+    setAssigningId(id);
+    await fetch(`/api/admin/sponsor-prospects/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assigneeId }),
+    });
+    setAssigningId(null);
+    onRefresh();
+  };
 
   useEffect(() => {
     fetch("/api/admin/sponsor-prospects/assignees").then(r => r.ok ? r.json() : []).then(setAssignees).catch(() => {});
@@ -3454,8 +3469,15 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-black text-white">{t.pipelineTitle}</h1>
-        {canWrite && <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">{t.addProspect}</button>}
+        <div className="flex items-center gap-2">
+          {canWrite && <button onClick={() => setShowImport(true)} className="px-4 py-2 rounded text-xs border border-gray-700 text-gray-300 hover:text-white hover:border-gray-500 transition-all">📥 {lang === "en" ? "Import XLSX" : "Importer XLSX"}</button>}
+          {canWrite && <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">{t.addProspect}</button>}
+        </div>
       </div>
+
+      {showImport && (
+        <SponsorProspectImportModal lang={lang} onClose={() => setShowImport(false)} onDone={onRefresh} />
+      )}
 
       {/* #3 — urgency countdown to the next commitment deadline */}
       {deadline && (
@@ -3478,10 +3500,12 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
       {/* #5 — "À traiter aujourd'hui" worklist (due follow-ups + never-contacted) */}
       {(() => {
         const now = Date.now();
+        // Only assigned prospects belong in the worklist — imported unassigned
+        // ones sit in the "pending assignment" tray until an owner is set.
         const due = prospects
-          .filter(p => !!p.nextFollowupAt && new Date(p.nextFollowupAt as string).getTime() <= now && ["contacted", "meeting", "positive"].includes(p.status as string))
+          .filter(p => p.assigneeId != null && !!p.nextFollowupAt && new Date(p.nextFollowupAt as string).getTime() <= now && ["contacted", "meeting", "positive"].includes(p.status as string))
           .sort((a, b) => new Date(a.nextFollowupAt as string).getTime() - new Date(b.nextFollowupAt as string).getTime());
-        const toContact = prospects.filter(p => ["demande", "prospect"].includes(p.status as string));
+        const toContact = prospects.filter(p => p.assigneeId != null && ["demande", "prospect"].includes(p.status as string));
         const total = due.length + toContact.length;
         if (total === 0) return null;
         const dayDiff = (d: string) => Math.round((now - new Date(d).getTime()) / 86400000);
@@ -4060,11 +4084,52 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
         );
       })()}
 
+      {/* Pending assignment tray — imported prospects awaiting an "Assigné à" owner.
+          They stay out of the kanban until assigned. */}
+      {(() => {
+        const pending = prospects.filter(p => p.assigneeId == null);
+        if (!pending.length) return null;
+        return (
+          <div className="mb-6 rounded-xl border border-yellow-600/40 bg-yellow-500/5 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-sm font-bold text-yellow-300">⏳ {lang === "en" ? "Pending assignment" : "En attente d'attribution"}</span>
+              <span className="text-xs text-gray-500 font-mono">({pending.length})</span>
+              <span className="text-xs text-gray-500">{lang === "en" ? "— assign an owner to move these into the pipeline." : "— assignez un responsable pour les faire entrer dans le pipeline."}</span>
+            </div>
+            <div className="space-y-2">
+              {pending.map(p => (
+                <div key={p.id as number} className="cyber-card rounded-lg px-3 py-2 flex items-center gap-3 flex-wrap">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-white text-sm font-bold truncate">{p.org as string}</p>
+                    <p className="text-gray-500 text-xs truncate">{[p.contact, p.email, p.package].filter(Boolean).join(" · ") || "—"}</p>
+                  </div>
+                  {canWrite && (
+                    <select
+                      defaultValue=""
+                      disabled={assigningId === (p.id as number)}
+                      onChange={e => { const v = e.target.value; if (v) assignProspect(p.id as number, Number(v)); }}
+                      className="cyber-input text-xs rounded px-2 py-1.5 bg-transparent"
+                      style={{ color: "var(--txt)" }}
+                    >
+                      <option value="" className="bg-dark-800">{lang === "en" ? "— Assign to —" : "— Assigner à —"}</option>
+                      {assignees.map(a => <option key={a.id} value={a.id} className="bg-dark-800">{a.name}</option>)}
+                    </select>
+                  )}
+                  {canWrite && (
+                    <button onClick={() => del(p.id as number)} className="text-xs text-red-500/70 hover:text-red-400 px-2">✕</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Kanban Board */}
       <div className="overflow-x-auto pb-4">
         <div className="flex gap-4 min-w-max">
           {PROSPECT_STATUSES.map(st => {
-            const group = prospects.filter(p => p.status === st.value);
+            const group = prospects.filter(p => p.status === st.value && p.assigneeId != null);
             return (
               <div key={st.value} className="w-64 shrink-0">
                 <div className="flex items-center gap-2 mb-3 px-1">
@@ -6010,6 +6075,17 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
                     className="shrink-0 text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-all"
                   >
                     🔍
+                  </a>
+                )}
+                {received && getBadgeUuid(p) && (
+                  <a
+                    href={`/api/verify/${getBadgeUuid(p)}/certificate`}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={lang === "en" ? "Download participation certificate (PDF)" : "Télécharger le certificat de participation (PDF)"}
+                    className="shrink-0 text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-all"
+                  >
+                    🎓
                   </a>
                 )}
                 {canWrite && (isEligible ? (

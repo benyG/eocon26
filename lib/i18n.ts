@@ -205,6 +205,7 @@ export const translations = {
         { title: "Session Support", desc: "Online session moderation, assist speakers or manage Q&A sessions (on-site or online)." },
         { title: "CTF Support", desc: "Assists in the creation of CTF challenges, provides technical support to participants." },
         { title: "Media & Social", desc: "Cover the event on social media and act as an ambassador." },
+        { title: "Sponsoring Ambassador", desc: "Actively prospect and persuade businesses to support the event in exchange for visibility." },
         { title: "Logistics", desc: "Provides assistance with setting up the event venue, internet connection, and audio entertainment." },
       ],
       form: {
@@ -587,6 +588,7 @@ export const translations = {
         { title: "Assistance aux sessions", desc: "Animer les sessions en ligne, assister les speakers ou gérer les séances de Q&R." },
         { title: "Assistance CTF", desc: "Contribuer à la création des défis CTF, fournir une assistance technique aux participants." },
         { title: "Médias & Réseaux Sociaux", desc: "Couvrir l'événement sur les réseaux sociaux et en être un ambassadeur." },
+        { title: "Ambassadeur de Sponsoring", desc: "Prospecter activement et convaincre des entreprises de soutenir l'événement en échange de visibilité." },
         { title: "Logistique", desc: "Assister à la mise en place du lieu de l'événement, à la connexion internet et à la diffusion audio." },
       ],
       form: {

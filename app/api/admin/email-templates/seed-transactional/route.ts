@@ -48,7 +48,7 @@ const TRANSACTIONAL = [
   <p>📍 Hotel Onomo, Douala, Cameroun</p>
   <p>Présentez ce billet (email ou capture d'écran) à l'entrée.</p>
   <hr style="border-color:#222;margin:24px 0"/>
-  <p style="color:#555;font-size:12px">#EOCON #EOCTF · eyesopensecurity.com</p>
+  <p style="color:#555;font-size:12px">#EOCON #EyesOpenCTF · eyesopensecurity.com</p>
 </div>`,
   },
   {

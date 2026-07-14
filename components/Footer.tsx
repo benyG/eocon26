@@ -135,7 +135,7 @@ export default function Footer({ t, eventSettings }: { t: Translations; eventSet
               <p>📅 {eventSettings?.event_date_display_fr || "28 Nov 2026"}</p>
               <p>📍 {eventSettings?.event_venue || "Hotel Onomo"}<br />&nbsp;&nbsp;&nbsp;&nbsp;{eventSettings?.event_city || "Douala"}, {eventSettings?.event_country || "Cameroun"}</p>
               <p>🌐 EN / FR</p>
-              <p>#EOCON #EOCTF</p>
+              <p>#EOCON #EyesOpenCTF</p>
             </div>
           </div>
         </div>

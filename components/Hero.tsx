@@ -189,7 +189,7 @@ export default function Hero({ t, onOpenModal }: HeroProps) {
         {/* Hashtags */}
         <div className="mt-10 flex gap-4 justify-center text-gray-600 text-xs font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
           <span>#EOCON</span>
-          <span>#EOCTF</span>
+          <span>#EyesOpenCTF</span>
           <span>#SecureTheFuture</span>
         </div>
       </div>

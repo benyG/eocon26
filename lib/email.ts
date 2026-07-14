@@ -639,7 +639,7 @@ export async function sendCTFChallengeAssigned(to: string, name: string, challen
   const s = await getEventSettings().catch(() => ({} as Record<string, string>));
   const statusLabel = CTF_STATUS_LABELS_FR[challenge.status] || challenge.status;
   const body = `<p>${greenLabel("Bonjour " + esc(name || ""))},</p>
-     <p>Un challenge du CTF EOCON 2026 (EOCTF) vous a été assigné. Vous en êtes désormais responsable.</p>
+     <p>Un challenge du CTF EOCON 2026 (EyesOpenCTF) vous a été assigné. Vous en êtes désormais responsable.</p>
      ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
        ${neonRow("Challenge", `<strong style="color:#00ff9d;">${esc(challenge.title)}</strong>`)}
        ${neonRow("Catégorie", esc(challenge.category))}

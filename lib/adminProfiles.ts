@@ -1,5 +1,5 @@
 export interface AdminPermissions {
-  dashboard?: "read";
+  dashboard?: "read" | "write";
   pilotage?: "read" | "write";
   "pilotage-meetings"?: "read" | "write";
   checkin?: "read" | "write";
@@ -87,6 +87,7 @@ export const ADMIN_PROFILES: AdminProfile[] = [
     description: "Accès complet à toutes les fonctionnalités",
     color: "#ff0066",
     permissions: {
+      dashboard: "write",
       cfp: "write", speakers: "write", onboarding: "write", sessions: "write",
       workshops: "write", volunteers: "write", registrations: "write",
       newsletter: "write", sponsors: "write", "sponsor-pipeline": "write",

@@ -15,8 +15,8 @@ const SEED_SESSIONS = [
   { sortOrder: 110, time: "16:00", type: "panel",      title: "Table Ronde / Panel",                    isVisible: true },
   { sortOrder: 120, time: "17:00", type: "workshop",   title: "Atelier Pratique — [À confirmer]",       isVisible: false },
   { sortOrder: 130, time: "18:00", type: "logistics",  title: "Cocktail & Networking",                  isVisible: true },
-  { sortOrder: 140, time: "19:00", type: "logistics",  title: "Lancement CTF EOCTF 2026",               isVisible: true },
-  { sortOrder: 150, time: "19:30", type: "logistics",  title: "CTF EOCTF 2026 — 48h de compétition",    isVisible: true },
+  { sortOrder: 140, time: "19:00", type: "logistics",  title: "Lancement CTF EyesOpenCTF 2026",               isVisible: true },
+  { sortOrder: 150, time: "19:30", type: "logistics",  title: "CTF EyesOpenCTF 2026 — 48h de compétition",    isVisible: true },
   { sortOrder: 999, time: "17:30", type: "keynote",    title: "Cérémonie de Clôture & Remise de Prix",  isVisible: true },
 ];
 

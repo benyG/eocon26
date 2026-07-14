@@ -15,16 +15,18 @@ function hashPassword(password: string): string {
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   if (!(await hasPermission("users", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const id = parseInt(params.id);
-  const { name, permissions, isActive, password } = await req.json();
+  const { name, permissions, isActive, password, requiresApproval, isCommApprover } = await req.json();
   const data: Record<string, unknown> = {};
   if (name !== undefined) data.name = name;
   if (permissions !== undefined) data.permissions = JSON.stringify(permissions);
   if (isActive !== undefined) data.isActive = isActive;
   if (password) data.passwordHash = hashPassword(password);
+  if (requiresApproval !== undefined) data.requiresApproval = !!requiresApproval;
+  if (isCommApprover !== undefined) data.isCommApprover = !!isCommApprover;
   const user = await prisma.adminUser.update({
     where: { id },
     data,
-    select: { id: true, name: true, email: true, permissions: true, isActive: true, createdAt: true },
+    select: { id: true, name: true, email: true, permissions: true, isActive: true, createdAt: true, requiresApproval: true, isCommApprover: true },
   });
   logAction(req, "UPDATE", "user", id, { isActive });
   return NextResponse.json(user);

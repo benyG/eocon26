@@ -56,6 +56,8 @@ export async function GET() {
           mfaEnabled: u.mfaEnabled,
           mfaRequired: mfaSetting?.value === "true",
           isRoot: isRootAdmin(u.email),
+          requiresApproval: u.requiresApproval,
+          isCommApprover: u.isCommApprover,
           currencySelectorEnabled: process.env.PAYMENT_ALLOW_CURRENCY_SELECTOR === "true",
           permissions,
         });
@@ -70,6 +72,8 @@ export async function GET() {
       isLegacy: true,
       name: "Admin",
       isRoot: true, // shared super-admin password = root
+      requiresApproval: false,
+      isCommApprover: true, // shared super-admin can validate
       currencySelectorEnabled: process.env.PAYMENT_ALLOW_CURRENCY_SELECTOR === "true",
       permissions: {},
     });

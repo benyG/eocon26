@@ -116,7 +116,7 @@ export default function About({ t }: { t: Translations }) {
             <div className="flex items-center gap-2 mt-6">
               <div className="w-2 h-2 rounded-full bg-neon-green animate-ping" />
               <span className="text-neon-green text-sm font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-                #EOCON #EOCTF #SecureTheFuture
+                #EOCON #EyesOpenCTF #SecureTheFuture
               </span>
             </div>
           </div>

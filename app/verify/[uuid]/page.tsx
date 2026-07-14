@@ -141,6 +141,10 @@ export default async function VerifyPage({ params }: { params: { uuid: string } 
               style={{ background: "#004182", color: "#fff", padding: "10px 16px", borderRadius: "6px", textDecoration: "none", fontSize: "12px", fontFamily: "sans-serif" }}>
               Add to LinkedIn Profile
             </a>
+            <a href={`/api/verify/${badge.uuid}/certificate`} target="_blank" rel="noopener noreferrer"
+              style={{ background: color, color: "#000", padding: "10px 16px", borderRadius: "6px", textDecoration: "none", fontSize: "12px", fontWeight: "bold", fontFamily: "sans-serif" }}>
+              ⬇ Certificat de participation (PDF)
+            </a>
             <a href={`/api/verify/${badge.uuid}/download`}
               style={{ background: "#1a1a2e", border: "1px solid #333", color: "#aaa", padding: "10px 16px", borderRadius: "6px", textDecoration: "none", fontSize: "12px" }}>
               Download OBv3 JSON

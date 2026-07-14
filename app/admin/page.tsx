@@ -10,6 +10,7 @@ import MediaLibraryModal from "@/components/admin/MediaLibraryModal";
 import CyberWatchPanel from "@/components/admin/CyberWatchPanel";
 import PilotagePanel from "@/components/admin/PilotagePanel";
 import CampaignsPanel from "@/components/admin/CampaignsPanel";
+import ApprovalsPanel from "@/components/admin/ApprovalsPanel";
 import StrategicPlanPanel from "@/components/admin/StrategicPlanPanel";
 import LivePanel from "@/components/admin/LivePanel";
 import ProspectionSpeakersPanel from "@/components/admin/ProspectionSpeakersPanel";
@@ -20,6 +21,7 @@ import SponsorTimeline from "@/components/admin/SponsorTimeline";
 import PerksCatalogManager from "@/components/admin/PerksCatalogManager";
 import PackagePerksEditor from "@/components/admin/PackagePerksEditor";
 import DocumentsPanel from "@/components/admin/DocumentsPanel";
+import SponsorProspectImportModal from "@/components/admin/SponsorProspectImportModal";
 import RegistrationsChart from "@/components/admin/RegistrationsChart";
 import NotificationBell from "@/components/admin/NotificationBell";
 import { adminI18n } from "@/lib/adminI18n";
@@ -31,7 +33,7 @@ const AdminThemeContext = createContext<{ theme: "dark" | "light"; toggleTheme: 
 });
 const useAdminTheme = () => useContext(AdminThemeContext);
 
-type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "documents" | "logistics" | "certificates" | "export" | "prospection" | "prospection-speakers" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "live" | "sessions" | "video" | "transactions" | "testimony" | "campaigns" | "strategic-plan";
+type Tab = "dashboard" | "pilotage" | "pipeline" | "sponsors" | "volunteers" | "registrations" | "newsletter" | "team" | "past-speakers" | "users" | "profiles" | "communication" | "library" | "cyber-watch" | "sponsor-pipeline" | "budget" | "documents" | "logistics" | "certificates" | "export" | "prospection" | "prospection-speakers" | "tickets" | "sponsor-packages" | "settings" | "audit" | "ctf" | "live" | "sessions" | "video" | "transactions" | "testimony" | "campaigns" | "strategic-plan" | "approvals";
 
 const TIER_ORDER = ["PLATINUM", "GOLD", "SILVER", "BRONZE"];
 const SESSION_TYPES = ["keynote", "talk", "workshop", "panel", "break", "logistics"];
@@ -368,7 +370,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
   const [loading, setLoading] = useState(false);
   const [mfaSetup, setMfaSetup] = useState<MfaSetupState | null>(null);
   // Inline edit (password reset / profile reassignment) for an existing account.
-  const [editUser, setEditUser] = useState<{ id: number; name: string; profileId: number | null; password: string } | null>(null);
+  const [editUser, setEditUser] = useState<{ id: number; name: string; profileId: number | null; password: string; requiresApproval: boolean; isCommApprover: boolean } | null>(null);
   const [editSaving, setEditSaving] = useState(false);
 
   const loadUsers = useCallback(async () => {
@@ -405,7 +407,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
   const saveEdit = async () => {
     if (!editUser) return;
     setEditSaving(true);
-    const body: Record<string, unknown> = { profileId: editUser.profileId };
+    const body: Record<string, unknown> = { profileId: editUser.profileId, requiresApproval: editUser.requiresApproval, isCommApprover: editUser.isCommApprover };
     if (editUser.password.trim()) body.password = editUser.password.trim();
     const res = await fetch(`/api/admin/users/${editUser.id}`, {
       method: "PATCH",
@@ -551,6 +553,17 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
                 ))}
               </select>
             </div>
+            <div className="mb-4 p-3 rounded-lg border border-gray-800 space-y-2">
+              <p className="text-xs text-gray-500 mb-1">{lang === "en" ? "Communication controls" : "Contrôles communication"}</p>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={editUser.requiresApproval} onChange={e => setEditUser(u => u && ({ ...u, requiresApproval: e.target.checked }))} />
+                <span className="text-xs" style={{ color: "var(--txt-2)" }}>🛡️ {lang === "en" ? "Validation constraint (posts & campaigns need approval)" : "Contrainte de validation (publications & campagnes soumises à approbation)"}</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={editUser.isCommApprover} onChange={e => setEditUser(u => u && ({ ...u, isCommApprover: e.target.checked }))} />
+                <span className="text-xs" style={{ color: "var(--txt-2)" }}>✅ {lang === "en" ? "Designated approver" : "Approbateur désigné"}</span>
+              </label>
+            </div>
             <div className="flex gap-2">
               <button onClick={saveEdit} disabled={editSaving} className="btn-neon px-4 py-2 rounded text-sm">
                 {editSaving ? (lang === "en" ? "Saving..." : "Enregistrement...") : t.save}
@@ -604,6 +617,17 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
               </div>
             </div>
           )}
+          <div className="mb-4 p-3 rounded-lg border border-gray-800 space-y-2">
+            <p className="text-xs text-gray-500 mb-1">{lang === "en" ? "Communication controls" : "Contrôles communication"}</p>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={!!form.requiresApproval} onChange={e => setForm(f => ({ ...f, requiresApproval: e.target.checked }))} />
+              <span className="text-xs" style={{ color: "var(--txt-2)" }}>🛡️ {lang === "en" ? "Validation constraint — this admin's posts & campaigns require approval before going out" : "Contrainte de validation — les publications & campagnes de cet admin sont soumises à approbation avant envoi"}</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={!!form.isCommApprover} onChange={e => setForm(f => ({ ...f, isCommApprover: e.target.checked }))} />
+              <span className="text-xs" style={{ color: "var(--txt-2)" }}>✅ {lang === "en" ? "Designated approver — receives and validates approval requests" : "Approbateur désigné — reçoit et valide les demandes d'approbation"}</span>
+            </label>
+          </div>
           <div className="flex gap-2">
             <button onClick={saveUser} disabled={loading || !form.name || !form.email} className="btn-neon px-4 py-2 rounded text-sm">
               {loading ? (lang === "en" ? "Creating..." : "Création...") : (lang === "en" ? "Create and send credentials" : "Créer et envoyer les identifiants")}
@@ -657,7 +681,13 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
                   <span className={`text-xs px-2 py-0.5 rounded ${u.isActive ? "bg-neon-green/10 text-neon-green" : "bg-gray-800 text-gray-600"}`}>
                     {u.isActive ? (lang === "en" ? "Active" : "Actif") : (lang === "en" ? "Inactive" : "Inactif")}
                   </span>
-                  {canWrite && <button onClick={() => setEditUser({ id: u.id as number, name: u.name as string, profileId: (u.profileId as number) ?? null, password: "" })} className="text-xs text-neon-green/80 hover:text-neon-green transition-colors">
+                  {!!u.requiresApproval && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-amber-900/30 text-amber-400" title={lang === "en" ? "Posts & campaigns require approval" : "Publications & campagnes soumises à approbation"}>🛡️ {lang === "en" ? "Constrained" : "Sous validation"}</span>
+                  )}
+                  {!!u.isCommApprover && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-emerald-900/30 text-emerald-400" title={lang === "en" ? "Designated approver" : "Approbateur désigné"}>✅ {lang === "en" ? "Approver" : "Approbateur"}</span>
+                  )}
+                  {canWrite && <button onClick={() => setEditUser({ id: u.id as number, name: u.name as string, profileId: (u.profileId as number) ?? null, password: "", requiresApproval: !!u.requiresApproval, isCommApprover: !!u.isCommApprover })} className="text-xs text-neon-green/80 hover:text-neon-green transition-colors">
                     {lang === "en" ? "Edit" : "Éditer"}
                   </button>}
                   {canWrite && <button onClick={() => toggleActive(u.id as number, !(u.isActive as boolean))} className="text-xs text-gray-600 hover:text-white transition-colors">
@@ -2353,9 +2383,11 @@ function CommunicationPanel({ canWrite = true, canWriteCampaigns, canWriteStrate
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
+      const data = await res.json() as { error?: string; held?: boolean; message?: string };
       if (!res.ok) {
-        const data = await res.json() as { error?: string };
         setPublishError(data.error ?? `Erreur ${res.status}`);
+      } else if (data.held) {
+        setPublishError(`🛡️ ${data.message || (adminLang === "en" ? "Submitted for approval." : "Soumis à validation.")}`);
       }
     } catch (e) {
       setPublishError(e instanceof Error ? e.message : "Erreur réseau");
@@ -2376,7 +2408,8 @@ function CommunicationPanel({ canWrite = true, canWriteCampaigns, canWriteStrate
     await loadLinkedinPosts();
   };
 
-  const statusColors: Record<string, string> = { draft: "#888", scheduled: "#ffaa00", published: "#00ff9d", failed: "#ff0066" };
+  const statusColors: Record<string, string> = { draft: "#888", scheduled: "#ffaa00", published: "#00ff9d", failed: "#ff0066", pending_approval: "#cc00ff" };
+  const statusLabel = (s: string): string => s === "pending_approval" ? (adminLang === "en" ? "awaiting approval" : "en attente de validation") : s;
 
   return (
     <div className="space-y-6">
@@ -2940,7 +2973,7 @@ function CommunicationPanel({ canWrite = true, canWriteCampaigns, canWriteStrate
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={{ background: platformColor + "20", color: platformColor }}>{post.platform as string}</span>
                         <span className="text-xs px-1.5 py-0.5 rounded font-mono uppercase" style={{ background: "var(--bdr)", color: "var(--txt-2)" }}>{post.lang as string}</span>
-                        <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={{ background: color + "20", color }}>{post.status as string}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded font-mono capitalize" style={{ background: color + "20", color }}>{statusLabel(post.status as string)}</span>
                         {!!post.scheduledAt && <span className="text-xs text-gray-600">📅 {new Date(post.scheduledAt as string).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>}
                       </div>
                       <textarea
@@ -3211,6 +3244,20 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
   const [deadline, setDeadline] = useState<{ labelFr: string; labelEn: string; daysLeft: number } | null>(null);
   const [packages, setPackages] = useState<{ tier: string; nameFr: string; nameEn: string }[]>([]);
   const [worklistOpen, setWorklistOpen] = useState(true);
+  const [showImport, setShowImport] = useState(false);
+  const [assigningId, setAssigningId] = useState<number | null>(null);
+
+  // Assign an imported (unassigned) prospect to a team member so it enters the pipeline.
+  const assignProspect = async (id: number, assigneeId: number) => {
+    setAssigningId(id);
+    await fetch(`/api/admin/sponsor-prospects/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assigneeId }),
+    });
+    setAssigningId(null);
+    onRefresh();
+  };
 
   useEffect(() => {
     fetch("/api/admin/sponsor-prospects/assignees").then(r => r.ok ? r.json() : []).then(setAssignees).catch(() => {});
@@ -3422,8 +3469,15 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-black text-white">{t.pipelineTitle}</h1>
-        {canWrite && <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">{t.addProspect}</button>}
+        <div className="flex items-center gap-2">
+          {canWrite && <button onClick={() => setShowImport(true)} className="px-4 py-2 rounded text-xs border border-gray-700 text-gray-300 hover:text-white hover:border-gray-500 transition-all">📥 {lang === "en" ? "Import XLSX" : "Importer XLSX"}</button>}
+          {canWrite && <button onClick={() => setShowForm(!showForm)} className="btn-neon px-4 py-2 rounded text-xs">{t.addProspect}</button>}
+        </div>
       </div>
+
+      {showImport && (
+        <SponsorProspectImportModal lang={lang} onClose={() => setShowImport(false)} onDone={onRefresh} />
+      )}
 
       {/* #3 — urgency countdown to the next commitment deadline */}
       {deadline && (
@@ -3446,10 +3500,12 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
       {/* #5 — "À traiter aujourd'hui" worklist (due follow-ups + never-contacted) */}
       {(() => {
         const now = Date.now();
+        // Only assigned prospects belong in the worklist — imported unassigned
+        // ones sit in the "pending assignment" tray until an owner is set.
         const due = prospects
-          .filter(p => !!p.nextFollowupAt && new Date(p.nextFollowupAt as string).getTime() <= now && ["contacted", "meeting", "positive"].includes(p.status as string))
+          .filter(p => p.assigneeId != null && !!p.nextFollowupAt && new Date(p.nextFollowupAt as string).getTime() <= now && ["contacted", "meeting", "positive"].includes(p.status as string))
           .sort((a, b) => new Date(a.nextFollowupAt as string).getTime() - new Date(b.nextFollowupAt as string).getTime());
-        const toContact = prospects.filter(p => ["demande", "prospect"].includes(p.status as string));
+        const toContact = prospects.filter(p => p.assigneeId != null && ["demande", "prospect"].includes(p.status as string));
         const total = due.length + toContact.length;
         if (total === 0) return null;
         const dayDiff = (d: string) => Math.round((now - new Date(d).getTime()) / 86400000);
@@ -4028,11 +4084,52 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
         );
       })()}
 
+      {/* Pending assignment tray — imported prospects awaiting an "Assigné à" owner.
+          They stay out of the kanban until assigned. */}
+      {(() => {
+        const pending = prospects.filter(p => p.assigneeId == null);
+        if (!pending.length) return null;
+        return (
+          <div className="mb-6 rounded-xl border border-yellow-600/40 bg-yellow-500/5 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-sm font-bold text-yellow-300">⏳ {lang === "en" ? "Pending assignment" : "En attente d'attribution"}</span>
+              <span className="text-xs text-gray-500 font-mono">({pending.length})</span>
+              <span className="text-xs text-gray-500">{lang === "en" ? "— assign an owner to move these into the pipeline." : "— assignez un responsable pour les faire entrer dans le pipeline."}</span>
+            </div>
+            <div className="space-y-2">
+              {pending.map(p => (
+                <div key={p.id as number} className="cyber-card rounded-lg px-3 py-2 flex items-center gap-3 flex-wrap">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-white text-sm font-bold truncate">{p.org as string}</p>
+                    <p className="text-gray-500 text-xs truncate">{[p.contact, p.email, p.package].filter(Boolean).join(" · ") || "—"}</p>
+                  </div>
+                  {canWrite && (
+                    <select
+                      defaultValue=""
+                      disabled={assigningId === (p.id as number)}
+                      onChange={e => { const v = e.target.value; if (v) assignProspect(p.id as number, Number(v)); }}
+                      className="cyber-input text-xs rounded px-2 py-1.5 bg-transparent"
+                      style={{ color: "var(--txt)" }}
+                    >
+                      <option value="" className="bg-dark-800">{lang === "en" ? "— Assign to —" : "— Assigner à —"}</option>
+                      {assignees.map(a => <option key={a.id} value={a.id} className="bg-dark-800">{a.name}</option>)}
+                    </select>
+                  )}
+                  {canWrite && (
+                    <button onClick={() => del(p.id as number)} className="text-xs text-red-500/70 hover:text-red-400 px-2">✕</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Kanban Board */}
       <div className="overflow-x-auto pb-4">
         <div className="flex gap-4 min-w-max">
           {PROSPECT_STATUSES.map(st => {
-            const group = prospects.filter(p => p.status === st.value);
+            const group = prospects.filter(p => p.status === st.value && p.assigneeId != null);
             return (
               <div key={st.value} className="w-64 shrink-0">
                 <div className="flex items-center gap-2 mb-3 px-1">
@@ -5978,6 +6075,17 @@ function CertificatesPanel({ canWrite = true }: { canWrite?: boolean }) {
                     className="shrink-0 text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-all"
                   >
                     🔍
+                  </a>
+                )}
+                {received && getBadgeUuid(p) && (
+                  <a
+                    href={`/api/verify/${getBadgeUuid(p)}/certificate`}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={lang === "en" ? "Download participation certificate (PDF)" : "Télécharger le certificat de participation (PDF)"}
+                    className="shrink-0 text-xs px-3 py-1.5 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-all"
+                  >
+                    🎓
                   </a>
                 )}
                 {canWrite && (isEligible ? (
@@ -7934,7 +8042,7 @@ export default function AdminDashboard() {
   const router = useRouter();
 
   // Current user identity + permissions
-  const [userInfo, setUserInfo] = useState<{ isLegacy: boolean; id?: number; name: string; email?: string; mfaEnabled?: boolean; mfaRequired?: boolean; isRoot?: boolean; currencySelectorEnabled?: boolean; permissions: Record<string, string> } | null>(null);
+  const [userInfo, setUserInfo] = useState<{ isLegacy: boolean; id?: number; name: string; email?: string; mfaEnabled?: boolean; mfaRequired?: boolean; isRoot?: boolean; requiresApproval?: boolean; isCommApprover?: boolean; currencySelectorEnabled?: boolean; permissions: Record<string, string> } | null>(null);
   const [showAccount, setShowAccount] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
@@ -7960,7 +8068,7 @@ export default function AdminDashboard() {
 
   // Tab → required permission key (undefined = always visible)
   const TAB_PERMISSION: Partial<Record<Tab, string | undefined>> = {
-    dashboard: undefined,        // always visible
+    dashboard: "dashboard",      // protected — reveals cross-domain metrics
     pilotage: "pilotage",
     pipeline: "cfp",
     sessions: "sessions",
@@ -7982,6 +8090,7 @@ export default function AdminDashboard() {
     "strategic-plan": "strategic-plan",
     communication: "communication",
     campaigns: "campaigns",
+    approvals: "communication",
     library: "library",
     "cyber-watch": "cyber-watch",
     logistics: "logistics",
@@ -7996,25 +8105,23 @@ export default function AdminDashboard() {
     settings: "settings",
   };
 
-  const canSeeTab = (tabId: Tab): boolean => {
-    if (!userInfo) return tabId === "dashboard"; // hide all protected tabs until identity confirmed
+  // Shared tab-visibility logic for both the sidebar (canSeeTab) and content
+  // rendering (canRenderTab). Kept in one place so they never diverge.
+  const tabAllowed = (tabId: Tab): boolean => {
+    if (!userInfo) return false; // deny everything until identity confirmed
     if (userInfo.isLegacy) return true; // legacy token = full access
     const permKey = TAB_PERMISSION[tabId];
     if (permKey === undefined) return true; // always visible
     // Pilotage tab is also accessible via pilotage-meetings permission
     if (tabId === "pilotage" && !!userInfo.permissions["pilotage-meetings"]) return true;
+    // Designated approvers always reach the Approvals tab, even without the
+    // communication permission.
+    if (tabId === "approvals" && userInfo.isCommApprover) return true;
     return !!userInfo.permissions[permKey as string];
   };
 
-  const canRenderTab = (tabId: Tab): boolean => {
-    if (!userInfo) return tabId === "dashboard"; // deny all protected tabs until identity confirmed
-    if (userInfo.isLegacy) return true;
-    const permKey = TAB_PERMISSION[tabId];
-    if (permKey === undefined) return true;
-    // Pilotage tab is also accessible via pilotage-meetings permission
-    if (tabId === "pilotage" && !!userInfo.permissions["pilotage-meetings"]) return true;
-    return !!userInfo.permissions[permKey as string];
-  };
+  const canSeeTab = (tabId: Tab): boolean => tabAllowed(tabId);
+  const canRenderTab = (tabId: Tab): boolean => tabAllowed(tabId);
 
   const activeTab = canRenderTab(tab) ? tab : "dashboard";
 
@@ -8269,6 +8376,7 @@ export default function AdminDashboard() {
         { id: "strategic-plan", label: "Plan stratégique", icon: "♟️" },
         { id: "communication", label: t.communicationPosts, icon: "📱" },
         { id: "campaigns", label: "Campagnes", icon: "📬" },
+        { id: "approvals", label: t.approvals, icon: "🛡️" },
         { id: "library", label: "Library", icon: "📁" },
         { id: "cyber-watch", label: "Veille cyber", icon: "📡" },
       ],
@@ -8454,7 +8562,7 @@ export default function AdminDashboard() {
           {activeTab === "prospection-speakers" && <ProspectionSpeakersPanel canWrite={can("prospection-speakers")} />}
 
           {/* DASHBOARD */}
-          {activeTab === "dashboard" && (
+          {activeTab === "dashboard" && canRenderTab("dashboard") && (
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-black text-white">{t.dashboardTitle}</h1>
@@ -8946,6 +9054,9 @@ export default function AdminDashboard() {
 
           {/* CAMPAIGNS */}
           {activeTab === "campaigns" && <CampaignsPanel canWrite={can("campaigns")} />}
+
+          {/* APPROVALS */}
+          {activeTab === "approvals" && <ApprovalsPanel />}
 
           {/* LIBRARY */}
           {activeTab === "library" && <LibraryPanel canWrite={can("library")} />}

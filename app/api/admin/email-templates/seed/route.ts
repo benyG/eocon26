@@ -35,7 +35,7 @@ const SEED_TEMPLATES = [
 <p>✅ Programme complet disponible sur le site<br>
 ✅ Experts confirmés<br>
 ✅ Ateliers pratiques<br>
-✅ CTF EOCTF — 48h de compétition</p>
+✅ CTF EyesOpenCTF — 48h de compétition</p>
 <p>Si vous n'êtes pas encore inscrit(e), il est encore temps :</p>
 <p><a href="https://eyesopensecurity.com/#inscription" style="background:#00ff9d;color:#000;padding:12px 24px;border-radius:4px;font-weight:bold;text-decoration:none;">S'inscrire maintenant</a></p>`,
     subjectEn: "EOCON 2026 — Only 30 days left!",
@@ -45,7 +45,7 @@ const SEED_TEMPLATES = [
 <p>✅ Full program available on the website<br>
 ✅ Confirmed experts<br>
 ✅ Hands-on workshops<br>
-✅ EOCTF CTF — 48h competition</p>
+✅ EyesOpenCTF CTF — 48h competition</p>
 <p>If you haven't registered yet, there's still time:</p>
 <p><a href="https://eyesopensecurity.com/#inscription" style="background:#00ff9d;color:#000;padding:12px 24px;border-radius:4px;font-weight:bold;text-decoration:none;">Register now</a></p>`,
   },
@@ -130,7 +130,7 @@ const SEED_TEMPLATES = [
 🎫 Accueil & Enregistrement<br>
 🎤 Support technique sessions<br>
 📸 Communication & Réseaux sociaux<br>
-🏆 Support CTF EOCTF<br>
+🏆 Support CTF EyesOpenCTF<br>
 🛠 Support ateliers</p>
 <p>En échange : accès gratuit à l'événement, repas, t-shirt EOCON 2026.</p>
 <p><a href="https://eyesopensecurity.com/#benevoles" style="background:#00ff9d;color:#000;padding:12px 24px;border-radius:4px;font-weight:bold;text-decoration:none;">Postuler comme bénévole</a></p>`,
@@ -142,7 +142,7 @@ const SEED_TEMPLATES = [
 🎫 Welcome & Registration<br>
 🎤 Session technical support<br>
 📸 Communication & Social media<br>
-🏆 EOCTF CTF support<br>
+🏆 EyesOpenCTF CTF support<br>
 🛠 Workshop support</p>
 <p>In return: free access to the event, meals, an EOCON 2026 t-shirt.</p>
 <p><a href="https://eyesopensecurity.com/#benevoles" style="background:#00ff9d;color:#000;padding:12px 24px;border-radius:4px;font-weight:bold;text-decoration:none;">Apply as a volunteer</a></p>`,
@@ -166,10 +166,10 @@ const SEED_TEMPLATES = [
   {
     name: "🔑 CTF — Accès CTFd & identifiants de connexion",
     segment: "registered",
-    subject: "EOCTF 2026 — Votre compte CTFd est prêt 🔑",
-    htmlBody: `<h1>Vos identifiants EOCTF 2026 🔑</h1>
+    subject: "EyesOpenCTF 2026 — Votre compte CTFd est prêt 🔑",
+    htmlBody: `<h1>Vos identifiants EyesOpenCTF 2026 🔑</h1>
 <p>Bonjour {{fname}},</p>
-<p>Votre compte sur la plateforme <strong>CTFd EOCTF</strong> vient d'être créé. Voici vos informations de connexion :</p>
+<p>Votre compte sur la plateforme <strong>CTFd EyesOpenCTF</strong> vient d'être créé. Voici vos informations de connexion :</p>
 <ul>
 <li>🌐 <strong>Plateforme :</strong> <a href="https://ctf.eyesopensecurity.com" style="color:#00ff9d;">ctf.eyesopensecurity.com</a></li>
 <li>👤 <strong>Nom d'utilisateur :</strong> {{fname}}</li>
@@ -179,10 +179,10 @@ const SEED_TEMPLATES = [
 <p>⚠️ Connectez-vous <strong>avant le début de la compétition</strong> pour vérifier votre accès et rejoindre ou créer votre équipe (max 4 personnes).</p>
 <p>La compétition démarre le <strong>27 novembre 2026 à 20h00</strong> et se termine le <strong>28 novembre à 20h00</strong>.</p>
 <p>May the flags be with you 🚩<br>L'équipe EOCON 2026</p>`,
-    subjectEn: "EOCTF 2026 — Your CTFd account is ready 🔑",
-    htmlBodyEn: `<h1>Your EOCTF 2026 credentials 🔑</h1>
+    subjectEn: "EyesOpenCTF 2026 — Your CTFd account is ready 🔑",
+    htmlBodyEn: `<h1>Your EyesOpenCTF 2026 credentials 🔑</h1>
 <p>Hi {{fname}},</p>
-<p>Your account on the <strong>EOCTF CTFd</strong> platform has just been created. Here are your login details:</p>
+<p>Your account on the <strong>EyesOpenCTF CTFd</strong> platform has just been created. Here are your login details:</p>
 <ul>
 <li>🌐 <strong>Platform:</strong> <a href="https://ctf.eyesopensecurity.com" style="color:#00ff9d;">ctf.eyesopensecurity.com</a></li>
 <li>👤 <strong>Username:</strong> {{fname}}</li>
@@ -196,10 +196,10 @@ const SEED_TEMPLATES = [
   {
     name: "🤝 CTF — Participation sans équipe (solo)",
     segment: "registered",
-    subject: "EOCTF 2026 — Vous participez en solo 🤝",
-    htmlBody: `<h1>Vous jouez en solo à EOCTF 2026 🤝</h1>
+    subject: "EyesOpenCTF 2026 — Vous participez en solo 🤝",
+    htmlBody: `<h1>Vous jouez en solo à EyesOpenCTF 2026 🤝</h1>
 <p>Bonjour {{fname}},</p>
-<p>Nous avons constaté que vous n'êtes encore rattaché(e) à aucune équipe pour le <strong>CTF EOCTF 2026</strong>. Pas de panique — vous pouvez tout à fait participer en <strong>solo</strong> !</p>
+<p>Nous avons constaté que vous n'êtes encore rattaché(e) à aucune équipe pour le <strong>CTF EyesOpenCTF 2026</strong>. Pas de panique — vous pouvez tout à fait participer en <strong>solo</strong> !</p>
 <p>Quelques options s'offrent à vous :</p>
 <ul>
 <li>🔍 <strong>Rejoindre une équipe existante</strong> — consultez le forum Discord EOCON pour trouver une équipe qui recrute</li>
@@ -208,10 +208,10 @@ const SEED_TEMPLATES = [
 </ul>
 <p>💬 Rejoignez le serveur Discord EOCON pour échanger avec d'autres participants : <a href="https://discord.gg/eocon" style="color:#00ff9d;">discord.gg/eocon</a></p>
 <p>La compétition démarre le <strong>27 novembre 2026 à 20h00</strong>. Bonne chance !<br>L'équipe EOCON 2026</p>`,
-    subjectEn: "EOCTF 2026 — You're participating solo 🤝",
-    htmlBodyEn: `<h1>You're playing solo at EOCTF 2026 🤝</h1>
+    subjectEn: "EyesOpenCTF 2026 — You're participating solo 🤝",
+    htmlBodyEn: `<h1>You're playing solo at EyesOpenCTF 2026 🤝</h1>
 <p>Hi {{fname}},</p>
-<p>We noticed you haven't joined a team yet for the <strong>EOCTF 2026 CTF</strong>. No worries — you can absolutely compete <strong>solo</strong>!</p>
+<p>We noticed you haven't joined a team yet for the <strong>EyesOpenCTF 2026 CTF</strong>. No worries — you can absolutely compete <strong>solo</strong>!</p>
 <p>Here are your options:</p>
 <ul>
 <li>🔍 <strong>Join an existing team</strong> — check the EOCON Discord forum to find a team that's recruiting</li>
@@ -222,12 +222,12 @@ const SEED_TEMPLATES = [
 <p>The competition starts <strong>November 27, 2026 at 8:00 PM</strong>. Good luck!<br>The EOCON 2026 team</p>`,
   },
   {
-    name: "⏰ CTF — Rappel J-1 EOCTF",
+    name: "⏰ CTF — Rappel J-1 EyesOpenCTF",
     segment: "registered",
-    subject: "EOCTF 2026 — La compétition commence demain soir ! ⚡",
-    htmlBody: `<h1>EOCTF 2026, c'est demain ! ⚡</h1>
+    subject: "EyesOpenCTF 2026 — La compétition commence demain soir ! ⚡",
+    htmlBody: `<h1>EyesOpenCTF 2026, c'est demain ! ⚡</h1>
 <p>Bonjour {{fname}},</p>
-<p>La compétition <strong>EOCTF 2026</strong> démarre dans moins de 24 heures. Êtes-vous prêt(e) ?</p>
+<p>La compétition <strong>EyesOpenCTF 2026</strong> démarre dans moins de 24 heures. Êtes-vous prêt(e) ?</p>
 <p>📋 <strong>Checklist avant le départ :</strong></p>
 <ul>
 <li>✅ Compte CTFd vérifié — <a href="https://ctf.eyesopensecurity.com" style="color:#00ff9d;">ctf.eyesopensecurity.com</a></li>
@@ -240,10 +240,10 @@ const SEED_TEMPLATES = [
 🏁 <strong>Fin :</strong> 28 novembre 2026 à <strong>20h00</strong><br>
 📍 Plateforme en ligne + présence sur site possible</p>
 <p>Le classement en direct sera visible sur la plateforme dès le début. Les flags vous attendent — bonne chasse ! 🚩<br>L'équipe EOCON 2026</p>`,
-    subjectEn: "EOCTF 2026 — The competition starts tomorrow night! ⚡",
-    htmlBodyEn: `<h1>EOCTF 2026 is tomorrow! ⚡</h1>
+    subjectEn: "EyesOpenCTF 2026 — The competition starts tomorrow night! ⚡",
+    htmlBodyEn: `<h1>EyesOpenCTF 2026 is tomorrow! ⚡</h1>
 <p>Hi {{fname}},</p>
-<p>The <strong>EOCTF 2026</strong> competition kicks off in less than 24 hours. Are you ready?</p>
+<p>The <strong>EyesOpenCTF 2026</strong> competition kicks off in less than 24 hours. Are you ready?</p>
 <p>📋 <strong>Pre-game checklist:</strong></p>
 <ul>
 <li>✅ CTFd account verified — <a href="https://ctf.eyesopensecurity.com" style="color:#00ff9d;">ctf.eyesopensecurity.com</a></li>

@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getCurrentPermissions } from "@/lib/adminPermissions";
+import { hasPermission } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!(await getCurrentPermissions())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Dashboard analytics aggregate cross-domain metrics — gated by the dedicated
+  // "dashboard" permission so they aren't readable by every admin.
+  if (!(await hasPermission("dashboard", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   // Registrations over time (last 60 days, grouped by day)
   const registrations = await prisma.registration.findMany({

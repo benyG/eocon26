@@ -16,6 +16,7 @@ export async function sendBadgeEmail(opts: {
   const verifyUrl = `${baseUrl}/verify/${uuid}`;
   const downloadUrl = `${baseUrl}/api/verify/${uuid}/download`;
   const pdfUrl = `${baseUrl}/api/verify/${uuid}/pdf`;
+  const certificateUrl = `${baseUrl}/api/verify/${uuid}/certificate`;
   const svgDataUrl = svgToDataUrl(generateBadgeSvg(badgeType, recipientName, "2026", subtype));
 
   const badgeLabels: Record<BadgeType, { fr: string; en: string }> = {
@@ -115,6 +116,11 @@ export async function sendBadgeEmail(opts: {
             <a href="${pdfUrl}" target="_blank"
               style="display:inline-block;background:${color};color:#000000;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:bold;font-family:sans-serif;letter-spacing:1px;">
               ⬇ ${isFr ? "TÉLÉCHARGER MON BADGE (PDF)" : "DOWNLOAD MY BADGE (PDF)"}
+            </a>
+            <br/>
+            <a href="${certificateUrl}" target="_blank"
+              style="display:inline-block;margin-top:12px;background:transparent;color:${color};border:1px solid ${color};padding:11px 26px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:bold;font-family:sans-serif;letter-spacing:1px;">
+              🎓 ${isFr ? "TÉLÉCHARGER MON CERTIFICAT (PDF)" : "DOWNLOAD MY CERTIFICATE (PDF)"}
             </a>
           </div>
         </td></tr>

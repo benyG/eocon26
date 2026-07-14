@@ -78,9 +78,8 @@ export function generateBadgeSvg(
   <polygon points="${HEX_OUTER}" fill="none" stroke="${primary}" stroke-width="2.5"/>
   <polygon points="${HEX_INNER}" fill="none" stroke="${secondary}" stroke-width="1" opacity="0.5"/>
 
-  <!-- Binary watermark lines -->
-  <text x="150" y="80" text-anchor="middle" font-family="monospace" font-size="7" fill="${primary}" opacity="0.08" letter-spacing="3">01001101 00110001</text>
-  <text x="150" y="240" text-anchor="middle" font-family="monospace" font-size="7" fill="${primary}" opacity="0.08" letter-spacing="3">10110100 01000011</text>
+  <!-- Binary watermark line (kept in the wide band so it never crosses the hex walls) -->
+  <text x="150" y="118" text-anchor="middle" font-family="monospace" font-size="7" fill="${primary}" opacity="0.08" letter-spacing="3">01001101 00110001</text>
 
   <!-- EOCON label top -->
   <text x="150" y="72" text-anchor="middle" font-family="'Share Tech Mono', monospace, sans-serif" font-size="10" fill="${primary}" letter-spacing="4" opacity="0.8">EOCON ${year}</text>
@@ -98,16 +97,13 @@ export function generateBadgeSvg(
   <line x1="90" y1="186" x2="210" y2="186" stroke="${primary}" stroke-width="0.5" opacity="0.5"/>
 
   <!-- Badge type label -->
-  <text x="150" y="204" text-anchor="middle" font-family="'Share Tech Mono', monospace, sans-serif" font-size="11" fill="${primary}" letter-spacing="2" font-weight="bold">${label}</text>
+  <text x="150" y="202" text-anchor="middle" font-family="'Share Tech Mono', monospace, sans-serif" font-size="11" fill="${primary}" letter-spacing="2" font-weight="bold">${label}</text>
 
   ${sublabel ? `<!-- Subtype (ticket level) -->
-  <text x="150" y="220" text-anchor="middle" font-family="'Share Tech Mono', monospace, sans-serif" font-size="9" fill="${secondary}" letter-spacing="3" opacity="0.8">${sublabel}</text>` : ""}
+  <text x="150" y="217" text-anchor="middle" font-family="'Share Tech Mono', monospace, sans-serif" font-size="9" fill="${secondary}" letter-spacing="3" opacity="0.8">${sublabel}</text>` : ""}
 
-  <!-- Year watermark bottom-right inside hex -->
-  <text x="226" y="253" text-anchor="middle" font-family="monospace" font-size="9" fill="${primary}" opacity="0.35" font-weight="bold">${year}</text>
-
-  <!-- EyesOpen bottom -->
-  <text x="150" y="265" text-anchor="middle" font-family="monospace" font-size="7" fill="#555555" letter-spacing="1">EYESOPEN SECURITY</text>
+  <!-- Issuer + year, centered in the wide-enough band so nothing crosses the hex walls -->
+  <text x="150" y="233" text-anchor="middle" font-family="monospace" font-size="7" fill="#777777" letter-spacing="0.8">EYESOPEN SECURITY · ${year}</text>
 </svg>`;
 }
 

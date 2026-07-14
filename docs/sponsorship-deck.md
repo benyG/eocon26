@@ -479,7 +479,7 @@ No problem — we create custom offerings tailored to your objectives.
 │   +1 581-849-3838                                           │
 │                                                             │
 │   @237HACKERS  |  @eyesopsi  |  EyesOpen Association       │
-│   #EOCON2026   |  #EOCTF     |  #SecureTheFuture           │
+│   #EOCON2026   |  #EyesOpenCTF     |  #SecureTheFuture           │
 │                                                             │
 │   🌐 Hybrid · FR | EN · Nov 28, 2026 · Douala, Cameroun    │
 │                                                             │

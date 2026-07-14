@@ -8266,11 +8266,6 @@ export default function AdminDashboard() {
     fetchStats();
   };
 
-  const updateStatus = async (type: string, id: number, status: string) => {
-    await fetch("/api/admin/submissions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type, id, status }) });
-    fetchData(tab);
-  };
-
   const cancelForm = () => { setShowForm(false); setForm({}); setEditing(null); };
 
   const sendDecision = async (id: number, action: "accept" | "reject") => {
@@ -8726,91 +8721,6 @@ export default function AdminDashboard() {
               })()}
               <div className="mb-8">
                 <VolunteerKanban canWrite={can("volunteers")} />
-              </div>
-              <div className="border-t border-gray-800 pt-6">
-                <h2 className="text-sm font-bold text-gray-400 font-mono mb-4 uppercase tracking-wider">{lang === "en" ? "All applications" : "Toutes les candidatures"}</h2>
-              {(() => {
-                const volunteerList = (data.volunteers || []) as Record<string, unknown>[];
-                const existingRoles = Array.from(new Set(volunteerList.map(v => v.role as string).filter(Boolean))).sort();
-                return (
-              <div className="space-y-3">
-                {volunteerList.map(v => (
-                  <div key={v.id as number} className="cyber-card rounded-xl p-5">
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                      <div>
-                        <p className="text-white font-bold">{v.name as string} <span className="text-gray-500 font-normal text-sm">— {v.email as string}</span></p>
-                        {!!v.role && <p className="text-neon-green/70 text-sm">{lang === "en" ? "Desired role" : "Rôle souhaité"} : {v.role as string}</p>}
-                        {!!v.city && <p className="text-gray-500 text-xs">{v.city as string}</p>}
-                        <p className="text-gray-400 text-xs mt-2 line-clamp-2">{v.motivation as string}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => setDetail({ type: "volunteer", item: v })} className="text-xs px-2 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">{lang === "en" ? "Details" : "Détails"}</button>
-                        <Badge status={v.status as string} />
-                        {can("volunteers") && <select className="cyber-input text-xs px-2 py-1 rounded bg-transparent" value={v.status as string}
-                          onChange={e => updateStatus("volunteer", v.id as number, e.target.value)}>
-                          <option value="pending" className="bg-dark-800">pending</option>
-                          <option value="accepted" className="bg-dark-800">accepted</option>
-                          <option value="rejected" className="bg-dark-800">rejected</option>
-                        </select>}
-                      </div>
-                    </div>
-                    {v.status === "accepted" && can("volunteers") && (
-                      <div className="border-t border-gray-800 pt-3 mt-2">
-                        <p className="text-xs text-gray-500 mb-2 uppercase tracking-wider">{lang === "en" ? "Assignment" : "Affectation"}</p>
-                        <div className="flex gap-2 flex-wrap">
-                          <select
-                            className="cyber-input text-xs rounded px-2 py-1 flex-1 min-w-[140px]"
-                            defaultValue={(v.assignedRole as string) || ""}
-                            disabled={!can("volunteers")}
-                            onChange={async (e) => {
-                              await fetch("/api/admin/submissions", {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ type: "volunteer-assign", id: v.id, assignedRole: e.target.value }),
-                              });
-                            }}
-                          >
-                            <option value="">{lang === "en" ? "— Assigned role —" : "— Rôle assigné —"}</option>
-                            {existingRoles.map(r => (
-                              <option key={r} value={r}>{r}</option>
-                            ))}
-                          </select>
-                          <input
-                            type="datetime-local"
-                            defaultValue={(v.shiftStart as string)?.slice(0, 16) || ""}
-                            className="cyber-input text-xs rounded px-2 py-1"
-                            disabled={!can("volunteers")}
-                            onBlur={async (e) => {
-                              await fetch("/api/admin/submissions", {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ type: "volunteer-assign", id: v.id, shiftStart: e.target.value }),
-                              });
-                            }}
-                          />
-                          <input
-                            type="datetime-local"
-                            defaultValue={(v.shiftEnd as string)?.slice(0, 16) || ""}
-                            className="cyber-input text-xs rounded px-2 py-1"
-                            disabled={!can("volunteers")}
-                            onBlur={async (e) => {
-                              await fetch("/api/admin/submissions", {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ type: "volunteer-assign", id: v.id, shiftEnd: e.target.value }),
-                              });
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                    <p className="text-gray-600 text-xs mt-2">{new Date(v.createdAt as string).toLocaleDateString("fr-FR")}</p>
-                  </div>
-                ))}
-                {!volunteerList.length && !loading && <p className="text-gray-600 text-xs py-8 text-center">{lang === "en" ? "No applications" : "Aucune candidature"}</p>}
-              </div>
-                );
-              })()}
               </div>
             </div>
           )}

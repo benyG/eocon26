@@ -497,8 +497,9 @@ export const VOLUNTEER_DOCS: VolunteerDoc[] = [
   { key: "role-logistique",    emoji: "🚛", kind: "role",     title: "Encadrement — Logistique",                   html: ROLE_LOGISTIQUE },
 ];
 
-// Suggested documents per assigned role (labels must match the ROLES list used
-// in the volunteer kanban and the public application form). Every suggestion
+// Suggested documents per role, keyed by CANONICAL role labels only — callers
+// resolve submitted FR/EN variants through canonicalVolunteerRole()
+// (lib/volunteerRoles.ts) before looking up this map. Every suggestion
 // includes the charter.
 export const ROLE_DOC_MAP: Record<string, string[]> = {
   "Accueil & Inscription":        ["charte", "role-accueil", "tuto-checkin"],
@@ -510,15 +511,6 @@ export const ROLE_DOC_MAP: Record<string, string[]> = {
   "Médias & Réseaux Sociaux":     ["charte", "role-medias", "tuto-communication"],
   "Ambassadeur de Sponsoring":    ["charte", "role-sponsoring", "tuto-sponsors"],
   "Logistique":                   ["charte", "role-logistique"],
-  // Public-form role labels that differ from the admin list
-  "Registration Desk":            ["charte", "role-accueil", "tuto-checkin"],
-  "Session Support":              ["charte", "role-sessions", "tuto-live"],
-  "CTF Support":                  ["charte", "role-ctf", "tuto-ctf"],
-  "Media & Social":               ["charte", "role-medias", "tuto-communication"],
-  "Sponsoring Ambassador":        ["charte", "role-sponsoring", "tuto-sponsors"],
-  "Logistics":                    ["charte", "role-logistique"],
-  "Assistance aux sessions":      ["charte", "role-sessions", "tuto-live"],
-  "Assistance CTF":               ["charte", "role-ctf", "tuto-ctf"],
 };
 
 export const DEFAULT_DOC_KEYS = ["charte"];

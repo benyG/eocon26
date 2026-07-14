@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useLang } from "@/lib/adminLangContext";
+import { VOLUNTEER_ROLES, canonicalVolunteerRole } from "@/lib/volunteerRoles";
 
 type VolStage = "submitted" | "reviewing" | "shortlisted" | "accepted" | "onboarding" | "confirmed" | "rejected";
 
@@ -14,17 +15,7 @@ const STAGES: { key: VolStage; label: { fr: string; en: string }; color: string;
   { key: "rejected",    label: { fr: "Refusés",         en: "Rejected" },        color: "#ff3333", desc: { fr: "Email de refus envoyé",           en: "Rejection email sent" } },
 ];
 
-const ROLES = [
-  "Accueil & Inscription",
-  "Support Sessions",
-  "Modérateur de session",
-  "Support streaming",
-  "Ambassadeur réseaux sociaux",
-  "Support CTF",
-  "Médias & Réseaux Sociaux",
-  "Ambassadeur de Sponsoring",
-  "Logistique",
-];
+const ROLES: readonly string[] = VOLUNTEER_ROLES;
 
 interface VolCard {
   id: number;
@@ -118,9 +109,10 @@ export default function VolunteerKanban({ canWrite = true }: { canWrite?: boolea
   };
 
   // Suggested docs for a volunteer: role guide + matching tutorial(s) + charter.
+  // Role is canonicalized so FR/EN form variants map to the same suggestions.
   const suggestedDocs = useCallback((c: VolCard): string[] => {
     if (!docCatalog) return [];
-    const role = c.assignedRole || c.role || "";
+    const role = canonicalVolunteerRole(c.assignedRole || c.role) || "";
     return docCatalog.roleMap[role] || docCatalog.defaults;
   }, [docCatalog]);
 
@@ -219,7 +211,10 @@ export default function VolunteerKanban({ canWrite = true }: { canWrite?: boolea
         const roleMap = new Map<string, VolCard[]>();
         for (const r of ROLES) roleMap.set(r, []);
         for (const c of cards) {
-          const key = (c.role && c.role.trim()) || __("(non précisé)", "(unspecified)");
+          // Canonicalize so a role and its FR/EN form variants ("Logistics" /
+          // "Logistique", "Session Support" / "Assistance aux sessions"…)
+          // are counted as ONE role, not several.
+          const key = canonicalVolunteerRole(c.role) || __("(non précisé)", "(unspecified)");
           if (!roleMap.has(key)) roleMap.set(key, []);
           roleMap.get(key)!.push(c);
         }
@@ -296,7 +291,7 @@ export default function VolunteerKanban({ canWrite = true }: { canWrite?: boolea
                     <div className="min-w-0">
                       <p className="text-sm font-bold font-mono" style={{ color: "var(--txt)" }}>{c.name}</p>
                       <p className="text-xs" style={{ color: "var(--txt-mute)" }}>
-                        {c.assignedRole || c.role || __("(rôle non assigné)", "(no role assigned)")} · {c.email}
+                        {canonicalVolunteerRole(c.assignedRole || c.role) || __("(rôle non assigné)", "(no role assigned)")} · {c.email}
                         {" · "}{(() => { const s = STAGES.find(s => s.key === c.volunteerStage); return s ? __(s.label.fr, s.label.en) : ""; })()}
                       </p>
                     </div>

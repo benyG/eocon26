@@ -452,6 +452,25 @@ export async function sendPilotageEscalation(coordoEmail: string, task: Pilotage
   await sendPilotage(coordoEmail, `🚨 Tâche en retard — ${task.title}`, body);
 }
 
+// Notify a designated approver that a communication (social publication or
+// mailing campaign) is awaiting validation before it can go out.
+export async function sendApprovalRequest(
+  to: string,
+  approverName: string,
+  req: { title: string; kind: "social" | "campaign"; requestedBy: string },
+) {
+  const kindLabel = req.kind === "campaign" ? "Campagne mailing" : "Publication réseaux sociaux";
+  const body = `<p>${greenLabel("Bonjour " + esc(approverName || ""))},</p>
+     <p>🛡️ Une communication au nom d'EOCON 2026 requiert votre <strong style="color:#00ff9d;">validation</strong> avant d'être envoyée.</p>
+     ${neonBox(`<table cellpadding="0" cellspacing="0"><tbody>
+       ${neonRow("Type", esc(kindLabel))}
+       ${neonRow("Objet", `<strong style="color:#00ff9d;">${esc(req.title)}</strong>`)}
+       ${neonRow("Soumis par", esc(req.requestedBy))}
+     </tbody></table>`)}
+     <p>Rendez-vous dans <strong>Communication → Approbations</strong> de l'espace admin pour valider ou refuser.</p>`;
+  await sendPilotage(to, `🛡️ Validation requise — ${req.title}`, body);
+}
+
 export interface SponsorProspectLike {
   id: number;
   org: string;

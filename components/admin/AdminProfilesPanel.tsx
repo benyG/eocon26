@@ -6,6 +6,7 @@ import { useLang } from "@/lib/adminLangContext";
 // Each entry's `key` is the permission key checked by canSeeTab in the dashboard.
 const NAV_GROUPS: { label: { fr: string; en: string }; modules: { key: string; label: string }[] }[] = [
   { label: { fr: "Vue d'ensemble", en: "Overview" }, modules: [
+    { key: "dashboard", label: "📊 Tableau de bord (métriques globales)" },
     { key: "pilotage", label: "🎯 Pilotage global (kanban)" },
     { key: "pilotage-meetings", label: "📅 Pilotage — Réunions" },
   ] },

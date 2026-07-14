@@ -837,8 +837,10 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
     if (!cid) { setSending(false); setMsg(`✗ ${__("Échec de l'enregistrement", "Save failed")}`); return; }
     const r = await fetch(`/api/admin/campaigns/${cid}/send`, { method: "POST" });
     setSending(false);
-    if (r.ok) { const d = await r.json(); setMsg(`✓ ${__("Campagne envoyée", "Campaign sent")} : ${d.sent} ${__("envoyés", "sent")}, ${d.failed} ${__("échec(s)", "failure(s)")}`); setTimeout(onClose, 1500); }
-    else { const e = await r.json().catch(() => ({})); setMsg(`✗ ${e.error || __("Échec de l'envoi", "Send failed")}`); }
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d.held) { setMsg(`🛡️ ${d.message || __("Soumis à validation avant envoi.", "Submitted for approval before sending.")}`); setTimeout(onClose, 2000); }
+    else if (r.ok) { setMsg(`✓ ${__("Campagne envoyée", "Campaign sent")} : ${d.sent} ${__("envoyés", "sent")}, ${d.failed} ${__("échec(s)", "failure(s)")}`); setTimeout(onClose, 1500); }
+    else { setMsg(`✗ ${d.error || __("Échec de l'envoi", "Send failed")}`); }
   };
 
   const toggle = (field: "statuses" | "ticketTypes" | "countries" | "langs", val: string) => {

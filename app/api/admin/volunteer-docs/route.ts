@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
 import { logAction } from "@/lib/auditLog";
 import { VOLUNTEER_DOCS, ROLE_DOC_MAP, DEFAULT_DOC_KEYS, renderDocsEmail } from "@/lib/volunteerDocs";
+import { canonicalVolunteerRole } from "@/lib/volunteerRoles";
 import { Resend } from "resend";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
   if (!vol.email) return NextResponse.json({ error: "Ce bénévole n'a pas d'email" }, { status: 400 });
 
   const docs = VOLUNTEER_DOCS.filter(d => keys.includes(d.key));
-  const { subject, html } = renderDocsEmail(vol.name, vol.assignedRole || vol.role || null, docs);
+  const { subject, html } = renderDocsEmail(vol.name, canonicalVolunteerRole(vol.assignedRole || vol.role), docs);
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const from = process.env.EMAIL_FROM || "EOCON 2026 <noreply@eyesopensecurity.com>";

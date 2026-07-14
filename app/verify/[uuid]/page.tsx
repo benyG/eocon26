@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { verifyCredential } from "@/lib/badgeCredential";
 import { generateBadgeSvg, BadgeType } from "@/lib/badgeSvg";
+import { computeCPE } from "@/lib/livePresence";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,20 @@ export default async function VerifyPage({ params }: { params: { uuid: string } 
   const svgString = generateBadgeSvg(badge.badgeType as BadgeType, badge.recipientName, "2026", badge.subtype);
   const svgDataUrl = `data:image/svg+xml;base64,${Buffer.from(svgString).toString("base64")}`;
   const baseUrl = process.env.NEXT_PUBLIC_URL || "https://eyesopensecurity.com";
+
+  // Session attendance → hours + CPE credits (participants with tracked presence)
+  let totalMinutes: number | null = null;
+  if (badge.badgeType === "participant" && badge.recipientEmail) {
+    const presence = await prisma.livePresence.findFirst({
+      where: { registration: { email: badge.recipientEmail } },
+      orderBy: { totalMinutes: "desc" },
+      select: { totalMinutes: true },
+    }).catch(() => null);
+    totalMinutes = presence?.totalMinutes ?? null;
+  }
+  const hoursLabel = totalMinutes && totalMinutes > 0
+    ? (() => { const h = Math.floor(totalMinutes / 60); const m = totalMinutes % 60; return h === 0 ? `${m} min` : m > 0 ? `${h} h ${String(m).padStart(2, "0")}` : `${h} h`; })()
+    : null;
 
   const linkedinAddUrl = new URL("https://www.linkedin.com/profile/add");
   linkedinAddUrl.searchParams.set("startTask", "CERTIFICATION_NAME");
@@ -122,6 +137,15 @@ export default async function VerifyPage({ params }: { params: { uuid: string } 
               </>
             )}
 
+            {hoursLabel && totalMinutes && (
+              <>
+                <p style={{ fontSize: "11px", color: "#555", margin: "0 0 4px", letterSpacing: "2px" }}>TIME IN SESSION</p>
+                <p style={{ fontSize: "13px", color: "#ffffff", margin: "0 0 16px" }}>
+                  {hoursLabel} <span style={{ color, marginLeft: "8px" }}>· {computeCPE(totalMinutes)} CPE credits</span>
+                </p>
+              </>
+            )}
+
             <p style={{ fontSize: "11px", color: "#555", margin: "0 0 4px", letterSpacing: "2px" }}>ISSUED</p>
             <p style={{ fontSize: "12px", color: "#888", margin: "0 0 16px" }}>{new Date(badge.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</p>
 
@@ -141,9 +165,13 @@ export default async function VerifyPage({ params }: { params: { uuid: string } 
               style={{ background: "#004182", color: "#fff", padding: "10px 16px", borderRadius: "6px", textDecoration: "none", fontSize: "12px", fontFamily: "sans-serif" }}>
               Add to LinkedIn Profile
             </a>
-            <a href={`/api/verify/${badge.uuid}/certificate`} target="_blank" rel="noopener noreferrer"
+            <a href={`/api/verify/${badge.uuid}/certificate?lang=fr`} target="_blank" rel="noopener noreferrer"
               style={{ background: color, color: "#000", padding: "10px 16px", borderRadius: "6px", textDecoration: "none", fontSize: "12px", fontWeight: "bold", fontFamily: "sans-serif" }}>
-              ⬇ Certificat de participation (PDF)
+              ⬇ Certificat de participation (FR)
+            </a>
+            <a href={`/api/verify/${badge.uuid}/certificate?lang=en`} target="_blank" rel="noopener noreferrer"
+              style={{ background: "transparent", border: `1px solid ${color}`, color, padding: "10px 16px", borderRadius: "6px", textDecoration: "none", fontSize: "12px", fontWeight: "bold", fontFamily: "sans-serif" }}>
+              ⬇ Certificate of Participation (EN)
             </a>
             <a href={`/api/verify/${badge.uuid}/download`}
               style={{ background: "#1a1a2e", border: "1px solid #333", color: "#aaa", padding: "10px 16px", borderRadius: "6px", textDecoration: "none", fontSize: "12px" }}>

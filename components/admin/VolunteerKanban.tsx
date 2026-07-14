@@ -42,14 +42,22 @@ interface VolCard {
   linkedin?: string | null;
   whatsapp?: string | null;
   hoursPerWeek?: string | null;
+  docsSent?: string | null;
   createdAt: string;
 }
+
+interface DocMeta { key: string; title: string; emoji: string; kind: "tutorial" | "role" | "charter" }
+interface DocCatalog { docs: DocMeta[]; roleMap: Record<string, string[]>; defaults: string[] }
 
 export default function VolunteerKanban({ canWrite = true }: { canWrite?: boolean } = {}) {
   const __ = useLang();
   const [cards, setCards] = useState<VolCard[]>([]);
   const [loading, setLoading] = useState(false);
-  const [view, setView] = useState<"pipeline" | "roles">("pipeline");
+  const [view, setView] = useState<"pipeline" | "roles" | "docs">("pipeline");
+  const [docCatalog, setDocCatalog] = useState<DocCatalog | null>(null);
+  const [docSelection, setDocSelection] = useState<Record<number, Set<string>>>({});
+  const [docSendingId, setDocSendingId] = useState<number | null>(null);
+  const [docMsg, setDocMsg] = useState<string | null>(null);
   const [selected, setSelected] = useState<VolCard | null>(null);
   const [dragId, setDragId] = useState<number | null>(null);
   const [dropTarget, setDropTarget] = useState<VolStage | null>(null);
@@ -99,6 +107,59 @@ export default function VolunteerKanban({ canWrite = true }: { canWrite?: boolea
 
   const stageCount = (s: VolStage) => cards.filter(c => c.volunteerStage === s).length;
 
+  // ── Onboarding documents ("Documents" tab) ────────────────────────────────
+  useEffect(() => {
+    if (view !== "docs" || docCatalog) return;
+    fetch("/api/admin/volunteer-docs").then(r => r.ok ? r.json() : null).then(setDocCatalog).catch(() => {});
+  }, [view, docCatalog]);
+
+  const sentMap = (c: VolCard): Record<string, string> => {
+    try { return JSON.parse(c.docsSent || "{}"); } catch { return {}; }
+  };
+
+  // Suggested docs for a volunteer: role guide + matching tutorial(s) + charter.
+  const suggestedDocs = useCallback((c: VolCard): string[] => {
+    if (!docCatalog) return [];
+    const role = c.assignedRole || c.role || "";
+    return docCatalog.roleMap[role] || docCatalog.defaults;
+  }, [docCatalog]);
+
+  const selectionFor = (c: VolCard): Set<string> => {
+    if (docSelection[c.id]) return docSelection[c.id];
+    const sent = sentMap(c);
+    return new Set(suggestedDocs(c).filter(k => !sent[k]));
+  };
+
+  const toggleDoc = (c: VolCard, key: string) => {
+    setDocSelection(prev => {
+      const cur = new Set(prev[c.id] ?? selectionFor(c));
+      if (cur.has(key)) cur.delete(key); else cur.add(key);
+      return { ...prev, [c.id]: cur };
+    });
+  };
+
+  const sendDocs = async (c: VolCard) => {
+    const keys = Array.from(selectionFor(c));
+    if (!keys.length) return;
+    setDocSendingId(c.id);
+    setDocMsg(null);
+    const res = await fetch("/api/admin/volunteer-docs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ volunteerId: c.id, docKeys: keys }),
+    });
+    if (res.ok) {
+      const updated: VolCard = await res.json();
+      setCards(prev => prev.map(x => x.id === c.id ? updated : x));
+      setDocSelection(prev => { const n = { ...prev }; delete n[c.id]; return n; });
+      setDocMsg(`✅ ${keys.length} document(s) ${__("envoyé(s) à", "sent to")} ${c.name}`);
+    } else {
+      const e = await res.json().catch(() => ({ error: "Erreur" }));
+      setDocMsg(`✗ ${e.error || __("Échec de l'envoi", "Send failed")}`);
+    }
+    setDocSendingId(null);
+  };
+
   const startEdit = () => {
     if (!selected) return;
     setEditForm({
@@ -136,7 +197,7 @@ export default function VolunteerKanban({ canWrite = true }: { canWrite?: boolea
         </div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: "var(--bdr-2)" }}>
-            {(["pipeline", "roles"] as const).map(v => (
+            {(["pipeline", "roles", "docs"] as const).map(v => (
               <button
                 key={v}
                 onClick={() => setView(v)}
@@ -145,7 +206,7 @@ export default function VolunteerKanban({ canWrite = true }: { canWrite?: boolea
                   ? { background: "var(--ac-bg)", color: "var(--ac)" }
                   : { background: "transparent", color: "var(--txt-dim)" }}
               >
-                {v === "pipeline" ? __("Pipeline", "Pipeline") : __("Par rôle", "By role")}
+                {v === "pipeline" ? __("Pipeline", "Pipeline") : v === "roles" ? __("Par rôle", "By role") : __("📚 Documents", "📚 Documents")}
               </button>
             ))}
           </div>
@@ -202,6 +263,78 @@ export default function VolunteerKanban({ canWrite = true }: { canWrite?: boolea
                 );
               })}
             </div>
+          </div>
+        );
+      })()}
+
+      {/* Documents view — send onboarding docs to accepted volunteers */}
+      {view === "docs" && (() => {
+        const eligible = cards.filter(c => ["accepted", "onboarding", "confirmed"].includes(c.volunteerStage));
+        const kindLabel = (k: DocMeta["kind"]) => k === "tutorial" ? __("Tutoriel", "Tutorial") : k === "role" ? __("Rôle", "Role") : __("Charte", "Charter");
+        return (
+          <div className="space-y-3">
+            <p className="text-xs font-mono" style={{ color: "var(--txt-mute)" }}>
+              {__(
+                "Envoyez à chaque volontaire accepté sa charte, son document d'encadrement et les tutoriels de prise en main correspondant à son rôle. La sélection est pré-cochée selon le rôle ; les documents déjà envoyés sont marqués ✓.",
+                "Send each accepted volunteer their charter, role guide and the hands-on tutorials matching their role. The selection is pre-checked from the role; already-sent documents are marked ✓.",
+              )}
+            </p>
+            {docMsg && <p className="text-xs font-mono rounded p-2" style={{ background: "var(--card)", color: docMsg.startsWith("✅") ? "var(--ac)" : "#ff5555" }}>{docMsg}</p>}
+            {!docCatalog && <p className="text-xs font-mono py-6 text-center" style={{ color: "var(--txt-mute)" }}>{__("Chargement du catalogue…", "Loading catalog…")}</p>}
+            {docCatalog && eligible.length === 0 && (
+              <p className="text-xs font-mono py-8 text-center" style={{ color: "var(--txt-mute)" }}>
+                {__("Aucun volontaire accepté pour l'instant. Les volontaires apparaissent ici dès l'étape « Acceptés ».", "No accepted volunteer yet. Volunteers appear here from the « Accepted » stage onwards.")}
+              </p>
+            )}
+            {docCatalog && eligible.map(c => {
+              const sent = sentMap(c);
+              const sel = selectionFor(c);
+              const suggested = new Set(suggestedDocs(c));
+              return (
+                <div key={c.id} className="rounded-lg border p-3" style={{ borderColor: "var(--bdr-2)", background: "var(--card)" }}>
+                  <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold font-mono" style={{ color: "var(--txt)" }}>{c.name}</p>
+                      <p className="text-xs" style={{ color: "var(--txt-mute)" }}>
+                        {c.assignedRole || c.role || __("(rôle non assigné)", "(no role assigned)")} · {c.email}
+                        {" · "}{(() => { const s = STAGES.find(s => s.key === c.volunteerStage); return s ? __(s.label.fr, s.label.en) : ""; })()}
+                      </p>
+                    </div>
+                    {canWrite && (
+                      <button
+                        onClick={() => sendDocs(c)}
+                        disabled={docSendingId === c.id || sel.size === 0}
+                        className="text-xs px-3 py-1.5 rounded font-mono font-bold disabled:opacity-40"
+                        style={{ background: "var(--ac-bg)", color: "var(--ac)", border: "1px solid var(--ac-bdr)" }}
+                      >
+                        {docSendingId === c.id ? "…" : `📤 ${__("Envoyer", "Send")} (${sel.size})`}
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {docCatalog.docs.map(d => {
+                      const isSent = !!sent[d.key];
+                      const isSel = sel.has(d.key);
+                      return (
+                        <button
+                          key={d.key}
+                          onClick={() => canWrite && toggleDoc(c, d.key)}
+                          title={`${kindLabel(d.kind)}${isSent ? ` · ${__("envoyé le", "sent on")} ${new Date(sent[d.key]).toLocaleDateString("fr-FR")}` : ""}${suggested.has(d.key) ? ` · ${__("suggéré pour ce rôle", "suggested for this role")}` : ""}`}
+                          className="text-xs px-2 py-1 rounded border font-mono"
+                          style={isSel
+                            ? { background: "var(--ac-bg)", color: "var(--ac)", borderColor: "var(--ac-bdr)" }
+                            : isSent
+                              ? { background: "transparent", color: "var(--txt-mute)", borderColor: "var(--bdr)", textDecoration: "line-through" }
+                              : { background: "transparent", color: "var(--txt-dim)", borderColor: "var(--bdr-2)" }}
+                        >
+                          {d.emoji} {d.title}{isSent ? " ✓" : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         );
       })()}

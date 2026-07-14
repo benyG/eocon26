@@ -59,6 +59,9 @@ model VolunteerApplication {
   assignedRole    String?
   shiftStart      DateTime?
   shiftEnd        DateTime?
+  // JSON { "<docKey>": "<ISO date sent>" } — tracks which onboarding documents
+  // (tutorials, role guide, charter) have been emailed to this volunteer.
+  docsSent        String?   @db.Text
   createdAt       DateTime  @default(now())
 
   @@map("volunteer_applications")

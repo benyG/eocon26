@@ -16,7 +16,7 @@ export async function sendBadgeEmail(opts: {
   const verifyUrl = `${baseUrl}/verify/${uuid}`;
   const downloadUrl = `${baseUrl}/api/verify/${uuid}/download`;
   const pdfUrl = `${baseUrl}/api/verify/${uuid}/pdf`;
-  const certificateUrl = `${baseUrl}/api/verify/${uuid}/certificate`;
+  const certificateUrl = `${baseUrl}/api/verify/${uuid}/certificate?lang=${lang}`;
   const svgDataUrl = svgToDataUrl(generateBadgeSvg(badgeType, recipientName, "2026", subtype));
 
   const badgeLabels: Record<BadgeType, { fr: string; en: string }> = {

@@ -485,16 +485,18 @@ export const VOLUNTEER_DOCS: VolunteerDoc[] = [
   { key: "tuto-ctf",           emoji: "⚡", kind: "tutorial", title: "Tutoriel — CTF",                             html: TUTO_CTF },
   { key: "tuto-live",          emoji: "🔴", kind: "tutorial", title: "Tutoriel — Live Streaming",                  html: TUTO_LIVE },
   { key: "tuto-checkin",       emoji: "🎫", kind: "tutorial", title: "Tutoriel — Check-in & Scan QR",              html: TUTO_CHECKIN },
-  // Documents d'encadrement par rôle
+  // Documents d'encadrement — un par rôle du formulaire (6), plus des
+  // compléments pour les fonctions spécialisées (modération, régie streaming,
+  // ambassadeur social) envoyables manuellement selon l'affectation réelle.
   { key: "role-accueil",       emoji: "🙋", kind: "role",     title: "Encadrement — Accueil & Inscription",        html: ROLE_ACCUEIL },
-  { key: "role-sessions",      emoji: "🎤", kind: "role",     title: "Encadrement — Support Sessions",             html: ROLE_SESSIONS },
-  { key: "role-moderateur",    emoji: "🎙️", kind: "role",     title: "Encadrement — Modérateur de session",        html: ROLE_MODERATEUR },
-  { key: "role-streaming",     emoji: "🎬", kind: "role",     title: "Encadrement — Support streaming",            html: ROLE_STREAMING },
-  { key: "role-ambassadeur",   emoji: "📣", kind: "role",     title: "Encadrement — Ambassadeur réseaux sociaux",  html: ROLE_AMBASSADEUR },
-  { key: "role-ctf",           emoji: "🚩", kind: "role",     title: "Encadrement — Support CTF",                  html: ROLE_CTF },
+  { key: "role-sessions",      emoji: "🎤", kind: "role",     title: "Encadrement — Assistance aux sessions",      html: ROLE_SESSIONS },
+  { key: "role-ctf",           emoji: "🚩", kind: "role",     title: "Encadrement — Assistance CTF",               html: ROLE_CTF },
   { key: "role-medias",        emoji: "📷", kind: "role",     title: "Encadrement — Médias & Réseaux Sociaux",     html: ROLE_MEDIAS },
   { key: "role-sponsoring",    emoji: "💼", kind: "role",     title: "Encadrement — Ambassadeur de Sponsoring",    html: ROLE_SPONSORING },
   { key: "role-logistique",    emoji: "🚛", kind: "role",     title: "Encadrement — Logistique",                   html: ROLE_LOGISTIQUE },
+  { key: "role-moderateur",    emoji: "🎙️", kind: "role",     title: "Complément — Modération de session",         html: ROLE_MODERATEUR },
+  { key: "role-streaming",     emoji: "🎬", kind: "role",     title: "Complément — Régie streaming",               html: ROLE_STREAMING },
+  { key: "role-ambassadeur",   emoji: "📣", kind: "role",     title: "Complément — Ambassadeur réseaux sociaux",   html: ROLE_AMBASSADEUR },
 ];
 
 // Suggested documents per role, keyed by CANONICAL role labels only — callers
@@ -503,11 +505,8 @@ export const VOLUNTEER_DOCS: VolunteerDoc[] = [
 // includes the charter.
 export const ROLE_DOC_MAP: Record<string, string[]> = {
   "Accueil & Inscription":        ["charte", "role-accueil", "tuto-checkin"],
-  "Support Sessions":             ["charte", "role-sessions", "tuto-live"],
-  "Modérateur de session":        ["charte", "role-moderateur", "tuto-live"],
-  "Support streaming":            ["charte", "role-streaming", "tuto-live"],
-  "Ambassadeur réseaux sociaux":  ["charte", "role-ambassadeur", "tuto-communication"],
-  "Support CTF":                  ["charte", "role-ctf", "tuto-ctf"],
+  "Assistance aux sessions":      ["charte", "role-sessions", "tuto-live"],
+  "Assistance CTF":               ["charte", "role-ctf", "tuto-ctf"],
   "Médias & Réseaux Sociaux":     ["charte", "role-medias", "tuto-communication"],
   "Ambassadeur de Sponsoring":    ["charte", "role-sponsoring", "tuto-sponsors"],
   "Logistique":                   ["charte", "role-logistique"],

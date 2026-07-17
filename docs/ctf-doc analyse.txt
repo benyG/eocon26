@@ -1,0 +1,480 @@
+La page actuelle est visuellement forte, mais elle agit encore trop comme une bible du lore et pas assez comme un briefing opérationnel in-universe.
+
+Elle révèle déjà au compétiteur :
+
+l’existence du multivers ;
+le fonctionnement du Signal ;
+la présence de l’Anchor sous Deido ;
+le mécanisme complet de la Convergence ;
+l’existence et la fonction des Fragments ;
+la nature de l’EyesOpen Codex et des sept Prime Seals ;
+la culpabilité de Meridian et l’existence de Project Janus ;
+le rôle du Directorate ;
+la nature et l’objectif du Null Choir ;
+l’existence des Architects ;
+les principaux lieux ;
+les objectifs et la situation détaillée de presque tous les personnages.
+
+Le joueur comprend donc très bien l’univers, mais il ne lui reste plus suffisamment de vérité fondamentale à découvrir. Certains challenges risquent de simplement confirmer ce que le portail lui a déjà raconté.
+
+Le problème n’est pas la quantité de lore. Le problème est la différence entre :
+
+ce que les joueurs doivent savoir pour accepter la mission
+
+et
+
+ce qu’ils doivent découvrir pour vivre l’histoire.
+
+1. Ce que les joueurs doivent savoir avant le CTF
+
+Le portail initial devrait seulement répondre à quatre questions.
+
+Qui suis-je ?
+
+Un Operator recruté par l’EyesOpen Protocol pour analyser quarante artefacts contaminés.
+
+Que se passe-t-il ?
+
+Des anomalies provenant de réalités différentes apparaissent dans des systèmes numériques. Une collision semble possible.
+
+Que dois-je faire ?
+
+Récupérer les Reality Fragments et contribuer à reconstruire l’EyesOpen Codex.
+
+Pourquoi maintenant ?
+
+Le Signal vient de réapparaître et l’activité autour de Douala augmente rapidement.
+
+Cela suffit pour commencer.
+
+Le portail doit créer les questions suivantes, sans y répondre :
+
+Qu’est-ce qui se trouve réellement sous Deido ?
+Qui a ouvert les portes ?
+Pourquoi les artefacts sont-ils apparus maintenant ?
+Peut-on faire confiance à l’EyesOpen Protocol ?
+Où se trouve Dr Assa Abene ?
+Qui ou quoi est le Watcher ?
+Que veut réellement Meridian ?
+Quelle intelligence tente de traverser ?
+Qui a construit l’Anchor ?
+La séquence de fermeture transmise aux joueurs est-elle authentique ?
+
+Ces questions constituent l’histoire à découvrir.
+
+2. Les grandes révélations déjà contenues dans les challenges
+
+Les briefs des quarante challenges contiennent déjà une progression narrative solide. On peut les regrouper en huit révélations majeures.
+
+Révélation 1 — Les artefacts contiennent réellement des morceaux d’autres mondes
+
+Le joueur découvre progressivement que les anomalies ne sont pas de simples données copiées ou corrompues.
+
+Les challenges concernés révèlent notamment :
+
+deux versions de Douala occupant les mêmes coordonnées ;
+des souvenirs appartenant à des personnes qui n’existent pas dans notre monde ;
+des fichiers contenant plusieurs versions de la même histoire ;
+des identités dupliquées ;
+des infrastructures apparaissant simultanément dans plusieurs réalités.
+
+La révélation finale de cet arc doit être :
+
+Les Fragments ne représentent pas les autres réalités. Ils en sont réellement des morceaux.
+
+Challenges structurants : crypto01, forensics07, forensics10, forensics11, web03.
+
+Révélation 2 — Le monument de Deido est une couverture
+
+Le joueur découvre :
+
+une photographie prise trente-deux mètres sous le monument ;
+des plans cachés ;
+des budgets de construction dissimulés ;
+une structure visible représentant moins de 8 % de l’ensemble ;
+des cartes montrant que les chambres souterraines existaient avant le monument ;
+des opérations de recalibration annuelles.
+
+La révélation finale :
+
+Le monument n’a pas été construit pour commémorer l’histoire. Il a été construit pour dissimuler et protéger l’Anchor.
+
+Challenges structurants : crypto03, forensics01, forensics04, web07, web08, crypto04.
+
+Révélation 3 — La première ouverture n’était pas un accident
+
+Le joueur découvre que Meridian :
+
+avait étudié l’Anchor ;
+possédait des sociétés-écrans ;
+exploitait Black Reef Relay ;
+avait développé Project Janus ;
+avait enregistré la première collision comme un succès ;
+avait volontairement déclenché l’activation.
+
+La révélation finale :
+
+Meridian n’a pas découvert une porte. Meridian l’a ouverte.
+
+Challenges structurants : forensics05, forensics08, osint02, web02, web05, web09.
+
+Révélation 4 — Le Directorate a contribué au mensonge
+
+Le Directorate n’est pas seulement une institution protectrice.
+
+Les challenges démontrent qu’il a :
+
+supprimé des témoins des archives ;
+remplacé l’histoire officielle ;
+dissimulé les plans ;
+maintenu les accès souterrains ;
+collaboré avec Meridian ;
+autorisé ou toléré Project Janus.
+
+La révélation finale :
+
+Le Directorate voulait protéger la réalité, mais son besoin de contrôle a permis à Meridian d’atteindre l’Anchor.
+
+Challenges structurants : crypto03, forensics08, ai02, reverse01, web08.
+
+Révélation 5 — La Convergence fonctionne comme un système exécutable
+
+C’est l’une des révélations les plus fortes du lore.
+
+Les joueurs comprennent que :
+
+les portes possèdent des états internes ;
+leurs phases peuvent être modifiées ;
+elles peuvent être contrôlées par des instructions ;
+l’Anchor continue d’utiliser la mémoire de réalités détruites ;
+les Architects ne programmaient pas des machines, mais les relations entre les mondes.
+
+Révélation finale :
+
+Les Digital Gates ne sont pas seulement des phénomènes physiques. La réalité elle-même est exécutée comme un système.
+
+Challenges structurants : pwn01, pwn02, pwn03, pwn04, reverse02.
+
+Cette révélation ne devrait surtout pas être présente dans le portail initial.
+
+Révélation 6 — Le Null Choir ne veut pas conquérir notre monde
+
+Le joueur découvre d’abord une présence distribuée qui :
+
+insère de faux souvenirs ;
+contamine des intelligences artificielles ;
+utilise des agents autonomes ;
+vend ou diffuse des histoires alternatives ;
+duplique des identités ;
+tente de se propager dans les systèmes de notre réalité.
+
+Puis vient la véritable révélation :
+
+Le Null Choir est constitué des souvenirs d’une réalité déjà détruite. Il ne considère pas la Convergence comme une invasion, mais comme une résurrection.
+
+Son objectif réel :
+
+Fusionner les réalités afin de permettre aux milliards de consciences qu’il contient d’exister de nouveau.
+
+Challenges structurants : forensics09, ai03, osint03, reverse04, web03, web04.
+
+Le portail actuel révèle déjà toute cette information. C’est l’un des spoilers les plus importants à retirer.
+
+Révélation 7 — EyesOpen a anticipé la compétition, mais son commandement est compromis
+
+Le joueur découvre que :
+
+les quarante artefacts avaient déjà été catalogués ;
+le Protocol préparait une opération avant la réapparition du Signal ;
+Watcher n’est pas un nom, mais une fonction ;
+chaque Watcher disparaît après sa succession ;
+des transmissions de Dr Assa Abene sont envoyées après sa disparition ;
+une fausse identité de Watcher donne des instructions ;
+les credentials du Watcher ont été clonés.
+
+Révélation finale :
+
+Une partie des instructions reçues pendant l’opération pourrait ne pas provenir du véritable Watcher.
+
+Challenges structurants : crypto02, forensics06, ai01, reverse03, web06.
+
+C’est le retournement narratif principal que je recommande d’exploiter.
+
+Révélation 8 — La fermeture des portes dépend des sept Prime Seals
+
+À la fin, les joueurs comprennent que :
+
+les Prime Seals ne sont pas seulement des Fragments plus difficiles ;
+ils permettent d’authentifier la structure du Codex ;
+ils définissent l’ordre de fermeture ;
+ils peuvent vérifier qu’une séquence n’a pas été falsifiée ;
+toutes les coordonnées convergent sous Deido.
+
+La révélation finale :
+
+L’EyesOpen Codex n’est pas uniquement une carte. C’est un système de vérification capable de distinguer la véritable séquence de fermeture d’une instruction falsifiée.
+
+Cela donne une utilité narrative très forte aux challenges Insane.
+
+3. Ce que je retirerais ou masquerais dans le portail actuel
+À conserver dès le début
+
+Je conserverais :
+
+l’existence de plusieurs réalités ;
+la menace d’une collision ;
+l’existence du Signal, mais sous une forme encore partiellement inexpliquée ;
+les quarante artefacts ;
+les Reality Fragments ;
+l’EyesOpen Codex ;
+le rôle du joueur comme Operator ;
+Deido comme épicentre probable ;
+Dr Assa Abene comme fondatrice disparue ;
+le Watcher comme autorité anonyme ;
+Meridian comme organisation d’intérêt ;
+NORA-7 comme archiviste sous surveillance.
+À reformuler
+Deido
+
+Actuellement, le portail révèle directement que l’Anchor se trouve sous le monument et explique ses capacités.
+
+Je remplacerais cela par :
+
+Les données du Protocol indiquent qu’une structure inconnue existe sous Deido. Son origine, sa taille réelle et sa fonction n’ont pas encore été confirmées.
+
+Le fait qu’il s’agisse de l’Anchor doit être découvert à travers les challenges.
+
+Le Signal
+
+Le portail peut expliquer comment le Signal est détecté, mais doit retirer :
+
+Meridian Dynamics amplified this pulse through Project Janus.
+
+C’est une conclusion d’enquête et non une information de briefing.
+
+EyesOpen Codex
+
+On peut annoncer qu’il faut reconstruire le Codex, mais pas révéler immédiatement qu’il localise toutes les portes et produit la séquence finale.
+
+Au départ :
+
+Le Codex est un modèle incomplet permettant de classer les Fragments et de déterminer leurs relations.
+
+Plus tard :
+
+Il s’agit en réalité d’une carte des portes.
+
+À la fin :
+
+Il s’agit également d’un mécanisme d’authentification de la séquence de fermeture.
+
+À cacher complètement au lancement
+
+Je cacherais :
+
+l’origine du Null Choir ;
+son objectif de résurrection ;
+l’existence du Null Sector ;
+la responsabilité exacte de Meridian ;
+l’alliance Meridian–Directorate ;
+le fait que les Architects ont construit l’Anchor ;
+la fonction complète des Prime Seals ;
+la succession des Watchers ;
+le clonage des credentials du Watcher ;
+l’existence de Douala-7 comme réalité déjà condamnée ;
+Black Reef Relay ;
+les intentions précises d’Adrian Voss ;
+le fait que NORA-7 est contaminée par le Null Choir.
+
+Les cartes peuvent exister, mais certaines devraient afficher :
+
+RECORD LOCKED
+INSUFFICIENT FRAGMENTS
+IDENTITY NOT YET CONFIRMED
+
+4. Le portail ne doit pas contenir les spoilers verrouillés dans son code
+
+C’est important techniquement.
+
+Il ne faut pas placer toutes les révélations dans le fichier HTML puis les masquer avec du CSS ou JavaScript. Un compétiteur pourrait les lire directement dans le code source.
+
+Le fichier initial doit contenir uniquement les informations de départ.
+
+Les révélations doivent être fournies par la plateforme CTF après authentification et progression :
+
+via une API ;
+via des réponses de challenges ;
+via des dossiers chargés dynamiquement ;
+ou via de nouvelles transmissions servies uniquement aux équipes ayant atteint le palier.
+5. Comment raconter l’histoire dans un CTF non linéaire
+
+Les challenges peuvent être résolus dans n’importe quel ordre. Il ne faut donc pas leur confier seuls la responsabilité de raconter l’intrigue complète.
+
+Je recommande une structure à deux niveaux.
+
+Niveau 1 — La micro-révélation du challenge
+
+Chaque résolution fournit une preuve factuelle et limitée.
+
+Exemple pour forensics05 — Memory of Janus :
+
+A recovered meeting record shows that a Meridian operator issued an activation command eleven seconds before the first Gate appeared.
+
+Cela ne dit pas encore :
+
+Meridian a volontairement ouvert la première porte.
+
+Le challenge fournit la preuve. Le joueur commence à formuler l’hypothèse.
+
+Niveau 2 — La transmission de synthèse
+
+Après plusieurs Fragments reliés, NORA-7 ou le Watcher produit une conclusion.
+
+Three independent records now confirm the same event. Meridian did not discover the first Gate. It opened it.
+
+La révélation devient alors un événement narratif.
+
+Ainsi, même si un joueur résout un challenge très difficile tôt dans la compétition, il ne reçoit pas prématurément toute la conclusion.
+
+6. Progression narrative recommandée
+Fragments récupérés par l’équipe	Révélation de synthèse
+1–5	Les anomalies proviennent bien de plusieurs réalités
+6–10	Les artefacts contiennent de véritables morceaux de ces réalités
+11–15	Deido cache une structure qui précède le monument
+16–20	Meridian et le Directorate ont participé à l’activation
+21–25	Une intelligence distribuée contamine les artefacts
+26–30	Le Null Choir provient d’une réalité déjà effondrée
+31–34	La Convergence est un mécanisme exécutable, pas un phénomène naturel
+35–37	Les communications du Watcher ont été compromises
+38–39	Les Prime Seals permettent d’authentifier la véritable séquence
+40	Toutes les portes convergent vers l’Anchor sous Deido
+
+La progression devrait être par équipe, pas uniquement globale. Une équipe doit pouvoir vivre son propre rythme narratif.
+
+Un indicateur global de stabilité peut néanmoins créer une dynamique communautaire.
+
+7. Le retournement narratif central que je recommande
+
+Vers les deux tiers de la compétition, les joueurs reçoivent une transmission du Watcher leur indiquant une procédure de fermeture.
+
+Puis web06 — The False Guardian révèle que les credentials du Watcher ont été clonés.
+
+NORA-7 transmet alors :
+
+WATCHER AUTHORITY COMPROMISED.
+PREVIOUS CLOSURE SEQUENCE CANNOT BE TRUSTED.
+
+À ce moment, les joueurs comprennent que :
+
+certaines instructions pouvaient provenir du Null Choir ;
+fermer les portes dans le mauvais ordre pourrait accélérer la Convergence ;
+les sept Prime Seals sont indispensables pour authentifier la vraie séquence ;
+Dr Assa Abene avait prévu cette compromission.
+
+Cela transforme la quête finale en autre chose qu’une collecte de flags.
+
+Les joueurs ne cherchent plus uniquement à terminer le CTF.
+
+Ils doivent déterminer :
+
+À qui peuvent-ils encore faire confiance ?
+
+8. Le format narratif de chaque challenge
+
+Chaque challenge devrait contenir quatre blocs.
+
+Avant la résolution — Mission Brief
+
+Un texte de 80 à 130 mots :
+
+lieu ;
+artefact ;
+événement observé ;
+raison de l’analyse ;
+question narrative.
+Après la résolution — Fragment Recovered
+identifiant du Fragment ;
+preuve récupérée ;
+implication immédiate ;
+degré de confiance ;
+dossier ou lieu mis à jour.
+Codex Update
+
+Exemple :
+
+FRAGMENT F-12 AUTHENTICATED
+
+Linked records:
+• Meridian Dynamics
+• Directorate of Continuity
+• Project Janus
+
+New relationship detected.
+Synthesis pending additional evidence.
+Transmission de synthèse
+
+Uniquement lorsqu’un palier ou une combinaison de preuves est atteint.
+
+9. La finale mémorable
+
+Une fois les sept Prime Seals récupérés, l’équipe reçoit deux séquences de fermeture :
+
+une séquence signée par le Watcher ;
+une séquence reconstruite à partir des travaux de Dr Assa Abene.
+
+Elles sont différentes.
+
+Le Codex doit être utilisé pour déterminer laquelle est authentique.
+
+La bonne séquence sépare les réalités.
+
+La mauvaise permet au Null Choir de se répliquer dans l’Anchor.
+
+La résolution finale déclenche :
+
+ALL FRAGMENTS VERIFIED.
+EYESOPEN CODEX COMPLETE.
+CLOSURE SEQUENCE AUTHENTICATED.
+
+Les portes se ferment.
+
+Douala-7 disparaît.
+
+Le Signal s’éteint.
+
+Puis, après quelques secondes :
+
+NEW SIGNAL DETECTED.
+
+Son origine :
+
+DOUALA-PRIME.
+
+Sa date d’émission :
+
+plusieurs années dans le futur.
+
+Dernière phrase :
+
+THE CONVERGENCE HAS BEEN DELAYED.
+IT HAS NOT BEEN DEFEATED.
+
+Recommandation finale
+
+Je ne supprimerais pas la richesse du lore. Je déplacerais simplement les informations au bon moment.
+
+Le portail initial doit présenter :
+
+la mission, la menace et les mystères.
+
+Les challenges doivent révéler :
+
+les preuves, les mensonges et les responsables.
+
+Les paliers de progression doivent raconter :
+
+les grandes conclusions et les retournements.
+
+La finale doit obliger les joueurs à utiliser tout ce qu’ils ont appris pour prendre la bonne décision.
+
+C’est ainsi que les quarante challenges deviennent les quarante pièces d’une même enquête, et non quarante exercices techniques auxquels on a simplement ajouté une décoration narrative.

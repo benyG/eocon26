@@ -496,29 +496,28 @@ model CTFChallenge {
   assigneeName  String?  // Team member responsible for this challenge
   assigneeEmail String?  // Notified when (re)assigned
   sortOrder     Int      @default(0)
-  // ── Narrative layer (The Convergence) — all editable ──────────────────────
-  fragmentCode   String?  // Reality Fragment id, e.g. "F-01" (null for synthesis)
-  revelation     String?  // Revelation arc(s) this challenge structures, comma-separated e.g. "1,4"
-  isPrimeSeal    Boolean  @default(false) // Insane challenge carrying a Prime Seal
-  isSynthesis    Boolean  @default(false) // Narrative synthesis challenge that concludes an arc
-  prerequisites  String?  @db.Text        // For synthesis: fragment codes required, comma-separated e.g. "F-01,F-11"
-  successMessage String?  @db.Text        // "MESSAGE DE REUSSITE" shown on solve (CTFd description/connection notice)
-  flag           String?  // CTFd static flag (synthesis uses a fixed acknowledgement flag)
+  // ── Narrative layer (The Convergence) — sourced from the Challenge Matrix ──
+  // Player-facing pre-solve brief (bilingual) + on-solve revelation (bilingual).
+  fragmentCode  String?  // Reality Fragment id, e.g. "F-01"
+  fragmentName  String?  // e.g. "Visual Phase Map"
+  isPrimeSeal   Boolean  @default(false)
+  storyArc      String?  // matrix "Story Arc", e.g. "The Deido Lie"
+  linkedEntity  String?  // matrix "Linked Entity / Faction"
+  locationEn    String?  @db.Text
+  locationFr    String?  @db.Text
+  artifactEn    String?  @db.Text
+  artifactFr    String?  @db.Text
+  contextEn     String?  @db.Text
+  contextFr     String?  @db.Text
+  objectiveEn   String?  @db.Text
+  objectiveFr   String?  @db.Text
+  revealEn      String?  @db.Text // "Flag Validation Revelation" — shown only after solve
+  revealFr      String?  @db.Text
+  techniqueNote String?  // INTERNAL author hint (technical name) — never published
+  flag          String?  // CTFd static flag
   createdAt     DateTime @default(now())
 
   @@map("ctf_challenges")
-}
-
-// Living Lore Bible — which Revelation arcs (1..8) have been unlocked (global).
-// A row exists only for unlocked arcs. The reveal content itself lives server-side
-// in lib/revelationContent.ts and is served only for arcs present here.
-model RevelationUnlock {
-  arc         Int      @id            // 1..8
-  unlockedAt  DateTime @default(now())
-  unlockedBy  String?                 // team / player name, when known
-  unlockedVia String   @default("key") // key | ctfd | admin
-
-  @@map("revelation_unlocks")
 }
 
 model EmailTemplate {

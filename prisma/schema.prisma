@@ -509,6 +509,18 @@ model CTFChallenge {
   @@map("ctf_challenges")
 }
 
+// Living Lore Bible — which Revelation arcs (1..8) have been unlocked (global).
+// A row exists only for unlocked arcs. The reveal content itself lives server-side
+// in lib/revelationContent.ts and is served only for arcs present here.
+model RevelationUnlock {
+  arc         Int      @id            // 1..8
+  unlockedAt  DateTime @default(now())
+  unlockedBy  String?                 // team / player name, when known
+  unlockedVia String   @default("key") // key | ctfd | admin
+
+  @@map("revelation_unlocks")
+}
+
 model EmailTemplate {
   id          Int       @id @default(autoincrement())
   slug        String?   @unique

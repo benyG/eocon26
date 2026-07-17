@@ -28,17 +28,27 @@ export async function ctfdFetch<T = unknown>(
   method: "GET" | "POST" | "PATCH" | "DELETE",
   path: string,
   body?: unknown,
+  timeoutMs = 6000,
 ): Promise<CtfdResult<T>> {
-  const res = await fetch(`${cfg.url}${path}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      Authorization: `Token ${cfg.apiKey}`,
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  let data: T;
-  try { data = (await res.json()) as T; } catch { data = null as unknown as T; }
-  return { ok: res.ok, status: res.status, data };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${cfg.url}${path}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Token ${cfg.apiKey}`,
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+    let data: T;
+    try { data = (await res.json()) as T; } catch { data = null as unknown as T; }
+    return { ok: res.ok, status: res.status, data };
+  } catch {
+    return { ok: false, status: 0, data: null as unknown as T };
+  } finally {
+    clearTimeout(timer);
+  }
 }

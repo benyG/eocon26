@@ -1977,6 +1977,51 @@ body.dossier-open{
   </div>
 </section>
 
+<section id="revelations">
+  <style>
+    #revelations{padding:clamp(3rem,7vw,6rem) 0;position:relative}
+    #revelations .rev-progress{max-width:720px;margin:0 auto clamp(2rem,4vw,3rem)}
+    #revelations .rev-progress-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:#8a9a95}
+    #revelations .rev-count{color:var(--green,#01fac0)}
+    #revelations .rev-bar{height:8px;border-radius:99px;background:rgba(1,250,192,.08);overflow:hidden;border:1px solid rgba(1,250,192,.18)}
+    #revelations .rev-bar-fill{height:100%;width:0;background:linear-gradient(90deg,#01fac0,#0066ff);box-shadow:0 0 16px rgba(1,250,192,.5);transition:width .9s cubic-bezier(.2,.8,.2,1)}
+    #revelations .rev-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+    #revelations .rev-card{border-radius:16px;padding:20px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02);transition:border-color .3s,box-shadow .3s,transform .3s;scroll-margin-top:90px}
+    #revelations .rev-card-num{font:600 .66rem ui-monospace,SFMono-Regular,monospace;letter-spacing:.18em;text-transform:uppercase;color:#8a9a95;margin-bottom:10px}
+    #revelations .rev-card.locked{opacity:.72}
+    #revelations .rev-lock{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+    #revelations .rev-lock-dot{width:9px;height:9px;border-radius:50%;background:#ffb020;box-shadow:0 0 10px rgba(255,176,32,.6);flex:none}
+    #revelations .rev-lock-label{font:600 .62rem ui-monospace,SFMono-Regular,monospace;letter-spacing:.08em;color:#ffb020}
+    #revelations .rev-teaser{font-size:.82rem;color:#8a9a95;margin:0}
+    #revelations .rev-card.unlocked{border-color:rgba(1,250,192,.42);background:rgba(1,250,192,.05);box-shadow:0 0 30px rgba(1,250,192,.08)}
+    #revelations .rev-title{margin:0 0 8px;color:#fff;font-size:1.05rem}
+    #revelations .rev-body{font-size:.9rem;line-height:1.6;color:#c7d3cf}
+    #revelations .rev-card.rev-flash{animation:revFlash 2.4s ease}
+    @keyframes revFlash{0%,100%{box-shadow:0 0 30px rgba(1,250,192,.08)}30%{box-shadow:0 0 60px rgba(1,250,192,.6);border-color:#01fac0}}
+    #revelations .rev-finale{margin-top:24px;border-radius:16px;padding:24px;border:1px solid rgba(1,250,192,.5);background:linear-gradient(180deg,rgba(1,250,192,.08),rgba(0,0,0,.25))}
+    #revelations .rev-body.finale{line-height:1.7}
+    #revelations noscript{display:block;color:#8a9a95;font-size:.85rem}
+  </style>
+  <div class="container">
+    <header class="section-head reveal">
+      <p class="kicker">11 // The truth, as you earn it</p>
+      <div class="lang en"><h2 class="section-title">The Living Record</h2><p class="lede">This dossier rebuilds itself as the field recovers Fragments. Each Revelation stays sealed until a team completes its arc — then it opens for every Operator.</p></div>
+      <div class="lang fr"><h2 class="section-title">Le Dossier Vivant</h2><p class="lede">Ce dossier se reconstruit à mesure que le terrain récupère les Fragments. Chaque Révélation reste scellée jusqu’à ce qu’une équipe achève son arc — puis elle s’ouvre pour chaque Operator.</p></div>
+    </header>
+    <div class="rev-progress reveal">
+      <div class="rev-progress-head">
+        <span><span class="lang en">Revelations unlocked</span><span class="lang fr">Révélations débloquées</span></span>
+        <span class="rev-count" id="revCount">0 / 8</span>
+      </div>
+      <div class="rev-bar"><div class="rev-bar-fill" id="revBarFill"></div></div>
+    </div>
+    <div class="rev-grid" id="revGrid">
+      <noscript><span class="lang en">Enable JavaScript to view the living record as the field unlocks it.</span><span class="lang fr">Activez JavaScript pour voir le dossier vivant se débloquer au fil de l’enquête.</span></noscript>
+    </div>
+    <div class="rev-finale" id="revFinale" hidden></div>
+  </div>
+</section>
+
 <section class="final">
   <div class="container">
     <div class="final-box reveal">
@@ -2227,6 +2272,63 @@ body.dossier-open{
     });
   });
 
+})();
+</script>
+<script>
+/* Living Lore Bible — fetch the server-held unlock state and build the record.
+   Locked arcs never carry their truth in this page; the server sends body text
+   only for arcs already unlocked (design analysis §4). */
+(function(){
+  var grid=document.getElementById('revGrid');
+  var countEl=document.getElementById('revCount');
+  var fill=document.getElementById('revBarFill');
+  var finaleEl=document.getElementById('revFinale');
+  if(!grid) return;
+  function esc(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+  function pad(n){return ('0'+n).slice(-2);}
+  function render(state){
+    grid.innerHTML='';
+    (state.arcs||[]).forEach(function(a){
+      var card=document.createElement('article');
+      card.id='reveal-'+a.arc;
+      card.className='rev-card '+(a.unlocked?'unlocked':'locked');
+      card.setAttribute('data-arc',a.arc);
+      var num='<div class="rev-card-num">'+pad(a.arc)+' // Revelation</div>';
+      if(a.unlocked && a.title && a.body){
+        card.innerHTML=num
+          +'<h3 class="rev-title"><span class="lang en">'+esc(a.title.en)+'</span><span class="lang fr">'+esc(a.title.fr)+'</span></h3>'
+          +'<div class="rev-body"><span class="lang en">'+esc(a.body.en)+'</span><span class="lang fr">'+esc(a.body.fr)+'</span></div>';
+      } else {
+        var label=a.lockLabel?(esc(a.lockLabel.en)+' // '+esc(a.lockLabel.fr)):'SEALED';
+        card.innerHTML=num
+          +'<div class="rev-lock"><span class="rev-lock-dot"></span><span class="rev-lock-label">'+label+'</span></div>'
+          +'<p class="rev-teaser"><span class="lang en">Sealed until the field completes this arc.</span><span class="lang fr">Scellé jusqu’à ce que le terrain achève cet arc.</span></p>';
+      }
+      grid.appendChild(card);
+    });
+    if(countEl) countEl.textContent=(state.unlockedCount||0)+' / '+(state.total||8);
+    if(fill) fill.style.width=Math.round(((state.unlockedCount||0)/(state.total||8))*100)+'%';
+    if(finaleEl){
+      if(state.finale){
+        finaleEl.hidden=false;
+        finaleEl.innerHTML='<div class="rev-card-num">Final // Sequence</div>'
+          +'<h3 class="rev-title"><span class="lang en">'+esc(state.finale.title.en)+'</span><span class="lang fr">'+esc(state.finale.title.fr)+'</span></h3>'
+          +'<div class="rev-body finale"><span class="lang en">'+esc(state.finale.body.en).replace(/\n/g,'<br>')+'</span><span class="lang fr">'+esc(state.finale.body.fr).replace(/\n/g,'<br>')+'</span></div>';
+      } else { finaleEl.hidden=true; }
+    }
+    if(location.hash && /^#reveal-\d+$/.test(location.hash)){
+      var t=document.getElementById(location.hash.slice(1));
+      if(t){ t.scrollIntoView({behavior:'smooth',block:'center'}); t.classList.add('rev-flash'); setTimeout(function(){t.classList.remove('rev-flash');},2400); }
+    }
+  }
+  function load(){
+    fetch('/api/public/bible/state',{cache:'no-store'})
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(s){ if(s) render(s); })
+      .catch(function(){});
+  }
+  load();
+  setInterval(load,30000); /* reflect community unlocks live */
 })();
 </script>
 </body>

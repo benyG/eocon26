@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
 import { getCtfdConfig, ctfdFetch } from "@/lib/ctfd";
+import { getUnlockUrl } from "@/lib/revelationUnlock";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,15 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   const descParts: string[] = [];
   if (brief) descParts.push(brief);
   if (ch.fragmentCode) descParts.push(`\n\n— Reality Fragment ${ch.fragmentCode}${ch.isPrimeSeal ? " · PRIME SEAL" : ""}.`);
+  // Synthesis challenges carry the bible unlock link for their arc: solving reveals
+  // the truth to the whole community and lands the player on it.
+  if (ch.isSynthesis && ch.revelation) {
+    const arc = parseInt(ch.revelation.split(",")[0].trim(), 10);
+    if (arc) {
+      const unlockUrl = await getUnlockUrl(arc);
+      descParts.push(`\n\n>> TRANSMISSION UNLOCKED — reveal this truth to every Operator:\n${unlockUrl}`);
+    }
+  }
   const description = descParts.join("").trim() || ch.title;
 
   // 1) Create the challenge

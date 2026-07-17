@@ -6679,7 +6679,7 @@ function levenshtein(a: string, b: string): number {
 
 function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   const { lang } = useAdminT();
-  const [subTab, setSubTab] = useState<"config" | "challenges" | "participants">("config");
+  const [subTab, setSubTab] = useState<"config" | "challenges" | "participants" | "bible">("config");
   const [config, setConfig] = useState({ ctfdUrl: "", ctfdApiKey: "", ctfDefaultPassword: "", ctfEnabled: "false" });
   const [configSaving, setConfigSaving] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -6692,6 +6692,10 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [savingChallenge, setSavingChallenge] = useState(false);
   const [publishState, setPublishState] = useState<{ id: number; msg: string } | null>(null);
   const [teamMembers, setTeamMembers] = useState<{ id: number; name: string; role: string; email: string | null }[]>([]);
+
+  const [bible, setBible] = useState<{ total: number; unlockedCount: number; arcs: Record<string, unknown>[] } | null>(null);
+  const [bibleBusy, setBibleBusy] = useState(false);
+  const [bibleMsg, setBibleMsg] = useState<string | null>(null);
 
   const [participants, setParticipants] = useState<Record<string, unknown>[]>([]);
   const [syncing, setSyncing] = useState(false);
@@ -6715,6 +6719,20 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
     if (r.ok) setParticipants(await r.json());
   }, []);
 
+  const loadBible = useCallback(async () => {
+    const r = await fetch("/api/admin/ctf/bible");
+    if (r.ok) setBible(await r.json());
+  }, []);
+
+  const bibleAction = async (action: string, arc?: number) => {
+    setBibleBusy(true); setBibleMsg(null);
+    const r = await fetch("/api/admin/ctf/bible", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, arc }) });
+    const j = await r.json().catch(() => ({}));
+    if (action === "sync") setBibleMsg(r.ok ? (lang === "en" ? `✓ Synced from CTFd (${(j.synced || []).length} arc(s))` : `✓ Synchronisé depuis CTFd (${(j.synced || []).length} arc(s))`) : `✗ ${j.error || "Échec"}`);
+    setBibleBusy(false);
+    loadBible();
+  };
+
   useEffect(() => {
     if (subTab === "challenges") {
       loadChallenges();
@@ -6722,7 +6740,8 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
       fetch("/api/admin/team").then(r => r.ok ? r.json() : []).then(setTeamMembers).catch(() => {});
     }
     if (subTab === "participants") loadParticipants();
-  }, [subTab, loadChallenges, loadParticipants]);
+    if (subTab === "bible") loadBible();
+  }, [subTab, loadChallenges, loadParticipants, loadBible]);
 
   const saveConfig = async () => {
     setConfigSaving(true);
@@ -6854,6 +6873,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   const subTabs = [
     { key: "config", label: "⚙ Config" },
     { key: "challenges", label: "🏁 Challenges" },
+    { key: "bible", label: "📖 Bible vivante" },
     { key: "participants", label: "👤 Participants" },
   ] as const;
 
@@ -7142,6 +7162,49 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {subTab === "bible" && (
+        <div>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <div>
+              <div className="text-sm font-bold text-white">{lang === "en" ? "Living Lore Bible" : "Bible vivante du Lore"}</div>
+              <div className="text-xs text-gray-500">{lang === "en" ? "Revelation arcs unlock globally as teams complete them — the public briefing rebuilds itself live." : "Les arcs de révélation se débloquent pour tous à mesure que les équipes les complètent — le briefing public se reconstruit en direct."}</div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-mono" style={{ color: "#facc15" }}>{bible ? `${bible.unlockedCount} / ${bible.total}` : "…"}</span>
+              {bibleMsg && <span className={`text-xs ${bibleMsg.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{bibleMsg}</span>}
+              {canWrite && <button onClick={() => bibleAction("sync")} disabled={bibleBusy} className="btn-neon px-3 py-1.5 rounded text-xs disabled:opacity-50">{bibleBusy ? "…" : (lang === "en" ? "⚡ Sync from CTFd solves" : "⚡ Synchroniser depuis CTFd")}</button>}
+              <a href="/ctf-briefing.html#revelations" target="_blank" rel="noreferrer" className="text-xs text-gray-500 hover:text-neon-green">{lang === "en" ? "→ Public bible" : "→ Bible publique"}</a>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {(bible?.arcs || []).map((a) => {
+              const arc = a.arc as number;
+              const unlocked = !!a.unlocked;
+              const title = a.title as { en: string; fr: string } | undefined;
+              return (
+                <div key={arc} className="cyber-card rounded-xl p-3 flex items-center gap-3 flex-wrap" style={{ borderColor: unlocked ? "#00ff9d40" : "var(--bdr)" }}>
+                  <span className="text-xs font-mono px-2 py-1 rounded shrink-0" style={{ background: unlocked ? "#00ff9d15" : "#ffb02015", color: unlocked ? "#00ff9d" : "#ffb020" }}>R{arc}</span>
+                  <div className="flex-1 min-w-[180px]">
+                    <div className="text-xs font-bold text-white">{title ? (lang === "en" ? title.en : title.fr) : `Revelation ${arc}`}</div>
+                    <div className="text-[11px] text-gray-500">
+                      {unlocked
+                        ? `${lang === "en" ? "unlocked" : "débloqué"} · ${a.unlockedVia as string}${a.synthesisTitle ? ` · ${a.synthesisTitle as string}` : ""}`
+                        : (a.synthesisPublished ? (lang === "en" ? "sealed · synthesis published on CTFd" : "scellé · synthèse publiée sur CTFd") : (lang === "en" ? "sealed · synthesis not yet on CTFd" : "scellé · synthèse pas encore sur CTFd"))}
+                    </div>
+                  </div>
+                  <input readOnly value={a.unlockUrl as string} onClick={e => (e.target as HTMLInputElement).select()} className="cyber-input text-[10px] rounded px-2 py-1 font-mono flex-1 min-w-[220px]" title={lang === "en" ? "Unlock URL (embedded in the CTFd synthesis description)" : "URL de déverrouillage (intégrée à la description CTFd de la synthèse)"} />
+                  {canWrite && (unlocked
+                    ? <button onClick={() => bibleAction("lock", arc)} disabled={bibleBusy} className="text-xs px-2 py-1 rounded shrink-0" style={{ color: "#ffaa00", border: "1px solid #ffaa0040" }}>{lang === "en" ? "Re-seal" : "Re-sceller"}</button>
+                    : <button onClick={() => bibleAction("unlock", arc)} disabled={bibleBusy} className="text-xs px-2 py-1 rounded shrink-0" style={{ color: "#00ff9d", border: "1px solid #00ff9d40" }}>{lang === "en" ? "Unlock" : "Débloquer"}</button>)}
+                </div>
+              );
+            })}
+            {!bible && <div className="text-xs text-gray-600">{lang === "en" ? "Loading…" : "Chargement…"}</div>}
+          </div>
         </div>
       )}
 

@@ -2,11 +2,20 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { verifyUserSession, isValidToken } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
-import { resolveProfilePermissions } from "@/lib/adminProfiles";
+import { resolveProfilePermissions, expandCtfPermissions } from "@/lib/adminProfiles";
 
 export interface CurrentPerms {
   isLegacy: boolean;
   permissions: Record<string, string>;
+  // Special CTF capability (see AdminUser.canPublishCtf): may see/edit a FLAG and
+  // publish/unpublish/delete a challenge. Legacy shared-password and the root
+  // admin always have it; named users only via their per-user checkbox.
+  canPublish: boolean;
+}
+
+function isRootEmail(email?: string | null): boolean {
+  const root = process.env.ROOT_ADMIN_EMAIL?.trim().toLowerCase();
+  return !!root && !!email && email.trim().toLowerCase() === root;
 }
 
 // Resolve the current request's permissions (same logic as /api/admin/me).
@@ -36,13 +45,15 @@ export const getCurrentPermissions = cache(async (): Promise<CurrentPerms | null
         }
         try { permissions = { ...permissions, ...(JSON.parse(u.permissions || "{}") as Record<string, string>) }; }
         catch { /* ignore */ }
-        return { isLegacy: false, permissions };
+        expandCtfPermissions(permissions); // legacy `ctf` grant → ctf-* sub-tabs
+        const canPublish = isRootEmail(u.email) || u.canPublishCtf === true;
+        return { isLegacy: false, permissions, canPublish };
       }
     }
   }
 
   const legacy = c.get("admin_token")?.value;
-  if (legacy && isValidToken(legacy)) return { isLegacy: true, permissions: {} };
+  if (legacy && isValidToken(legacy)) return { isLegacy: true, permissions: {}, canPublish: true };
 
   return null;
 });
@@ -69,4 +80,12 @@ export async function hasPermission(module: string, level: "read" | "write" = "w
   if (p.isLegacy) return true; // shared super-admin password = full access
   const lvl = p.permissions[module];
   return level === "read" ? (lvl === "read" || lvl === "write") : lvl === "write";
+}
+
+// True when the current request holds the special CTF publish capability: the
+// ONLY admins allowed to see/edit a challenge FLAG and to publish/unpublish/delete
+// a challenge. Independent of the ctf-* read/write tab permissions.
+export async function canPublishCtf(): Promise<boolean> {
+  const p = await getCurrentPermissions();
+  return !!p && p.canPublish === true;
 }

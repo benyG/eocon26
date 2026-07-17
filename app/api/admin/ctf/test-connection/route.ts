@@ -5,7 +5,7 @@ import { hasPermission } from "@/lib/adminPermissions";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!(await hasPermission("ctf", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await hasPermission("ctf-config", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const rows = await prisma.eventSetting.findMany({ where: { key: { in: ["ctfdUrl", "ctfdApiKey"] } } });
   const settings: Record<string, string> = {};

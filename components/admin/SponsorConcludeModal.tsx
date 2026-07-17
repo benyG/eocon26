@@ -110,7 +110,7 @@ export default function SponsorConcludeModal({ prospect, onClose, onConcluded }:
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4">
       <div className="cyber-card rounded-xl max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center p-5 border-b border-gray-800 shrink-0">
           <div>

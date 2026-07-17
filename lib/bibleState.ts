@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getCtfdConfig, ctfdFetch } from "@/lib/ctfd";
 import { ENTITIES, arcForEntity, ARCS, PALIERS, FINALE, ENTITY_BLUR, type Palier, type Arc } from "@/lib/loreStructure";
+import { computeCharacters, isSamuelIdentified, type CharacterCard } from "@/lib/loreCharacters";
 
 // The living bible is driven by GLOBAL CTFd solves. A Fragment is "recovered" once
 // its challenge has ≥1 solve. Story arcs unlock by evidence group (≥ threshold of
@@ -47,6 +48,7 @@ export interface BibleState {
   total: number; recoveredCount: number; stability: number;
   palier: Palier | null; paliers: Palier[];
   fragments: FragmentState[]; entities: EntityState[]; arcs: ArcState[];
+  characters: CharacterCard[]; samuelIdentified: boolean;
   finale: typeof FINALE | null; previewMode: boolean;
 }
 
@@ -117,8 +119,10 @@ export async function computeBibleState(): Promise<BibleState> {
   const palier = [...PALIERS].reverse().find((p) => recoveredCount >= p.threshold) || null;
   const stability = Math.round((recoveredCount / total) * 100);
   const finale = recoveredCount >= total ? FINALE : null;
+  const characters = computeCharacters(isRecovered);
+  const samuelIdentified = revealAll || isSamuelIdentified(isRecovered);
 
-  return { total, recoveredCount, stability, palier, paliers: PALIERS, fragments, entities, arcs, finale, previewMode: revealAll };
+  return { total, recoveredCount, stability, palier, paliers: PALIERS, fragments, entities, arcs, characters, samuelIdentified, finale, previewMode: revealAll };
 }
 
 export async function getBibleStateCached(): Promise<BibleState> {
@@ -131,8 +135,10 @@ export async function getBibleStateCached(): Promise<BibleState> {
 
 export function invalidateBibleCache() { _cache = null; _cacheAt = 0; }
 
-/** Is the arc that gates a given image unlocked? Used by the gated asset endpoint. */
+/** Is the arc/asset that gates a given image unlocked? Used by the gated asset endpoint. */
 export async function isImageUnlocked(imageKey: string): Promise<boolean> {
   const st = await getBibleStateCached();
+  // The engineer's portrait is gated on his identity being recovered, not an arc.
+  if (imageKey === "samuel") return st.samuelIdentified;
   return st.arcs.some((a) => a.image === imageKey && a.unlocked);
 }

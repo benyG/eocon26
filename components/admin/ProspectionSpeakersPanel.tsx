@@ -847,7 +847,7 @@ function ProfileDetail({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-40 flex justify-end" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 z-40 flex justify-end">
       <div className="w-full max-w-xl h-full bg-dark-800 overflow-y-auto p-5 border-l border-gray-800" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-start justify-between mb-4">

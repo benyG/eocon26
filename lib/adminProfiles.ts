@@ -32,7 +32,11 @@ export interface AdminPermissions {
   prospection?: "read" | "write";
   "prospection-speakers"?: "read" | "write";
   certificates?: "read" | "write";
-  ctf?: "read" | "write";
+  ctf?: "read" | "write";               // legacy umbrella — auto-expanded to the ctf-* sub-tabs
+  "ctf-config"?: "read" | "write";
+  "ctf-challenges"?: "read" | "write";
+  "ctf-bible"?: "read" | "write";
+  "ctf-participants"?: "read" | "write";
   live?: "read" | "write";
   website?: "read" | "write";
   testimony?: "read" | "write";
@@ -80,6 +84,27 @@ export function resolveProfilePermissions(
   return dbPerms;
 }
 
+// The EyesOpen CTF panel is protected per sub-tab. These are the permission keys.
+export const CTF_SUBTAB_KEYS = ["ctf-config", "ctf-challenges", "ctf-bible", "ctf-participants"] as const;
+export type CtfSubtabKey = (typeof CTF_SUBTAB_KEYS)[number];
+
+/**
+ * Backward-compat: a legacy `ctf` grant (read/write) used to govern the whole CTF
+ * section. Expand it onto every ctf-* sub-tab that isn't explicitly set, so existing
+ * profiles/users keep working after the split. Explicit sub-tab grants always win.
+ * Mutates and returns the same object. Applied at the END of permission resolution
+ * in BOTH the server gate and /api/admin/me so they stay identical.
+ */
+export function expandCtfPermissions(perms: Record<string, string>): Record<string, string> {
+  const legacy = perms.ctf;
+  if (legacy === "read" || legacy === "write") {
+    for (const k of CTF_SUBTAB_KEYS) {
+      if (perms[k] !== "read" && perms[k] !== "write") perms[k] = legacy;
+    }
+  }
+  return perms;
+}
+
 export const ADMIN_PROFILES: AdminProfile[] = [
   {
     id: "super_admin",
@@ -97,7 +122,9 @@ export const ADMIN_PROFILES: AdminProfile[] = [
       team: "write", video: "write", export: "write", users: "write",
       profiles: "write", audit: "write", settings: "write", prospection: "write",
       "prospection-speakers": "write",
-      certificates: "write", ctf: "write", live: "write", website: "write", pilotage: "write",
+      certificates: "write",
+      ctf: "write", "ctf-config": "write", "ctf-challenges": "write", "ctf-bible": "write", "ctf-participants": "write",
+      live: "write", website: "write", pilotage: "write",
       testimony: "write", campaigns: "write", "strategic-plan": "write",
     },
   },
@@ -160,7 +187,7 @@ export const ADMIN_PROFILES: AdminProfile[] = [
     description: "Gestion complète du CTF : challenges, participants et configuration CTFd",
     color: "#00ccff",
     permissions: {
-      ctf: "write",
+      ctf: "write", "ctf-config": "write", "ctf-challenges": "write", "ctf-bible": "write", "ctf-participants": "write",
       registrations: "read",
       export: "read",
     },
@@ -171,7 +198,7 @@ export const ADMIN_PROFILES: AdminProfile[] = [
     description: "Lecture seule sur le CTF",
     color: "#006688",
     permissions: {
-      ctf: "read",
+      ctf: "read", "ctf-config": "read", "ctf-challenges": "read", "ctf-bible": "read", "ctf-participants": "read",
     },
   },
   {

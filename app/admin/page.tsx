@@ -370,7 +370,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
   const [loading, setLoading] = useState(false);
   const [mfaSetup, setMfaSetup] = useState<MfaSetupState | null>(null);
   // Inline edit (password reset / profile reassignment) for an existing account.
-  const [editUser, setEditUser] = useState<{ id: number; name: string; profileId: number | null; password: string; requiresApproval: boolean; isCommApprover: boolean } | null>(null);
+  const [editUser, setEditUser] = useState<{ id: number; name: string; profileId: number | null; password: string; requiresApproval: boolean; isCommApprover: boolean; canPublishCtf: boolean } | null>(null);
   const [editSaving, setEditSaving] = useState(false);
 
   const loadUsers = useCallback(async () => {
@@ -407,7 +407,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
   const saveEdit = async () => {
     if (!editUser) return;
     setEditSaving(true);
-    const body: Record<string, unknown> = { profileId: editUser.profileId, requiresApproval: editUser.requiresApproval, isCommApprover: editUser.isCommApprover };
+    const body: Record<string, unknown> = { profileId: editUser.profileId, requiresApproval: editUser.requiresApproval, isCommApprover: editUser.isCommApprover, canPublishCtf: editUser.canPublishCtf };
     if (editUser.password.trim()) body.password = editUser.password.trim();
     const res = await fetch(`/api/admin/users/${editUser.id}`, {
       method: "PATCH",
@@ -523,7 +523,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
       )}
 
       {editUser && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setEditUser(null)}>
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <div className="cyber-card rounded-xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-white font-bold text-sm">{lang === "en" ? "Edit" : "Éditer"} — {editUser.name}</h3>
@@ -562,6 +562,13 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={editUser.isCommApprover} onChange={e => setEditUser(u => u && ({ ...u, isCommApprover: e.target.checked }))} />
                 <span className="text-xs" style={{ color: "var(--txt-2)" }}>✅ {lang === "en" ? "Designated approver" : "Approbateur désigné"}</span>
+              </label>
+            </div>
+            <div className="mb-4 p-3 rounded-lg border border-gray-800 space-y-2">
+              <p className="text-xs text-gray-500 mb-1">{lang === "en" ? "EyesOpen CTF" : "EyesOpen CTF"}</p>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={editUser.canPublishCtf} onChange={e => setEditUser(u => u && ({ ...u, canPublishCtf: e.target.checked }))} />
+                <span className="text-xs" style={{ color: "var(--txt-2)" }}>🚩 {lang === "en" ? "CTFd publish rights (see/edit the flag, publish, unpublish, delete a challenge)" : "Droit de publication CTFd (voir/modifier le flag, publier, dépublier, supprimer un challenge)"}</span>
               </label>
             </div>
             <div className="flex gap-2">
@@ -627,6 +634,10 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
               <input type="checkbox" checked={!!form.isCommApprover} onChange={e => setForm(f => ({ ...f, isCommApprover: e.target.checked }))} />
               <span className="text-xs" style={{ color: "var(--txt-2)" }}>✅ {lang === "en" ? "Designated approver — receives and validates approval requests" : "Approbateur désigné — reçoit et valide les demandes d'approbation"}</span>
             </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={!!form.canPublishCtf} onChange={e => setForm(f => ({ ...f, canPublishCtf: e.target.checked }))} />
+              <span className="text-xs" style={{ color: "var(--txt-2)" }}>🚩 {lang === "en" ? "CTFd publish rights — the only admins who can see/edit a flag and publish, unpublish or delete a challenge" : "Droit de publication CTFd — les seuls admins pouvant voir/modifier un flag et publier, dépublier ou supprimer un challenge"}</span>
+            </label>
           </div>
           <div className="flex gap-2">
             <button onClick={saveUser} disabled={loading || !form.name || !form.email} className="btn-neon px-4 py-2 rounded text-sm">
@@ -687,7 +698,7 @@ function AdminUsersPanel({ canWrite = true, canDelete = false }: { canWrite?: bo
                   {!!u.isCommApprover && (
                     <span className="text-xs px-2 py-0.5 rounded bg-emerald-900/30 text-emerald-400" title={lang === "en" ? "Designated approver" : "Approbateur désigné"}>✅ {lang === "en" ? "Approver" : "Approbateur"}</span>
                   )}
-                  {canWrite && <button onClick={() => setEditUser({ id: u.id as number, name: u.name as string, profileId: (u.profileId as number) ?? null, password: "", requiresApproval: !!u.requiresApproval, isCommApprover: !!u.isCommApprover })} className="text-xs text-neon-green/80 hover:text-neon-green transition-colors">
+                  {canWrite && <button onClick={() => setEditUser({ id: u.id as number, name: u.name as string, profileId: (u.profileId as number) ?? null, password: "", requiresApproval: !!u.requiresApproval, isCommApprover: !!u.isCommApprover, canPublishCtf: !!u.canPublishCtf })} className="text-xs text-neon-green/80 hover:text-neon-green transition-colors">
                     {lang === "en" ? "Edit" : "Éditer"}
                   </button>}
                   {canWrite && <button onClick={() => toggleActive(u.id as number, !(u.isActive as boolean))} className="text-xs text-gray-600 hover:text-white transition-colors">
@@ -1729,7 +1740,6 @@ function LibraryPanel({ canWrite = true }: { canWrite?: boolean }) {
       {zoomFile && (
         <div
           className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-6"
-          onClick={closeZoom}
         >
           <button
             onClick={closeZoom}
@@ -1803,7 +1813,7 @@ function LibraryPickerModal({ onPick, onClose }: { onPick: (url: string) => void
   const toggleCollapse = (key: string) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
 
   return (
-    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4">
       <div className="cyber-card rounded-xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between gap-3 p-5 pb-3 border-b border-gray-800 shrink-0">
@@ -3649,7 +3659,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
 
       {/* Pitch strategy modal (cached on the prospect) */}
       {pitchTarget && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => { setPitchTarget(null); setPitchResult(null); }}>
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
           <div className="cyber-card rounded-xl max-w-2xl w-full max-h-[88vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center p-5 border-b border-gray-800 shrink-0">
               <h3 className="text-white font-bold">🎯 {lang === "en" ? "Meeting pitch" : "Pitch de rencontre"} — {pitchTarget.org}</h3>
@@ -3691,7 +3701,7 @@ function SponsorPipelinePanel({ prospects, onRefresh, canWrite = true }: { prosp
         const statusColor = PROSPECT_STATUSES.find(s => s.value === detail.status)?.color || "#888";
 
         return (
-          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => { setDetail(null); setEditingDetail(false); setFindEmailResults([]); setFindEmailDone(false); }}>
+          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
             <div className="cyber-card rounded-xl max-w-xl w-full max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
               <div className="flex justify-between items-start p-5 pb-4 border-b border-gray-800 shrink-0">
                 <div>
@@ -6677,9 +6687,16 @@ function levenshtein(a: string, b: string): number {
   return dp[a.length][b.length];
 }
 
-function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
+function CTFPanel({ can, canPublish = false }: { can: (m: string, l?: "read" | "write") => boolean; canPublish?: boolean }) {
   const { lang } = useAdminT();
   const [subTab, setSubTab] = useState<"config" | "challenges" | "participants" | "bible">("config");
+  // The EyesOpen CTF page is protected sub-tab by sub-tab (READ/WRITE). Publish,
+  // unpublish, delete and the FLAG are further gated by the special `canPublish`.
+  const canWriteChallenges = can("ctf-challenges", "write");
+  const canWrite = canWriteChallenges; // most challenges-tab buttons
+  const canWriteConfig = can("ctf-config", "write");
+  const canWriteBible = can("ctf-bible", "write");
+  const canWriteParticipants = can("ctf-participants", "write");
   const [config, setConfig] = useState({ ctfdUrl: "", ctfdApiKey: "", ctfDefaultPassword: "", ctfEnabled: "false" });
   const [configSaving, setConfigSaving] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -6704,9 +6721,9 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [reconcileTo, setReconcileTo] = useState("");
 
   useEffect(() => {
-    fetch("/api/admin/settings").then(r => r.json()).then((s: Record<string, string>) => {
+    fetch("/api/admin/ctf/config").then(r => r.ok ? r.json() : {}).then((s: Record<string, string>) => {
       setConfig({ ctfdUrl: s.ctfdUrl || "", ctfdApiKey: s.ctfdApiKey || "", ctfDefaultPassword: s.ctfDefaultPassword || "", ctfEnabled: s.ctfEnabled || "false" });
-    });
+    }).catch(() => {});
   }, []);
 
   const loadChallenges = useCallback(async () => {
@@ -6745,7 +6762,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
 
   const saveConfig = async () => {
     setConfigSaving(true);
-    await fetch("/api/admin/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
+    await fetch("/api/admin/ctf/config", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config) });
     setConfigSaving(false);
   };
 
@@ -6885,12 +6902,16 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
     setReconcileTeam(null); setReconcileTo(""); loadParticipants();
   };
 
-  const subTabs = [
-    { key: "config", label: "⚙ Config" },
-    { key: "challenges", label: "🏁 Challenges" },
-    { key: "bible", label: "📖 Bible vivante" },
-    { key: "participants", label: "👤 Participants" },
-  ] as const;
+  const subTabs = ([
+    { key: "config", label: "⚙ Config", perm: "ctf-config" },
+    { key: "challenges", label: "🏁 Challenges", perm: "ctf-challenges" },
+    { key: "bible", label: "📖 Bible vivante", perm: "ctf-bible" },
+    { key: "participants", label: "👤 Participants", perm: "ctf-participants" },
+  ] as const).filter(t => can(t.perm, "read"));
+  const subTabKeys = subTabs.map(t => t.key).join(",");
+  useEffect(() => {
+    if (subTabs.length && !subTabs.some(t => t.key === subTab)) setSubTab(subTabs[0].key);
+  }, [subTabKeys]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>
@@ -6940,7 +6961,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
               </label>
             </div>
           </div>
-          {canWrite && <button onClick={saveConfig} disabled={configSaving} className="btn-neon px-4 py-2 rounded text-xs">
+          {canWriteConfig && <button onClick={saveConfig} disabled={configSaving} className="btn-neon px-4 py-2 rounded text-xs">
             {configSaving ? (lang === "en" ? "Saving…" : "Sauvegarde…") : (lang === "en" ? "Save" : "Sauvegarder")}
           </button>}
         </div>
@@ -7044,7 +7065,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                         <div className="text-xs mt-1" style={{ color: c.assigneeName ? "#00ccff" : "var(--txt-mute)" }}>
                           {c.assigneeName ? `👤 ${c.assigneeName as string}` : lang === "en" ? "👤 unassigned" : "👤 non assigné"}
                         </div>
-                        {canWrite && <button onClick={e => { e.stopPropagation(); deleteChallenge(c.id as number); }} className="text-red-800 hover:text-red-400 text-xs mt-1">{lang === "en" ? "✗ Delete" : "✗ Supprimer"}</button>}
+                        {canPublish && <button onClick={e => { e.stopPropagation(); deleteChallenge(c.id as number); }} className="text-red-800 hover:text-red-400 text-xs mt-1">{lang === "en" ? "✗ Delete" : "✗ Supprimer"}</button>}
                       </div>
                     ))}
                   </div>
@@ -7055,8 +7076,8 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
 
           {/* Challenge edit modal */}
           {canWrite && editChallenge && (
-            <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setEditChallenge(null)}>
-              <div className="cyber-card rounded-xl p-5 max-w-lg w-full border-neon-green/30" onClick={e => e.stopPropagation()}>
+            <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+              <div className="cyber-card rounded-xl p-5 max-w-lg w-full max-h-[90vh] overflow-y-auto border-neon-green/30">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-white font-bold text-sm">{lang === "en" ? "Edit challenge" : "Éditer le challenge"}</h3>
                   <button onClick={() => setEditChallenge(null)} className="text-gray-500 hover:text-white">✕</button>
@@ -7178,11 +7199,13 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                     <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Flag Validation Revelation FR" : "Révélation à la validation FR"}</label>
                     <textarea value={(editChallenge.revealFr as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, revealFr: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm h-16 resize-none" />
                   </div>
+                  {canPublish && (
                   <div className="col-span-2">
                     <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "CTFd flag" : "Flag CTFd"}</label>
                     <input value={(editChallenge.flag as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, flag: e.target.value } : p)} placeholder="EOCON{...}" className="cyber-input w-full px-3 py-1.5 rounded text-sm font-mono" />
-                    <p className="text-gray-600 text-[10px] mt-1">{lang === "en" ? "Required to publish. Static flag." : "Requis pour publier. Flag statique."}</p>
+                    <p className="text-gray-600 text-[10px] mt-1">{lang === "en" ? "Required to publish. Static flag. Only CTFd-publish admins can see or edit this." : "Requis pour publier. Flag statique. Seuls les admins avec le droit de publication CTFd peuvent le voir ou le modifier."}</p>
                   </div>
+                  )}
                   <div className="col-span-2">
                     <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Technique (internal — never published)" : "Technique (interne — jamais publié)"}</label>
                     <input value={(editChallenge.techniqueNote as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, techniqueNote: e.target.value } : p)} placeholder="ECB Penguin" className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
@@ -7193,7 +7216,8 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                   </div>
                 </div>
 
-                {/* CTFd publish controls */}
+                {/* CTFd publish controls — reserved to the special publish capability */}
+                {canPublish && (
                 <div className="mt-4 pt-3 border-t border-gray-800 flex items-center gap-2 flex-wrap">
                   {editChallenge.ctfdId ? (
                     <>
@@ -7205,11 +7229,12 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                   )}
                   {publishState && publishState.id === editChallenge.id && <span className={`text-xs ${publishState.msg.startsWith("✓") ? "text-neon-green" : publishState.msg.startsWith("✗") ? "text-red-400" : "text-gray-400"}`}>{publishState.msg}</span>}
                 </div>
+                )}
                 <div className="flex gap-2 mt-4">
                   <button onClick={saveChallenge} disabled={savingChallenge} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
                     {savingChallenge ? (lang === "en" ? "Saving…" : "Sauvegarde…") : (lang === "en" ? "💾 Save" : "💾 Sauvegarder")}
                   </button>
-                  <button onClick={() => { deleteChallenge(editChallenge.id as number); setEditChallenge(null); }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>{lang === "en" ? "Delete" : "Supprimer"}</button>
+                  {canPublish && <button onClick={() => { deleteChallenge(editChallenge.id as number); setEditChallenge(null); }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>{lang === "en" ? "Delete" : "Supprimer"}</button>}
                   <button onClick={() => setEditChallenge(null)} className="text-xs text-gray-500 px-3 py-2 hover:text-gray-300">{lang === "en" ? "Cancel" : "Annuler"}</button>
                 </div>
               </div>
@@ -7227,7 +7252,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
             </div>
             <div className="flex items-center gap-3">
               {bibleMsg && <span className={`text-xs ${bibleMsg.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{bibleMsg}</span>}
-              {canWrite && (
+              {canWriteBible && (
                 <button onClick={() => bibleTogglePreview(!bible?.previewMode)} disabled={bibleBusy} className="px-3 py-1.5 rounded text-xs border transition-colors disabled:opacity-50" style={{ borderColor: bible?.previewMode ? "#facc15" : "#334155", color: bible?.previewMode ? "#facc15" : "#94a3b8" }}>
                   {bible?.previewMode ? (lang === "en" ? "◉ Preview ON (reveal all)" : "◉ Aperçu ON (tout révéler)") : (lang === "en" ? "○ Preview declassified" : "○ Aperçu déclassifié")}
                 </button>
@@ -7294,7 +7319,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
             <div className="text-xs text-gray-500">{lang === "en" ? `${participants.length} CTF participant(s)` : `${participants.length} participant(s) CTF`}</div>
             <div className="flex gap-2 items-center">
               {syncResult && <span className={`text-xs ${syncResult.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{syncResult}</span>}
-              {canWrite && <button onClick={syncAll} disabled={syncing} className="btn-neon px-3 py-1.5 rounded text-xs disabled:opacity-50">
+              {canWriteParticipants && <button onClick={syncAll} disabled={syncing} className="btn-neon px-3 py-1.5 rounded text-xs disabled:opacity-50">
                 {syncing ? "Sync…" : lang === "en" ? "⚡ Sync all to CTFd" : "⚡ Tout synchroniser sur CTFd"}
               </button>}
             </div>
@@ -7308,7 +7333,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                   <span className="text-gray-300 font-mono">&quot;{c.team1}&quot;</span>
                   <span className="text-gray-600">≈</span>
                   <span className="text-gray-300 font-mono">&quot;{c.team2}&quot;</span>
-                  {canWrite && <button onClick={() => { setReconcileTeam(c); setReconcileTo(c.team1); }} className="px-2 py-0.5 rounded text-xs border border-yellow-600 text-yellow-400 hover:bg-yellow-900/20">
+                  {canWriteParticipants && <button onClick={() => { setReconcileTeam(c); setReconcileTo(c.team1); }} className="px-2 py-0.5 rounded text-xs border border-yellow-600 text-yellow-400 hover:bg-yellow-900/20">
                     {lang === "en" ? "Reconcile" : "Réconcilier"}
                   </button>}
                 </div>
@@ -7359,7 +7384,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                         : <span className="text-gray-600 text-xs">{lang === "en" ? "Pending" : "En attente"}</span>}
                     </td>
                     <td className="py-2 px-3">
-                      {canWrite && !p.ctfAccountCreated && (
+                      {canWriteParticipants && !p.ctfAccountCreated && (
                         <button onClick={() => syncOne(p.id as number)} className="text-xs px-2 py-0.5 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors">
                           {lang === "en" ? "Create account" : "Créer compte"}
                         </button>
@@ -8277,7 +8302,7 @@ export default function AdminDashboard() {
   const router = useRouter();
 
   // Current user identity + permissions
-  const [userInfo, setUserInfo] = useState<{ isLegacy: boolean; id?: number; name: string; email?: string; mfaEnabled?: boolean; mfaRequired?: boolean; isRoot?: boolean; requiresApproval?: boolean; isCommApprover?: boolean; currencySelectorEnabled?: boolean; permissions: Record<string, string> } | null>(null);
+  const [userInfo, setUserInfo] = useState<{ isLegacy: boolean; id?: number; name: string; email?: string; mfaEnabled?: boolean; mfaRequired?: boolean; isRoot?: boolean; requiresApproval?: boolean; isCommApprover?: boolean; canPublishCtf?: boolean; currencySelectorEnabled?: boolean; permissions: Record<string, string> } | null>(null);
   const [showAccount, setShowAccount] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
@@ -8352,6 +8377,9 @@ export default function AdminDashboard() {
     // Designated approvers always reach the Approvals tab, even without the
     // communication permission.
     if (tabId === "approvals" && userInfo.isCommApprover) return true;
+    // The EyesOpen CTF tab is visible if the user can read ANY of its sub-tabs
+    // (config / challenges / bible / participants), or a legacy `ctf` grant.
+    if (tabId === "ctf") return ["ctf", "ctf-config", "ctf-challenges", "ctf-bible", "ctf-participants"].some(k => !!userInfo.permissions[k]);
     return !!userInfo.permissions[permKey as string];
   };
 
@@ -9254,7 +9282,7 @@ export default function AdminDashboard() {
           )}
 
           {/* CTF */}
-          {activeTab === "ctf" && <CTFPanel canWrite={can("ctf")} />}
+          {activeTab === "ctf" && <CTFPanel can={can} canPublish={!!userInfo?.canPublishCtf} />}
 
           {/* LIVE */}
           {activeTab === "live" && <LivePanel canWrite={can("live")} />}
@@ -9422,7 +9450,7 @@ function DetailDrawer({ item, type, onClose, canWrite = false }: { item: Record<
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/60 z-50" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/60 z-50" />
       <div className="fixed top-0 right-0 h-full w-full max-w-lg bg-dark-900 border-l border-neon-green/20 z-50 overflow-y-auto" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
         <div className="sticky top-0 bg-dark-900 border-b border-neon-green/10 px-6 py-4 flex items-center justify-between">
           <div>

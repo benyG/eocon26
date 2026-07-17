@@ -476,7 +476,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
 
       {/* ── TEMPLATE EDIT MODAL ────────────────────────────────────────────── */}
       {showTplModal && (
-        <div className="fixed inset-0 bg-black/90 flex items-start justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowTplModal(false)}>
+        <div className="fixed inset-0 bg-black/90 flex items-start justify-center z-50 p-4 overflow-y-auto">
           <div className="cyber-card rounded-xl p-6 max-w-4xl w-full mt-8 mb-8" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-white font-bold text-base">{editTpl ? __("Éditer le modèle", "Edit template") : __("Nouveau modèle de campagne", "New campaign template")}</h2>
@@ -625,7 +625,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
 
           {/* ── IMPORT MODAL ──────────────────────────────────────────────── */}
           {showImport && (
-            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowImport(false)}>
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
               <div className="border border-gray-700 rounded-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden" style={{ background: "var(--card)" }} onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800">
                   <h2 className="text-white font-bold text-sm">⬆ {__("Importer des contacts Mailchimp", "Import Mailchimp contacts")}</h2>
@@ -709,7 +709,7 @@ export default function CampaignsPanel({ canWrite = true }: { canWrite?: boolean
 
       {/* ── HTML PREVIEW MODAL ────────────────────────────────────────────── */}
       {previewTpl && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4" onClick={() => setPreviewTpl(null)}>
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[88vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 py-2 bg-gray-900 shrink-0">
               <span className="text-white text-xs font-mono">{__("Aperçu", "Preview")} {previewTpl.lang.toUpperCase()}</span>
@@ -1120,7 +1120,7 @@ function CampaignEditor({ campaign, templates, facets, initialTemplateId, onClos
       </div>
 
       {showPreview && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4" onClick={() => setShowPreview(false)}>
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[88vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 py-2 bg-gray-900 shrink-0">
               <span className="text-white text-xs font-mono">{__("Aperçu", "Preview")} {previewLang.toUpperCase()} — {(previewLang === "en" ? content.subjectEn : content.subject) || `(${__("sans sujet", "no subject")})`}</span>

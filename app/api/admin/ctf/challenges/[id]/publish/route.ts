@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { hasPermission } from "@/lib/adminPermissions";
+import { canPublishCtf } from "@/lib/adminPermissions";
 import { getCtfdConfig, ctfdFetch } from "@/lib/ctfd";
 import { composeCtfdDescription } from "@/lib/challengeBrief";
 
@@ -13,7 +13,7 @@ interface CtfdChallengeResp { success?: boolean; data?: { id?: number } }
 // Context / Objective, ENG+FR) and attaches its static flag. The on-solve
 // revelation and the internal technique hint are never sent to CTFd.
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
-  if (!(await hasPermission("ctf", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await canPublishCtf())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const id = parseInt(params.id);
   const ch = await prisma.cTFChallenge.findUnique({ where: { id } });
@@ -63,7 +63,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
 // ── Unpublish (delete from CTFd) ──────────────────────────────────────────────
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  if (!(await hasPermission("ctf", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await canPublishCtf())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const id = parseInt(params.id);
   const ch = await prisma.cTFChallenge.findUnique({ where: { id } });

@@ -411,6 +411,9 @@ model AdminUser {
   requiresApproval Boolean      @default(false)
   // Designated approver: receives approval requests and can validate/reject them.
   isCommApprover Boolean        @default(false)
+  // Special CTF capability: the ONLY holders may see/edit a challenge FLAG and
+  // publish/unpublish/delete a challenge — independent of ctf-* read/write tabs.
+  canPublishCtf  Boolean        @default(false)
 
   @@map("admin_users")
 }

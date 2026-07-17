@@ -1448,6 +1448,72 @@ body.dossier-open{
 }
 
 </style>
+
+<style id="living-css">
+/* visible scrollbar on dossier modals */
+.dossier-dialog{scrollbar-width:thin;scrollbar-color:rgba(1,250,192,.5) rgba(1,250,192,.06)}
+.dossier-dialog::-webkit-scrollbar{width:11px}
+.dossier-dialog::-webkit-scrollbar-track{background:rgba(1,250,192,.05);border-radius:8px}
+.dossier-dialog::-webkit-scrollbar-thumb{background:rgba(1,250,192,.35);border-radius:8px;border:2px solid transparent;background-clip:content-box}
+.dossier-dialog::-webkit-scrollbar-thumb:hover{background:rgba(1,250,192,.6);background-clip:content-box}
+
+/* sealed dossier cards: blur the visual + stamp a redaction pastille */
+.dossier-card.sealed .org-image img,.dossier-card.sealed .profile-image img{filter:blur(15px) saturate(.35) brightness(.7);transition:filter .8s ease}
+.dossier-card.sealed{position:relative}
+.dossier-card.sealed::before{
+  content:attr(data-locklabel);position:absolute;z-index:6;top:12px;left:12px;
+  font:700 .56rem ui-monospace,SFMono-Regular,monospace;letter-spacing:.1em;
+  color:#ffb020;background:rgba(20,12,0,.78);border:1px solid rgba(255,176,32,.5);
+  padding:4px 8px;border-radius:999px;display:flex;align-items:center;gap:6px;pointer-events:none;
+  box-shadow:0 0 18px rgba(255,176,32,.18);
+}
+.dossier-card.sealed::before{content:"\25CF  " attr(data-locklabel)}
+body[data-lang="fr"] .dossier-card.sealed::before{content:"\25CF  " attr(data-locklabel-fr)}
+.dossier-card.declassified{animation:declassFlash 2.2s ease}
+@keyframes declassFlash{0%,100%{box-shadow:none}30%{box-shadow:0 0 44px rgba(1,250,192,.5)}}
+
+/* generic redaction pastille (usable inline in text) */
+.redact{display:inline-flex;align-items:center;gap:5px;font:700 .62rem ui-monospace,monospace;letter-spacing:.08em;color:#ffb020;background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.4);padding:2px 8px;border-radius:999px;vertical-align:middle}
+.redact::before{content:"\25CF";font-size:.7em}
+
+/* LIVE DOSSIER HUD */
+.live-hud{position:sticky;top:0;z-index:60;background:linear-gradient(180deg,rgba(3,10,8,.96),rgba(3,10,8,.86));border-bottom:1px solid rgba(1,250,192,.18);backdrop-filter:blur(10px)}
+.live-hud-inner{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:8px 20px;max-width:1180px;margin:0 auto}
+.live-hud-dot{width:9px;height:9px;border-radius:50%;background:#01fac0;box-shadow:0 0 12px #01fac0;animation:hudPulse 1.6s infinite}
+@keyframes hudPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.7)}}
+.live-hud-label{font:700 .6rem ui-monospace,monospace;letter-spacing:.14em;color:#01fac0;text-transform:uppercase}
+.live-hud-metric{font-size:.66rem;letter-spacing:.06em;color:#9fb4ad;text-transform:uppercase}
+.live-hud-metric b{color:#fff;font-family:ui-monospace,monospace;font-size:.82rem;margin-right:3px}
+.live-hud-palier{flex:1;min-width:140px;font:.62rem ui-monospace,monospace;color:#facc15;letter-spacing:.04em;text-align:right}
+.live-hud-cta{margin-left:auto;font:700 .62rem ui-monospace,monospace;color:#01fac0;text-decoration:none;letter-spacing:.08em}
+.live-hud-cta:hover{text-decoration:underline}
+@media(max-width:720px){.live-hud-palier{display:none}.live-hud-cta{margin-left:0}}
+
+/* Living Record */
+#living-record{padding:clamp(3rem,7vw,6rem) 0;position:relative}
+#living-record .lr-note{max-width:720px;margin:0 auto clamp(1.6rem,3vw,2.4rem);text-align:center;color:#8a9a95;font-size:.9rem}
+#living-record .lr-bar-wrap{max-width:720px;margin:0 auto clamp(2rem,4vw,3rem)}
+#living-record .lr-bar-head{display:flex;justify-content:space-between;font:.66rem ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase;color:#8a9a95;margin-bottom:9px}
+#living-record .lr-bar{height:8px;border-radius:99px;background:rgba(1,250,192,.08);border:1px solid rgba(1,250,192,.18);overflow:hidden}
+#living-record .lr-bar-fill{height:100%;width:0;background:linear-gradient(90deg,#01fac0,#0066ff);box-shadow:0 0 16px rgba(1,250,192,.5);transition:width .9s cubic-bezier(.2,.8,.2,1)}
+#living-record .lr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+#living-record .lr-cell{border-radius:13px;padding:14px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02);scroll-margin-top:80px;transition:border-color .3s,box-shadow .3s}
+#living-record .lr-code{font:700 .62rem ui-monospace,monospace;letter-spacing:.12em;color:#8a9a95;display:flex;align-items:center;justify-content:space-between}
+#living-record .lr-cell.sealed .lr-lock{margin-top:9px;display:flex;align-items:center;gap:7px;font:700 .58rem ui-monospace,monospace;letter-spacing:.06em;color:#ffb020}
+#living-record .lr-cell.sealed .lr-dot{width:8px;height:8px;border-radius:50%;background:#ffb020;box-shadow:0 0 9px rgba(255,176,32,.6)}
+#living-record .lr-cell.recovered{border-color:rgba(1,250,192,.4);background:rgba(1,250,192,.05)}
+#living-record .lr-name{margin-top:8px;color:#fff;font-weight:700;font-size:.9rem}
+#living-record .lr-reveal{margin-top:6px;font-size:.8rem;line-height:1.55;color:#c7d3cf;max-height:150px;overflow:auto;scrollbar-width:thin}
+#living-record .lr-cell.recovered.lr-flash{animation:declassFlash 2.2s ease}
+#living-record .lr-seal{color:#ff5588}
+#living-record .lr-paliers{max-width:900px;margin:clamp(2rem,4vw,3rem) auto 0;display:grid;gap:8px}
+#living-record .lr-palier{display:flex;gap:12px;align-items:center;padding:9px 14px;border-radius:11px;border:1px solid rgba(255,255,255,.06);color:#7d8c87;font-size:.82rem}
+#living-record .lr-palier.hit{border-color:rgba(1,250,192,.35);color:#d7e5e0;background:rgba(1,250,192,.04)}
+#living-record .lr-palier b{font-family:ui-monospace,monospace;color:#01fac0;min-width:52px}
+#living-record .lr-finale{max-width:760px;margin:clamp(2rem,4vw,3rem) auto 0;border-radius:18px;padding:26px;border:1px solid rgba(1,250,192,.5);background:linear-gradient(180deg,rgba(1,250,192,.08),rgba(0,0,0,.3))}
+#living-record .lr-finale h3{color:#fff;margin:0 0 10px}
+#living-record .lr-finale .lr-fbody{color:#c7d3cf;line-height:1.7;font-size:.92rem}
+</style>
 </head>
 <body data-lang="en">
 <header class="topbar">
@@ -1473,6 +1539,17 @@ body.dossier-open{
 </header>
 
 <main id="top">
+<div class="live-hud" id="liveHud">
+  <div class="live-hud-inner">
+    <span class="live-hud-dot" aria-hidden="true"></span>
+    <span class="live-hud-label"><span class="lang en">LIVE DOSSIER · DECLASSIFYING</span><span class="lang fr">DOSSIER VIVANT · DÉCLASSIFICATION</span></span>
+    <span class="live-hud-metric"><b id="hudFragments">0/40</b><span class="lang en">Fragments</span><span class="lang fr">Fragments</span></span>
+    <span class="live-hud-metric"><b id="hudEntities">0/10</b><span class="lang en">Dossiers</span><span class="lang fr">Dossiers</span></span>
+    <span class="live-hud-metric"><b id="hudStability">0%</b><span class="lang en">Stability</span><span class="lang fr">Stabilité</span></span>
+    <span class="live-hud-palier" id="hudPalier"></span>
+    <a class="live-hud-cta" href="#living-record"><span class="lang en">Open record →</span><span class="lang fr">Ouvrir le dossier →</span></a>
+  </div>
+</div>
 <section class="hero">
   <div class="container hero-grid">
     <div class="hero-copy reveal">
@@ -1977,48 +2054,26 @@ body.dossier-open{
   </div>
 </section>
 
-<section id="revelations">
-  <style>
-    #revelations{padding:clamp(3rem,7vw,6rem) 0;position:relative}
-    #revelations .rev-progress{max-width:720px;margin:0 auto clamp(2rem,4vw,3rem)}
-    #revelations .rev-progress-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:#8a9a95}
-    #revelations .rev-count{color:var(--green,#01fac0)}
-    #revelations .rev-bar{height:8px;border-radius:99px;background:rgba(1,250,192,.08);overflow:hidden;border:1px solid rgba(1,250,192,.18)}
-    #revelations .rev-bar-fill{height:100%;width:0;background:linear-gradient(90deg,#01fac0,#0066ff);box-shadow:0 0 16px rgba(1,250,192,.5);transition:width .9s cubic-bezier(.2,.8,.2,1)}
-    #revelations .rev-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
-    #revelations .rev-card{border-radius:16px;padding:20px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02);transition:border-color .3s,box-shadow .3s,transform .3s;scroll-margin-top:90px}
-    #revelations .rev-card-num{font:600 .66rem ui-monospace,SFMono-Regular,monospace;letter-spacing:.18em;text-transform:uppercase;color:#8a9a95;margin-bottom:10px}
-    #revelations .rev-card.locked{opacity:.72}
-    #revelations .rev-lock{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-    #revelations .rev-lock-dot{width:9px;height:9px;border-radius:50%;background:#ffb020;box-shadow:0 0 10px rgba(255,176,32,.6);flex:none}
-    #revelations .rev-lock-label{font:600 .62rem ui-monospace,SFMono-Regular,monospace;letter-spacing:.08em;color:#ffb020}
-    #revelations .rev-teaser{font-size:.82rem;color:#8a9a95;margin:0}
-    #revelations .rev-card.unlocked{border-color:rgba(1,250,192,.42);background:rgba(1,250,192,.05);box-shadow:0 0 30px rgba(1,250,192,.08)}
-    #revelations .rev-title{margin:0 0 8px;color:#fff;font-size:1.05rem}
-    #revelations .rev-body{font-size:.9rem;line-height:1.6;color:#c7d3cf}
-    #revelations .rev-card.rev-flash{animation:revFlash 2.4s ease}
-    @keyframes revFlash{0%,100%{box-shadow:0 0 30px rgba(1,250,192,.08)}30%{box-shadow:0 0 60px rgba(1,250,192,.6);border-color:#01fac0}}
-    #revelations .rev-finale{margin-top:24px;border-radius:16px;padding:24px;border:1px solid rgba(1,250,192,.5);background:linear-gradient(180deg,rgba(1,250,192,.08),rgba(0,0,0,.25))}
-    #revelations .rev-body.finale{line-height:1.7}
-    #revelations noscript{display:block;color:#8a9a95;font-size:.85rem}
-  </style>
+<section id="living-record">
   <div class="container">
     <header class="section-head reveal">
-      <p class="kicker">11 // The truth, as you earn it</p>
-      <div class="lang en"><h2 class="section-title">The Living Record</h2><p class="lede">This dossier rebuilds itself as the field recovers Fragments. Each Revelation stays sealed until a team completes its arc — then it opens for every Operator.</p></div>
-      <div class="lang fr"><h2 class="section-title">Le Dossier Vivant</h2><p class="lede">Ce dossier se reconstruit à mesure que le terrain récupère les Fragments. Chaque Révélation reste scellée jusqu’à ce qu’une équipe achève son arc — puis elle s’ouvre pour chaque Operator.</p></div>
+      <p class="kicker">11 // The record rebuilds itself</p>
+      <div class="lang en"><h2 class="section-title">The Living Record</h2></div>
+      <div class="lang fr"><h2 class="section-title">Le Dossier Vivant</h2></div>
+      <p class="lr-note"><span class="lang en">This page is part of the operation. Sealed intel stays classified until the field recovers its Fragment on the CTF — then it declassifies here, for every Operator. Keep it open: it keeps changing.</span><span class="lang fr">Cette page fait partie de l'opération. Les renseignements scellés restent classifiés jusqu'à ce que le terrain récupère leur Fragment sur le CTF — puis ils se déclassifient ici, pour chaque Operator. Gardez-la ouverte : elle continue de changer.</span></p>
     </header>
-    <div class="rev-progress reveal">
-      <div class="rev-progress-head">
-        <span><span class="lang en">Revelations unlocked</span><span class="lang fr">Révélations débloquées</span></span>
-        <span class="rev-count" id="revCount">0 / 8</span>
+    <div class="lr-bar-wrap reveal">
+      <div class="lr-bar-head">
+        <span><span class="lang en">Fragments recovered</span><span class="lang fr">Fragments récupérés</span></span>
+        <span id="lrCount">0 / 40</span>
       </div>
-      <div class="rev-bar"><div class="rev-bar-fill" id="revBarFill"></div></div>
+      <div class="lr-bar"><div class="lr-bar-fill" id="lrBarFill"></div></div>
     </div>
-    <div class="rev-grid" id="revGrid">
-      <noscript><span class="lang en">Enable JavaScript to view the living record as the field unlocks it.</span><span class="lang fr">Activez JavaScript pour voir le dossier vivant se débloquer au fil de l’enquête.</span></noscript>
+    <div class="lr-grid" id="lrGrid">
+      <noscript><span class="lang en">Enable JavaScript to watch the record declassify live.</span><span class="lang fr">Activez JavaScript pour voir le dossier se déclassifier en direct.</span></noscript>
     </div>
-    <div class="rev-finale" id="revFinale" hidden></div>
+    <div class="lr-paliers" id="lrPaliers"></div>
+    <div class="lr-finale" id="lrFinale" hidden></div>
   </div>
 </section>
 
@@ -2207,7 +2262,7 @@ body.dossier-open{
   let dossierPreviousFocus=null;
 
   function renderDossier(key){
-    const record=dossierData[key];
+    const record=(window.__bibleOverride&&window.__bibleOverride[key])||dossierData[key];
     if(!record || !dossierModal) return;
     const lang=body.dataset.lang==='fr'?'fr':'en';
     const content=record[lang];
@@ -2275,60 +2330,98 @@ body.dossier-open{
 })();
 </script>
 <script>
-/* Living Lore Bible — fetch the server-held unlock state and build the record.
-   Locked arcs never carry their truth in this page; the server sends body text
-   only for arcs already unlocked (design analysis §4). */
+/* Living Lore Bible — solve-driven. The server sends fragment reveals and entity
+   truth only for what the field has already recovered (design analysis §4). */
 (function(){
-  var grid=document.getElementById('revGrid');
-  var countEl=document.getElementById('revCount');
-  var fill=document.getElementById('revBarFill');
-  var finaleEl=document.getElementById('revFinale');
+  var grid=document.getElementById('lrGrid');
   if(!grid) return;
-  function esc(s){var d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
-  function pad(n){return ('0'+n).slice(-2);}
-  function render(state){
+  var esc=function(x){var d=document.createElement('div');d.textContent=x==null?'':String(x);return d.innerHTML;};
+  var pad=function(n){return ('0'+n).slice(-2);};
+  var isFr=function(){return document.body.getAttribute('data-lang')==='fr';};
+
+  function renderFragments(st){
     grid.innerHTML='';
-    (state.arcs||[]).forEach(function(a){
-      var card=document.createElement('article');
-      card.id='reveal-'+a.arc;
-      card.className='rev-card '+(a.unlocked?'unlocked':'locked');
-      card.setAttribute('data-arc',a.arc);
-      var num='<div class="rev-card-num">'+pad(a.arc)+' // Revelation</div>';
-      if(a.unlocked && a.title && a.body){
-        card.innerHTML=num
-          +'<h3 class="rev-title"><span class="lang en">'+esc(a.title.en)+'</span><span class="lang fr">'+esc(a.title.fr)+'</span></h3>'
-          +'<div class="rev-body"><span class="lang en">'+esc(a.body.en)+'</span><span class="lang fr">'+esc(a.body.fr)+'</span></div>';
+    (st.fragments||[]).forEach(function(f){
+      var cell=document.createElement('article');
+      cell.id='frag-'+f.code;
+      cell.className='lr-cell '+(f.recovered?'recovered':'sealed');
+      var head='<div class="lr-code"><span>'+esc(f.code)+(f.isPrimeSeal?' <span class="lr-seal">◆</span>':'')+'</span><span>'+esc(f.category)+'</span></div>';
+      if(f.recovered && f.reveal){
+        cell.innerHTML=head
+          +'<div class="lr-name">'+esc(f.fragmentName||'')+'</div>'
+          +'<div class="lr-reveal"><span class="lang en">'+esc(f.reveal.en)+'</span><span class="lang fr">'+esc(f.reveal.fr)+'</span></div>';
       } else {
-        var label=a.lockLabel?(esc(a.lockLabel.en)+' // '+esc(a.lockLabel.fr)):'SEALED';
-        card.innerHTML=num
-          +'<div class="rev-lock"><span class="rev-lock-dot"></span><span class="rev-lock-label">'+label+'</span></div>'
-          +'<p class="rev-teaser"><span class="lang en">Sealed until the field completes this arc.</span><span class="lang fr">Scellé jusqu’à ce que le terrain achève cet arc.</span></p>';
+        cell.innerHTML=head
+          +'<div class="lr-lock"><span class="lr-dot"></span>'+(f.isPrimeSeal?'PRIME SEAL // SEALED':'RECORD SEALED')+'</div>';
       }
-      grid.appendChild(card);
+      grid.appendChild(cell);
     });
-    if(countEl) countEl.textContent=(state.unlockedCount||0)+' / '+(state.total||8);
-    if(fill) fill.style.width=Math.round(((state.unlockedCount||0)/(state.total||8))*100)+'%';
-    if(finaleEl){
-      if(state.finale){
-        finaleEl.hidden=false;
-        finaleEl.innerHTML='<div class="rev-card-num">Final // Sequence</div>'
-          +'<h3 class="rev-title"><span class="lang en">'+esc(state.finale.title.en)+'</span><span class="lang fr">'+esc(state.finale.title.fr)+'</span></h3>'
-          +'<div class="rev-body finale"><span class="lang en">'+esc(state.finale.body.en).replace(/\n/g,'<br>')+'</span><span class="lang fr">'+esc(state.finale.body.fr).replace(/\n/g,'<br>')+'</span></div>';
-      } else { finaleEl.hidden=true; }
-    }
-    if(location.hash && /^#reveal-\d+$/.test(location.hash)){
-      var t=document.getElementById(location.hash.slice(1));
-      if(t){ t.scrollIntoView({behavior:'smooth',block:'center'}); t.classList.add('rev-flash'); setTimeout(function(){t.classList.remove('rev-flash');},2400); }
+  }
+
+  function renderPaliers(st){
+    var wrap=document.getElementById('lrPaliers'); if(!wrap) return; wrap.innerHTML='';
+    (st.paliers||[]).forEach(function(p){
+      var hit=st.recoveredCount>=p.threshold;
+      var row=document.createElement('div'); row.className='lr-palier'+(hit?' hit':'');
+      row.innerHTML='<b>'+p.threshold+'</b><span class="lang en">'+esc(hit?p.en:'— classified transmission —')+'</span><span class="lang fr">'+esc(hit?p.fr:'— transmission classifiée —')+'</span>';
+      wrap.appendChild(row);
+    });
+  }
+
+  function renderFinale(st){
+    var el=document.getElementById('lrFinale'); if(!el) return;
+    if(st.finale){
+      el.hidden=false;
+      el.innerHTML='<h3><span class="lang en">'+esc(st.finale.title.en)+'</span><span class="lang fr">'+esc(st.finale.title.fr)+'</span></h3>'
+        +'<div class="lr-fbody"><span class="lang en">'+esc(st.finale.body.en).replace(/\n/g,'<br>')+'</span><span class="lang fr">'+esc(st.finale.body.fr).replace(/\n/g,'<br>')+'</span></div>';
+    } else { el.hidden=true; }
+  }
+
+  function applyEntities(st){
+    window.__bibleOverride=window.__bibleOverride||{};
+    (st.entities||[]).forEach(function(e){
+      var card=document.querySelector('[data-dossier="'+e.key+'"]');
+      if(e.declassified){
+        if(card){ card.classList.remove('sealed'); if(!card.dataset.declassApplied){ card.classList.add('declassified'); card.dataset.declassApplied='1'; } }
+        window.__bibleOverride[e.key]={ severity:'', en:{ type:'DECLASSIFIED DOSSIER', title:e.title.en, status:e.status.en, role:e.role.en, intrigue:e.intrigue.en, objective:e.objective.en, state:e.state.en }, fr:{ type:'DOSSIER DÉCLASSIFIÉ', title:e.title.fr, status:e.status.fr, role:e.role.fr, intrigue:e.intrigue.fr, objective:e.objective.fr, state:e.state.fr } };
+      } else {
+        if(card){ card.classList.add('sealed'); card.setAttribute('data-locklabel', e.lockLabel.en); card.setAttribute('data-locklabel-fr', e.lockLabel.fr); }
+        delete window.__bibleOverride[e.key];
+      }
+    });
+  }
+
+  function updateHud(st){
+    var set=function(id,v){var el=document.getElementById(id); if(el) el.textContent=v;};
+    var decl=(st.entities||[]).filter(function(e){return e.declassified;}).length;
+    set('hudFragments',st.recoveredCount+'/'+st.total);
+    set('hudEntities',decl+'/'+((st.entities||[]).length||10));
+    set('hudStability',st.stability+'%');
+    set('lrCount',st.recoveredCount+' / '+st.total);
+    var fill=document.getElementById('lrBarFill'); if(fill) fill.style.width=Math.round((st.recoveredCount/st.total)*100)+'%';
+    var pal=document.getElementById('hudPalier');
+    if(pal) pal.textContent=st.palier?(isFr()?st.palier.fr:st.palier.en):'';
+  }
+
+  function flashHash(){
+    if(location.hash && /^#(frag|reveal)-/.test(location.hash)){
+      var id=location.hash.replace('#reveal-','#frag-').slice(1);
+      var t=document.getElementById(id);
+      if(t){ t.scrollIntoView({behavior:'smooth',block:'center'}); t.classList.add('lr-flash'); setTimeout(function(){t.classList.remove('lr-flash');},2400); }
     }
   }
-  function load(){
-    fetch('/api/public/bible/state',{cache:'no-store'})
-      .then(function(r){return r.ok?r.json():null;})
-      .then(function(s){ if(s) render(s); })
-      .catch(function(){});
-  }
+
+  var first=true;
+  function render(st){ renderFragments(st); renderPaliers(st); renderFinale(st); applyEntities(st); updateHud(st); if(first){ first=false; flashHash(); } }
+  function load(){ fetch('/api/public/bible/state',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(st){ if(st) render(st); }).catch(function(){}); }
+
   load();
-  setInterval(load,30000); /* reflect community unlocks live */
+  // Poll only while the tab is visible (kind to the server at scale).
+  var timer=null;
+  function start(){ if(!timer){ timer=setInterval(load,25000); } }
+  function stop(){ if(timer){ clearInterval(timer); timer=null; } }
+  document.addEventListener('visibilitychange',function(){ if(document.hidden) stop(); else { load(); start(); } });
+  if(!document.hidden) start();
 })();
 </script>
 </body>

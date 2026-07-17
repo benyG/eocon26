@@ -1,6 +1,6 @@
 /**
- * Seed CTF challenges from the shared distribution (lib/ctfSeedData.ts):
- * WEB 10 · CRYPTO 4 · FORENSICS 12 · REVERSE 4 · PWN 4 · OSINT 3 · MISC 3 → 40
+ * Seed CTF challenges from the Challenge Matrix (lib/ctfSeedData.ts):
+ * WEB 10 · CRYPTO 4 · FORENSICS 12 · REVERSE 4 · PWN 4 · OSINT 3 · AI SECURITY 3 → 40
  *
  * Run: npx tsx prisma/seed-ctf.ts
  */
@@ -22,7 +22,17 @@ async function main() {
         category: c.category,
         difficulty: c.difficulty,
         points: c.points,
-        notes: c.notes ?? null,
+        fragmentCode: c.fragmentCode,
+        fragmentName: c.fragmentName,
+        isPrimeSeal: c.isPrimeSeal,
+        storyArc: c.storyArc,
+        linkedEntity: c.linkedEntity,
+        locationEn: c.locationEn, locationFr: c.locationFr,
+        artifactEn: c.artifactEn, artifactFr: c.artifactFr,
+        contextEn: c.contextEn, contextFr: c.contextFr,
+        objectiveEn: c.objectiveEn, objectiveFr: c.objectiveFr,
+        revealEn: c.revealEn, revealFr: c.revealFr,
+        techniqueNote: c.techniqueNote,
         status: "idea",
         sortOrder: i,
       },

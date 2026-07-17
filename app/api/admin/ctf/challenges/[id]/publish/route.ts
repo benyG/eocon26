@@ -2,16 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/adminPermissions";
 import { getCtfdConfig, ctfdFetch } from "@/lib/ctfd";
-import { getUnlockUrl } from "@/lib/revelationUnlock";
+import { composeCtfdDescription } from "@/lib/challengeBrief";
 
 export const dynamic = "force-dynamic";
 
 interface CtfdChallengeResp { success?: boolean; data?: { id?: number } }
 
 // ── Publish a challenge to CTFd ───────────────────────────────────────────────
-// Creates the CTFd challenge, attaches its static flag, and — for synthesis
-// challenges — wires the `requirements` (prerequisites) so CTFd only reveals it to
-// a team once every fragment of the block is solved. Stores the returned CTFd id.
+// Creates the CTFd challenge with the structured bilingual brief (Location /
+// Context / Objective, ENG+FR) and attaches its static flag. The on-solve
+// revelation and the internal technique hint are never sent to CTFd.
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
   if (!(await hasPermission("ctf", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -25,36 +25,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
   if (!ch.flag) return NextResponse.json({ error: "Flag manquant : renseignez le flag du challenge avant de le publier." }, { status: 400 });
 
-  // Resolve synthesis prerequisites → CTFd ids (all prereqs must already be published)
-  let requirementIds: number[] = [];
-  if (ch.prerequisites) {
-    const codes = ch.prerequisites.split(",").map((c) => c.trim()).filter(Boolean);
-    const prereqs = await prisma.cTFChallenge.findMany({ where: { fragmentCode: { in: codes } } });
-    const missing = codes.filter((c) => !prereqs.find((p) => p.fragmentCode === c));
-    const unpublished = prereqs.filter((p) => !p.ctfdId).map((p) => p.fragmentCode);
-    if (missing.length) return NextResponse.json({ error: `Prérequis introuvables : ${missing.join(", ")}` }, { status: 400 });
-    if (unpublished.length) return NextResponse.json({ error: `Publiez d'abord les prérequis sur CTFd : ${unpublished.join(", ")}` }, { status: 400 });
-    requirementIds = prereqs.map((p) => p.ctfdId!).filter(Boolean);
-  }
-
-  // Build the player-facing description (mission brief only). We strip the internal
-  // "Technique suggérée / Suggested technique" hint so we never leak the intended
-  // exploit path, and we do NOT send the narrative "success message" (it would spoil
-  // the reveal pre-solve) — that stays in our DB for the platform to show on solve.
-  const brief = (ch.notes || "").split(/\s*Technique sugg|\s*Suggested technique/i)[0].trim();
-  const descParts: string[] = [];
-  if (brief) descParts.push(brief);
-  if (ch.fragmentCode) descParts.push(`\n\n— Reality Fragment ${ch.fragmentCode}${ch.isPrimeSeal ? " · PRIME SEAL" : ""}.`);
-  // Synthesis challenges carry the bible unlock link for their arc: solving reveals
-  // the truth to the whole community and lands the player on it.
-  if (ch.isSynthesis && ch.revelation) {
-    const arc = parseInt(ch.revelation.split(",")[0].trim(), 10);
-    if (arc) {
-      const unlockUrl = await getUnlockUrl(arc);
-      descParts.push(`\n\n>> TRANSMISSION UNLOCKED — reveal this truth to every Operator:\n${unlockUrl}`);
-    }
-  }
-  const description = descParts.join("").trim() || ch.title;
+  const description = composeCtfdDescription(ch);
 
   // 1) Create the challenge
   const create = await ctfdFetch<CtfdChallengeResp>(cfg, "POST", "/api/v1/challenges", {
@@ -83,22 +54,11 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "Échec ajout du flag CTFd", detail: flagRes.data }, { status: 502 });
   }
 
-  // 3) Wire prerequisites (synthesis gating)
-  if (requirementIds.length) {
-    const reqRes = await ctfdFetch(cfg, "PATCH", `/api/v1/challenges/${ctfdId}`, {
-      requirements: { prerequisites: requirementIds, anonymize: true },
-    });
-    if (!reqRes.ok) {
-      await ctfdFetch(cfg, "DELETE", `/api/v1/challenges/${ctfdId}`);
-      return NextResponse.json({ error: "Échec configuration des prérequis CTFd", detail: reqRes.data }, { status: 502 });
-    }
-  }
-
   const updated = await prisma.cTFChallenge.update({
     where: { id },
     data: { ctfdId, status: "published" },
   });
-  return NextResponse.json({ ok: true, ctfdId, challenge: updated, requirements: requirementIds });
+  return NextResponse.json({ ok: true, ctfdId, challenge: updated });
 }
 
 // ── Unpublish (delete from CTFd) ──────────────────────────────────────────────

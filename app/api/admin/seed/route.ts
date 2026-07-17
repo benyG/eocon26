@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
-import { CTF_SEED_ALL } from "@/lib/ctfSeedData";
+import { CTF_SEED_CHALLENGES } from "@/lib/ctfSeedData";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +73,8 @@ const BUDGET_SEED = [
 
 export async function POST(req: NextRequest) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { type } = await req.json();
+  const body = await req.json();
+  const { type } = body;
 
   if (type === "logistics") {
     const existing = await prisma.logisticsTask.count();
@@ -91,26 +92,41 @@ export async function POST(req: NextRequest) {
 
   if (type === "ctf") {
     const existing = await prisma.cTFChallenge.count();
-    if (existing > 0) return NextResponse.json({ error: "CTF challenges already seeded", count: existing }, { status: 409 });
+    // Reseeding from the Challenge Matrix replaces the whole set. Require an
+    // explicit force to purge, so this can never wipe challenges by accident.
+    if (existing > 0 && !body.force) {
+      return NextResponse.json({ error: "CTF challenges already seeded", count: existing, needsForce: true }, { status: 409 });
+    }
+    if (existing > 0 && body.force) {
+      // Never purge anything already live on CTFd.
+      const published = await prisma.cTFChallenge.count({ where: { ctfdId: { not: null } } });
+      if (published > 0) {
+        return NextResponse.json({ error: `${published} challenge(s) sont publiés sur CTFd. Dépubliez-les avant de réimporter.`, published }, { status: 409 });
+      }
+      await prisma.cTFChallenge.deleteMany({});
+    }
     await prisma.cTFChallenge.createMany({
-      data: CTF_SEED_ALL.map((c, i) => ({
+      data: CTF_SEED_CHALLENGES.map((c, i) => ({
         title: c.title,
         category: c.category,
         difficulty: c.difficulty,
         points: c.points,
-        notes: c.notes ?? null,
-        fragmentCode: c.fragmentCode ?? null,
-        revelation: c.revelation ?? null,
-        isPrimeSeal: c.isPrimeSeal ?? false,
-        isSynthesis: c.isSynthesis ?? false,
-        prerequisites: c.prerequisites ?? null,
-        successMessage: c.successMessage ?? null,
-        flag: c.flag ?? null,
+        fragmentCode: c.fragmentCode,
+        fragmentName: c.fragmentName,
+        isPrimeSeal: c.isPrimeSeal,
+        storyArc: c.storyArc,
+        linkedEntity: c.linkedEntity,
+        locationEn: c.locationEn, locationFr: c.locationFr,
+        artifactEn: c.artifactEn, artifactFr: c.artifactFr,
+        contextEn: c.contextEn, contextFr: c.contextFr,
+        objectiveEn: c.objectiveEn, objectiveFr: c.objectiveFr,
+        revealEn: c.revealEn, revealFr: c.revealFr,
+        techniqueNote: c.techniqueNote,
         status: "idea",
         sortOrder: i,
       })),
     });
-    return NextResponse.json({ seeded: CTF_SEED_ALL.length });
+    return NextResponse.json({ seeded: CTF_SEED_CHALLENGES.length, purged: existing > 0 && body.force });
   }
 
   return NextResponse.json({ error: "Unknown seed type" }, { status: 400 });

@@ -6653,11 +6653,11 @@ function SessionsPanel({ canWrite = true }: { canWrite?: boolean }) {
 }
 
 // ---- CTF Panel ----
-const CTF_CATEGORIES = ["Web", "Crypto", "Forensics", "Reverse", "Pwn", "OSINT", "AI Security", "Synthesis"];
+const CTF_CATEGORIES = ["Web", "Crypto", "Forensics", "Reverse", "Pwn", "OSINT", "AI Security"];
 const CTF_CATEGORY_COLORS: Record<string, string> = {
   Web: "#00ccff", Crypto: "#ffaa00", Forensics: "#cc00ff",
   Reverse: "#ff6600", Pwn: "#ff0066", OSINT: "#00ff9d",
-  "AI Security": "#c084fc", Synthesis: "#facc15", Misc: "#888",
+  "AI Security": "#c084fc", Misc: "#888",
 };
 const CTF_STAGES = [
   { key: "idea", label: "Idée" },
@@ -6693,7 +6693,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [publishState, setPublishState] = useState<{ id: number; msg: string } | null>(null);
   const [teamMembers, setTeamMembers] = useState<{ id: number; name: string; role: string; email: string | null }[]>([]);
 
-  const [bible, setBible] = useState<{ total: number; unlockedCount: number; arcs: Record<string, unknown>[] } | null>(null);
+  const [bible, setBible] = useState<{ total: number; recoveredCount: number; stability: number; previewMode: boolean; palier: { en: string; fr: string } | null; fragments: Record<string, unknown>[]; entities: Record<string, unknown>[] } | null>(null);
   const [bibleBusy, setBibleBusy] = useState(false);
   const [bibleMsg, setBibleMsg] = useState<string | null>(null);
 
@@ -6724,11 +6724,11 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
     if (r.ok) setBible(await r.json());
   }, []);
 
-  const bibleAction = async (action: string, arc?: number) => {
+  const bibleTogglePreview = async (on: boolean) => {
     setBibleBusy(true); setBibleMsg(null);
-    const r = await fetch("/api/admin/ctf/bible", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, arc }) });
+    const r = await fetch("/api/admin/ctf/bible", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "preview", on }) });
     const j = await r.json().catch(() => ({}));
-    if (action === "sync") setBibleMsg(r.ok ? (lang === "en" ? `✓ Synced from CTFd (${(j.synced || []).length} arc(s))` : `✓ Synchronisé depuis CTFd (${(j.synced || []).length} arc(s))`) : `✗ ${j.error || "Échec"}`);
+    setBibleMsg(r.ok ? (on ? (lang === "en" ? "✓ Preview ON — everything declassified" : "✓ Aperçu ON — tout déclassifié") : (lang === "en" ? "✓ Preview OFF" : "✓ Aperçu OFF")) : `✗ ${j.error || "Échec"}`);
     setBibleBusy(false);
     loadBible();
   };
@@ -6768,11 +6768,16 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
     loadChallenges();
   };
 
-  const seedChallenges = async () => {
-    if (!confirm(lang === "en" ? "Import the 40 Reality Fragments + 8 Synthesis challenges (WEB·CRYPTO·FORENSICS·REVERSE·PWN·OSINT·AI SECURITY·SYNTHESIS)?" : "Importer les 40 Reality Fragments + 8 challenges de synthèse (WEB·CRYPTO·FORENSICS·REVERSE·PWN·OSINT·AI SECURITY·SYNTHESIS) ?")) return;
-    const r = await fetch("/api/admin/seed", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "ctf" }) });
+  const seedChallenges = async (force = false) => {
+    if (!force && !confirm(lang === "en" ? "Import the 40 Reality Fragments from the Challenge Matrix (WEB·CRYPTO·FORENSICS·REVERSE·PWN·OSINT·AI SECURITY)?" : "Importer les 40 Reality Fragments depuis la Challenge Matrix (WEB·CRYPTO·FORENSICS·REVERSE·PWN·OSINT·AI SECURITY) ?")) return;
+    if (force && !confirm(lang === "en" ? "⚠ Purge ALL current challenges and re-import the 40 from the matrix? (published challenges must be unpublished first)" : "⚠ Purger TOUS les challenges actuels et réimporter les 40 depuis la matrice ? (les challenges publiés doivent d'abord être dépubliés)")) return;
+    const r = await fetch("/api/admin/seed", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "ctf", force }) });
     if (r.ok) { loadChallenges(); }
-    else { const j = await r.json().catch(() => ({})); alert(j.error || (lang === "en" ? "Import failed (challenges may already exist)." : "Échec de l'import (des challenges existent peut-être déjà).")); }
+    else {
+      const j = await r.json().catch(() => ({}));
+      if (j.needsForce) { if (confirm(lang === "en" ? `${j.count} challenges already exist. Purge and re-import from the matrix?` : `${j.count} challenges existent déjà. Purger et réimporter depuis la matrice ?`)) seedChallenges(true); }
+      else alert(j.error || (lang === "en" ? "Import failed." : "Échec de l'import."));
+    }
   };
 
   const moveChallenge = async (id: number, status: string) => {
@@ -6797,11 +6802,21 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
         assigneeName: editChallenge.assigneeName || null,
         assigneeEmail: editChallenge.assigneeEmail || null,
         fragmentCode: editChallenge.fragmentCode || null,
-        revelation: editChallenge.revelation || null,
+        fragmentName: editChallenge.fragmentName || null,
         isPrimeSeal: !!editChallenge.isPrimeSeal,
-        isSynthesis: !!editChallenge.isSynthesis,
-        prerequisites: editChallenge.prerequisites || null,
-        successMessage: editChallenge.successMessage || null,
+        storyArc: editChallenge.storyArc || null,
+        linkedEntity: editChallenge.linkedEntity || null,
+        locationEn: editChallenge.locationEn || null,
+        locationFr: editChallenge.locationFr || null,
+        artifactEn: editChallenge.artifactEn || null,
+        artifactFr: editChallenge.artifactFr || null,
+        contextEn: editChallenge.contextEn || null,
+        contextFr: editChallenge.contextFr || null,
+        objectiveEn: editChallenge.objectiveEn || null,
+        objectiveFr: editChallenge.objectiveFr || null,
+        revealEn: editChallenge.revealEn || null,
+        revealFr: editChallenge.revealFr || null,
+        techniqueNote: editChallenge.techniqueNote || null,
         flag: editChallenge.flag || null,
       }),
     });
@@ -6948,9 +6963,12 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
               {lang === "en" ? `✓ ${challenges.filter(c => c.status === "validated" || c.status === "published").length} ready` : `✓ ${challenges.filter(c => c.status === "validated" || c.status === "published").length} prêts`}
             </span>
             {canWrite && challenges.length === 0 && (
-              <button onClick={seedChallenges} className="px-3 py-1 rounded text-xs border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition-colors ml-auto">{lang === "en" ? "⚡ Import 40 + 8 challenges" : "⚡ Importer les 40 + 8 challenges"}</button>
+              <button onClick={() => seedChallenges()} className="px-3 py-1 rounded text-xs border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition-colors ml-auto">{lang === "en" ? "⚡ Import 40 from matrix" : "⚡ Importer les 40 (matrice)"}</button>
             )}
-            {canWrite && <button onClick={() => setShowAddForm(v => !v)} className={`btn-neon px-3 py-1 rounded text-xs ${challenges.length === 0 ? "" : "ml-auto"}`}>{lang === "en" ? "+ Add challenge" : "+ Ajouter challenge"}</button>}
+            {canWrite && challenges.length > 0 && (
+              <button onClick={() => seedChallenges(true)} className="px-3 py-1 rounded text-xs border border-yellow-600/40 text-yellow-500 hover:bg-yellow-900/10 transition-colors ml-auto">{lang === "en" ? "↻ Re-import (matrix, purge)" : "↻ Réimporter (matrice, purge)"}</button>
+            )}
+            {canWrite && <button onClick={() => setShowAddForm(v => !v)} className="btn-neon px-3 py-1 rounded text-xs">{lang === "en" ? "+ Add challenge" : "+ Ajouter challenge"}</button>}
           </div>
 
           {canWrite && showAddForm && (
@@ -7018,11 +7036,8 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                           <span className="text-xs text-gray-400 ml-auto">{c.points as number}pts</span>
                         </div>
                         <div className="flex items-center gap-1 flex-wrap mt-1">
-                          {!!c.revelation && String(c.revelation).split(",").filter(Boolean).map((r) => (
-                            <span key={r} className="text-[10px] font-mono px-1 py-0.5 rounded" style={{ background: "#facc1520", color: "#facc15" }}>R{r}</span>
-                          ))}
+                          {!!c.storyArc && <span className="text-[10px] font-mono px-1 py-0.5 rounded" style={{ background: "#facc1520", color: "#facc15" }}>{c.storyArc as string}</span>}
                           {!!c.isPrimeSeal && <span className="text-[10px] font-mono px-1 py-0.5 rounded" style={{ background: "#ff006620", color: "#ff5588" }}>◆ PRIME SEAL</span>}
-                          {!!c.isSynthesis && <span className="text-[10px] font-mono px-1 py-0.5 rounded" style={{ background: "#facc1520", color: "#facc15" }}>SYNTHÈSE</span>}
                           {!!c.ctfdId && <span className="text-[10px] font-mono px-1 py-0.5 rounded" style={{ background: "#00ff9d20", color: "#00ff9d" }}>CTFd #{c.ctfdId as number}</span>}
                         </div>
                         {!!c.author && <div className="text-xs text-gray-600 mt-1">{c.author as string}</div>}
@@ -7098,31 +7113,70 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                     <p className="text-gray-600 text-xs mt-1">{lang === "en" ? "The responsible person receives an email notification upon assignment." : "Le responsable reçoit un email de notification lors de l'assignation."}</p>
                   </div>
                   <div className="col-span-2 mt-1 pt-3 border-t border-gray-800">
-                    <div className="text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-2">{lang === "en" ? "Narrative — The Convergence" : "Narratif — The Convergence"}</div>
+                    <div className="text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-2">{lang === "en" ? "Narrative — Challenge Matrix" : "Narratif — Challenge Matrix"}</div>
                   </div>
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Fragment code" : "Code Fragment"}</label>
                     <input value={(editChallenge.fragmentCode as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, fragmentCode: e.target.value } : p)} placeholder="F-01" className="cyber-input w-full px-3 py-1.5 rounded text-sm font-mono" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Revelation arc(s)" : "Arc(s) de révélation"}</label>
-                    <input value={(editChallenge.revelation as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, revelation: e.target.value } : p)} placeholder="2,4" className="cyber-input w-full px-3 py-1.5 rounded text-sm font-mono" />
-                    <p className="text-gray-600 text-[10px] mt-1">{lang === "en" ? "Comma-separated arc numbers (1–8)." : "Numéros d'arcs séparés par des virgules (1–8)."}</p>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Fragment name" : "Nom du Fragment"}</label>
+                    <input value={(editChallenge.fragmentName as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, fragmentName: e.target.value } : p)} placeholder="Visual Phase Map" className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
                   </div>
-                  <div className="flex items-center gap-4 col-span-2">
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Story arc" : "Arc narratif"}</label>
+                    <input value={(editChallenge.storyArc as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, storyArc: e.target.value } : p)} placeholder="The Deido Lie" className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Linked entity / faction" : "Entité / faction liée"}</label>
+                    <input value={(editChallenge.linkedEntity as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, linkedEntity: e.target.value } : p)} placeholder="Directorate / Meridian" className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
+                  </div>
+                  <div className="col-span-2 flex items-center gap-4">
                     <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300">
                       <input type="checkbox" checked={!!editChallenge.isPrimeSeal} onChange={e => setEditChallenge(p => p ? { ...p, isPrimeSeal: e.target.checked } : p)} />
                       ◆ {lang === "en" ? "Prime Seal (Insane)" : "Prime Seal (Insane)"}
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300">
-                      <input type="checkbox" checked={!!editChallenge.isSynthesis} onChange={e => setEditChallenge(p => p ? { ...p, isSynthesis: e.target.checked } : p)} />
-                      {lang === "en" ? "Synthesis challenge" : "Challenge de synthèse"}
-                    </label>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Location EN</label>
+                    <input value={(editChallenge.locationEn as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, locationEn: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Lieu FR</label>
+                    <input value={(editChallenge.locationFr as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, locationFr: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Artifact EN</label>
+                    <input value={(editChallenge.artifactEn as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, artifactEn: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Artefact FR</label>
+                    <input value={(editChallenge.artifactFr as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, artifactFr: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
                   </div>
                   <div className="col-span-2">
-                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Prerequisites (synthesis) — fragment codes" : "Prérequis (synthèse) — codes Fragment"}</label>
-                    <input value={(editChallenge.prerequisites as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, prerequisites: e.target.value } : p)} placeholder="F-01,F-11,F-14" className="cyber-input w-full px-3 py-1.5 rounded text-sm font-mono" />
-                    <p className="text-gray-600 text-[10px] mt-1">{lang === "en" ? "CTFd requirements: the challenge unlocks once these are solved. All prerequisites must be published to CTFd first." : "Requirements CTFd : le challenge se débloque une fois ceux-ci résolus. Tous les prérequis doivent d'abord être publiés sur CTFd."}</p>
+                    <label className="text-xs text-gray-500 block mb-1">Context EN</label>
+                    <textarea value={(editChallenge.contextEn as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, contextEn: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm h-16 resize-none" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-500 block mb-1">Contexte FR</label>
+                    <textarea value={(editChallenge.contextFr as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, contextFr: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm h-16 resize-none" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-500 block mb-1">Objective EN</label>
+                    <textarea value={(editChallenge.objectiveEn as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, objectiveEn: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm h-12 resize-none" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-500 block mb-1">Objectif FR</label>
+                    <textarea value={(editChallenge.objectiveFr as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, objectiveFr: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm h-12 resize-none" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Flag Validation Revelation EN (on solve)" : "Révélation à la validation EN (à la résolution)"}</label>
+                    <textarea value={(editChallenge.revealEn as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, revealEn: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm h-16 resize-none" />
+                    <p className="text-gray-600 text-[10px] mt-1">{lang === "en" ? "Shown only after solve — never sent in the pre-solve CTFd description." : "Affiché uniquement après résolution — jamais dans la description CTFd pré-solve."}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Flag Validation Revelation FR" : "Révélation à la validation FR"}</label>
+                    <textarea value={(editChallenge.revealFr as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, revealFr: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm h-16 resize-none" />
                   </div>
                   <div className="col-span-2">
                     <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "CTFd flag" : "Flag CTFd"}</label>
@@ -7130,13 +7184,12 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                     <p className="text-gray-600 text-[10px] mt-1">{lang === "en" ? "Required to publish. Static flag." : "Requis pour publier. Flag statique."}</p>
                   </div>
                   <div className="col-span-2">
-                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Success message (on recovery)" : "Message de réussite (à la récupération)"}</label>
-                    <textarea value={(editChallenge.successMessage as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, successMessage: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm h-16 resize-none" />
-                    <p className="text-gray-600 text-[10px] mt-1">{lang === "en" ? "Kept in the platform — not sent to CTFd, to avoid a pre-solve spoiler." : "Conservé dans la plateforme — non envoyé à CTFd, pour éviter un spoiler avant résolution."}</p>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Technique (internal — never published)" : "Technique (interne — jamais publié)"}</label>
+                    <input value={(editChallenge.techniqueNote as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, techniqueNote: e.target.value } : p)} placeholder="ECB Penguin" className="cyber-input w-full px-3 py-1.5 rounded text-sm" />
                   </div>
                   <div className="col-span-2">
-                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Mission brief / notes" : "Brief de mission / notes"}</label>
-                    <textarea value={(editChallenge.notes as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, notes: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm h-20 resize-none" />
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Author notes (internal)" : "Notes auteur (interne)"}</label>
+                    <textarea value={(editChallenge.notes as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, notes: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm h-16 resize-none" />
                   </div>
                 </div>
 
@@ -7170,41 +7223,66 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <div>
               <div className="text-sm font-bold text-white">{lang === "en" ? "Living Lore Bible" : "Bible vivante du Lore"}</div>
-              <div className="text-xs text-gray-500">{lang === "en" ? "Revelation arcs unlock globally as teams complete them — the public briefing rebuilds itself live." : "Les arcs de révélation se débloquent pour tous à mesure que les équipes les complètent — le briefing public se reconstruit en direct."}</div>
+              <div className="text-xs text-gray-500">{lang === "en" ? "The public briefing declassifies itself as Fragments are recovered on CTFd (global solves). Entities open at 60% of their linked Fragments." : "Le briefing public se déclassifie à mesure que les Fragments sont récupérés sur CTFd (solves globaux). Les entités s'ouvrent à 60% de leurs Fragments liés."}</div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-sm font-mono" style={{ color: "#facc15" }}>{bible ? `${bible.unlockedCount} / ${bible.total}` : "…"}</span>
               {bibleMsg && <span className={`text-xs ${bibleMsg.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{bibleMsg}</span>}
-              {canWrite && <button onClick={() => bibleAction("sync")} disabled={bibleBusy} className="btn-neon px-3 py-1.5 rounded text-xs disabled:opacity-50">{bibleBusy ? "…" : (lang === "en" ? "⚡ Sync from CTFd solves" : "⚡ Synchroniser depuis CTFd")}</button>}
-              <a href="/ctf-briefing.html#revelations" target="_blank" rel="noreferrer" className="text-xs text-gray-500 hover:text-neon-green">{lang === "en" ? "→ Public bible" : "→ Bible publique"}</a>
+              {canWrite && (
+                <button onClick={() => bibleTogglePreview(!bible?.previewMode)} disabled={bibleBusy} className="px-3 py-1.5 rounded text-xs border transition-colors disabled:opacity-50" style={{ borderColor: bible?.previewMode ? "#facc15" : "#334155", color: bible?.previewMode ? "#facc15" : "#94a3b8" }}>
+                  {bible?.previewMode ? (lang === "en" ? "◉ Preview ON (reveal all)" : "◉ Aperçu ON (tout révéler)") : (lang === "en" ? "○ Preview declassified" : "○ Aperçu déclassifié")}
+                </button>
+              )}
+              <a href="/ctf-briefing.html#living-record" target="_blank" rel="noreferrer" className="text-xs text-gray-500 hover:text-neon-green">{lang === "en" ? "→ Public bible" : "→ Bible publique"}</a>
             </div>
           </div>
 
-          <div className="space-y-2">
-            {(bible?.arcs || []).map((a) => {
-              const arc = a.arc as number;
-              const unlocked = !!a.unlocked;
-              const title = a.title as { en: string; fr: string } | undefined;
-              return (
-                <div key={arc} className="cyber-card rounded-xl p-3 flex items-center gap-3 flex-wrap" style={{ borderColor: unlocked ? "#00ff9d40" : "var(--bdr)" }}>
-                  <span className="text-xs font-mono px-2 py-1 rounded shrink-0" style={{ background: unlocked ? "#00ff9d15" : "#ffb02015", color: unlocked ? "#00ff9d" : "#ffb020" }}>R{arc}</span>
-                  <div className="flex-1 min-w-[180px]">
-                    <div className="text-xs font-bold text-white">{title ? (lang === "en" ? title.en : title.fr) : `Revelation ${arc}`}</div>
-                    <div className="text-[11px] text-gray-500">
-                      {unlocked
-                        ? `${lang === "en" ? "unlocked" : "débloqué"} · ${a.unlockedVia as string}${a.synthesisTitle ? ` · ${a.synthesisTitle as string}` : ""}`
-                        : (a.synthesisPublished ? (lang === "en" ? "sealed · synthesis published on CTFd" : "scellé · synthèse publiée sur CTFd") : (lang === "en" ? "sealed · synthesis not yet on CTFd" : "scellé · synthèse pas encore sur CTFd"))}
+          {bible && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+              <div className="cyber-card rounded-xl p-3 text-center">
+                <div className="text-2xl font-black" style={{ color: "#00ff9d" }}>{bible.recoveredCount}<span className="text-gray-600 text-lg">/{bible.total}</span></div>
+                <div className="text-[10px] uppercase tracking-widest text-gray-500 mt-1">{lang === "en" ? "Fragments recovered" : "Fragments récupérés"}</div>
+              </div>
+              <div className="cyber-card rounded-xl p-3 text-center">
+                <div className="text-2xl font-black" style={{ color: "#00ccff" }}>{bible.stability}%</div>
+                <div className="text-[10px] uppercase tracking-widest text-gray-500 mt-1">{lang === "en" ? "Reality stability" : "Stabilité réalité"}</div>
+              </div>
+              <div className="cyber-card rounded-xl p-3 text-center">
+                <div className="text-2xl font-black" style={{ color: "#c084fc" }}>{(bible.entities || []).filter(e => e.declassified).length}<span className="text-gray-600 text-lg">/{(bible.entities || []).length}</span></div>
+                <div className="text-[10px] uppercase tracking-widest text-gray-500 mt-1">{lang === "en" ? "Entities declassified" : "Entités déclassifiées"}</div>
+              </div>
+              <div className="cyber-card rounded-xl p-3 text-center flex flex-col justify-center">
+                <div className="text-[11px] font-mono leading-tight" style={{ color: "#facc15" }}>{bible.palier ? (lang === "en" ? bible.palier.en : bible.palier.fr) : (lang === "en" ? "No palier reached yet" : "Aucun palier atteint")}</div>
+              </div>
+            </div>
+          )}
+
+          {bible && (
+            <div className="space-y-2">
+              <div className="text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-1">{lang === "en" ? "Entity dossiers" : "Dossiers d'entités"}</div>
+              {(bible.entities || []).map((e) => {
+                const key = e.key as string;
+                const declassified = !!e.declassified;
+                const title = e.title as { en: string; fr: string } | undefined;
+                const lock = e.lockLabel as { en: string; fr: string };
+                return (
+                  <div key={key} className="cyber-card rounded-lg p-2.5 flex items-center gap-3 flex-wrap" style={{ borderColor: declassified ? "#00ff9d40" : "var(--bdr)" }}>
+                    <span className="text-xs font-mono px-2 py-1 rounded shrink-0" style={{ background: declassified ? "#00ff9d15" : "#ffb02015", color: declassified ? "#00ff9d" : "#ffb020" }}>{declassified ? "DECLASSIFIED" : "SEALED"}</span>
+                    <div className="flex-1 min-w-[160px]">
+                      <div className="text-xs font-bold text-white">{title ? (lang === "en" ? title.en : title.fr) : key}</div>
+                      <div className="text-[11px] text-gray-500">{declassified ? "" : (lang === "en" ? lock.en : lock.fr)}</div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="w-24 h-1.5 rounded-full bg-gray-800 overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${e.total ? Math.round((e.recovered as number) / (e.total as number) * 100) : 0}%`, background: declassified ? "#00ff9d" : "#ffb020" }} />
+                      </div>
+                      <span className="text-[10px] text-gray-500 font-mono">{e.recovered as number}/{e.total as number}</span>
                     </div>
                   </div>
-                  <input readOnly value={a.unlockUrl as string} onClick={e => (e.target as HTMLInputElement).select()} className="cyber-input text-[10px] rounded px-2 py-1 font-mono flex-1 min-w-[220px]" title={lang === "en" ? "Unlock URL (embedded in the CTFd synthesis description)" : "URL de déverrouillage (intégrée à la description CTFd de la synthèse)"} />
-                  {canWrite && (unlocked
-                    ? <button onClick={() => bibleAction("lock", arc)} disabled={bibleBusy} className="text-xs px-2 py-1 rounded shrink-0" style={{ color: "#ffaa00", border: "1px solid #ffaa0040" }}>{lang === "en" ? "Re-seal" : "Re-sceller"}</button>
-                    : <button onClick={() => bibleAction("unlock", arc)} disabled={bibleBusy} className="text-xs px-2 py-1 rounded shrink-0" style={{ color: "#00ff9d", border: "1px solid #00ff9d40" }}>{lang === "en" ? "Unlock" : "Débloquer"}</button>)}
-                </div>
-              );
-            })}
-            {!bible && <div className="text-xs text-gray-600">{lang === "en" ? "Loading…" : "Chargement…"}</div>}
-          </div>
+                );
+              })}
+            </div>
+          )}
+          {!bible && <div className="text-xs text-gray-600">{lang === "en" ? "Loading…" : "Chargement…"}</div>}
         </div>
       )}
 

@@ -5,7 +5,7 @@ import { hasPermission } from "@/lib/adminPermissions";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!(await hasPermission("ctf", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await hasPermission("ctf-participants", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   // Get ticket types with CTF access
   const ctfTickets = await prisma.ticketType.findMany({ where: { includesCTF: true } });

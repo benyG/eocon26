@@ -9,7 +9,7 @@ const FROM = process.env.EMAIL_FROM || "EOCON 2026 <noreply@eyesopensecurity.com
 const REPLY_TO = "ctf@eyesopensecurity.com";
 
 export async function POST(req: NextRequest) {
-  if (!(await hasPermission("ctf", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await hasPermission("ctf-challenges", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { registrationId, templateKey } = await req.json() as { registrationId: number; templateKey: string };
 
   const reg = await prisma.registration.findUnique({ where: { id: registrationId } });

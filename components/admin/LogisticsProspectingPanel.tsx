@@ -283,7 +283,7 @@ function ProspectFormModal({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div className="cyber-card rounded-2xl border border-gray-700 w-full max-w-lg max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-4 border-b border-gray-800 shrink-0">
           <h3 className="font-black text-white text-sm">{isEdit ? `✏️ Modifier — ${prospect!.name}` : "+ Ajouter un prospect"}</h3>

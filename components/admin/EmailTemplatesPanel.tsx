@@ -225,7 +225,7 @@ export default function EmailTemplatesPanel({ canWrite = true }: { canWrite?: bo
 
         {/* Preview modal */}
         {previewTemplate && (
-          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setPreviewTemplate(null)}>
+          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between p-4 border-b">
                 <div>

@@ -33,7 +33,7 @@ function esc(s: string): string {
 export async function GET() {
   if (!(await hasPermission("users", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const users = await prisma.adminUser.findMany({
-    select: { id: true, name: true, email: true, permissions: true, isActive: true, profileId: true, createdAt: true, mfaEnabled: true, requiresApproval: true, isCommApprover: true },
+    select: { id: true, name: true, email: true, permissions: true, isActive: true, profileId: true, createdAt: true, mfaEnabled: true, requiresApproval: true, isCommApprover: true, canPublishCtf: true },
     orderBy: { createdAt: "desc" },
   });
   return NextResponse.json(users);
@@ -41,7 +41,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   if (!(await hasPermission("users", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const { name, email, permissions, profileId, requiresApproval, isCommApprover } = await req.json();
+  const { name, email, permissions, profileId, requiresApproval, isCommApprover, canPublishCtf } = await req.json();
   if (!name || !email) {
     return NextResponse.json({ error: "Nom et email requis" }, { status: 400 });
   }
@@ -70,8 +70,9 @@ export async function POST(req: NextRequest) {
       profileId: profileId || null,
       requiresApproval: !!requiresApproval,
       isCommApprover: !!isCommApprover,
+      canPublishCtf: !!canPublishCtf,
     },
-    select: { id: true, name: true, email: true, permissions: true, isActive: true, profileId: true, createdAt: true, requiresApproval: true, isCommApprover: true },
+    select: { id: true, name: true, email: true, permissions: true, isActive: true, profileId: true, createdAt: true, requiresApproval: true, isCommApprover: true, canPublishCtf: true },
   });
 
   // Send welcome email

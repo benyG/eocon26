@@ -82,7 +82,7 @@ export default function SponsorProspectImportModal({ lang, onClose, onDone }: { 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
       <div className="cyber-card rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-white font-bold">📥 {__("Importer des prospects (XLSX)", "Import prospects (XLSX)")}</h3>

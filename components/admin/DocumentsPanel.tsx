@@ -167,7 +167,7 @@ function TemplateEditor({ doc, onClose }: { doc: DocType; onClose: () => void })
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4">
       <div className="cyber-card rounded-xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center p-4 border-b border-gray-800 shrink-0">
           <div>
@@ -229,7 +229,7 @@ function SendModal({ doc, lang, sponsorId, prospectId, defaultEmail, targetName,
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60] p-4">
       <div className="cyber-card rounded-xl max-w-lg w-full overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center p-4 border-b border-gray-800">
           <h3 className="text-white font-bold">✉️ {__("Envoyer", "Send")} — {name}</h3>

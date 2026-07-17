@@ -66,7 +66,7 @@ export default function MediaLibraryModal({ onSelect, onClose }: Props) {
   const isImage = (name: string) => /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(name);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90">
       <div
         className="bg-[#0d0d0d] border border-gray-800 rounded-xl w-full max-w-4xl max-h-[85vh] flex flex-col mx-4 shadow-2xl"
         onClick={e => e.stopPropagation()}

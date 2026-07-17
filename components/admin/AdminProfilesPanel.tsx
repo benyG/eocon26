@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useLang } from "@/lib/adminLangContext";
+import { expandCtfPermissions } from "@/lib/adminProfiles";
 
 // Permission modules grouped exactly like the admin navbar sections.
 // Each entry's `key` is the permission key checked by canSeeTab in the dashboard.
@@ -31,8 +32,11 @@ const NAV_GROUPS: { label: { fr: string; en: string }; modules: { key: string; l
     { key: "documents", label: "📄 Documents & Contrats" },
     { key: "transactions", label: "Transactions" },
   ] },
-  { label: { fr: "CTF", en: "CTF" }, modules: [
-    { key: "ctf", label: "EyesOpen CTF" },
+  { label: { fr: "EyesOpen CTF", en: "EyesOpen CTF" }, modules: [
+    { key: "ctf-config", label: "CTF — ⚙ Config" },
+    { key: "ctf-challenges", label: "CTF — 🏁 Challenges" },
+    { key: "ctf-bible", label: "CTF — 📖 Bible vivante" },
+    { key: "ctf-participants", label: "CTF — 👤 Participants" },
   ] },
   { label: { fr: "Live Streaming", en: "Live Streaming" }, modules: [
     { key: "live", label: "🔴 Live — Flux, Q&A, Workshops, Dashboard" },
@@ -125,7 +129,9 @@ export default function AdminProfilesPanel({ canWrite = true }: { canWrite?: boo
 
   function selectProfile(p: Profile) {
     setSelected(p);
-    setEditPerms(parsePerms(p.permissions));
+    // Expand any legacy `ctf` grant onto the ctf-* sub-tabs so the grid reflects
+    // effective access and saving doesn't silently drop CTF permissions.
+    setEditPerms(expandCtfPermissions(parsePerms(p.permissions) as Record<string, string>) as Permissions);
     setEditName(p.name);
     setEditDesc(p.description);
     setEditColor(p.color);

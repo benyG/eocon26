@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { hasPermission } from "@/lib/adminPermissions";
+import { hasPermission, canPublishCtf } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  if (!(await hasPermission("ctf", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  return NextResponse.json(await prisma.cTFChallenge.findMany({ orderBy: [{ category: "asc" }, { sortOrder: "asc" }] }));
+  if (!(await hasPermission("ctf-challenges", "read"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const rows = await prisma.cTFChallenge.findMany({ orderBy: [{ category: "asc" }, { sortOrder: "asc" }] });
+  // The FLAG is a secret: only holders of the CTF publish capability ever see it.
+  if (await canPublishCtf()) return NextResponse.json(rows);
+  return NextResponse.json(rows.map(({ flag: _flag, ...rest }) => rest));
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await hasPermission("ctf", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await hasPermission("ctf-challenges", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const b = await req.json();
   const { title, category, difficulty, points, author, notes } = b;
   if (!title || !category) return NextResponse.json({ error: "title et category requis" }, { status: 400 });
@@ -32,7 +35,8 @@ export async function POST(req: NextRequest) {
       objectiveEn: b.objectiveEn || null, objectiveFr: b.objectiveFr || null,
       revealEn: b.revealEn || null, revealFr: b.revealFr || null,
       techniqueNote: b.techniqueNote || null,
-      flag: b.flag || null,
+      // Only the CTF publish capability may set a FLAG.
+      flag: (await canPublishCtf()) ? (b.flag || null) : null,
     },
   });
   return NextResponse.json(ch, { status: 201 });

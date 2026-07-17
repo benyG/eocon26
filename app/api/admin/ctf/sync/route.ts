@@ -39,7 +39,7 @@ async function ctfdPatch(url: string, apiKey: string, path: string, body: unknow
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await hasPermission("ctf", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await hasPermission("ctf-participants", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { action, registrationIds } = await req.json() as { action: string; registrationIds?: number[] };
   const { url, apiKey } = await getCtfdConfig();

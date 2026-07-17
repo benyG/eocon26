@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { isValidToken, verifyUserSession } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
-import { resolveProfilePermissions } from "@/lib/adminProfiles";
+import { resolveProfilePermissions, expandCtfPermissions } from "@/lib/adminProfiles";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +47,7 @@ export async function GET() {
           const overrides = JSON.parse(u.permissions || "{}") as Record<string, string>;
           permissions = { ...permissions, ...overrides };
         } catch { /* ignore */ }
+        expandCtfPermissions(permissions); // legacy `ctf` grant → ctf-* sub-tabs (parity with server gate)
         const mfaSetting = await prisma.eventSetting.findUnique({ where: { key: "mfa_required" } });
         return NextResponse.json({
           isLegacy: false,
@@ -58,6 +59,8 @@ export async function GET() {
           isRoot: isRootAdmin(u.email),
           requiresApproval: u.requiresApproval,
           isCommApprover: u.isCommApprover,
+          // Special CTF publish capability (flag view/edit + publish/unpublish/delete)
+          canPublishCtf: isRootAdmin(u.email) || u.canPublishCtf === true,
           currencySelectorEnabled: process.env.PAYMENT_ALLOW_CURRENCY_SELECTOR === "true",
           permissions,
         });
@@ -74,6 +77,7 @@ export async function GET() {
       isRoot: true, // shared super-admin password = root
       requiresApproval: false,
       isCommApprover: true, // shared super-admin can validate
+      canPublishCtf: true, // shared super-admin can publish
       currencySelectorEnabled: process.env.PAYMENT_ALLOW_CURRENCY_SELECTOR === "true",
       permissions: {},
     });

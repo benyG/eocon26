@@ -6693,7 +6693,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [publishState, setPublishState] = useState<{ id: number; msg: string } | null>(null);
   const [teamMembers, setTeamMembers] = useState<{ id: number; name: string; role: string; email: string | null }[]>([]);
 
-  const [bible, setBible] = useState<{ total: number; recoveredCount: number; stability: number; previewMode: boolean; palier: { en: string; fr: string } | null; fragments: Record<string, unknown>[]; entities: Record<string, unknown>[] } | null>(null);
+  const [bible, setBible] = useState<{ total: number; recoveredCount: number; stability: number; previewMode: boolean; palier: { en: string; fr: string } | null; fragments: Record<string, unknown>[]; entities: Record<string, unknown>[]; arcs: Record<string, unknown>[] } | null>(null);
   const [bibleBusy, setBibleBusy] = useState(false);
   const [bibleMsg, setBibleMsg] = useState<string | null>(null);
 
@@ -7223,7 +7223,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <div>
               <div className="text-sm font-bold text-white">{lang === "en" ? "Living Lore Bible" : "Bible vivante du Lore"}</div>
-              <div className="text-xs text-gray-500">{lang === "en" ? "The public briefing declassifies itself as Fragments are recovered on CTFd (global solves). Entities open at 60% of their linked Fragments." : "Le briefing public se déclassifie à mesure que les Fragments sont récupérés sur CTFd (solves globaux). Les entités s'ouvrent à 60% de leurs Fragments liés."}</div>
+              <div className="text-xs text-gray-500">{lang === "en" ? "The public briefing declassifies itself as Fragments are recovered on CTFd (global solves). Each story arc unlocks once ≥ threshold of its evidence Fragments are in." : "Le briefing public se déclassifie à mesure que les Fragments sont récupérés sur CTFd (solves globaux). Chaque arc s'ouvre dès que ≥ seuil de ses Fragments-preuves sont récupérés."}</div>
             </div>
             <div className="flex items-center gap-3">
               {bibleMsg && <span className={`text-xs ${bibleMsg.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{bibleMsg}</span>}
@@ -7258,28 +7258,30 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
 
           {bible && (
             <div className="space-y-2">
-              <div className="text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-1">{lang === "en" ? "Entity dossiers" : "Dossiers d'entités"}</div>
-              {(bible.entities || []).map((e) => {
-                const key = e.key as string;
-                const declassified = !!e.declassified;
-                const title = e.title as { en: string; fr: string } | undefined;
-                const lock = e.lockLabel as { en: string; fr: string };
+              <div className="text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-1">{lang === "en" ? "Investigation arcs (evidence groups)" : "Arcs d'enquête (groupes de preuves)"}</div>
+              {(bible.arcs || []).map((a) => {
+                const key = a.key as string;
+                const unlocked = !!a.unlocked;
+                const title = a.title as { en: string; fr: string };
+                const lock = a.lockLabel as { en: string; fr: string };
+                const rec = a.recovered as number, thr = a.threshold as number, tot = a.total as number;
                 return (
-                  <div key={key} className="cyber-card rounded-lg p-2.5 flex items-center gap-3 flex-wrap" style={{ borderColor: declassified ? "#00ff9d40" : "var(--bdr)" }}>
-                    <span className="text-xs font-mono px-2 py-1 rounded shrink-0" style={{ background: declassified ? "#00ff9d15" : "#ffb02015", color: declassified ? "#00ff9d" : "#ffb020" }}>{declassified ? "DECLASSIFIED" : "SEALED"}</span>
+                  <div key={key} className="cyber-card rounded-lg p-2.5 flex items-center gap-3 flex-wrap" style={{ borderColor: unlocked ? "#00ff9d40" : "var(--bdr)" }}>
+                    <span className="text-xs font-mono px-2 py-1 rounded shrink-0" style={{ background: unlocked ? "#00ff9d15" : "#ffb02015", color: unlocked ? "#00ff9d" : "#ffb020" }}>{unlocked ? "DECLASSIFIED" : "SEALED"}</span>
                     <div className="flex-1 min-w-[160px]">
-                      <div className="text-xs font-bold text-white">{title ? (lang === "en" ? title.en : title.fr) : key}</div>
-                      <div className="text-[11px] text-gray-500">{declassified ? "" : (lang === "en" ? lock.en : lock.fr)}</div>
+                      <div className="text-xs font-bold text-white">{lang === "en" ? title.en : title.fr}{a.image ? " 🖼" : ""}</div>
+                      <div className="text-[11px] text-gray-500">{unlocked ? "" : (lang === "en" ? lock.en : lock.fr)}</div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <div className="w-24 h-1.5 rounded-full bg-gray-800 overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${e.total ? Math.round((e.recovered as number) / (e.total as number) * 100) : 0}%`, background: declassified ? "#00ff9d" : "#ffb020" }} />
+                        <div className="h-full rounded-full" style={{ width: `${Math.min(100, Math.round((rec / thr) * 100))}%`, background: unlocked ? "#00ff9d" : "#ffb020" }} />
                       </div>
-                      <span className="text-[10px] text-gray-500 font-mono">{e.recovered as number}/{e.total as number}</span>
+                      <span className="text-[10px] text-gray-500 font-mono" title={lang === "en" ? "recovered / threshold (group size)" : "récupérés / seuil (taille du groupe)"}>{rec}/{thr}<span className="text-gray-700"> ·{tot}</span></span>
                     </div>
                   </div>
                 );
               })}
+              <div className="text-[11px] text-gray-500 mt-2">{lang === "en" ? `Entities declassified: ${(bible.entities || []).filter(e => e.declassified).length}/${(bible.entities || []).length}` : `Entités déclassifiées : ${(bible.entities || []).filter(e => e.declassified).length}/${(bible.entities || []).length}`}</div>
             </div>
           )}
           {!bible && <div className="text-xs text-gray-600">{lang === "en" ? "Loading…" : "Chargement…"}</div>}

@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/db";
 import { getCtfdConfig, ctfdFetch } from "@/lib/ctfd";
-import { ENTITIES, entitiesForLinked, ENTITY_DECLASSIFY_RATIO, PALIERS, FINALE, type Palier } from "@/lib/loreStructure";
+import { ENTITIES, arcForEntity, ARCS, PALIERS, FINALE, type Palier, type Arc } from "@/lib/loreStructure";
 
-// The living bible is driven by GLOBAL CTFd solves: a Fragment is "recovered" once
-// its challenge has ≥1 solve. Everything (fragment reveals, entity declassification,
-// paliers, stability, finale) derives from that. The result is cached server-side so
-// hundreds of concurrent visitors cost one CTFd call every TTL, not one per request.
+// The living bible is driven by GLOBAL CTFd solves. A Fragment is "recovered" once
+// its challenge has ≥1 solve. Story arcs unlock by evidence group (≥ threshold of
+// their trigger Fragments). Unlocking an arc declassifies its entity dossiers,
+// releases its section-level reveal text and its gated image. Cached server-side so
+// hundreds of viewers cost ~one CTFd call per window.
 
 const TTL_MS = 20_000;
 let _cache: BibleState | null = null;
@@ -14,37 +15,22 @@ let _cacheAt = 0;
 type Bi = { en: string; fr: string };
 
 export interface FragmentState {
-  code: string;
-  category: string;
-  isPrimeSeal: boolean;
-  storyArc: string | null;
-  recovered: boolean;
-  fragmentName?: string | null;
-  reveal?: Bi | null;
+  code: string; category: string; isPrimeSeal: boolean; storyArc: string | null;
+  recovered: boolean; fragmentName?: string | null; reveal?: Bi | null;
 }
 export interface EntityState {
-  key: string;
-  declassified: boolean;
-  recovered: number;
-  total: number;
-  lockLabel: Bi;
-  title?: Bi;
-  status?: Bi;
-  role?: Bi;
-  intrigue?: Bi;
-  objective?: Bi;
-  state?: Bi;
+  key: string; declassified: boolean; lockLabel: Bi;
+  title?: Bi; status?: Bi; role?: Bi; intrigue?: Bi; objective?: Bi; state?: Bi;
+}
+export interface ArcState {
+  key: string; title: Bi; unlocked: boolean; recovered: number; total: number;
+  threshold: number; lockLabel: Bi; image: string | null; reveal?: Bi;
 }
 export interface BibleState {
-  total: number;
-  recoveredCount: number;
-  stability: number;
-  palier: Palier | null;
-  paliers: Palier[];
-  fragments: FragmentState[];
-  entities: EntityState[];
-  finale: typeof FINALE | null;
-  previewMode: boolean;
+  total: number; recoveredCount: number; stability: number;
+  palier: Palier | null; paliers: Palier[];
+  fragments: FragmentState[]; entities: EntityState[]; arcs: ArcState[];
+  finale: typeof FINALE | null; previewMode: boolean;
 }
 
 async function fetchSolves(): Promise<Map<number, number>> {
@@ -62,34 +48,42 @@ export async function computeBibleState(): Promise<BibleState> {
 
   const chs = await prisma.cTFChallenge.findMany({ where: { fragmentCode: { not: null } }, orderBy: [{ sortOrder: "asc" }] });
   const solves = revealAll ? null : await fetchSolves();
-  const isRecovered = (ctfdId: number | null) => revealAll || (!!ctfdId && (solves!.get(ctfdId) ?? 0) > 0);
+  const byCode = new Map(chs.map((c) => [c.fragmentCode!, c]));
+  const isRecovered = (code: string) => {
+    if (revealAll) return true;
+    const c = byCode.get(code);
+    return !!c?.ctfdId && (solves!.get(c.ctfdId) ?? 0) > 0;
+  };
 
   const fragments: FragmentState[] = chs.map((c) => {
-    const recovered = isRecovered(c.ctfdId);
+    const recovered = isRecovered(c.fragmentCode!);
     return {
-      code: c.fragmentCode!,
-      category: c.category,
-      isPrimeSeal: c.isPrimeSeal,
-      storyArc: c.storyArc,
+      code: c.fragmentCode!, category: c.category, isPrimeSeal: c.isPrimeSeal, storyArc: c.storyArc,
       recovered,
       fragmentName: recovered ? c.fragmentName : null,
       reveal: recovered ? { en: c.revealEn || "", fr: c.revealFr || "" } : null,
     };
   });
-
-  const recoveredCodes = new Set(fragments.filter((f) => f.recovered).map((f) => f.code));
-  const recoveredCount = recoveredCodes.size;
+  const recoveredCount = fragments.filter((f) => f.recovered).length;
   const total = 40;
 
+  const arcUnlocked = (a: Arc) => a.triggers.filter(isRecovered).length >= a.threshold;
+
+  const arcs: ArcState[] = ARCS.map((a) => {
+    const recovered = a.triggers.filter(isRecovered).length;
+    const unlocked = revealAll || recovered >= a.threshold;
+    const base: ArcState = {
+      key: a.key, title: a.title, unlocked, recovered, total: a.triggers.length,
+      threshold: a.threshold, lockLabel: a.lockLabel, image: a.image ?? null,
+    };
+    if (unlocked) base.reveal = a.reveal;
+    return base;
+  });
+
   const entities: EntityState[] = ENTITIES.map((e) => {
-    const linkedCodes = chs
-      .filter((c) => c.linkedEntity && entitiesForLinked(c.linkedEntity).includes(e.key))
-      .map((c) => c.fragmentCode!)
-      .filter(Boolean);
-    const rec = linkedCodes.filter((code) => recoveredCodes.has(code)).length;
-    const tot = linkedCodes.length;
-    const declassified = revealAll || (tot > 0 && rec / tot >= ENTITY_DECLASSIFY_RATIO);
-    const base = { key: e.key, declassified, recovered: rec, total: tot, lockLabel: e.lockLabel };
+    const arc = arcForEntity(e.key);
+    const declassified = revealAll || !arc || arcUnlocked(arc);
+    const base: EntityState = { key: e.key, declassified, lockLabel: e.lockLabel };
     if (!declassified) return base;
     return { ...base, title: e.title, status: e.status, role: e.role, intrigue: e.intrigue, objective: e.objective, state: e.state };
   });
@@ -98,7 +92,7 @@ export async function computeBibleState(): Promise<BibleState> {
   const stability = Math.round((recoveredCount / total) * 100);
   const finale = recoveredCount >= total ? FINALE : null;
 
-  return { total, recoveredCount, stability, palier, paliers: PALIERS, fragments, entities, finale, previewMode: revealAll };
+  return { total, recoveredCount, stability, palier, paliers: PALIERS, fragments, entities, arcs, finale, previewMode: revealAll };
 }
 
 export async function getBibleStateCached(): Promise<BibleState> {
@@ -110,3 +104,9 @@ export async function getBibleStateCached(): Promise<BibleState> {
 }
 
 export function invalidateBibleCache() { _cache = null; _cacheAt = 0; }
+
+/** Is the arc that gates a given image unlocked? Used by the gated asset endpoint. */
+export async function isImageUnlocked(imageKey: string): Promise<boolean> {
+  const st = await getBibleStateCached();
+  return st.arcs.some((a) => a.image === imageKey && a.unlocked);
+}

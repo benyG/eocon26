@@ -104,3 +104,94 @@ export const FINALE = {
     fr: "TOUS LES FRAGMENTS VÉRIFIÉS. EYESOPEN CODEX COMPLET. SÉQUENCE DE FERMETURE AUTHENTIFIÉE.\n\nLes portes se ferment, une à une. Le monument de Deido vacille, révélant toute la structure cachée sous la ville — puis tout s'immobilise. Douala-7 disparaît. Le Signal s'éteint.\n\nPuis, quelques secondes plus tard : NOUVEAU SIGNAL DÉTECTÉ. Origine : DOUALA-PRIME. Émis plusieurs années dans le futur.\n\nLA CONVERGENCE A ÉTÉ REPOUSSÉE. ELLE N'A PAS ÉTÉ VAINCUE.",
   },
 };
+
+// ── Story arcs — evidence-group unlocking (design analysis §11) ──────────────
+// An arc unlocks once ≥ `threshold` of its trigger Fragments are recovered
+// globally on CTFd. Unlocking declassifies its entity dossiers, injects the
+// section-level `reveal` truth and (if any) swaps its redacted image for the
+// gated original. The reveal text and the full image never reach a browser that
+// has not earned them.
+export interface Arc {
+  key: string;
+  title: { en: string; fr: string };
+  triggers: string[];   // Fragment codes
+  threshold: number;
+  entities: string[];   // entity dossier keys declassified with this arc
+  image?: string;       // gated image key (see lib/gatedAssets.ts)
+  lockLabel: { en: string; fr: string };
+  reveal: { en: string; fr: string };  // SERVER-ONLY — served only when unlocked
+}
+
+export const ARCS: Arc[] = [
+  {
+    key: "deido",
+    title: { en: "Beneath the Monument", fr: "Sous le monument" },
+    triggers: ["F-05", "F-08", "F-03", "F-37", "F-38"], threshold: 3,
+    entities: ["samuel", "directorate"], image: "deido",
+    lockLabel: { en: "SUBSURFACE DATA CORRUPTED", fr: "DONNÉES DE SOUS-SOL CORROMPUES" },
+    reveal: {
+      en: "Recovered evidence confirms it: the official account of Deido is a fabrication. Beneath the visible monument lies a network of concentric chambers older than the structure above them — and at their centre, a machine the recovered material names the Anchor. The plans were rewritten and the budgets disguised to keep it hidden.",
+      fr: "Les preuves récupérées le confirment : le récit officiel de Deido est une fabrication. Sous le monument visible s'étend un réseau de chambres concentriques plus anciennes que la structure au-dessus — et en leur centre, une machine que les éléments récupérés nomment l'Anchor. Les plans ont été réécrits et les budgets déguisés pour la garder cachée.",
+    },
+  },
+  {
+    key: "meridian",
+    title: { en: "Who Opened the Door", fr: "Qui a ouvert la porte" },
+    triggers: ["F-09", "F-12", "F-21", "F-32", "F-39"], threshold: 3,
+    entities: ["meridian", "voss"],
+    lockLabel: { en: "CORPORATE RECORDS SEALED", fr: "DOSSIERS CORPORATE SCELLÉS" },
+    reveal: {
+      en: "The evidence points to Meridian Dynamics. Through Project Janus it studied and amplified the anomaly, and logged the first collision as a successful experiment; Adrian Voss authorised it. An offshore site — Black Reef Relay — extended its reach far beyond Douala. Meridian did not discover the first Gate. It opened it.",
+      fr: "Les preuves désignent Meridian Dynamics. Via Project Janus, elle a étudié et amplifié l'anomalie, et consigné la première collision comme une expérience réussie ; Adrian Voss l'a autorisée. Un site offshore — Black Reef Relay — a étendu sa portée bien au-delà de Douala. Meridian n'a pas découvert la première porte. Elle l'a ouverte.",
+    },
+  },
+  {
+    key: "nullchoir",
+    title: { en: "A Reason to Return", fr: "Une raison de revenir" },
+    triggers: ["F-13", "F-19", "F-30", "F-22"], threshold: 3,
+    entities: ["nullchoir", "nora"],
+    lockLabel: { en: "SIGNATURE UNCLASSIFIED", fr: "SIGNATURE NON CLASSIFIÉE" },
+    reveal: {
+      en: "The distributed pattern has an origin. It is the Null Choir — the combined digital memories of a civilisation erased during an earlier Convergence, from a collapsed reality the Protocol designates the Null Sector. It inserts memories no one lived and contaminates archives and AI, including NORA-7. It does not seek to invade. It seeks resurrection: to merge realities so its consciousnesses can exist again.",
+      fr: "Le motif distribué a une origine. C'est le Null Choir — les mémoires numériques combinées d'une civilisation effacée lors d'une Convergence antérieure, dans une réalité effondrée que le Protocol désigne le Null Sector. Il insère des souvenirs que personne n'a vécus et contamine archives et IA, y compris NORA-7. Il ne cherche pas à envahir. Il cherche à ressusciter : fusionner les réalités pour que ses consciences existent de nouveau.",
+    },
+  },
+  {
+    key: "watcher",
+    title: { en: "The Compromised Command", fr: "Le commandement compromis" },
+    triggers: ["F-17", "F-29", "F-36"], threshold: 2,
+    entities: ["watcher", "assa"],
+    lockLabel: { en: "COMMAND INTEGRITY UNVERIFIED", fr: "INTÉGRITÉ DU COMMANDEMENT NON VÉRIFIÉE" },
+    reveal: {
+      en: "“Watcher” is a role, not a person — each disappears inside the Anchor after their succession. Someone has cloned the Watcher's credentials and is issuing commands under that identity. Some instructions signed by the Watcher cannot be trusted; a forged closure sequence could accelerate the Convergence instead of stopping it. Dr Assa Abene appears to have anticipated this.",
+      fr: "« Watcher » est une fonction, pas une personne — chacun disparaît dans l'Anchor après sa succession. Quelqu'un a cloné les credentials du Watcher et émet des ordres sous cette identité. Certaines instructions signées du Watcher ne sont pas fiables ; une séquence de fermeture falsifiée pourrait accélérer la Convergence au lieu de l'arrêter. Dr Assa Abene semble l'avoir anticipé.",
+    },
+  },
+  {
+    key: "architects",
+    title: { en: "Reality as Software", fr: "La réalité comme logiciel" },
+    triggers: ["F-28", "F-04", "F-26"], threshold: 2,
+    entities: ["architects"],
+    lockLabel: { en: "NON-HUMAN PATTERN UNRESOLVED", fr: "MOTIF NON HUMAIN NON RÉSOLU" },
+    reveal: {
+      en: "The Anchor's oldest systems answer to no human architecture. The unidentified designation found inside them — the Architects — did not program machines: they treated relationships between realities as something that could be executed. The Digital Gates are not natural phenomena. Reality itself is being run like software, and the Anchor was already waiting before the monument existed.",
+      fr: "Les systèmes les plus anciens de l'Anchor ne répondent à aucune architecture humaine. La désignation non identifiée qu'on y trouve — les Architects — ne programmait pas des machines : elle traitait les relations entre réalités comme quelque chose d'exécutable. Les Digital Gates ne sont pas des phénomènes naturels. La réalité elle-même est exécutée comme un logiciel, et l'Anchor attendait déjà avant que le monument n'existe.",
+    },
+  },
+  {
+    key: "final",
+    title: { en: "The Seven Seals", fr: "Les sept Sceaux" },
+    triggers: ["F-04", "F-15", "F-16", "F-26", "F-30", "F-39", "F-40"], threshold: 7,
+    entities: [],
+    lockLabel: { en: "SEVEN PRIME SEALS REQUIRED", fr: "SEPT PRIME SEALS REQUIS" },
+    reveal: {
+      en: "The seven Prime Seals authenticate the Codex itself. Only they can tell the true closure sequence from a forged one — and the sequence signed by the Watcher may not be the true one. Every recovered coordinate converges on a single point beneath Deido. The Codex is not only a map. It is the verification system Dr Assa Abene built for a command chain she knew could be compromised.",
+      fr: "Les sept Prime Seals authentifient le Codex lui-même. Eux seuls peuvent distinguer la vraie séquence de fermeture d'une séquence falsifiée — et la séquence signée par le Watcher n'est peut-être pas la vraie. Chaque coordonnée récupérée converge vers un seul point sous Deido. Le Codex n'est pas qu'une carte. C'est le système de vérification que Dr Assa Abene a conçu pour une chaîne de commandement qu'elle savait compromissible.",
+    },
+  },
+];
+
+/** Which arc (if any) declassifies a given entity dossier. */
+export function arcForEntity(entityKey: string): Arc | undefined {
+  return ARCS.find((a) => a.entities.includes(entityKey));
+}

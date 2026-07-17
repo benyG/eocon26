@@ -1458,17 +1458,18 @@ body.dossier-open{
 .dossier-dialog::-webkit-scrollbar-thumb:hover{background:rgba(1,250,192,.6);background-clip:content-box}
 
 /* sealed dossier cards: blur the visual + stamp a redaction pastille */
-.dossier-card.sealed .org-image img,.dossier-card.sealed .profile-image img{filter:blur(15px) saturate(.35) brightness(.7);transition:filter .8s ease}
-.dossier-card.sealed{position:relative}
-.dossier-card.sealed::before{
+.dossier-card.sealed-partial .org-image img,.dossier-card.sealed-partial .profile-image img{filter:blur(6px) saturate(.6) brightness(.85);transition:filter .8s ease}
+.dossier-card.sealed-heavy .org-image img,.dossier-card.sealed-heavy .profile-image img{filter:blur(16px) saturate(.3) brightness(.6);transition:filter .8s ease}
+.dossier-card.sealed-partial,.dossier-card.sealed-heavy{position:relative}
+.dossier-card.sealed-partial::before,.dossier-card.sealed-heavy::before{
   content:attr(data-locklabel);position:absolute;z-index:6;top:12px;left:12px;
   font:700 .56rem ui-monospace,SFMono-Regular,monospace;letter-spacing:.1em;
   color:#ffb020;background:rgba(20,12,0,.78);border:1px solid rgba(255,176,32,.5);
   padding:4px 8px;border-radius:999px;display:flex;align-items:center;gap:6px;pointer-events:none;
   box-shadow:0 0 18px rgba(255,176,32,.18);
 }
-.dossier-card.sealed::before{content:"\25CF  " attr(data-locklabel)}
-body[data-lang="fr"] .dossier-card.sealed::before{content:"\25CF  " attr(data-locklabel-fr)}
+.dossier-card.sealed-partial::before,.dossier-card.sealed-heavy::before{content:"\25CF  " attr(data-locklabel)}
+body[data-lang="fr"] .dossier-card.sealed-partial::before,body[data-lang="fr"] .dossier-card.sealed-heavy::before{content:"\25CF  " attr(data-locklabel-fr)}
 .dossier-card.declassified{animation:declassFlash 2.2s ease}
 @keyframes declassFlash{0%,100%{box-shadow:none}30%{box-shadow:0 0 44px rgba(1,250,192,.5)}}
 
@@ -2401,10 +2402,10 @@ body[data-lang="fr"] .dossier-card.sealed::before{content:"\25CF  " attr(data-lo
     (st.entities||[]).forEach(function(e){
       var card=document.querySelector('[data-dossier="'+e.key+'"]');
       if(e.declassified){
-        if(card){ card.classList.remove('sealed'); if(!card.dataset.declassApplied){ card.classList.add('declassified'); card.dataset.declassApplied='1'; } }
+        if(card){ card.classList.remove('sealed-partial','sealed-heavy'); if(!card.dataset.declassApplied){ card.classList.add('declassified'); card.dataset.declassApplied='1'; } }
         window.__bibleOverride[e.key]={ severity:'', en:{ type:'DECLASSIFIED DOSSIER', title:e.title.en, status:e.status.en, role:e.role.en, intrigue:e.intrigue.en, objective:e.objective.en, state:e.state.en }, fr:{ type:'DOSSIER DÉCLASSIFIÉ', title:e.title.fr, status:e.status.fr, role:e.role.fr, intrigue:e.intrigue.fr, objective:e.objective.fr, state:e.state.fr } };
       } else {
-        if(card){ card.classList.add('sealed'); card.setAttribute('data-locklabel', e.lockLabel.en); card.setAttribute('data-locklabel-fr', e.lockLabel.fr); }
+        if(card){ var lvl=e.blur||'none'; card.classList.remove('sealed-partial','sealed-heavy'); if(lvl!=='none'){ card.classList.add(lvl==='heavy'?'sealed-heavy':'sealed-partial'); card.setAttribute('data-locklabel', e.lockLabel.en); card.setAttribute('data-locklabel-fr', e.lockLabel.fr); } }
         delete window.__bibleOverride[e.key];
       }
     });

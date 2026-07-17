@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getCtfdConfig, ctfdFetch } from "@/lib/ctfd";
-import { ENTITIES, arcForEntity, ARCS, PALIERS, FINALE, type Palier, type Arc } from "@/lib/loreStructure";
+import { ENTITIES, arcForEntity, ARCS, PALIERS, FINALE, ENTITY_BLUR, type Palier, type Arc } from "@/lib/loreStructure";
 
 // The living bible is driven by GLOBAL CTFd solves. A Fragment is "recovered" once
 // its challenge has ≥1 solve. Story arcs unlock by evidence group (≥ threshold of
@@ -19,7 +19,7 @@ export interface FragmentState {
   recovered: boolean; fragmentName?: string | null; reveal?: Bi | null;
 }
 export interface EntityState {
-  key: string; declassified: boolean; lockLabel: Bi;
+  key: string; declassified: boolean; blur: "none" | "partial" | "heavy"; lockLabel: Bi;
   title?: Bi; status?: Bi; role?: Bi; intrigue?: Bi; objective?: Bi; state?: Bi;
 }
 export interface ArcState {
@@ -83,7 +83,7 @@ export async function computeBibleState(): Promise<BibleState> {
   const entities: EntityState[] = ENTITIES.map((e) => {
     const arc = arcForEntity(e.key);
     const declassified = revealAll || !arc || arcUnlocked(arc);
-    const base: EntityState = { key: e.key, declassified, lockLabel: e.lockLabel };
+    const base: EntityState = { key: e.key, declassified, blur: ENTITY_BLUR[e.key] ?? "none", lockLabel: e.lockLabel };
     if (!declassified) return base;
     return { ...base, title: e.title, status: e.status, role: e.role, intrigue: e.intrigue, objective: e.objective, state: e.state };
   });

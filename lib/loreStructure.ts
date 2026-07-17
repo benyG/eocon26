@@ -195,3 +195,12 @@ export const ARCS: Arc[] = [
 export function arcForEntity(entityKey: string): Arc | undefined {
   return ARCS.find((a) => a.entities.includes(entityKey));
 }
+
+// Per-entity image redaction level at launch (design analysis §9): visible cards
+// (only the deeper dossier truth is gated), partially masked, or heavily masked.
+// Heavy/partial cards un-blur when their arc declassifies.
+export const ENTITY_BLUR: Record<string, "none" | "partial" | "heavy"> = {
+  assa: "none", voss: "none", nora: "none", protocol: "none", meridian: "none",
+  samuel: "partial", directorate: "partial",
+  watcher: "heavy", nullchoir: "heavy", architects: "heavy",
+};

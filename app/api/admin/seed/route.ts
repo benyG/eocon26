@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
-import { CTF_SEED_CHALLENGES } from "@/lib/ctfSeedData";
+import { CTF_SEED_ALL } from "@/lib/ctfSeedData";
 
 export const dynamic = "force-dynamic";
 
@@ -93,17 +93,24 @@ export async function POST(req: NextRequest) {
     const existing = await prisma.cTFChallenge.count();
     if (existing > 0) return NextResponse.json({ error: "CTF challenges already seeded", count: existing }, { status: 409 });
     await prisma.cTFChallenge.createMany({
-      data: CTF_SEED_CHALLENGES.map((c, i) => ({
+      data: CTF_SEED_ALL.map((c, i) => ({
         title: c.title,
         category: c.category,
         difficulty: c.difficulty,
         points: c.points,
         notes: c.notes ?? null,
+        fragmentCode: c.fragmentCode ?? null,
+        revelation: c.revelation ?? null,
+        isPrimeSeal: c.isPrimeSeal ?? false,
+        isSynthesis: c.isSynthesis ?? false,
+        prerequisites: c.prerequisites ?? null,
+        successMessage: c.successMessage ?? null,
+        flag: c.flag ?? null,
         status: "idea",
         sortOrder: i,
       })),
     });
-    return NextResponse.json({ seeded: CTF_SEED_CHALLENGES.length });
+    return NextResponse.json({ seeded: CTF_SEED_ALL.length });
   }
 
   return NextResponse.json({ error: "Unknown seed type" }, { status: 400 });

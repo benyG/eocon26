@@ -486,8 +486,8 @@ model TicketType {
 model CTFChallenge {
   id          Int      @id @default(autoincrement())
   title       String
-  category    String   // Web | Crypto | Forensics | Reverse | Pwn | OSINT | Misc
-  difficulty  String   @default("medium") // easy | medium | hard
+  category    String   // Web | Crypto | Forensics | Reverse | Pwn | OSINT | AI Security | Synthesis
+  difficulty  String   @default("medium") // easy | medium | hard | insane
   points      Int      @default(0)
   author      String?
   status        String   @default("idea") // idea | in_progress | testing | validated | published
@@ -496,6 +496,14 @@ model CTFChallenge {
   assigneeName  String?  // Team member responsible for this challenge
   assigneeEmail String?  // Notified when (re)assigned
   sortOrder     Int      @default(0)
+  // ── Narrative layer (The Convergence) — all editable ──────────────────────
+  fragmentCode   String?  // Reality Fragment id, e.g. "F-01" (null for synthesis)
+  revelation     String?  // Revelation arc(s) this challenge structures, comma-separated e.g. "1,4"
+  isPrimeSeal    Boolean  @default(false) // Insane challenge carrying a Prime Seal
+  isSynthesis    Boolean  @default(false) // Narrative synthesis challenge that concludes an arc
+  prerequisites  String?  @db.Text        // For synthesis: fragment codes required, comma-separated e.g. "F-01,F-11"
+  successMessage String?  @db.Text        // "MESSAGE DE REUSSITE" shown on solve (CTFd description/connection notice)
+  flag           String?  // CTFd static flag (synthesis uses a fixed acknowledgement flag)
   createdAt     DateTime @default(now())
 
   @@map("ctf_challenges")

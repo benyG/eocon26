@@ -11,10 +11,24 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   if (!(await hasPermission("ctf", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const { title, category, difficulty, points, author, notes } = await req.json();
+  const b = await req.json();
+  const { title, category, difficulty, points, author, notes } = b;
   if (!title || !category) return NextResponse.json({ error: "title et category requis" }, { status: 400 });
   const ch = await prisma.cTFChallenge.create({
-    data: { title, category, difficulty: difficulty || "medium", points: points || 0, author: author || null, notes: notes || null },
+    data: {
+      title, category,
+      difficulty: difficulty || "medium",
+      points: points || 0,
+      author: author || null,
+      notes: notes || null,
+      fragmentCode: b.fragmentCode || null,
+      revelation: b.revelation || null,
+      isPrimeSeal: !!b.isPrimeSeal,
+      isSynthesis: !!b.isSynthesis,
+      prerequisites: b.prerequisites || null,
+      successMessage: b.successMessage || null,
+      flag: b.flag || null,
+    },
   });
   return NextResponse.json(ch, { status: 201 });
 }

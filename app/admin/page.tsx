@@ -6653,10 +6653,11 @@ function SessionsPanel({ canWrite = true }: { canWrite?: boolean }) {
 }
 
 // ---- CTF Panel ----
-const CTF_CATEGORIES = ["Web", "Crypto", "Forensics", "Reverse", "Pwn", "OSINT", "Misc"];
+const CTF_CATEGORIES = ["Web", "Crypto", "Forensics", "Reverse", "Pwn", "OSINT", "AI Security", "Synthesis"];
 const CTF_CATEGORY_COLORS: Record<string, string> = {
   Web: "#00ccff", Crypto: "#ffaa00", Forensics: "#cc00ff",
-  Reverse: "#ff6600", Pwn: "#ff0066", OSINT: "#00ff9d", Misc: "#888",
+  Reverse: "#ff6600", Pwn: "#ff0066", OSINT: "#00ff9d",
+  "AI Security": "#c084fc", Synthesis: "#facc15", Misc: "#888",
 };
 const CTF_STAGES = [
   { key: "idea", label: "Idée" },
@@ -6678,7 +6679,7 @@ function levenshtein(a: string, b: string): number {
 
 function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   const { lang } = useAdminT();
-  const [subTab, setSubTab] = useState<"config" | "challenges" | "participants">("config");
+  const [subTab, setSubTab] = useState<"config" | "challenges" | "participants" | "bible">("config");
   const [config, setConfig] = useState({ ctfdUrl: "", ctfdApiKey: "", ctfDefaultPassword: "", ctfEnabled: "false" });
   const [configSaving, setConfigSaving] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -6689,7 +6690,12 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   const [dragId, setDragId] = useState<number | null>(null);
   const [editChallenge, setEditChallenge] = useState<Record<string, unknown> | null>(null);
   const [savingChallenge, setSavingChallenge] = useState(false);
+  const [publishState, setPublishState] = useState<{ id: number; msg: string } | null>(null);
   const [teamMembers, setTeamMembers] = useState<{ id: number; name: string; role: string; email: string | null }[]>([]);
+
+  const [bible, setBible] = useState<{ total: number; unlockedCount: number; arcs: Record<string, unknown>[] } | null>(null);
+  const [bibleBusy, setBibleBusy] = useState(false);
+  const [bibleMsg, setBibleMsg] = useState<string | null>(null);
 
   const [participants, setParticipants] = useState<Record<string, unknown>[]>([]);
   const [syncing, setSyncing] = useState(false);
@@ -6713,6 +6719,20 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
     if (r.ok) setParticipants(await r.json());
   }, []);
 
+  const loadBible = useCallback(async () => {
+    const r = await fetch("/api/admin/ctf/bible");
+    if (r.ok) setBible(await r.json());
+  }, []);
+
+  const bibleAction = async (action: string, arc?: number) => {
+    setBibleBusy(true); setBibleMsg(null);
+    const r = await fetch("/api/admin/ctf/bible", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, arc }) });
+    const j = await r.json().catch(() => ({}));
+    if (action === "sync") setBibleMsg(r.ok ? (lang === "en" ? `✓ Synced from CTFd (${(j.synced || []).length} arc(s))` : `✓ Synchronisé depuis CTFd (${(j.synced || []).length} arc(s))`) : `✗ ${j.error || "Échec"}`);
+    setBibleBusy(false);
+    loadBible();
+  };
+
   useEffect(() => {
     if (subTab === "challenges") {
       loadChallenges();
@@ -6720,7 +6740,8 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
       fetch("/api/admin/team").then(r => r.ok ? r.json() : []).then(setTeamMembers).catch(() => {});
     }
     if (subTab === "participants") loadParticipants();
-  }, [subTab, loadChallenges, loadParticipants]);
+    if (subTab === "bible") loadBible();
+  }, [subTab, loadChallenges, loadParticipants, loadBible]);
 
   const saveConfig = async () => {
     setConfigSaving(true);
@@ -6748,7 +6769,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   };
 
   const seedChallenges = async () => {
-    if (!confirm(lang === "en" ? "Import the 40 reference challenges (WEB·CRYPTO·FORENSICS·REVERSE·PWN·OSINT·MISC)?" : "Importer les 40 challenges de référence (WEB·CRYPTO·FORENSICS·REVERSE·PWN·OSINT·MISC) ?")) return;
+    if (!confirm(lang === "en" ? "Import the 40 Reality Fragments + 8 Synthesis challenges (WEB·CRYPTO·FORENSICS·REVERSE·PWN·OSINT·AI SECURITY·SYNTHESIS)?" : "Importer les 40 Reality Fragments + 8 challenges de synthèse (WEB·CRYPTO·FORENSICS·REVERSE·PWN·OSINT·AI SECURITY·SYNTHESIS) ?")) return;
     const r = await fetch("/api/admin/seed", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "ctf" }) });
     if (r.ok) { loadChallenges(); }
     else { const j = await r.json().catch(() => ({})); alert(j.error || (lang === "en" ? "Import failed (challenges may already exist)." : "Échec de l'import (des challenges existent peut-être déjà).")); }
@@ -6775,11 +6796,38 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
         notes: editChallenge.notes,
         assigneeName: editChallenge.assigneeName || null,
         assigneeEmail: editChallenge.assigneeEmail || null,
+        fragmentCode: editChallenge.fragmentCode || null,
+        revelation: editChallenge.revelation || null,
+        isPrimeSeal: !!editChallenge.isPrimeSeal,
+        isSynthesis: !!editChallenge.isSynthesis,
+        prerequisites: editChallenge.prerequisites || null,
+        successMessage: editChallenge.successMessage || null,
+        flag: editChallenge.flag || null,
       }),
     });
     setSavingChallenge(false);
     setEditChallenge(null);
     loadChallenges();
+  };
+
+  const publishChallenge = async (id: number) => {
+    setPublishState({ id, msg: lang === "en" ? "Publishing…" : "Publication…" });
+    const r = await fetch(`/api/admin/ctf/challenges/${id}/publish`, { method: "POST" });
+    const j = await r.json().catch(() => ({}));
+    setPublishState({ id, msg: r.ok ? (lang === "en" ? `✓ Published (CTFd #${j.ctfdId})` : `✓ Publié (CTFd #${j.ctfdId})`) : `✗ ${j.error || "Échec"}` });
+    if (r.ok && j.challenge) setEditChallenge(p => (p && p.id === id ? { ...p, ...j.challenge } : p));
+    await loadChallenges();
+    return r.ok;
+  };
+
+  const unpublishChallenge = async (id: number) => {
+    if (!confirm(lang === "en" ? "Remove this challenge from CTFd?" : "Retirer ce challenge de CTFd ?")) return;
+    setPublishState({ id, msg: lang === "en" ? "Removing…" : "Retrait…" });
+    const r = await fetch(`/api/admin/ctf/challenges/${id}/publish`, { method: "DELETE" });
+    const j = await r.json().catch(() => ({}));
+    setPublishState({ id, msg: r.ok ? (lang === "en" ? "✓ Unpublished" : "✓ Dépublié") : `✗ ${j.error || "Échec"}` });
+    if (r.ok && j.challenge) setEditChallenge(p => (p && p.id === id ? { ...p, ...j.challenge } : p));
+    await loadChallenges();
   };
 
   const deleteChallenge = async (id: number) => {
@@ -6825,6 +6873,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
   const subTabs = [
     { key: "config", label: "⚙ Config" },
     { key: "challenges", label: "🏁 Challenges" },
+    { key: "bible", label: "📖 Bible vivante" },
     { key: "participants", label: "👤 Participants" },
   ] as const;
 
@@ -6899,7 +6948,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
               {lang === "en" ? `✓ ${challenges.filter(c => c.status === "validated" || c.status === "published").length} ready` : `✓ ${challenges.filter(c => c.status === "validated" || c.status === "published").length} prêts`}
             </span>
             {canWrite && challenges.length === 0 && (
-              <button onClick={seedChallenges} className="px-3 py-1 rounded text-xs border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition-colors ml-auto">{lang === "en" ? "⚡ Import 40 challenges" : "⚡ Importer les 40 challenges"}</button>
+              <button onClick={seedChallenges} className="px-3 py-1 rounded text-xs border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition-colors ml-auto">{lang === "en" ? "⚡ Import 40 + 8 challenges" : "⚡ Importer les 40 + 8 challenges"}</button>
             )}
             {canWrite && <button onClick={() => setShowAddForm(v => !v)} className={`btn-neon px-3 py-1 rounded text-xs ${challenges.length === 0 ? "" : "ml-auto"}`}>{lang === "en" ? "+ Add challenge" : "+ Ajouter challenge"}</button>}
           </div>
@@ -6923,6 +6972,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                     <option value="easy">Easy</option>
                     <option value="medium">Medium</option>
                     <option value="hard">Hard</option>
+                    <option value="insane">Insane</option>
                   </select>
                 </div>
                 <div>
@@ -6958,11 +7008,22 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                         onClick={() => canWrite && setEditChallenge({ ...c })}
                         className={`rounded-lg p-2.5 ${canWrite ? "cursor-pointer active:cursor-grabbing hover:brightness-125" : ""} transition-all`}
                         style={{ background: CTF_CATEGORY_COLORS[c.category as string] ? CTF_CATEGORY_COLORS[c.category as string] + "15" : "var(--bdr)", border: `1px solid ${CTF_CATEGORY_COLORS[c.category as string] ? CTF_CATEGORY_COLORS[c.category as string] + "40" : "var(--bdr-2)"}` }}>
-                        <div className="text-xs font-bold text-white mb-1">{c.title as string}</div>
+                        <div className="text-xs font-bold text-white mb-1 flex items-center gap-1.5">
+                          {!!c.fragmentCode && <span className="text-[10px] font-mono px-1 py-0.5 rounded shrink-0" style={{ background: "#00ccff20", color: "#00ccff" }}>{c.fragmentCode as string}</span>}
+                          <span className="truncate">{c.title as string}</span>
+                        </div>
                         <div className="flex items-center gap-1 flex-wrap">
                           <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: CTF_CATEGORY_COLORS[c.category as string] ? CTF_CATEGORY_COLORS[c.category as string] + "30" : "var(--bdr-2)", color: CTF_CATEGORY_COLORS[c.category as string] || "var(--txt-dim)" }}>{c.category as string}</span>
                           <span className="text-xs text-gray-500">{c.difficulty as string}</span>
                           <span className="text-xs text-gray-400 ml-auto">{c.points as number}pts</span>
+                        </div>
+                        <div className="flex items-center gap-1 flex-wrap mt-1">
+                          {!!c.revelation && String(c.revelation).split(",").filter(Boolean).map((r) => (
+                            <span key={r} className="text-[10px] font-mono px-1 py-0.5 rounded" style={{ background: "#facc1520", color: "#facc15" }}>R{r}</span>
+                          ))}
+                          {!!c.isPrimeSeal && <span className="text-[10px] font-mono px-1 py-0.5 rounded" style={{ background: "#ff006620", color: "#ff5588" }}>◆ PRIME SEAL</span>}
+                          {!!c.isSynthesis && <span className="text-[10px] font-mono px-1 py-0.5 rounded" style={{ background: "#facc1520", color: "#facc15" }}>SYNTHÈSE</span>}
+                          {!!c.ctfdId && <span className="text-[10px] font-mono px-1 py-0.5 rounded" style={{ background: "#00ff9d20", color: "#00ff9d" }}>CTFd #{c.ctfdId as number}</span>}
                         </div>
                         {!!c.author && <div className="text-xs text-gray-600 mt-1">{c.author as string}</div>}
                         <div className="text-xs mt-1" style={{ color: c.assigneeName ? "#00ccff" : "var(--txt-mute)" }}>
@@ -7002,6 +7063,7 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                       <option value="easy">Easy</option>
                       <option value="medium">Medium</option>
                       <option value="hard">Hard</option>
+                      <option value="insane">Insane</option>
                     </select>
                   </div>
                   <div>
@@ -7035,10 +7097,60 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
                     </select>
                     <p className="text-gray-600 text-xs mt-1">{lang === "en" ? "The responsible person receives an email notification upon assignment." : "Le responsable reçoit un email de notification lors de l'assignation."}</p>
                   </div>
+                  <div className="col-span-2 mt-1 pt-3 border-t border-gray-800">
+                    <div className="text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-2">{lang === "en" ? "Narrative — The Convergence" : "Narratif — The Convergence"}</div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Fragment code" : "Code Fragment"}</label>
+                    <input value={(editChallenge.fragmentCode as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, fragmentCode: e.target.value } : p)} placeholder="F-01" className="cyber-input w-full px-3 py-1.5 rounded text-sm font-mono" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Revelation arc(s)" : "Arc(s) de révélation"}</label>
+                    <input value={(editChallenge.revelation as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, revelation: e.target.value } : p)} placeholder="2,4" className="cyber-input w-full px-3 py-1.5 rounded text-sm font-mono" />
+                    <p className="text-gray-600 text-[10px] mt-1">{lang === "en" ? "Comma-separated arc numbers (1–8)." : "Numéros d'arcs séparés par des virgules (1–8)."}</p>
+                  </div>
+                  <div className="flex items-center gap-4 col-span-2">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300">
+                      <input type="checkbox" checked={!!editChallenge.isPrimeSeal} onChange={e => setEditChallenge(p => p ? { ...p, isPrimeSeal: e.target.checked } : p)} />
+                      ◆ {lang === "en" ? "Prime Seal (Insane)" : "Prime Seal (Insane)"}
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300">
+                      <input type="checkbox" checked={!!editChallenge.isSynthesis} onChange={e => setEditChallenge(p => p ? { ...p, isSynthesis: e.target.checked } : p)} />
+                      {lang === "en" ? "Synthesis challenge" : "Challenge de synthèse"}
+                    </label>
+                  </div>
                   <div className="col-span-2">
-                    <label className="text-xs text-gray-500 block mb-1">Notes</label>
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Prerequisites (synthesis) — fragment codes" : "Prérequis (synthèse) — codes Fragment"}</label>
+                    <input value={(editChallenge.prerequisites as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, prerequisites: e.target.value } : p)} placeholder="F-01,F-11,F-14" className="cyber-input w-full px-3 py-1.5 rounded text-sm font-mono" />
+                    <p className="text-gray-600 text-[10px] mt-1">{lang === "en" ? "CTFd requirements: the challenge unlocks once these are solved. All prerequisites must be published to CTFd first." : "Requirements CTFd : le challenge se débloque une fois ceux-ci résolus. Tous les prérequis doivent d'abord être publiés sur CTFd."}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "CTFd flag" : "Flag CTFd"}</label>
+                    <input value={(editChallenge.flag as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, flag: e.target.value } : p)} placeholder="EOCON{...}" className="cyber-input w-full px-3 py-1.5 rounded text-sm font-mono" />
+                    <p className="text-gray-600 text-[10px] mt-1">{lang === "en" ? "Required to publish. Static flag." : "Requis pour publier. Flag statique."}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Success message (on recovery)" : "Message de réussite (à la récupération)"}</label>
+                    <textarea value={(editChallenge.successMessage as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, successMessage: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm h-16 resize-none" />
+                    <p className="text-gray-600 text-[10px] mt-1">{lang === "en" ? "Kept in the platform — not sent to CTFd, to avoid a pre-solve spoiler." : "Conservé dans la plateforme — non envoyé à CTFd, pour éviter un spoiler avant résolution."}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Mission brief / notes" : "Brief de mission / notes"}</label>
                     <textarea value={(editChallenge.notes as string) || ""} onChange={e => setEditChallenge(p => p ? { ...p, notes: e.target.value } : p)} className="cyber-input w-full px-3 py-1.5 rounded text-sm h-20 resize-none" />
                   </div>
+                </div>
+
+                {/* CTFd publish controls */}
+                <div className="mt-4 pt-3 border-t border-gray-800 flex items-center gap-2 flex-wrap">
+                  {editChallenge.ctfdId ? (
+                    <>
+                      <span className="text-xs font-mono px-2 py-1 rounded" style={{ background: "#00ff9d15", color: "#00ff9d" }}>{lang === "en" ? `On CTFd · #${editChallenge.ctfdId}` : `Sur CTFd · #${editChallenge.ctfdId}`}</span>
+                      <button onClick={() => unpublishChallenge(editChallenge.id as number)} className="text-xs px-3 py-1.5 rounded" style={{ color: "#ffaa00", border: "1px solid #ffaa0040" }}>{lang === "en" ? "⭯ Unpublish from CTFd" : "⭯ Dépublier de CTFd"}</button>
+                    </>
+                  ) : (
+                    <button onClick={() => publishChallenge(editChallenge.id as number)} className="text-xs px-3 py-1.5 rounded" style={{ color: "#00ff9d", border: "1px solid #00ff9d40" }}>{lang === "en" ? "⇪ Publish to CTFd" : "⇪ Publier sur CTFd"}</button>
+                  )}
+                  {publishState && publishState.id === editChallenge.id && <span className={`text-xs ${publishState.msg.startsWith("✓") ? "text-neon-green" : publishState.msg.startsWith("✗") ? "text-red-400" : "text-gray-400"}`}>{publishState.msg}</span>}
                 </div>
                 <div className="flex gap-2 mt-4">
                   <button onClick={saveChallenge} disabled={savingChallenge} className="btn-neon px-4 py-2 rounded text-xs disabled:opacity-50">
@@ -7050,6 +7162,49 @@ function CTFPanel({ canWrite = true }: { canWrite?: boolean }) {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {subTab === "bible" && (
+        <div>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <div>
+              <div className="text-sm font-bold text-white">{lang === "en" ? "Living Lore Bible" : "Bible vivante du Lore"}</div>
+              <div className="text-xs text-gray-500">{lang === "en" ? "Revelation arcs unlock globally as teams complete them — the public briefing rebuilds itself live." : "Les arcs de révélation se débloquent pour tous à mesure que les équipes les complètent — le briefing public se reconstruit en direct."}</div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-mono" style={{ color: "#facc15" }}>{bible ? `${bible.unlockedCount} / ${bible.total}` : "…"}</span>
+              {bibleMsg && <span className={`text-xs ${bibleMsg.startsWith("✓") ? "text-neon-green" : "text-red-400"}`}>{bibleMsg}</span>}
+              {canWrite && <button onClick={() => bibleAction("sync")} disabled={bibleBusy} className="btn-neon px-3 py-1.5 rounded text-xs disabled:opacity-50">{bibleBusy ? "…" : (lang === "en" ? "⚡ Sync from CTFd solves" : "⚡ Synchroniser depuis CTFd")}</button>}
+              <a href="/ctf-briefing.html#revelations" target="_blank" rel="noreferrer" className="text-xs text-gray-500 hover:text-neon-green">{lang === "en" ? "→ Public bible" : "→ Bible publique"}</a>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {(bible?.arcs || []).map((a) => {
+              const arc = a.arc as number;
+              const unlocked = !!a.unlocked;
+              const title = a.title as { en: string; fr: string } | undefined;
+              return (
+                <div key={arc} className="cyber-card rounded-xl p-3 flex items-center gap-3 flex-wrap" style={{ borderColor: unlocked ? "#00ff9d40" : "var(--bdr)" }}>
+                  <span className="text-xs font-mono px-2 py-1 rounded shrink-0" style={{ background: unlocked ? "#00ff9d15" : "#ffb02015", color: unlocked ? "#00ff9d" : "#ffb020" }}>R{arc}</span>
+                  <div className="flex-1 min-w-[180px]">
+                    <div className="text-xs font-bold text-white">{title ? (lang === "en" ? title.en : title.fr) : `Revelation ${arc}`}</div>
+                    <div className="text-[11px] text-gray-500">
+                      {unlocked
+                        ? `${lang === "en" ? "unlocked" : "débloqué"} · ${a.unlockedVia as string}${a.synthesisTitle ? ` · ${a.synthesisTitle as string}` : ""}`
+                        : (a.synthesisPublished ? (lang === "en" ? "sealed · synthesis published on CTFd" : "scellé · synthèse publiée sur CTFd") : (lang === "en" ? "sealed · synthesis not yet on CTFd" : "scellé · synthèse pas encore sur CTFd"))}
+                    </div>
+                  </div>
+                  <input readOnly value={a.unlockUrl as string} onClick={e => (e.target as HTMLInputElement).select()} className="cyber-input text-[10px] rounded px-2 py-1 font-mono flex-1 min-w-[220px]" title={lang === "en" ? "Unlock URL (embedded in the CTFd synthesis description)" : "URL de déverrouillage (intégrée à la description CTFd de la synthèse)"} />
+                  {canWrite && (unlocked
+                    ? <button onClick={() => bibleAction("lock", arc)} disabled={bibleBusy} className="text-xs px-2 py-1 rounded shrink-0" style={{ color: "#ffaa00", border: "1px solid #ffaa0040" }}>{lang === "en" ? "Re-seal" : "Re-sceller"}</button>
+                    : <button onClick={() => bibleAction("unlock", arc)} disabled={bibleBusy} className="text-xs px-2 py-1 rounded shrink-0" style={{ color: "#00ff9d", border: "1px solid #00ff9d40" }}>{lang === "en" ? "Unlock" : "Débloquer"}</button>)}
+                </div>
+              );
+            })}
+            {!bible && <div className="text-xs text-gray-600">{lang === "en" ? "Loading…" : "Chargement…"}</div>}
+          </div>
         </div>
       )}
 

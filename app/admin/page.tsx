@@ -202,7 +202,7 @@ function AccountModal({
 
   return (
     <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
-      <div className="cyber-card rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto space-y-5">
+      <div className="cyber-card rounded-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto modal-scroll-y space-y-5">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-white font-bold">{lang === "en" ? "👤 My Account" : "👤 Mon compte"}</h3>
@@ -7077,11 +7077,15 @@ function CTFPanel({ can, canPublish = false }: { can: (m: string, l?: "read" | "
           {/* Challenge edit modal */}
           {canWrite && editChallenge && (
             <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
-              <div className="cyber-card rounded-xl p-5 max-w-lg w-full max-h-[90vh] overflow-y-auto border-neon-green/30">
-                <div className="flex items-center justify-between mb-4">
+              {/* max-h + flex-col here; the scroll itself lives on the inner wrapper below —
+                  .cyber-card sets `overflow: hidden` for its border-shimmer effect, which
+                  would silently defeat overflow-y-auto if placed on this same element. */}
+              <div className="cyber-card rounded-xl max-w-lg w-full max-h-[90vh] border-neon-green/30 flex flex-col">
+                <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0">
                   <h3 className="text-white font-bold text-sm">{lang === "en" ? "Edit challenge" : "Éditer le challenge"}</h3>
                   <button onClick={() => setEditChallenge(null)} className="text-gray-500 hover:text-white">✕</button>
                 </div>
+                <div className="modal-scroll-y overflow-y-auto min-h-0 px-5 pb-5">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
                     <label className="text-xs text-gray-500 block mb-1">{lang === "en" ? "Title" : "Titre"}</label>
@@ -7236,6 +7240,7 @@ function CTFPanel({ can, canPublish = false }: { can: (m: string, l?: "read" | "
                   </button>
                   {canPublish && <button onClick={() => { deleteChallenge(editChallenge.id as number); setEditChallenge(null); }} className="text-xs px-3 py-2 rounded" style={{ color: "#ff0066", border: "1px solid #ff006640" }}>{lang === "en" ? "Delete" : "Supprimer"}</button>}
                   <button onClick={() => setEditChallenge(null)} className="text-xs text-gray-500 px-3 py-2 hover:text-gray-300">{lang === "en" ? "Cancel" : "Annuler"}</button>
+                </div>
                 </div>
               </div>
             </div>

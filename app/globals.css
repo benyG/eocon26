@@ -65,6 +65,21 @@ body {
 ::-webkit-scrollbar-track { background: #0a0a0f; }
 ::-webkit-scrollbar-thumb { background: var(--neon-green); border-radius: 3px; }
 
+/* Scrollable modal bodies: a wider, high-contrast scrollbar makes it obvious there is
+   more content to see. Some containers (e.g. .cyber-card) set `overflow: hidden` for
+   their own visual effects, so the scroll must live on an inner wrapper carrying this
+   class rather than on the card element itself. */
+.modal-scroll-y {
+  /* !important: some containers (e.g. .cyber-card) declare `overflow: hidden` for their
+     own visual effects; that rule is defined later in this file and would otherwise win
+     the cascade over Tailwind's `overflow-y-auto` on the very same element. */
+  overflow-y: auto !important;
+  scrollbar-width: thin; scrollbar-color: var(--neon-green) #0a0a0f;
+}
+.modal-scroll-y::-webkit-scrollbar { width: 10px; }
+.modal-scroll-y::-webkit-scrollbar-track { background: #0a0a0f; border-radius: 5px; }
+.modal-scroll-y::-webkit-scrollbar-thumb { background: var(--neon-green); border-radius: 5px; border: 2px solid #0a0a0f; }
+
 /* Glitch Text Effect */
 .glitch {
   position: relative;

@@ -73,7 +73,7 @@ function SpeakerModal({ speaker, color, onClose }: { speaker: Speaker; color: st
       style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(6px)" }}
     >
       <div
-        className="cyber-card rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        className="cyber-card rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto modal-scroll-y"
         style={{ border: `1px solid ${color}40` }}
       >
         {/* Header */}

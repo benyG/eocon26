@@ -470,7 +470,7 @@ function ApolloSearchModal({ onClose, onImport }: { onClose: () => void; onImpor
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-      <div className="cyber-card rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="cyber-card rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto modal-scroll-y">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-neon-green text-sm font-bold">🔍 Recherche Apollo — Speakers</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-white text-xs">✕</button>
@@ -584,7 +584,7 @@ function EmailModal({ profile, contact, onClose, onSave }: { profile: SpeakerPro
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-      <div className="cyber-card rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="cyber-card rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto modal-scroll-y">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-neon-green text-sm font-bold">✉ Email d&apos;invitation — {profile.name}</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-white text-xs">✕</button>
@@ -691,7 +691,7 @@ function BriefModal({ profile, onClose, onSave }: { profile: SpeakerProfile; onC
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-      <div className="cyber-card rounded-xl p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto">
+      <div className="cyber-card rounded-xl p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto modal-scroll-y">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-neon-green text-sm font-bold">📋 Brief équipe — {profile.name}</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-white text-xs">✕</button>
@@ -1418,7 +1418,7 @@ function XlsxImportModal({ onClose, onDone }: { onClose: () => void; onDone: () 
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-      <div className="cyber-card rounded-xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+      <div className="cyber-card rounded-xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto modal-scroll-y">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-neon-green text-sm font-bold">📥 Import XLSX — Speakers EOCON 2026</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-white text-xs">✕</button>

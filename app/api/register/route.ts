@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { sendRegistrationTicket } from "@/lib/email";
+import { sendRegistrationTicket, sendWatcherRecruitment } from "@/lib/email";
 import { generateTicketRef, formatTicketRef } from "@/lib/ticketRef";
 import { checkRateLimit, getIp } from "@/lib/rateLimit";
 import { signPaymentToken } from "@/lib/paymentToken";
@@ -17,9 +17,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { fname, lname, email, org, country, ticketType, lang_expression, linkedin, whatsapp, ctfCompetitorName, ctfTeamName } = body;
+    const { email, org, country, ticketType, lang_expression, linkedin, whatsapp, ctfCompetitorName, ctfTeamName } = body;
+    let { fname, lname } = body;
 
-    if (!fname || !lname || !email || !ticketType) {
+    if (!email || !ticketType) {
       return NextResponse.json({ error: "Champs requis manquants" }, { status: 400 });
     }
     if (!EMAIL_RE.test(email)) {
@@ -44,18 +45,30 @@ export async function POST(req: NextRequest) {
     if (!preRegistration && !dbTicketTypes.map(t => t.slug).includes(ticketType)) {
       return NextResponse.json({ error: "Type de billet invalide" }, { status: 400 });
     }
-    if (fname.length > 80 || lname.length > 80) {
-      return NextResponse.json({ error: "Nom trop long" }, { status: 400 });
-    }
     if (String(ticketType).length > 80) {
       return NextResponse.json({ error: "Type de billet invalide" }, { status: 400 });
     }
 
+    // Resolve the ticket type (also used for pricing). A "CTF-only" ticket grants
+    // CTF access but neither sessions nor workshops — for those, the identity is the
+    // CTF handle, so first/last name are not collected and are derived here.
+    const ticketTypeRow = preRegistration ? null : await prisma.ticketType.findUnique({ where: { slug: ticketType } });
+    const isCtfOnly = !!ticketTypeRow && ticketTypeRow.includesCTF && !ticketTypeRow.includesSessions && !ticketTypeRow.includesWorkshops;
+    if (isCtfOnly) {
+      if (!ctfCompetitorName || !String(ctfCompetitorName).trim()) {
+        return NextResponse.json({ error: "Pseudo CTF requis" }, { status: 400 });
+      }
+      fname = String(ctfCompetitorName).slice(0, 80);
+      lname = ctfTeamName ? String(ctfTeamName).slice(0, 80) : "—";
+    } else if (!fname || !lname) {
+      return NextResponse.json({ error: "Champs requis manquants" }, { status: 400 });
+    }
+    if (String(fname).length > 80 || String(lname).length > 80) {
+      return NextResponse.json({ error: "Nom trop long" }, { status: 400 });
+    }
+
     const rawRef = generateTicketRef();
     const ticketRef = formatTicketRef(rawRef);
-
-    // Resolve the active price (early-bird aware) for the selected ticket type.
-    const ticketTypeRow = await prisma.ticketType.findUnique({ where: { slug: ticketType } });
     const now = new Date();
     const earlyBirdActive = !!(ticketTypeRow?.earlyBirdUntil && ticketTypeRow.earlyBirdUntil > now && ticketTypeRow.earlyBirdPriceFr);
     const amount = ticketTypeRow
@@ -134,6 +147,11 @@ export async function POST(req: NextRequest) {
     if (isFree) {
       sendRegistrationTicket(email, fname, lname, ticketType, registration.id, ticketRef, lang_expression === "en" ? "en" : "fr")
         .catch(e => console.error("[Register free ticket email]", e));
+      // CTF access → also send The Watcher's initiation transmission (auto).
+      if (ticketTypeRow?.includesCTF) {
+        sendWatcherRecruitment(email, ctfCompetitorName || fname, lang_expression === "en" ? "en" : "fr")
+          .catch(e => console.error("[Watcher recruitment email]", e));
+      }
     }
     return NextResponse.json(
       { success: true, id: registration.id, ticketRef, ticketType, amount, isFree, paymentToken: signPaymentToken(registration.id) },

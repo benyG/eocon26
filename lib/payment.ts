@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { sendRegistrationTicket, sendOnlineAccessLink } from "@/lib/email";
+import { sendRegistrationTicket, sendOnlineAccessLink, sendWatcherRecruitment } from "@/lib/email";
 import { formatTicketRef } from "@/lib/ticketRef";
 import crypto from "crypto";
 
@@ -49,6 +49,12 @@ export async function sendRegistrationTicketTracked(registrationId: number): Pro
       reg.langExpression === "en" ? "en" : "fr",
     );
     sent = true;
+    // CTF access → also send The Watcher's initiation transmission (auto).
+    const tt = await prisma.ticketType.findUnique({ where: { slug: reg.ticketType }, select: { includesCTF: true } }).catch(() => null);
+    if (tt?.includesCTF) {
+      sendWatcherRecruitment(reg.email, reg.ctfCompetitorName || reg.fname, reg.langExpression === "en" ? "en" : "fr")
+        .catch(e => console.error("[Watcher recruitment email]", e));
+    }
   } catch (e) {
     console.error("[Payment ticket email]", e);
   }

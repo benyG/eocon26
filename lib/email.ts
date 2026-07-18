@@ -5,6 +5,7 @@ import PDFDocument from "pdfkit";
 import { generateQrPayload, signConnectRef } from "@/lib/qr";
 import { renderTemplate, getTransactionalTemplate } from "@/lib/renderTemplate";
 import { getEventSettings } from "@/lib/settings";
+import { prisma } from "@/lib/db";
 
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY || "");
@@ -82,6 +83,27 @@ const neonRow = (label: string, value: string) =>
   `<tr><td style="padding:6px 0;color:#00ff9d80;font-size:12px;width:140px;">${label}</td><td style="padding:6px 0;color:#ffffff;font-size:13px;">${value}</td></tr>`;
 const ctaButton = (href: string, label: string) =>
   `<div style="text-align:center;margin:24px 0;"><a href="${href}" style="background:#00ff9d;color:#000000;font-family:'Courier New',Courier,monospace;font-size:13px;font-weight:900;letter-spacing:2px;padding:14px 32px;border-radius:8px;text-decoration:none;display:inline-block;">${label}</a></div>`;
+
+// Base URL for hosted email images (public/email/*). Remote-image safe: degrades
+// to alt text if a client blocks images.
+const emailAssetBase = () =>
+  (process.env.NEXT_PUBLIC_URL || process.env.NEXT_PUBLIC_BASE_URL || "https://eyesopensecurity.com").replace(/\/$/, "");
+
+// A lore "transmission" header: circular profile photo of the in-universe sender
+// (The Watcher / NORA-7) with a name + status line, in the house style.
+const senderHeader = (avatarFile: string, name: string, status: string) =>
+  `<table cellpadding="0" cellspacing="0" style="margin:0 0 22px;"><tr>
+    <td style="vertical-align:middle;padding-right:14px;">
+      <img src="${emailAssetBase()}/email/${avatarFile}" width="60" height="60" alt="${esc(name)}" style="width:60px;height:60px;border-radius:50%;border:1px solid #00ff9d80;display:block;" />
+    </td>
+    <td style="vertical-align:middle;">
+      <div style="font-family:'Courier New',Courier,monospace;color:#00ff9d;font-weight:bold;letter-spacing:2px;font-size:13px;">${esc(name)}</div>
+      <div style="font-family:'Courier New',Courier,monospace;color:#00ff9d80;font-size:10px;letter-spacing:2px;margin-top:3px;">${esc(status)}</div>
+    </td>
+  </tr></table>`;
+
+const transmissionLine = (txt: string) =>
+  `<div style="font-family:'Courier New',Courier,monospace;font-size:10px;color:#00ff9d70;letter-spacing:2px;margin:0 0 16px;">${esc(txt)}</div>`;
 const dateLine = (isFr: boolean, s?: Record<string, string>) => {
   const venue = s?.event_venue || "Hotel Onomo";
   const city = s?.event_city || "Douala";
@@ -701,6 +723,19 @@ export async function sendRegistrationTicket(
   const isFr = lang === "fr";
   const s = await getEventSettings().catch(() => ({} as Record<string, string>));
   const isCTFOnly = /ctf.?only|ctf.?seul|eyesopenctf.?only/i.test(ticketType) || ticketType.toLowerCase() === "ctf";
+  // Authoritative CTF-access flag (TicketType.includesCTF), used to surface the
+  // EyesOpenCTF transmission notice only for tickets that grant CTF access.
+  const ticketTypeRow = await prisma.ticketType.findUnique({ where: { slug: ticketType }, select: { includesCTF: true } }).catch(() => null);
+  const hasCtfAccess = isCTFOnly || !!ticketTypeRow?.includesCTF;
+  const watcherNote = hasCtfAccess
+    ? (isFr
+      ? `<div style="margin:16px 0;padding:16px 18px;background:#050a12;border:1px solid #00ccff40;border-radius:8px;font-size:13px;color:#bfe;line-height:1.65;">
+          🛰️ <strong style="color:#00ccff;">EyesOpenCTF — transmission entrante.</strong> Une communication séparée de <strong>The Watcher</strong> va suivre : elle vous initie à l'opération et à votre rôle d'<strong>Operator</strong>. Surveillez votre boîte de réception.
+         </div>`
+      : `<div style="margin:16px 0;padding:16px 18px;background:#050a12;border:1px solid #00ccff40;border-radius:8px;font-size:13px;color:#bfe;line-height:1.65;">
+          🛰️ <strong style="color:#00ccff;">EyesOpenCTF — incoming transmission.</strong> A separate message from <strong>The Watcher</strong> will follow: it initiates you into the operation and your role as an <strong>Operator</strong>. Watch your inbox.
+         </div>`)
+    : "";
   const domain = process.env.DOMAIN || process.env.NEXT_PUBLIC_URL || "eyesopensecurity.com";
   const baseUrl = domain.startsWith("http") ? domain : `https://${domain}`;
   const connectUrl = `${baseUrl}/connect/${ticketRef}?sig=${signConnectRef(ticketRef)}`;
@@ -818,6 +853,7 @@ export async function sendRegistrationTicket(
          ${neonRow("Référence", `<strong style="color:#00ff9d;font-size:15px;">${ticketRef}</strong>`)}
          ${neonRow("Statut", '<span style="color:#00ff9d;font-weight:bold;">✓ CONFIRMÉ</span>')}
        </tbody></table>`)}
+       ${watcherNote}
        ${qrImg}
        ${isCTFOnly ? "" : calLinks}
        ${livePresenceBlock}
@@ -835,6 +871,7 @@ export async function sendRegistrationTicket(
          ${neonRow("Reference", `<strong style="color:#00ff9d;font-size:15px;">${ticketRef}</strong>`)}
          ${neonRow("Status", '<span style="color:#00ff9d;font-weight:bold;">✓ CONFIRMED</span>')}
        </tbody></table>`)}
+       ${watcherNote}
        ${qrImg}
        ${isCTFOnly ? "" : calLinks}
        ${livePresenceBlock}
@@ -859,6 +896,85 @@ export async function sendRegistrationTicket(
     ],
     "registration@eyesopensecurity.com",
   );
+}
+
+// ── The Watcher's first contact — Operator initiation (auto at registration) ──
+// Deep-lore transmission sent to every registrant who has CTF access, alongside
+// the practical EOCON ticket email. Signed by The Watcher, with his profile photo.
+export async function sendWatcherRecruitment(
+  to: string, operatorName: string, lang: "fr" | "en" = "fr",
+) {
+  const isFr = lang === "fr";
+  const s = await getEventSettings().catch(() => ({} as Record<string, string>));
+  const op = esc((operatorName || "").trim() || (isFr ? "Operator" : "Operator"));
+  const briefingUrl = `${emailAssetBase()}/ctf-briefing.html`;
+
+  const missionFr = `
+    <div style="margin:18px 0;padding:16px 18px;background:#0d1117;border:1px solid #00ff9d40;border-radius:8px;">
+      <div style="color:#00ff9d;letter-spacing:2px;font-size:11px;margin-bottom:12px;">&gt; VOTRE MISSION</div>
+      <div style="color:#cfe;font-size:13px;line-height:2;">
+        ▸ Analysez les artefacts.<br>
+        ▸ Résolvez les challenges.<br>
+        ▸ Récupérez les Fragments.<br>
+        ▸ Transmettez-les à <strong style="color:#00ff9d;">NORA-7</strong> pour authentification.
+      </div>
+    </div>`;
+  const missionEn = `
+    <div style="margin:18px 0;padding:16px 18px;background:#0d1117;border:1px solid #00ff9d40;border-radius:8px;">
+      <div style="color:#00ff9d;letter-spacing:2px;font-size:11px;margin-bottom:12px;">&gt; YOUR MISSION</div>
+      <div style="color:#cfe;font-size:13px;line-height:2;">
+        ▸ Analyze the artifacts.<br>
+        ▸ Solve the challenges.<br>
+        ▸ Recover the Fragments.<br>
+        ▸ Transmit them to <strong style="color:#00ff9d;">NORA-7</strong> for authentication.
+      </div>
+    </div>`;
+
+  const body = isFr
+    ? `${transmissionLine("TRANSMISSION ARRIVÉE // SOURCE : L'OBSERVATEUR // AUTORISATION : OPÉRATEUR")}
+       ${senderHeader("watcher.webp", "THE WATCHER", "ACTIF // IDENTITÉ NON VÉRIFIÉE")}
+       <p>Bonjour, <strong style="color:#00ff9d;">${op}</strong>,</p>
+       <p>Votre inscription à <strong>EyesOpenCTF</strong> a déclenché votre intégration au <strong>Protocole EyesOpen</strong>.</p>
+       <p>Notre monde fait face à une menace provoquée par un phénomène que nous avons appelé : <strong style="color:#00ff9d;">La Convergence</strong>.</p>
+       <p>Vous en apprendrez plus dessus en consultant nos archives. Ce qui est important à savoir tout de suite, c'est que la conséquence de ce phénomène, c'est la disparition de notre réalité, c'est-à-dire la destruction de notre monde.</p>
+       <p>Je sais que vous vous imaginez que la réalité dans laquelle vous vivez est linéaire. Mais vous découvrirez très vite qu'elle n'est pas un fil mais plusieurs fils qui se superposent. Je ne peux vous en dire plus pour le moment.</p>
+       <p>À compter de maintenant, vous agissez en qualité d'<strong>Operator</strong> dans le cadre d'une opération internationale de la plus haute importance, baptisée <strong>EyesOpenCTF</strong> et destinée à comprendre et contenir le phénomène.</p>
+       <p>Le bureau du Protocole EyesOpen a recensé des perturbations numériques en cours qui nous laissent craindre que nous allons bientôt faire face à un phénomène de Convergence d'une ampleur inédite. Ces perturbations semblent produire des fragments numériques.</p>
+       ${missionFr}
+       <p>Chaque Fragment validé permettra de restaurer une partie de nos archives, de révéler de nouvelles informations et de faire évoluer votre briefing en temps réel.</p>
+       <p>Votre objectif final est de reconstituer suffisamment de preuves pour comprendre l'origine de la Convergence et identifier un moyen de l'arrêter avant qu'elle n'atteigne un point irréversible.</p>
+       <p>Je coordonne cette opération et vous transmettrai les directives nécessaires.</p>
+       <p style="color:#00ff9d80;">Mon identité n'est pas pertinente pour le moment.</p>
+       ${ctaButton(briefingUrl, "► ACCÉDER AU BRIEFING DE MISSION")}
+       <p><strong style="color:#00ccff;">Ce briefing est une page vivante.</strong> Il évoluera à mesure que les Operators récupéreront et authentifieront de nouveaux Fragments. Revenez-y régulièrement : ce que vous y verrez aujourd'hui pourrait être différent demain.</p>
+       <p><strong>Surveillez votre prochaine transmission.</strong> NORA-7, l'archiviste du Protocole, vous remettra vos informations d'accès à l'arène et vos premières instructions opérationnelles.</p>
+       <p style="margin-top:22px;">Gardez les yeux ouverts.<br><span style="color:#00ff9d;letter-spacing:2px;">— THE WATCHER</span></p>`
+    : `${transmissionLine("INCOMING TRANSMISSION // SOURCE: THE WATCHER // CLEARANCE: OPERATOR")}
+       ${senderHeader("watcher.webp", "THE WATCHER", "ACTIVE // IDENTITY UNVERIFIED")}
+       <p>Hello, <strong style="color:#00ff9d;">${op}</strong>,</p>
+       <p>Your registration to <strong>EyesOpenCTF</strong> has triggered your integration into the <strong>EyesOpen Protocol</strong>.</p>
+       <p>Our world faces a threat caused by a phenomenon we have named: <strong style="color:#00ff9d;">The Convergence</strong>.</p>
+       <p>You will learn more about it in our archives. What matters right now is this: the consequence of this phenomenon is the disappearance of our reality — the destruction of our world.</p>
+       <p>I know you imagine that the reality you live in is linear. But you will soon discover that it is not one thread, but several threads overlapping. I cannot tell you more for now.</p>
+       <p>As of now, you act as an <strong>Operator</strong> within an international operation of the highest importance, codenamed <strong>EyesOpenCTF</strong>, aimed at understanding and containing the phenomenon.</p>
+       <p>The EyesOpen Protocol office has recorded ongoing digital disturbances that lead us to fear an imminent Convergence of unprecedented scale. These disturbances appear to produce digital fragments.</p>
+       ${missionEn}
+       <p>Each validated Fragment will restore a part of our archives, reveal new information, and evolve your briefing in real time.</p>
+       <p>Your ultimate objective is to reassemble enough evidence to understand the origin of the Convergence and identify a way to stop it before it reaches an irreversible point.</p>
+       <p>I coordinate this operation and will transmit the directives you need.</p>
+       <p style="color:#00ff9d80;">My identity is not relevant for now.</p>
+       ${ctaButton(briefingUrl, "► ACCESS THE MISSION BRIEFING")}
+       <p><strong style="color:#00ccff;">This briefing is a living page.</strong> It will evolve as Operators recover and authenticate new Fragments. Come back regularly: what you see today may be different tomorrow.</p>
+       <p><strong>Watch for your next transmission.</strong> NORA-7, the Protocol's archivist, will hand you your arena access credentials and your first operational instructions.</p>
+       <p style="margin-top:22px;">Keep your eyes open.<br><span style="color:#00ff9d;letter-spacing:2px;">— THE WATCHER</span></p>`;
+
+  await getResend().emails.send({
+    from: FROM,
+    to,
+    subject: isFr ? "⟁ Transmission // The Watcher vous a sélectionné(e)" : "⟁ Transmission // The Watcher has selected you",
+    html: emailWrap(body, isFr, s),
+    replyTo: "ctf@eyesopensecurity.com",
+  });
 }
 
 // ── Online access magic link ──────────────────────────────────────────────────

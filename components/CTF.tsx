@@ -64,6 +64,28 @@ export default function CTF({ t, onOpenModal, ctfSettings = {} }: { t: Translati
           </h2>
           <div className="section-line mx-auto mb-6" style={{ background: "linear-gradient(90deg, #00ff9d, transparent)" }} />
           <p className="text-gray-400 text-lg max-w-2xl mx-auto">{ctfSettings.tagline || t.ctf.description}</p>
+
+          {/* Mission Briefing — in-universe lore portal */}
+          <a
+            href="/ctf-briefing.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group block rounded p-4 mt-8 max-w-xl mx-auto transition-all"
+            style={{ border: "1px solid rgba(0,204,255,0.25)", background: "rgba(0,204,255,0.04)" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(0,204,255,0.10)"; (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(0,204,255,0.5)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(0,204,255,0.04)"; (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(0,204,255,0.25)"; }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-xl" aria-hidden>🛰️</span>
+              <div className="flex-1 min-w-0 text-left">
+                <div className="font-mono font-bold text-sm uppercase tracking-wider flex items-center gap-2" style={{ color: "#00ccff", fontFamily: "'Share Tech Mono', monospace" }}>
+                  {t.ctf.briefing}
+                  <span className="transition-transform group-hover:translate-x-1">→</span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">{t.ctf.briefing_hint}</p>
+              </div>
+            </div>
+          </a>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-12 items-start">
@@ -141,28 +163,6 @@ export default function CTF({ t, onOpenModal, ctfSettings = {} }: { t: Translati
             >
               {t.ctf.cta}
             </button>
-
-            {/* Mission Briefing — in-universe lore portal */}
-            <a
-              href="/ctf-briefing.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group block rounded p-4 transition-all"
-              style={{ border: "1px solid rgba(0,204,255,0.25)", background: "rgba(0,204,255,0.04)" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(0,204,255,0.10)"; (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(0,204,255,0.5)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(0,204,255,0.04)"; (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(0,204,255,0.25)"; }}
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-xl" aria-hidden>🛰️</span>
-                <div className="flex-1 min-w-0">
-                  <div className="font-mono font-bold text-sm uppercase tracking-wider flex items-center gap-2" style={{ color: "#00ccff", fontFamily: "'Share Tech Mono', monospace" }}>
-                    {t.ctf.briefing}
-                    <span className="transition-transform group-hover:translate-x-1">→</span>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-1">{t.ctf.briefing_hint}</p>
-                </div>
-              </div>
-            </a>
           </div>
 
           {/* Right: how it works */}

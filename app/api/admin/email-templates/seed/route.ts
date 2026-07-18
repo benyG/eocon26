@@ -4,6 +4,16 @@ import { hasPermission } from "@/lib/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
+// Hosted email images (public/email/*). Baked into the template HTML at seed time.
+const ASSET = (process.env.NEXT_PUBLIC_URL || process.env.NEXT_PUBLIC_BASE_URL || "https://eyesopensecurity.com").replace(/\/$/, "");
+// NORA-7 "transmission" header (profile photo + name/status) for the operational
+// CTF emails. The Watcher handles recruitment (transactional); NORA-7 handles ops.
+const noraHeader = (roleLabel: string) =>
+  `<table cellpadding="0" cellspacing="0" style="margin:0 0 20px;"><tr>
+    <td style="vertical-align:middle;padding-right:14px;"><img src="${ASSET}/email/nora.webp" width="56" height="56" alt="NORA-7" style="width:56px;height:56px;border-radius:50%;border:1px solid #00ff9d80;display:block;"/></td>
+    <td style="vertical-align:middle;"><div style="color:#00ff9d;font-weight:bold;letter-spacing:2px;font-size:13px;">NORA-7</div><div style="color:#00ff9d80;font-size:10px;letter-spacing:2px;margin-top:3px;">${roleLabel}</div></td>
+  </tr></table>`;
+
 const SEED_TEMPLATES = [
   {
     name: "📣 Ouverture des inscriptions",
@@ -164,98 +174,148 @@ const SEED_TEMPLATES = [
 <p>Stay tuned!<br>The EOCON 2026 team</p>`,
   },
   {
-    name: "🔑 CTF — Accès CTFd & identifiants de connexion",
+    // ⚠️ Mécanique d'accès provisoire : on expose ici le mot de passe généré au sync
+    // ({{ctfPassword}}). Cette mécanique évoluera plus tard vers un autre modèle.
+    name: "🔑 CTF — Accès Protocol & identifiants (NORA-7)",
     segment: "registered",
-    subject: "EyesOpenCTF 2026 — Votre compte CTFd est prêt 🔑",
-    htmlBody: `<h1>Vos identifiants EyesOpenCTF 2026 🔑</h1>
-<p>Bonjour {{fname}},</p>
-<p>Votre compte sur la plateforme <strong>CTFd EyesOpenCTF</strong> vient d'être créé. Voici vos informations de connexion :</p>
-<ul>
-<li>🌐 <strong>Plateforme :</strong> <a href="https://ctf.eyesopensecurity.com" style="color:#00ff9d;">ctf.eyesopensecurity.com</a></li>
-<li>👤 <strong>Nom d'utilisateur :</strong> {{fname}}</li>
-<li>📧 <strong>Email :</strong> {{email}}</li>
-<li>🔒 <strong>Mot de passe :</strong> défini lors de votre inscription — réinitialisable via la plateforme</li>
-</ul>
-<p>⚠️ Connectez-vous <strong>avant le début de la compétition</strong> pour vérifier votre accès et rejoindre ou créer votre équipe (max 4 personnes).</p>
-<p>La compétition démarre le <strong>27 novembre 2026 à 20h00</strong> et se termine le <strong>28 novembre à 20h00</strong>.</p>
-<p>May the flags be with you 🚩<br>L'équipe EOCON 2026</p>`,
-    subjectEn: "EyesOpenCTF 2026 — Your CTFd account is ready 🔑",
-    htmlBodyEn: `<h1>Your EyesOpenCTF 2026 credentials 🔑</h1>
-<p>Hi {{fname}},</p>
-<p>Your account on the <strong>EyesOpenCTF CTFd</strong> platform has just been created. Here are your login details:</p>
-<ul>
-<li>🌐 <strong>Platform:</strong> <a href="https://ctf.eyesopensecurity.com" style="color:#00ff9d;">ctf.eyesopensecurity.com</a></li>
-<li>👤 <strong>Username:</strong> {{fname}}</li>
-<li>📧 <strong>Email:</strong> {{email}}</li>
-<li>🔒 <strong>Password:</strong> set during registration — can be reset via the platform</li>
-</ul>
-<p>⚠️ Log in <strong>before the competition starts</strong> to verify your access and join or create your team (max 4 members).</p>
-<p>The competition runs from <strong>November 27, 2026 at 8:00 PM</strong> to <strong>November 28 at 8:00 PM</strong>.</p>
-<p>May the flags be with you 🚩<br>The EOCON 2026 team</p>`,
+    subject: "◈ NORA-7 // votre accès Protocol est actif",
+    htmlBody: `${noraHeader("ARCHIVISTE DU PROTOCOLE")}
+<p>Operator <strong style="color:#00ff9d;">{{ctfCompetitorName}}</strong>,</p>
+<p>Ici <strong>NORA-7</strong>, archiviste du Protocole EyesOpen. Votre accès à l'<strong>arène</strong> — la plateforme où vous analyserez les artefacts et récupérerez les Fragments — est actif.</p>
+<div style="background:#0d1117;border:1px solid #00ff9d40;border-radius:8px;padding:18px;margin:18px 0;">
+<div style="color:#00ff9d;letter-spacing:2px;font-size:11px;margin-bottom:12px;">&gt; VOS IDENTIFIANTS D'ACCÈS</div>
+🌐 <strong>Plateforme :</strong> <a href="https://ctf.eyesopensecurity.com" style="color:#00ff9d;">ctf.eyesopensecurity.com</a><br>
+👤 <strong>Identifiant :</strong> {{ctfCompetitorName}}<br>
+📧 <strong>Email :</strong> {{email}}<br>
+🔒 <strong>Mot de passe :</strong> <code style="color:#00ff9d;">{{ctfPassword}}</code><br>
+🛰 <strong>Cellule :</strong> {{ctfTeamName}}
+</div>
+<p>⚠️ Connectez-vous <strong>avant l'ouverture de l'arène</strong> pour vérifier votre accès et rejoindre ou créer votre cellule (max 4 Operators).</p>
+<p>🕗 <strong>Fenêtre d'opération :</strong> du 20 novembre 2026 à <strong>20h00</strong> au 22 novembre à <strong>20h00</strong> — <strong>en ligne</strong>.</p>
+<p>Chaque Fragment que vous m'enverrez sera authentifié et fera évoluer le dossier vivant.</p>
+<p>Gardez les yeux ouverts.<br><span style="color:#00ff9d;letter-spacing:2px;">— NORA-7, Protocole EyesOpen</span></p>`,
+    subjectEn: "◈ NORA-7 // your Protocol access is live",
+    htmlBodyEn: `${noraHeader("PROTOCOL ARCHIVIST")}
+<p>Operator <strong style="color:#00ff9d;">{{ctfCompetitorName}}</strong>,</p>
+<p>This is <strong>NORA-7</strong>, archivist of the EyesOpen Protocol. Your access to the <strong>arena</strong> — the platform where you will analyze artifacts and recover Fragments — is now live.</p>
+<div style="background:#0d1117;border:1px solid #00ff9d40;border-radius:8px;padding:18px;margin:18px 0;">
+<div style="color:#00ff9d;letter-spacing:2px;font-size:11px;margin-bottom:12px;">&gt; YOUR ACCESS CREDENTIALS</div>
+🌐 <strong>Platform:</strong> <a href="https://ctf.eyesopensecurity.com" style="color:#00ff9d;">ctf.eyesopensecurity.com</a><br>
+👤 <strong>Username:</strong> {{ctfCompetitorName}}<br>
+📧 <strong>Email:</strong> {{email}}<br>
+🔒 <strong>Password:</strong> <code style="color:#00ff9d;">{{ctfPassword}}</code><br>
+🛰 <strong>Cell:</strong> {{ctfTeamName}}
+</div>
+<p>⚠️ Log in <strong>before the arena opens</strong> to verify your access and join or create your cell (max 4 Operators).</p>
+<p>🕗 <strong>Operation window:</strong> from November 20, 2026 at <strong>8:00 PM</strong> to November 22 at <strong>8:00 PM</strong> — <strong>online</strong>.</p>
+<p>Every Fragment you transmit to me will be authenticated and will evolve the living record.</p>
+<p>Keep your eyes open.<br><span style="color:#00ff9d;letter-spacing:2px;">— NORA-7, EyesOpen Protocol</span></p>`,
   },
   {
-    name: "🤝 CTF — Participation sans équipe (solo)",
+    name: "🤝 CTF — Opérer sans cellule (solo) (NORA-7)",
     segment: "registered",
-    subject: "EyesOpenCTF 2026 — Vous participez en solo 🤝",
-    htmlBody: `<h1>Vous jouez en solo à EyesOpenCTF 2026 🤝</h1>
-<p>Bonjour {{fname}},</p>
-<p>Nous avons constaté que vous n'êtes encore rattaché(e) à aucune équipe pour le <strong>CTF EyesOpenCTF 2026</strong>. Pas de panique — vous pouvez tout à fait participer en <strong>solo</strong> !</p>
-<p>Quelques options s'offrent à vous :</p>
+    subject: "◈ NORA-7 // vous opérez sans cellule",
+    htmlBody: `${noraHeader("ARCHIVISTE DU PROTOCOLE")}
+<p>Operator <strong style="color:#00ff9d;">{{ctfCompetitorName}}</strong>,</p>
+<p>Mes registres indiquent que vous n'êtes rattaché(e) à aucune <strong>cellule</strong> pour l'opération EyesOpenCTF. Ce n'est pas un problème — un Operator peut opérer <strong>seul</strong>.</p>
+<p>Vos options :</p>
 <ul>
-<li>🔍 <strong>Rejoindre une équipe existante</strong> — consultez le forum Discord EOCON pour trouver une équipe qui recrute</li>
-<li>🆕 <strong>Créer votre propre équipe</strong> — invitez jusqu'à 3 autres participants via la plateforme CTFd</li>
-<li>🎯 <strong>Jouer en solo</strong> — tout à fait valide, le classement individuel est actif</li>
+<li>🔍 <strong>Rejoindre une cellule existante</strong> — un autre Operator peut vous ajouter à son équipe sur la plateforme.</li>
+<li>🆕 <strong>Constituer votre propre cellule</strong> — invitez jusqu'à 3 autres Operators via la plateforme.</li>
+<li>🎯 <strong>Opérer en solo</strong> — parfaitement valide, le classement individuel est actif.</li>
 </ul>
-<p>💬 Rejoignez le serveur Discord EOCON pour échanger avec d'autres participants : <a href="https://discord.gg/eocon" style="color:#00ff9d;">discord.gg/eocon</a></p>
-<p>La compétition démarre le <strong>27 novembre 2026 à 20h00</strong>. Bonne chance !<br>L'équipe EOCON 2026</p>`,
-    subjectEn: "EyesOpenCTF 2026 — You're participating solo 🤝",
-    htmlBodyEn: `<h1>You're playing solo at EyesOpenCTF 2026 🤝</h1>
-<p>Hi {{fname}},</p>
-<p>We noticed you haven't joined a team yet for the <strong>EyesOpenCTF 2026 CTF</strong>. No worries — you can absolutely compete <strong>solo</strong>!</p>
-<p>Here are your options:</p>
+<p>Quel que soit votre choix, votre mission reste la même : récupérer les Fragments et me les transmettre pour authentification.</p>
+<p>Gardez les yeux ouverts.<br><span style="color:#00ff9d;letter-spacing:2px;">— NORA-7, Protocole EyesOpen</span></p>`,
+    subjectEn: "◈ NORA-7 // you are operating without a cell",
+    htmlBodyEn: `${noraHeader("PROTOCOL ARCHIVIST")}
+<p>Operator <strong style="color:#00ff9d;">{{ctfCompetitorName}}</strong>,</p>
+<p>My records show you are not attached to any <strong>cell</strong> for the EyesOpenCTF operation. That is not a problem — an Operator can operate <strong>alone</strong>.</p>
+<p>Your options:</p>
 <ul>
-<li>🔍 <strong>Join an existing team</strong> — check the EOCON Discord forum to find a team that's recruiting</li>
-<li>🆕 <strong>Create your own team</strong> — invite up to 3 other participants via the CTFd platform</li>
-<li>🎯 <strong>Play solo</strong> — totally valid, the individual leaderboard is live</li>
+<li>🔍 <strong>Join an existing cell</strong> — another Operator can add you to their team on the platform.</li>
+<li>🆕 <strong>Form your own cell</strong> — invite up to 3 other Operators via the platform.</li>
+<li>🎯 <strong>Operate solo</strong> — perfectly valid, the individual leaderboard is live.</li>
 </ul>
-<p>💬 Join the EOCON Discord server to connect with other participants: <a href="https://discord.gg/eocon" style="color:#00ff9d;">discord.gg/eocon</a></p>
-<p>The competition starts <strong>November 27, 2026 at 8:00 PM</strong>. Good luck!<br>The EOCON 2026 team</p>`,
+<p>Whatever you choose, your mission is the same: recover the Fragments and transmit them to me for authentication.</p>
+<p>Keep your eyes open.<br><span style="color:#00ff9d;letter-spacing:2px;">— NORA-7, EyesOpen Protocol</span></p>`,
   },
   {
-    name: "⏰ CTF — Rappel J-1 EyesOpenCTF",
+    name: "⏰ CTF — L'arène ouvre dans 24h (NORA-7)",
     segment: "registered",
-    subject: "EyesOpenCTF 2026 — La compétition commence demain soir ! ⚡",
-    htmlBody: `<h1>EyesOpenCTF 2026, c'est demain ! ⚡</h1>
-<p>Bonjour {{fname}},</p>
-<p>La compétition <strong>EyesOpenCTF 2026</strong> démarre dans moins de 24 heures. Êtes-vous prêt(e) ?</p>
-<p>📋 <strong>Checklist avant le départ :</strong></p>
-<ul>
-<li>✅ Compte CTFd vérifié — <a href="https://ctf.eyesopensecurity.com" style="color:#00ff9d;">ctf.eyesopensecurity.com</a></li>
-<li>✅ Équipe rejointe ou créée (ou prêt(e) à jouer en solo)</li>
-<li>✅ Environnement prêt : Kali Linux / VM / outils CTF installés</li>
-<li>✅ Laptop chargé & chargeur dans le sac</li>
-<li>✅ Connexion internet fiable prévue</li>
-</ul>
-<p>🕗 <strong>Démarrage :</strong> 27 novembre 2026 à <strong>20h00</strong> (heure de Douala)<br>
-🏁 <strong>Fin :</strong> 28 novembre 2026 à <strong>20h00</strong><br>
-📍 Plateforme en ligne + présence sur site possible</p>
-<p>Le classement en direct sera visible sur la plateforme dès le début. Les flags vous attendent — bonne chasse ! 🚩<br>L'équipe EOCON 2026</p>`,
-    subjectEn: "EyesOpenCTF 2026 — The competition starts tomorrow night! ⚡",
-    htmlBodyEn: `<h1>EyesOpenCTF 2026 is tomorrow! ⚡</h1>
-<p>Hi {{fname}},</p>
-<p>The <strong>EyesOpenCTF 2026</strong> competition kicks off in less than 24 hours. Are you ready?</p>
-<p>📋 <strong>Pre-game checklist:</strong></p>
-<ul>
-<li>✅ CTFd account verified — <a href="https://ctf.eyesopensecurity.com" style="color:#00ff9d;">ctf.eyesopensecurity.com</a></li>
-<li>✅ Team joined or created (or ready to play solo)</li>
-<li>✅ Environment ready: Kali Linux / VM / CTF tools installed</li>
-<li>✅ Laptop charged & charger in your bag</li>
-<li>✅ Reliable internet connection secured</li>
-</ul>
-<p>🕗 <strong>Start:</strong> November 27, 2026 at <strong>8:00 PM</strong> (Douala time)<br>
-🏁 <strong>End:</strong> November 28, 2026 at <strong>8:00 PM</strong><br>
-📍 Online platform + on-site presence possible</p>
-<p>The live leaderboard will be visible on the platform from the start. The flags are waiting — happy hunting! 🚩<br>The EOCON 2026 team</p>`,
+    subject: "◈ NORA-7 // l'arène ouvre dans 24h",
+    htmlBody: `${noraHeader("ARCHIVISTE DU PROTOCOLE")}
+<p>Operator <strong style="color:#00ff9d;">{{ctfCompetitorName}}</strong>,</p>
+<p>L'<strong>arène</strong> ouvre dans moins de 24 heures. Contrôle des systèmes avant l'opération :</p>
+<div style="background:#0d1117;border:1px solid #00ff9d40;border-radius:8px;padding:18px;margin:18px 0;color:#cfe;line-height:1.9;">
+▸ Accès Protocol vérifié — <a href="https://ctf.eyesopensecurity.com" style="color:#00ff9d;">ctf.eyesopensecurity.com</a><br>
+▸ Cellule confirmée (ou prêt(e) à opérer en solo)<br>
+▸ Poste d'analyse prêt : VM / outils<br>
+▸ Énergie & uplink : machine chargée, connexion fiable
+</div>
+<p>🕗 <strong>Fenêtre d'opération :</strong> du 20 novembre 2026 à <strong>20h00</strong> au 22 novembre à <strong>20h00</strong> (en ligne). Le classement en direct sera actif dès l'ouverture.</p>
+<p>Avant de commencer, relisez votre <strong>briefing de mission</strong> — c'est une page vivante, et elle a peut-être déjà évolué depuis votre dernière visite :</p>
+<div style="text-align:center;margin:20px 0;"><a href="${ASSET}/ctf-briefing.html" style="background:#00ff9d;color:#000;font-family:'Courier New',monospace;font-size:13px;font-weight:900;letter-spacing:2px;padding:13px 30px;border-radius:8px;text-decoration:none;display:inline-block;">► REVOIR LE BRIEFING VIVANT</a></div>
+<p>Gardez les yeux ouverts.<br><span style="color:#00ff9d;letter-spacing:2px;">— NORA-7, Protocole EyesOpen</span></p>`,
+    subjectEn: "◈ NORA-7 // the arena opens in 24h",
+    htmlBodyEn: `${noraHeader("PROTOCOL ARCHIVIST")}
+<p>Operator <strong style="color:#00ff9d;">{{ctfCompetitorName}}</strong>,</p>
+<p>The <strong>arena</strong> opens in less than 24 hours. Pre-operation systems check:</p>
+<div style="background:#0d1117;border:1px solid #00ff9d40;border-radius:8px;padding:18px;margin:18px 0;color:#cfe;line-height:1.9;">
+▸ Protocol access verified — <a href="https://ctf.eyesopensecurity.com" style="color:#00ff9d;">ctf.eyesopensecurity.com</a><br>
+▸ Cell confirmed (or ready to operate solo)<br>
+▸ Analysis station ready: VM / tools<br>
+▸ Power & uplink: machine charged, reliable connection
+</div>
+<p>🕗 <strong>Operation window:</strong> from November 20, 2026 at <strong>8:00 PM</strong> to November 22 at <strong>8:00 PM</strong> (online). The live leaderboard goes active at open.</p>
+<p>Before you begin, revisit your <strong>mission briefing</strong> — it is a living page, and it may already have evolved since your last visit:</p>
+<div style="text-align:center;margin:20px 0;"><a href="${ASSET}/ctf-briefing.html" style="background:#00ff9d;color:#000;font-family:'Courier New',monospace;font-size:13px;font-weight:900;letter-spacing:2px;padding:13px 30px;border-radius:8px;text-decoration:none;display:inline-block;">► REVISIT THE LIVING BRIEFING</a></div>
+<p>Keep your eyes open.<br><span style="color:#00ff9d;letter-spacing:2px;">— NORA-7, EyesOpen Protocol</span></p>`,
+  },
+  {
+    name: "⟁ CTF — Diffusion de recrutement « The Convergence »",
+    segment: "newsletter",
+    subject: "⟁ La Convergence a commencé // devenez Operator",
+    htmlBody: `<img src="${ASSET}/email/convergence-hero.webp" width="536" alt="EyesOpenCTF — The Convergence" style="width:100%;max-width:536px;border-radius:10px;display:block;margin:0 auto 8px;border:1px solid #00ff9d33;" />
+<div style="font-family:'Courier New',monospace;font-size:10px;color:#00ff9d70;letter-spacing:2px;margin:14px 0 8px;">&gt;_ EYESOPEN_PROTOCOL // RECRUITMENT_BROADCAST</div>
+<h1 style="color:#00ff9d;">La Convergence a commencé.</h1>
+<p>Le monde que vous connaissez n'est qu'une version de la réalité. Un phénomène menace de les faire s'effondrer les unes dans les autres — et le Protocole EyesOpen recrute des <strong>Operators</strong> pour l'arrêter.</p>
+<p><strong>EyesOpenCTF 2026</strong> est une compétition de cybersécurité (CTF) unique, immersive et primée. Derrière chaque défi se cache un fragment d'une histoire qui se révèle à mesure que vous jouez.</p>
+<div style="background:#0d1117;border:1px solid #00ff9d40;border-radius:8px;padding:18px;margin:18px 0;color:#cfe;line-height:1.9;">
+🏁 <strong>40+ Challenges</strong> · 8 disciplines<br>
+⏱ <strong>48 heures</strong> · en ligne<br>
+🏆 <strong>500 000 XAF</strong> de récompenses<br>
+📖 Une <strong>histoire vivante</strong> qui se déverrouille au fil de vos résolutions
+</div>
+<p style="text-align:center;margin:18px 0 6px;">
+<img src="${ASSET}/email/watcher.webp" width="60" height="60" alt="The Watcher" style="border-radius:50%;border:1px solid #00ff9d40;margin:0 5px;" />
+<img src="${ASSET}/email/nora.webp" width="60" height="60" alt="NORA-7" style="border-radius:50%;border:1px solid #00ff9d40;margin:0 5px;" />
+<img src="${ASSET}/email/assa.webp" width="60" height="60" alt="Dr Assa Abene" style="border-radius:50%;border:1px solid #00ff9d40;margin:0 5px;" />
+<img src="${ASSET}/email/voss.webp" width="60" height="60" alt="Adrian Voss" style="border-radius:50%;border:1px solid #00ff9d40;margin:0 5px;" />
+</p>
+<p style="text-align:center;color:#00ff9d80;font-size:11px;letter-spacing:1px;margin-top:0;">Ils vous attendent de l'autre côté.</p>
+<div style="text-align:center;margin:24px 0;"><a href="${ASSET}/#ctf" style="background:#00ff9d;color:#000;font-family:'Courier New',monospace;font-size:14px;font-weight:900;letter-spacing:2px;padding:15px 34px;border-radius:8px;text-decoration:none;display:inline-block;">► DEVENIR OPERATOR</a></div>
+<p style="color:#00ff9d80;text-align:center;font-size:12px;">L'inscription déclenche votre intégration au Protocole. The Watcher vous contactera.</p>`,
+    subjectEn: "⟁ The Convergence has begun // become an Operator",
+    htmlBodyEn: `<img src="${ASSET}/email/convergence-hero.webp" width="536" alt="EyesOpenCTF — The Convergence" style="width:100%;max-width:536px;border-radius:10px;display:block;margin:0 auto 8px;border:1px solid #00ff9d33;" />
+<div style="font-family:'Courier New',monospace;font-size:10px;color:#00ff9d70;letter-spacing:2px;margin:14px 0 8px;">&gt;_ EYESOPEN_PROTOCOL // RECRUITMENT_BROADCAST</div>
+<h1 style="color:#00ff9d;">The Convergence has begun.</h1>
+<p>The world you know is only one version of reality. A phenomenon threatens to collapse them into one another — and the EyesOpen Protocol is recruiting <strong>Operators</strong> to stop it.</p>
+<p><strong>EyesOpenCTF 2026</strong> is a unique, immersive and prized cybersecurity competition (CTF). Behind every challenge hides a fragment of a story that reveals itself as you play.</p>
+<div style="background:#0d1117;border:1px solid #00ff9d40;border-radius:8px;padding:18px;margin:18px 0;color:#cfe;line-height:1.9;">
+🏁 <strong>40+ Challenges</strong> · 8 disciplines<br>
+⏱ <strong>48 hours</strong> · online<br>
+🏆 <strong>500,000 XAF</strong> in prizes<br>
+📖 A <strong>living story</strong> that unlocks as you solve
+</div>
+<p style="text-align:center;margin:18px 0 6px;">
+<img src="${ASSET}/email/watcher.webp" width="60" height="60" alt="The Watcher" style="border-radius:50%;border:1px solid #00ff9d40;margin:0 5px;" />
+<img src="${ASSET}/email/nora.webp" width="60" height="60" alt="NORA-7" style="border-radius:50%;border:1px solid #00ff9d40;margin:0 5px;" />
+<img src="${ASSET}/email/assa.webp" width="60" height="60" alt="Dr Assa Abene" style="border-radius:50%;border:1px solid #00ff9d40;margin:0 5px;" />
+<img src="${ASSET}/email/voss.webp" width="60" height="60" alt="Adrian Voss" style="border-radius:50%;border:1px solid #00ff9d40;margin:0 5px;" />
+</p>
+<p style="text-align:center;color:#00ff9d80;font-size:11px;letter-spacing:1px;margin-top:0;">They are waiting for you on the other side.</p>
+<div style="text-align:center;margin:24px 0;"><a href="${ASSET}/#ctf" style="background:#00ff9d;color:#000;font-family:'Courier New',monospace;font-size:14px;font-weight:900;letter-spacing:2px;padding:15px 34px;border-radius:8px;text-decoration:none;display:inline-block;">► BECOME AN OPERATOR</a></div>
+<p style="color:#00ff9d80;text-align:center;font-size:12px;">Registration triggers your integration into the Protocol. The Watcher will contact you.</p>`,
   },
   {
     // Auto-personnalisés : {{fname}} (nom), {{talkTitle}} (sujet du talk).
@@ -352,12 +412,23 @@ const SEED_TEMPLATES = [
 export async function POST() {
   if (!(await hasPermission("communication", "write"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  // The three CTF competitor emails were reworked into the lore theme (NORA-7).
+  // Remove their pre-lore versions so the new templates replace them instead of
+  // lingering as duplicates. Idempotent.
+  const RETIRED_NAMES = [
+    "🔑 CTF — Accès CTFd & identifiants de connexion",
+    "🤝 CTF — Participation sans équipe (solo)",
+    "⏰ CTF — Rappel J-1 EyesOpenCTF",
+  ];
+  const removed = await prisma.emailTemplate.deleteMany({ where: { name: { in: RETIRED_NAMES } } });
+
   const existing = await prisma.emailTemplate.findMany({ select: { name: true } });
   const existingNames = new Set(existing.map(t => t.name));
 
   const toCreate = SEED_TEMPLATES.filter(t => !existingNames.has(t.name));
-  if (toCreate.length === 0) return NextResponse.json({ created: 0, message: "Templates déjà seedés" });
-
-  await prisma.emailTemplate.createMany({ data: toCreate });
-  return NextResponse.json({ created: toCreate.length });
+  if (toCreate.length === 0 && removed.count === 0) {
+    return NextResponse.json({ created: 0, message: "Templates déjà seedés" });
+  }
+  if (toCreate.length > 0) await prisma.emailTemplate.createMany({ data: toCreate });
+  return NextResponse.json({ created: toCreate.length, retired: removed.count });
 }

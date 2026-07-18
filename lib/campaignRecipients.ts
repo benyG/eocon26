@@ -31,6 +31,10 @@ export interface Recipient {
   mode?: string | null;
   zoomLink?: string | null;
   slidesDeadline?: string | null;
+  // CTF competitor tokens (registrations pool) — used by the lore-themed CTF emails.
+  ctfCompetitorName?: string | null;
+  ctfTeamName?: string | null;
+  ctfPassword?: string | null;
   lang?: "fr" | "en"; // recipient's preferred language (drives FR/EN content)
 }
 
@@ -126,10 +130,11 @@ export async function resolveRecipients(seg: CampaignSegment): Promise<Recipient
 
   const regs = await prisma.registration.findMany({
     where,
-    select: { email: true, fname: true, lname: true, org: true, country: true, ticketType: true, langExpression: true },
+    select: { email: true, fname: true, lname: true, org: true, country: true, ticketType: true, langExpression: true, ctfCompetitorName: true, ctfTeamName: true, ctfPassword: true },
   });
-  return dedupe(regs.map((r: { email: string; fname: string; lname: string; org: string | null; country: string | null; ticketType: string; langExpression: string | null }) => ({
+  return dedupe(regs.map((r: { email: string; fname: string; lname: string; org: string | null; country: string | null; ticketType: string; langExpression: string | null; ctfCompetitorName: string | null; ctfTeamName: string | null; ctfPassword: string | null }) => ({
     email: r.email, fname: r.fname, lname: r.lname, org: r.org, country: r.country, ticketType: r.ticketType, lang: normLang(r.langExpression),
+    ctfCompetitorName: r.ctfCompetitorName, ctfTeamName: r.ctfTeamName, ctfPassword: r.ctfPassword,
   })));
 }
 
@@ -167,7 +172,7 @@ export function pickContent(c: BilingualContent, lang: "fr" | "en" | undefined):
 // {{mode}} {{zoomLink}} {{slidesDeadline}}.
 // Unknown placeholders are left untouched; missing values become "".
 export function personalize(html: string, r: Recipient): string {
-  return html.replace(/\{\{\s*(fname|lname|email|org|country|ticketType|talkTitle|date|time|endTime|mode|zoomLink|slidesDeadline)\s*\}\}/g, (_m, key: string) => {
+  return html.replace(/\{\{\s*(fname|lname|email|org|country|ticketType|talkTitle|date|time|endTime|mode|zoomLink|slidesDeadline|ctfCompetitorName|ctfTeamName|ctfPassword)\s*\}\}/g, (_m, key: string) => {
     const v = (r as unknown as Record<string, unknown>)[key];
     return v == null ? "" : String(v);
   });

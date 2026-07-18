@@ -95,6 +95,9 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
   // No ticket is visible → sales aren't open yet. Skip tier selection and take the
   // visitor straight to the pre-registration form; they'll be notified on launch.
   const preRegMode = !loadingTypes && ticketTypes.length === 0;
+  // A "CTF-only" ticket grants CTF access but neither sessions nor workshops. For
+  // those, we only collect email, language, country, CTF handle and team name.
+  const isCtfOnly = !!selectedTicket && selectedTicket.includesCTF && !selectedTicket.includesSessions && !selectedTicket.includesWorkshops;
   useEffect(() => {
     if (preRegMode && step === "tiers") {
       setSelectedTier("pre_registration");
@@ -389,6 +392,7 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                 </div>
               )}
               <form onSubmit={handleSubmit} className="space-y-4">
+                {!isCtfOnly && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.register.form.fname} *</label>
@@ -401,11 +405,23 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                       value={formData.lname} onChange={e => setFormData({ ...formData, lname: e.target.value })} />
                   </div>
                 </div>
+                )}
                 <div>
                   <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.register.form.email} *</label>
                   <input required type="email" className="cyber-input w-full px-3 py-2 rounded text-sm" placeholder={t.register.form.email}
                     value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
                 </div>
+                {isCtfOnly ? (
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.register.form.country}</label>
+                    <CountrySelect
+                      value={formData.country}
+                      onChange={v => setFormData({ ...formData, country: v })}
+                      className="w-full"
+                      placeholder={t.register.form.country}
+                    />
+                  </div>
+                ) : (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.register.form.org}</label>
@@ -422,6 +438,7 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                     />
                   </div>
                 </div>
+                )}
                 <div>
                   <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{t.register.form.lang_expression}</label>
                   <select className="cyber-input w-full px-3 py-2 rounded text-sm bg-transparent" value={formData.lang_expression} onChange={e => setFormData({ ...formData, lang_expression: e.target.value })}>
@@ -429,7 +446,8 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                     <option value="en" className="bg-dark-800">English</option>
                   </select>
                 </div>
-                {/* Optional networking fields */}
+                {/* Optional networking fields — hidden for CTF-only registrations */}
+                {!isCtfOnly && (
                 <div className="p-4 rounded border border-dashed" style={{ borderColor: "#00ccff33", background: "#00ccff05" }}>
                   <p className="text-xs font-mono text-gray-500 mb-3" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
                     🔗 Profil réseau — <span className="text-gray-600">optionnel</span>
@@ -452,6 +470,7 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                     </div>
                   </div>
                 </div>
+                )}
 
                 {/* CTF fields — shown when ticket includes CTF */}
                 {selectedTicket?.includesCTF && (

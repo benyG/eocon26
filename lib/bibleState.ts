@@ -138,7 +138,11 @@ export function invalidateBibleCache() { _cache = null; _cacheAt = 0; }
 /** Is the arc/asset that gates a given image unlocked? Used by the gated asset endpoint. */
 export async function isImageUnlocked(imageKey: string): Promise<boolean> {
   const st = await getBibleStateCached();
-  // The engineer's portrait is gated on his identity being recovered, not an arc.
-  if (imageKey === "samuel") return st.samuelIdentified;
+  // The engineer's portrait is also released once his identity is recovered.
+  if (imageKey === "samuel" && st.samuelIdentified) return true;
+  // Entity portraits are released once the entity dossier is declassified.
+  const entity = st.entities.find((e) => e.key === imageKey);
+  if (entity) return entity.declassified;
+  // Arc images (e.g. the Deido site scan).
   return st.arcs.some((a) => a.image === imageKey && a.unlocked);
 }

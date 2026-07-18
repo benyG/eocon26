@@ -740,21 +740,27 @@ footer{border-top:1px solid var(--line);padding:40px 0 60px;color:var(--muted);f
   function renderFocus(){
     var d=getD(focus); if(!d){ return; }
     var st=d.stage, unlocked=d.unlocked, comp=(st==="COMPROMISED");
-    var mode = unlocked ? (d.kind==="place" && d.image ? "image" : "plate") : "sealed";
+    // A declassified dossier shows its real image: the Deido scan (arc-gated), an
+    // inline launch portrait, or the entity's gated portrait. Sealed → placeholder.
+    var imgSrc=null;
+    if(unlocked){
+      if(d.kind==="place" && d.image){ imgSrc="/api/public/bible/asset/"+d.image; }
+      else if(d.kind==="entity"){ imgSrc = PORTRAITS[d.id] || ("/api/public/bible/asset/"+d.id); }
+    }
+    var mode = imgSrc ? "image" : (unlocked ? "plate" : "sealed");
     dossier.className="dossier mode-"+mode+(comp?" compromised mode-compromised":"");
     pill.style.setProperty("--dotc",stageDot(st)); stateName.textContent=stageLabel(st);
     did.textContent="DOSSIER · "+(d.kind==="place"? d.code : (unlocked&&d.title? bi(d.title).toUpperCase() : "████"));
     if(mode==="image"){
-      var url="/api/public/bible/asset/"+d.image;
-      if(gatedImg.getAttribute("src")!==url) gatedImg.src=url;
+      if(gatedImg.getAttribute("src")!==imgSrc) gatedImg.src=imgSrc;
+      gatedImg.style.objectPosition = d.kind==="entity" ? "center 16%" : "center";
       gatedImg.hidden=false;
     }else{
       gatedImg.hidden=true; if(gatedImg.getAttribute("src")) gatedImg.removeAttribute("src");
     }
-    if(mode==="plate"){
-      plateGlyph.textContent = d.kind==="place"? "◈" : ((bi(d.title)||"◎").charAt(0).toUpperCase());
-      plateLabel.textContent = curLang()==="fr"? "Authentifié au dossier" : "Authenticated on file";
-    }
+    // keep the plate content current so the onerror fallback reads correctly
+    plateGlyph.textContent = d.kind==="place"? "◈" : ((bi(d.title)||"◎").charAt(0).toUpperCase());
+    plateLabel.textContent = curLang()==="fr"? "Authentifié au dossier" : "Authenticated on file";
     figSealed.className="fig-sealed"+((st==="DETECTED"||st==="PARTIAL")?" detected":"");
     fsState.textContent=stageLabel(st);
     if(unlocked){

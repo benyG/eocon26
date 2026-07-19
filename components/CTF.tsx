@@ -144,7 +144,7 @@ export default function CTF({ t, onOpenModal, ctfSettings = {} }: { t: Translati
             </div>
 
             <button
-              onClick={() => onOpenModal("register")}
+              onClick={() => onOpenModal("ctf")}
               className="w-full py-4 rounded font-mono font-bold uppercase tracking-wider text-sm transition-all"
               style={{
                 background: "transparent",

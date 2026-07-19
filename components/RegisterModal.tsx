@@ -32,9 +32,12 @@ interface RegisterModalProps {
   t: Translations;
   onClose: () => void;
   lang?: "fr" | "en";
+  // The dedicated CTF door: shows only the CTF-only ticket (or CTF pre-registration),
+  // and collects the minimal identity (email, language, country, handle, team).
+  ctfMode?: boolean;
 }
 
-export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModalProps) {
+export default function RegisterModal({ t, onClose, lang = "fr", ctfMode = false }: RegisterModalProps) {
   const settings = useEventSettings();
   const regWin = evaluateCfpWindow(settings.registration_open_date, settings.registration_close_date);
   const registrationClosed = regWin.hasWindow && !regWin.open;
@@ -92,18 +95,32 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
   // Cleanup any in-flight polling on unmount.
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
-  // No ticket is visible → sales aren't open yet. Skip tier selection and take the
-  // visitor straight to the pre-registration form; they'll be notified on launch.
-  const preRegMode = !loadingTypes && ticketTypes.length === 0;
-  // A "CTF-only" ticket grants CTF access but neither sessions nor workshops. For
-  // those, we only collect email, language, country, CTF handle and team name.
-  const isCtfOnly = !!selectedTicket && selectedTicket.includesCTF && !selectedTicket.includesSessions && !selectedTicket.includesWorkshops;
+  // A "CTF-only" ticket grants CTF access but neither sessions nor workshops.
+  const isCtfOnlyTicket = (tk: TicketTypeData | null | undefined) =>
+    !!tk && tk.includesCTF && !tk.includesSessions && !tk.includesWorkshops;
+  // The CTF-only ticket is sold ONLY through the dedicated CTF door — it never appears
+  // in the general modal. So the general modal ignores it entirely (and pre-registers
+  // until a general ticket opens), while the CTF door shows only that ticket.
+  const generalTickets = ticketTypes.filter(tk => !isCtfOnlyTicket(tk));
+  const ctfTicket = ticketTypes.find(isCtfOnlyTicket) || null;
+  const displayTickets = ctfMode ? (ctfTicket ? [ctfTicket] : []) : generalTickets;
+  // No matching ticket on sale → skip tier selection and pre-register (notified on launch).
+  const preRegMode = !loadingTypes && displayTickets.length === 0;
+  // Minimal identity (email, language, country, handle, team) for the CTF door or a
+  // CTF-only ticket.
+  const isCtfOnly = ctfMode || isCtfOnlyTicket(selectedTicket);
   useEffect(() => {
     if (preRegMode && step === "tiers") {
       setSelectedTier("pre_registration");
       setStep("form");
     }
   }, [preRegMode, step]);
+  // CTF door: auto-select the CTF-only ticket and skip tier selection.
+  useEffect(() => {
+    if (!ctfMode || step !== "tiers" || loadingTypes) return;
+    const tk = ticketTypes.find(t => t.includesCTF && !t.includesSessions && !t.includesWorkshops);
+    if (tk) { setSelectedTicket(tk); setSelectedTier(tk.slug); setStep("form"); }
+  }, [ctfMode, step, loadingTypes, ticketTypes]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -285,12 +302,12 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
             <div>
               {loadingTypes ? (
                 <div className="text-center py-12 text-gray-500 font-mono text-sm">Chargement des billets…</div>
-              ) : ticketTypes.length === 0 ? (
-                /* No tickets on sale → the pre-registration effect switches to the form. */
+              ) : displayTickets.length === 0 ? (
+                /* No matching ticket on sale → the pre-registration effect switches to the form. */
                 <div className="text-center py-12 text-gray-500 font-mono text-sm">…</div>
               ) : (
                 <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                  {ticketTypes.map(ticket => {
+                  {displayTickets.map(ticket => {
                     const c = ticket.color;
                     const sold_out = ticket.available <= 0;
                     return (
@@ -376,7 +393,7 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
             </div>
           ) : step === "form" ? (
             <div>
-              {!preRegMode && (
+              {!preRegMode && !ctfMode && (
                 <button
                   onClick={() => setStep("tiers")}
                   className="text-gray-500 hover:text-neon-green text-sm mb-6 flex items-center gap-1 font-mono transition-colors"
@@ -472,8 +489,8 @@ export default function RegisterModal({ t, onClose, lang = "fr" }: RegisterModal
                 </div>
                 )}
 
-                {/* CTF fields — shown when ticket includes CTF */}
-                {selectedTicket?.includesCTF && (
+                {/* CTF fields — shown for the CTF door or any ticket that includes CTF */}
+                {(isCtfOnly || selectedTicket?.includesCTF) && (
                   <div
                     className="p-4 rounded border space-y-3"
                     style={{ borderColor: "#00ccff40", background: "#00ccff05", transition: "all 0.3s", opacity: 1 }}

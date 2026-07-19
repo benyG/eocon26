@@ -88,19 +88,19 @@ export default function Home() {
   const closeModal = () => setModal(null);
 
   // Deep links (shareable):
-  //  - /?modal=register|cfp|volunteer|sponsor|sponsor-deck → opens that modal
-  //  - /?modal=ctf|programme → scrolls directly to the matching section
+  //  - /?modal=register|ctf|cfp|volunteer|sponsor|sponsor-deck → opens that modal
+  //    (ctf opens the dedicated CTF-only registration modal)
+  //  - /?modal=programme → scrolls directly to the schedule section
   useEffect(() => {
     if (typeof window === "undefined") return;
     const m = new URLSearchParams(window.location.search).get("modal");
     if (!m) return;
-    if (["register", "cfp", "volunteer", "sponsor", "sponsor-deck"].includes(m)) {
+    if (["register", "ctf", "cfp", "volunteer", "sponsor", "sponsor-deck"].includes(m)) {
       setModal(m);
-    } else if (m === "ctf" || m === "programme") {
-      const id = m === "ctf" ? "ctf" : "schedule";
+    } else if (m === "programme") {
       let tries = 0;
       const tryScroll = () => {
-        const el = document.getElementById(id);
+        const el = document.getElementById("schedule");
         if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
         if (tries++ < 20) setTimeout(tryScroll, 250);
       };
@@ -132,6 +132,7 @@ export default function Home() {
       <Footer t={tWithSettings} eventSettings={eventSettings} />
 
       {modal === "register" && <RegisterModal t={tWithSettings} onClose={closeModal} lang={lang} />}
+      {modal === "ctf" && <RegisterModal t={tWithSettings} onClose={closeModal} lang={lang} ctfMode />}
       {modal === "volunteer" && <VolunteerModal t={tWithSettings} onClose={closeModal} lang={lang} />}
       {modal === "cfp" && <CFPModal t={tWithSettings} onClose={closeModal} />}
     </main>

@@ -160,39 +160,51 @@ function buildState(chs: Challenges, isRecovered: (code: string) => boolean, rev
   return { total, recoveredCount, stability, palier, paliers: PALIERS, fragments, entities, arcs, characters, concepts, samuelIdentified, finale, previewMode: revealAll };
 }
 
-// Derive the global World State (convergence score + alert) from the built global
-// record and the configured CTF window.
+// Convergence level tracks the « The Convergence » dossier's own escalation rather
+// than raw progress, so before the event (stage DETECTED) it reads low — the world
+// is healthy — instead of ~100% as if the collision had already happened.
+function stageScore(s: Stage): number {
+  return s === "RESOLVED" ? 94 : s === "COMPROMISED" ? 84 : s === "VERIFIED" ? 52 : 22;
+}
+
+// Derive the global World State (convergence level + alert) from the built global
+// record and the configured CTF window. The state can only turn red/critical INSIDE
+// the live window; before it (or with no window configured) the world is healthy.
 function computeWorldState(state: BibleState, win: CtfWindowState): WorldState {
   const total = state.total;
   const rc = state.recoveredCount;
   const actual = total > 0 ? rc / total : 0;
-  const convergenceScore = Math.max(0, Math.min(100, Math.round(100 * (1 - actual))));
   const convStage = state.concepts.find((c) => c.key === "convergence")?.stage ?? "DETECTED";
-  const critical = convStage === "COMPROMISED";
+  const compromised = convStage === "COMPROMISED";
+  let convergenceScore = stageScore(convStage);
 
   let alert: WorldState["alert"];
   let expected: number | null = null;
-  if (win.phase === "before") {
-    alert = "pre";
-  } else if (win.phase === "after") {
-    alert = rc >= 36 ? "averted" : "failed";
+
+  if (rc >= total) {
+    // The record is closed — the convergence is repelled, whatever the clock says.
+    alert = "averted";
   } else if (win.phase === "during") {
+    // Only inside the live window can the state read red/critical.
     expected = win.progress;
     const delta = actual - expected;
-    if (critical) alert = "critical";
+    if (compromised) alert = "critical";
     else if (delta >= 0.10) alert = "ahead";
     else if (delta >= -0.10) alert = "ontrack";
     else if (delta >= -0.25) alert = "behind";
     else alert = "critical";
+  } else if (win.phase === "after") {
+    alert = rc >= 36 ? "averted" : "failed";
   } else {
-    // No window configured → alert purely from the fragment score.
-    if (rc >= total) alert = "averted";
-    else if (critical) alert = "critical";
-    else if (actual >= 0.75) alert = "ahead";
-    else if (actual >= 0.40) alert = "ontrack";
-    else if (actual >= 0.15) alert = "behind";
-    else alert = "critical";
+    // Before the window, or with no window configured: the world is still healthy —
+    // never red. Reflect only the convergence dossier's own escalation (DETECTED,
+    // i.e. "pre", until its evidence is recovered).
+    alert = compromised ? "behind"
+      : (convStage === "VERIFIED" || convStage === "RESOLVED") ? "ontrack"
+      : "pre";
   }
+
+  if (alert === "averted") convergenceScore = Math.min(convergenceScore, 10);
 
   return {
     convergenceScore, convergenceStage: convStage, alert, phase: win.phase,

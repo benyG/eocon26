@@ -345,6 +345,8 @@ h1.title .glow{color:var(--green);display:inline-block;text-shadow:0 0 25px rgba
 .ws-alert-txt span{font-size:.82rem;color:#b7cfc7}
 .ws-alert-clock{font-variant-numeric:tabular-nums;font-size:1rem;color:var(--txt);letter-spacing:.04em;white-space:nowrap;text-align:right}
 .ws-alert-clock:empty{display:none}
+.ws-readout{max-width:820px;margin:14px auto 0;text-align:left;font-size:.88rem;color:#b7cfc7;line-height:1.55;border-left:2px solid var(--wl);padding:3px 0 3px 15px}
+.ws-readout:empty{display:none}
 #worldstate[data-level="critical"] .ws-alert,#worldstate[data-level="failed"] .ws-alert{animation:criticalPanelPulse 2s ease-in-out infinite}
 #worldstate[data-level="critical"] .ws-alert-txt b,#worldstate[data-level="failed"] .ws-alert-txt b{animation:realityCollisionBlink 1.4s steps(1,end) infinite}
 .ws-grid{display:grid;grid-template-columns:1.55fr .95fr;gap:22px;max-width:960px;margin:22px auto 0;align-items:stretch}
@@ -486,6 +488,7 @@ footer{border-top:1px solid var(--line);padding:40px 0 60px;color:var(--muted);f
       <div class="ws-alert-txt"><b id="wsAlertLabel">—</b><span id="wsAlertSub"></span></div>
       <div class="ws-alert-clock" id="wsAlertClock"></div>
     </div>
+    <p class="ws-readout" id="wsReadout"></p>
 
     <div class="ws-grid">
       <div class="ws-animwrap">
@@ -506,7 +509,7 @@ footer{border-top:1px solid var(--line);padding:40px 0 60px;color:var(--muted);f
         </div>
         <div class="ws-scorebox">
           <div class="ws-score-num" id="wsScoreNum">—</div>
-          <div class="ws-score-lab"><span class="lang en">Convergence level</span><span class="lang fr">Niveau de Convergence</span></div>
+          <div class="ws-score-lab" id="wsScoreLab"></div>
           <div class="ws-bar"><i id="wsBar"></i></div>
           <div class="ws-stage" id="wsStage"></div>
         </div>
@@ -910,6 +913,7 @@ footer{border-top:1px solid var(--line);padding:40px 0 60px;color:var(--muted);f
   var wsAlertIc=byId("wsAlertIc"), wsAlertLabel=byId("wsAlertLabel"), wsAlertSub=byId("wsAlertSub"),
       wsAlertClock=byId("wsAlertClock"), wsScoreNum=byId("wsScoreNum"), wsBar=byId("wsBar"), wsStage=byId("wsStage"),
       wcHand=byId("wcHand"), wsAnimCap=byId("wsAnimCap"), wsReplay=byId("wsReplay"), wsSection=byId("worldstate"),
+      wsReadout=byId("wsReadout"), wsScoreLab=byId("wsScoreLab"),
       vbTeam=byId("vbTeam"), vbGlobal=byId("vbGlobal"), teamInput=byId("teamInput"), teamStatus=byId("teamStatus"),
       hudScope=byId("hudScope"), hudScopeLabel=byId("hudScopeLabel");
 
@@ -922,6 +926,21 @@ footer{border-top:1px solid var(--line);padding:40px 0 60px;color:var(--muted);f
     critical:{ic:"⚠",traj:"fail",label:{en:"CRITICAL",fr:"CRITIQUE"},sub:{en:"Collision trajectory confirmed. The realities are locking together.",fr:"Trajectoire de collision confirmée. Les réalités se verrouillent."}},
     averted:{ic:"✓",traj:"success",label:{en:"CONVERGENCE REPELLED",fr:"CONVERGENCE REPOUSSÉE"},sub:{en:"The record is closed. The worlds are held apart.",fr:"Le dossier est clos. Les mondes se maintiennent séparés."}},
     failed:{ic:"✕",traj:"fail",label:{en:"CONVERGENCE UNCONTAINED",fr:"CONVERGENCE NON CONTENUE"},sub:{en:"The window closed with the record incomplete. The seams barely held.",fr:"La fenêtre s'est close, dossier incomplet. Les coutures ont à peine tenu."}}
+  };
+
+  /* convergence narrative — the epistemic status tracks the « The Convergence »
+     dossier stage, so early game it reads as a HYPOTHESIS, not a measured fact. */
+  var CONV={
+    DETECTED:{tag:{en:"HYPOTHESIS",fr:"HYPOTHÈSE"},metric:{en:"Convergence · suspected",fr:"Convergence · supposée"},cap:{en:"Anomaly signal — hypothesis under review",fr:"Signal d'anomalie — hypothèse à l'étude"},
+      readout:{en:"At this stage the Convergence is still only a hypothesis — a handful of anomalies that refuse to line up. No overlap between realities has been confirmed. For now, the world holds.",fr:"À ce stade, la Convergence n'est encore qu'une hypothèse — une poignée d'anomalies qui refusent de concorder. Aucun chevauchement entre réalités n'est confirmé. Pour l'instant, le monde tient."}},
+    VERIFIED:{tag:{en:"CONFIRMED",fr:"CONFIRMÉE"},metric:{en:"Convergence · confirmed",fr:"Convergence · confirmée"},cap:{en:"Realities overlapping",fr:"Réalités en superposition"},
+      readout:{en:"The Convergence is no longer a theory. Authenticated fragments confirm that several realities have begun to overlap with ours.",fr:"La Convergence n'est plus une théorie. Des Fragments authentifiés confirment que plusieurs réalités ont commencé à se superposer à la nôtre."}},
+    COMPROMISED:{tag:{en:"CRITICAL",fr:"CRITIQUE"},metric:{en:"Collision · proximity",fr:"Collision · proximité"},cap:{en:"Collision trajectory",fr:"Trajectoire de collision"},
+      readout:{en:"The overlap is no longer temporary. The realities involved are locked on a permanent collision trajectory.",fr:"Le chevauchement n'est plus temporaire. Les réalités concernées sont verrouillées sur une trajectoire de collision permanente."}},
+    RESOLVED:{tag:{en:"MAPPED",fr:"CARTOGRAPHIÉE"},metric:{en:"Reality topology",fr:"Topologie des réalités"},cap:{en:"Topology mapped",fr:"Topologie cartographiée"},
+      readout:{en:"The full topology of the Convergence is mapped. Only the closure sequence remains to be authenticated.",fr:"La topologie complète de la Convergence est cartographiée. Il ne reste qu'à authentifier la séquence de fermeture."}},
+    AVERTED:{tag:{en:"REPELLED",fr:"REPOUSSÉE"},metric:{en:"Convergence · repelled",fr:"Convergence · repoussée"},cap:{en:"Convergence repelled",fr:"Convergence repoussée"},
+      readout:{en:"The record is closed. The Convergence has been pushed back — the worlds hold apart.",fr:"Le dossier est clos. La Convergence a été repoussée — les mondes se maintiennent séparés."}}
   };
 
   /* convergence clock ticks */
@@ -1013,13 +1032,16 @@ footer{border-top:1px solid var(--line);padding:40px 0 60px;color:var(--muted);f
 
   function renderWorldState(ws){
     if(!ws||!wsSection) return; lastWs=ws;
-    var a=ALERT[ws.alert]||ALERT.pre, sc=(typeof ws.convergenceScore==="number")?ws.convergenceScore:0, fr=curLang()==="fr";
+    var a=ALERT[ws.alert]||ALERT.pre, sc=(typeof ws.convergenceScore==="number")?ws.convergenceScore:0;
+    var c=(ws.alert==="averted")?CONV.AVERTED:(CONV[ws.convergenceStage]||CONV.DETECTED);
     wsSection.setAttribute("data-level", ws.alert||"pre");
     wsAlertIc.textContent=a.ic; wsAlertLabel.textContent=bi(a.label); wsAlertSub.textContent=bi(a.sub);
     wsScoreNum.textContent=sc+"%"; wsBar.style.width=sc+"%";
-    var stg=STAGE[ws.convergenceStage]||STAGE.DETECTED; wsStage.textContent=bi(stg.name);
+    wsStage.textContent=bi(c.tag);
+    if(wsScoreLab) wsScoreLab.textContent=bi(c.metric);
+    if(wsReadout) wsReadout.textContent=bi(c.readout);
     wcHand.style.transform="rotate("+(-((100-sc)/100)*120).toFixed(1)+"deg)";
-    wsAnimCap.textContent=(fr?"Réalités en superposition · Convergence ":"Realities in superposition · Convergence ")+sc+"%";
+    wsAnimCap.textContent=bi(c.cap)+" · "+sc+"%";
     wsAnim.set(sc,a.traj);
     if(!wsPlayed){ wsPlayed=true; wsAnim.play(); }
     tickCountdown();

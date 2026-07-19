@@ -35,13 +35,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Les inscriptions sont closes pour le moment." }, { status: 403 });
     }
 
-    // Pre-registration mode: no ticket is on sale (none marked visible). The user
-    // registers their interest and will be notified once tickets are activated.
+    // Pre-registration = the visitor registers interest (notified on launch). It applies
+    // when nothing is on sale at all, OR when the visitor explicitly submits the
+    // `pre_registration` sentinel. The sentinel lets the CTF-only ticket sell on its own
+    // while the general audience keeps pre-registering (their door has no ticket yet).
     const dbTicketTypes = await prisma.ticketType.findMany({ where: { isVisible: true }, select: { slug: true } });
-    const preRegistration = dbTicketTypes.length === 0;
+    const preRegistration = ticketType === "pre_registration" || dbTicketTypes.length === 0;
 
-    // When tickets are on sale, the selected type must be a real visible ticket.
-    // In pre-registration mode any selected tier label is accepted (interest only).
+    // When it's a real purchase, the selected type must be a visible ticket.
     if (!preRegistration && !dbTicketTypes.map(t => t.slug).includes(ticketType)) {
       return NextResponse.json({ error: "Type de billet invalide" }, { status: 400 });
     }
@@ -54,8 +55,11 @@ export async function POST(req: NextRequest) {
     // CTF handle, so first/last name are not collected and are derived here.
     const ticketTypeRow = preRegistration ? null : await prisma.ticketType.findUnique({ where: { slug: ticketType } });
     const isCtfOnly = !!ticketTypeRow && ticketTypeRow.includesCTF && !ticketTypeRow.includesSessions && !ticketTypeRow.includesWorkshops;
-    if (isCtfOnly) {
-      if (!ctfCompetitorName || !String(ctfCompetitorName).trim()) {
+    const hasCtfHandle = !!(ctfCompetitorName && String(ctfCompetitorName).trim());
+    // Identity via the CTF handle for a CTF-only ticket sale, OR a CTF-door
+    // pre-registration (interest captured with a handle but no first/last name).
+    if (isCtfOnly || (preRegistration && hasCtfHandle && (!fname || !lname))) {
+      if (!hasCtfHandle) {
         return NextResponse.json({ error: "Pseudo CTF requis" }, { status: 400 });
       }
       fname = String(ctfCompetitorName).slice(0, 80);

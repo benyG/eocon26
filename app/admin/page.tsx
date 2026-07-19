@@ -6339,6 +6339,8 @@ const SETTINGS_FIELDS = [
   { key: "volunteer_close_date", label: "Clôture des candidatures bénévoles", type: "date", group: "Bénévoles" },
   { key: "registration_open_date", label: "Ouverture des inscriptions", type: "date", group: "Inscriptions" },
   { key: "registration_close_date", label: "Clôture des inscriptions", type: "date", group: "Inscriptions" },
+  { key: "ctf_start", label: "Début du CTF (heure de Douala)", type: "datetime-local", group: "CTF" },
+  { key: "ctf_end", label: "Fin du CTF (heure de Douala)", type: "datetime-local", group: "CTF" },
   { key: "ctf_tagline_fr", label: "Accroche principale (FR)", type: "text", group: "CTF" },
   { key: "ctf_tagline_en", label: "Accroche principale (EN)", type: "text", group: "CTF" },
   { key: "ctf_prize_main_fr", label: "Gains vainqueur — résumé court (FR)", type: "text", group: "CTF" },

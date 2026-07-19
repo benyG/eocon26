@@ -20,11 +20,20 @@ function esc(s: string): string {
 // Email clients strip <style> and animations — we use inline CSS only.
 // "Glitch" effect: double text-shadow in cyan + magenta on the title.
 
-function emailWrap(body: string, isFr: boolean, s?: Record<string, string>): string {
+function emailWrap(body: string, isFr: boolean, s?: Record<string, string>, opts?: { lore?: boolean }): string {
   const venue = s?.event_venue || "Hotel Onomo";
   const city = s?.event_city || "Douala";
   const country = isFr ? (s?.event_country || "Cameroun") : (s?.event_country_en || s?.event_country || "Cameroon");
-  const footer = `EOCON 2026 · EyesOpen Security · ${venue}, ${city}, ${country}`;
+  // CTF-lore emails wear the EyesOpenCTF identity instead of the EOCON one.
+  const lore = !!opts?.lore;
+  const sysLine = lore ? "&gt;_ EYESOPEN_PROTOCOL" : "&gt;_ EOCON_SYSTEM";
+  const brandTitle = lore ? "EyesOpenCTF 2026" : "EOCON 2026";
+  const brandTag = lore ? (isFr ? "Protocole EyesOpen // La Convergence" : "EyesOpen Protocol // The Convergence") : "EOCON Cybersecurity Event";
+  const locLine = lore ? "EyesOpen Protocol" : "DOUALA · CMR";
+  const footer = lore
+    ? `EyesOpenCTF 2026 · ${isFr ? "Protocole EyesOpen" : "EyesOpen Protocol"}`
+    : `EOCON 2026 · EyesOpen Security · ${venue}, ${city}, ${country}`;
+  const hashtags = lore ? "#EyesOpenCTF · #TheConvergence" : "#EOCON · #CyberAfrica";
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
 <body style="margin:0;padding:0;background:#030408;">
@@ -37,13 +46,13 @@ function emailWrap(body: string, isFr: boolean, s?: Record<string, string>): str
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td>
-          <div style="font-family:'Courier New',Courier,monospace;font-size:9px;color:#00ff9d;letter-spacing:4px;margin-bottom:4px;">&gt;_ EOCON_SYSTEM</div>
-          <div style="font-family:'Courier New',Courier,monospace;font-size:28px;font-weight:900;color:#00ff9d;letter-spacing:3px;text-shadow:-2px 0 #ff00ff40, 2px 0 #00ffff40;">EOCON 2026</div>
-          <div style="font-family:'Courier New',Courier,monospace;font-size:9px;color:#00ff9d80;letter-spacing:3px;margin-top:4px;">EOCON Cybersecurity Event</div>
+          <div style="font-family:'Courier New',Courier,monospace;font-size:9px;color:#00ff9d;letter-spacing:4px;margin-bottom:4px;">${sysLine}</div>
+          <div style="font-family:'Courier New',Courier,monospace;font-size:28px;font-weight:900;color:#00ff9d;letter-spacing:3px;text-shadow:-2px 0 #ff00ff40, 2px 0 #00ffff40;">${brandTitle}</div>
+          <div style="font-family:'Courier New',Courier,monospace;font-size:9px;color:#00ff9d80;letter-spacing:3px;margin-top:4px;">${brandTag}</div>
         </td>
         <td align="right" style="vertical-align:top;">
           <div style="font-family:'Courier New',Courier,monospace;font-size:9px;color:#00ff9d40;letter-spacing:2px;">28.11.2026</div>
-          <div style="font-family:'Courier New',Courier,monospace;font-size:9px;color:#00ff9d40;letter-spacing:1px;">DOUALA · CMR</div>
+          <div style="font-family:'Courier New',Courier,monospace;font-size:9px;color:#00ff9d40;letter-spacing:1px;">${locLine}</div>
         </td>
       </tr>
     </table>
@@ -60,7 +69,7 @@ function emailWrap(body: string, isFr: boolean, s?: Record<string, string>): str
   <!-- Footer -->
   <tr><td style="padding:20px 32px;border-top:1px solid #00ff9d20;background:#050508;">
     <div style="font-family:'Courier New',Courier,monospace;font-size:10px;color:#00ff9d60;text-align:center;letter-spacing:1px;">${footer}</div>
-    <div style="font-family:'Courier New',Courier,monospace;font-size:10px;color:#333;text-align:center;margin-top:6px;letter-spacing:2px;">#EOCON · #CyberAfrica</div>
+    <div style="font-family:'Courier New',Courier,monospace;font-size:10px;color:#333;text-align:center;margin-top:6px;letter-spacing:2px;">${hashtags}</div>
   </td></tr>
 
 </table>
@@ -170,28 +179,107 @@ function googleCalEventUrl(isFr: boolean, s?: Record<string, string>): string {
 
 // ── Badge PDF ─────────────────────────────────────────────────────────────────
 
+// Fetch a sponsor logo (remote PNG/JPG) for embedding in the badge. PDFKit can't
+// embed SVG, so those (and any failure) fall back to a text placeholder.
+async function loadSponsorLogo(url: string | null): Promise<Buffer | null> {
+  if (!url || !/^https?:\/\//.test(url)) return null;
+  if (/\.svg($|\?)/i.test(url)) return null;
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 4000);
+    const res = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    if (/svg/i.test(res.headers.get("content-type") || "")) return null;
+    return Buffer.from(await res.arrayBuffer());
+  } catch { return null; }
+}
+
+// Up to 4 visible sponsors (tier-ranked) with their logo buffers, for the badge band.
+async function loadBadgeSponsors(): Promise<{ name: string; logo: Buffer | null }[]> {
+  try {
+    const rows = await prisma.sponsor.findMany({ where: { isVisible: true } });
+    const rank: Record<string, number> = { PLATINUM: 0, GOLD: 1, SILVER: 2, BRONZE: 3 };
+    rows.sort((a, b) => (rank[a.tier] ?? 9) - (rank[b.tier] ?? 9) || a.sortOrder - b.sortOrder);
+    return await Promise.all(rows.slice(0, 4).map(async (sp) => ({ name: sp.name, logo: await loadSponsorLogo(sp.logoUrl) })));
+  } catch { return []; }
+}
+
+// ── A6 entry-ticket badge (105 × 148 mm, white, printable) ──────────────────────
+// A proper ticket: attendee identity, a large check-in QR, a networking QR, and a
+// reserved band for up to four sponsor logos.
 async function generateBadgePdf(
   fname: string, lname: string, ticketType: string, ticketRef: string, qrBuffer: Buffer,
+  opts?: { sponsors?: { name: string; logo: Buffer | null }[]; networkingQr?: Buffer | null; teamName?: string | null },
 ): Promise<Buffer> {
+  const W = 298, H = 420, M = 22;                 // A6 portrait in points, side margin
+  const sponsors = opts?.sponsors ?? [];
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: [243, 153], margin: 0, info: { Title: `EOCON 2026 — ${ticketRef}` } });
+    const doc = new PDFDocument({ size: [W, H], margin: 0, info: { Title: `EOCON 2026 — Ticket ${ticketRef}` } });
     const chunks: Buffer[] = [];
     doc.on("data", (c: Buffer) => chunks.push(c));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
-    // White background to save ink; all text in black.
-    doc.rect(0, 0, 243, 153).fill("#ffffff");
-    doc.rect(0, 0, 3, 153).fill("#000000");
-    doc.fillColor("#000000").fontSize(7).font("Helvetica").text("EOCON", 12, 12, { characterSpacing: 3 });
-    doc.fillColor("#000000").fontSize(22).font("Helvetica-Bold").text("2026", 12, 20);
-    doc.rect(12, 48, 36, 1).fill("#000000");
-    doc.fillColor("#000000").fontSize(6).font("Helvetica").text("EYESOPEN SECURITY", 12, 53, { characterSpacing: 1 });
-    const fullName = `${fname} ${lname}`.substring(0, 28);
-    doc.fillColor("#000000").fontSize(15).font("Helvetica-Bold").text(fullName, 12, 70, { width: 150 });
-    doc.lineWidth(0.8).strokeColor("#000000").roundedRect(12, 93, ticketType.length * 6 + 12, 14, 3).stroke();
-    doc.fillColor("#000000").fontSize(7).font("Helvetica").text(ticketType.toUpperCase(), 18, 97, { characterSpacing: 2 });
-    doc.fillColor("#000000").fontSize(6).text(ticketRef, 12, 113);
-    doc.image(qrBuffer, 155, 12, { width: 80, height: 80 });
+
+    doc.rect(0, 0, W, H).fill("#ffffff");
+    doc.rect(0, 0, 5, H).fill("#000000");         // left accent bar
+    doc.lineWidth(1).strokeColor("#000000").rect(11, 11, W - 22, H - 22).stroke(); // ticket frame
+
+    // Header
+    doc.fillColor("#000000").font("Helvetica").fontSize(8).text("EOCON", M, 26, { characterSpacing: 4 });
+    doc.font("Helvetica-Bold").fontSize(30).text("2026", M, 36);
+    doc.rect(M, 76, 52, 1.5).fill("#000000");
+    doc.fillColor("#000000").font("Helvetica").fontSize(7).text("EYESOPEN SECURITY", M, 82, { characterSpacing: 1.5 });
+    // "ENTRY TICKET" tag, top-right
+    doc.lineWidth(1).strokeColor("#000000").roundedRect(W - M - 92, 30, 92, 18, 3).stroke();
+    doc.fillColor("#000000").font("Helvetica-Bold").fontSize(8).text("ENTRY TICKET", W - M - 92, 36, { width: 92, align: "center", characterSpacing: 2 });
+
+    // Attendee
+    doc.fillColor("#666666").font("Helvetica").fontSize(6.5).text("ATTENDEE", M, 108, { characterSpacing: 2 });
+    doc.fillColor("#000000").font("Helvetica-Bold").fontSize(20).text(`${fname} ${lname}`.slice(0, 32), M, 118, { width: W - 2 * M });
+    if (opts?.teamName) {
+      doc.fillColor("#333333").font("Helvetica").fontSize(10).text(String(opts.teamName).slice(0, 34), M, 146, { width: W - 2 * M });
+    }
+
+    // Ticket type + reference
+    const tt = ticketType.toUpperCase().slice(0, 22);
+    doc.lineWidth(0.9).strokeColor("#000000").roundedRect(M, 168, doc.widthOfString(tt, { characterSpacing: 2 }) + 16, 16, 3).stroke();
+    doc.fillColor("#000000").font("Helvetica").fontSize(8).text(tt, M + 8, 172, { characterSpacing: 2 });
+    doc.fillColor("#000000").font("Courier").fontSize(8).text(ticketRef, M, 192, { characterSpacing: 1 });
+
+    // Check-in QR (primary)
+    const qs = 108, qx = (W - qs) / 2, qy = 216;
+    doc.fillColor("#000000").font("Helvetica-Bold").fontSize(7.5).text("CHECK-IN · STAFF ONLY", 0, qy - 12, { width: W, align: "center", characterSpacing: 2 });
+    try { doc.image(qrBuffer, qx, qy, { width: qs, height: qs }); } catch { /* skip */ }
+    doc.fillColor("#666666").font("Helvetica").fontSize(6.5).text("Present this ticket at the event entrance.", 0, qy + qs + 4, { width: W, align: "center" });
+
+    // Networking QR (secondary, small, top-right of the QR row)
+    if (opts?.networkingQr) {
+      const ns = 44, nx = W - M - ns, ny = qy + 4;
+      try {
+        doc.image(opts.networkingQr, nx, ny, { width: ns, height: ns });
+        doc.fillColor("#666666").font("Helvetica").fontSize(5.5).text("NETWORKING", nx - 4, ny + ns + 2, { width: ns + 8, align: "center", characterSpacing: 1 });
+      } catch { /* skip */ }
+    }
+
+    // Sponsor band (4 reserved slots)
+    const bandY = H - 68;
+    doc.moveTo(M, bandY - 8).lineTo(W - M, bandY - 8).dash(2, { space: 2 }).stroke("#bbbbbb");
+    doc.undash();
+    doc.fillColor("#888888").font("Helvetica").fontSize(6).text("PARTNERS · SPONSORS", M, bandY - 2, { characterSpacing: 2 });
+    const slots = 4, gap = 7, slotW = (W - 2 * M - (slots - 1) * gap) / slots, slotH = 28, slotY = bandY + 10;
+    for (let i = 0; i < slots; i++) {
+      const sx = M + i * (slotW + gap);
+      doc.lineWidth(0.6).strokeColor("#dddddd").roundedRect(sx, slotY, slotW, slotH, 3).stroke();
+      const sp = sponsors[i];
+      if (sp?.logo) {
+        try { doc.image(sp.logo, sx + 3, slotY + 3, { fit: [slotW - 6, slotH - 6], align: "center", valign: "center" }); continue; } catch { /* fall through to name */ }
+      }
+      const label = sp ? sp.name.slice(0, 14) : "SPONSOR";
+      doc.fillColor(sp ? "#555555" : "#cccccc").font("Helvetica").fontSize(6.5).text(label, sx, slotY + slotH / 2 - 4, { width: slotW, align: "center" });
+    }
+
+    doc.fillColor("#999999").font("Helvetica").fontSize(5.5).text("eyesopensecurity.com · EOCON 2026", M, H - 20, { characterSpacing: 1 });
     doc.end();
   });
 }
@@ -719,14 +807,18 @@ export async function sendRegistrationTicket(
   to: string, fname: string, lname: string, ticketType: string, registrationId: number, ticketRef: string,
   lang: "fr" | "en" = "fr",
   liveToken?: string,
-) {
+): Promise<boolean> {
   const isFr = lang === "fr";
   const s = await getEventSettings().catch(() => ({} as Record<string, string>));
-  const isCTFOnly = /ctf.?only|ctf.?seul|eyesopenctf.?only/i.test(ticketType) || ticketType.toLowerCase() === "ctf";
-  // Authoritative CTF-access flag (TicketType.includesCTF), used to surface the
-  // EyesOpenCTF transmission notice only for tickets that grant CTF access.
-  const ticketTypeRow = await prisma.ticketType.findUnique({ where: { slug: ticketType }, select: { includesCTF: true } }).catch(() => null);
-  const hasCtfAccess = isCTFOnly || !!ticketTypeRow?.includesCTF;
+  // Fetch ticket flags once. A CTF-only ticket (CTF access, no sessions/workshops)
+  // needs neither an EOCON badge nor a check-in QR — only the CTF concerns the
+  // competitor — so this EOCON ticket email is skipped entirely; they get The
+  // Watcher's transmission instead.
+  const ticketTypeRow = await prisma.ticketType.findUnique({ where: { slug: ticketType }, select: { includesCTF: true, includesSessions: true, includesWorkshops: true } }).catch(() => null);
+  const isCTFOnly = (!!ticketTypeRow && ticketTypeRow.includesCTF && !ticketTypeRow.includesSessions && !ticketTypeRow.includesWorkshops)
+    || (!ticketTypeRow && (/ctf.?only|ctf.?seul|eyesopenctf.?only/i.test(ticketType) || ticketType.toLowerCase() === "ctf"));
+  if (isCTFOnly) return false;
+  const hasCtfAccess = !!ticketTypeRow?.includesCTF;
   const watcherNote = hasCtfAccess
     ? (isFr
       ? `<div style="margin:16px 0;padding:16px 18px;background:#050a12;border:1px solid #00ccff40;border-radius:8px;font-size:13px;color:#bfe;line-height:1.65;">
@@ -750,12 +842,12 @@ export async function sendRegistrationTicket(
   const connectQrBuffer = await QRCode.toBuffer(connectUrl, {
     width: 256, margin: 2, color: { dark: "#000000", light: "#ffffff" },
   }) as Buffer;
-  const connectQrDataUrl = `data:image/png;base64,${connectQrBuffer.toString("base64")}`;
 
-  // PDF badge
+  // PDF entry ticket (A6): identity + big check-in QR + networking QR + sponsor band.
   let badgePdf: Buffer | null = null;
   try {
-    badgePdf = await generateBadgePdf(fname, lname, ticketType, ticketRef, accessQrBuffer);
+    const sponsors = await loadBadgeSponsors();
+    badgePdf = await generateBadgePdf(fname, lname, ticketType, ticketRef, accessQrBuffer, { sponsors, networkingQr: connectQrBuffer });
   } catch (e) {
     console.error("[Badge PDF generation failed]", e);
   }
@@ -775,33 +867,17 @@ export async function sendRegistrationTicket(
   </div>
 </div>`;
 
-  // Badge coupon (printable card)
-  const badgeCoupon = `
-<div style="text-align:center;margin-top:8px;">
-  <p style="font-family:'Courier New',Courier,monospace;font-size:11px;color:#888;margin:0 0 8px;">
-    ✂ ${isFr ? "Imprimez, découpez et glissez dans votre porte-badge." : "Print, cut out and insert into your badge holder."}
-  </p>
-  <div style="display:inline-block;width:324px;border:1px dashed #444;border-radius:4px;overflow:hidden;">
-    <div style="width:324px;height:204px;background:#ffffff;display:flex;align-items:center;justify-content:space-between;padding:0 20px;box-sizing:border-box;">
-      <div style="text-align:center;flex:0 0 auto;">
-        <div style="font-size:9px;letter-spacing:3px;color:#000000;margin-bottom:4px;">EOCON</div>
-        <div style="font-size:22px;font-weight:900;color:#000000;letter-spacing:2px;">2026</div>
-        <div style="width:40px;height:1px;background:#000000;margin:6px auto;"></div>
-        <div style="font-size:7px;color:#000000;letter-spacing:2px;">EYESOPEN</div>
-        <div style="font-size:7px;color:#000000;letter-spacing:1px;">SECURITY</div>
-      </div>
-      <div style="flex:1;padding:0 16px;text-align:center;">
-        <div style="font-size:13px;color:#000000;font-weight:bold;margin-bottom:4px;">${esc(fname)} ${esc(lname)}</div>
-        <div style="font-size:8px;letter-spacing:2px;color:#000000;text-transform:uppercase;">${esc(ticketType)}</div>
-        <div style="font-size:7px;color:#000000;margin-top:6px;">${ticketRef}</div>
-      </div>
-      <div style="flex:0 0 auto;text-align:center;">
-        <img src="${connectQrDataUrl}" width="90" height="90" alt="QR" style="display:block;" />
-        <div style="font-size:6px;color:#000000;margin-top:3px;letter-spacing:1px;">NETWORKING</div>
-      </div>
-    </div>
-  </div>
-</div>`;
+  // The printable badge/ticket is the attached A6 PDF (with both QR codes + sponsors);
+  // this email block just points to it.
+  const ticketPdfNote = isFr
+    ? `<div style="margin-top:24px;padding:16px;background:#0d1117;border:1px solid #00ccff30;border-radius:8px;">
+         <p style="color:#00ccff;font-size:11px;letter-spacing:2px;margin:0 0 8px;">🎟️ VOTRE BILLET D'ENTRÉE (PDF · A6)</p>
+         <p style="font-size:12px;color:#aaa;line-height:1.7;margin:0;">Votre billet est en pièce jointe (format A6, prêt à imprimer). Présentez le <strong style="color:#00ff9d;">QR de pointage</strong> au staff à l'entrée. Il porte aussi votre <strong>QR networking</strong>.</p>
+       </div>`
+    : `<div style="margin-top:24px;padding:16px;background:#0d1117;border:1px solid #00ccff30;border-radius:8px;">
+         <p style="color:#00ccff;font-size:11px;letter-spacing:2px;margin:0 0 8px;">🎟️ YOUR ENTRY TICKET (PDF · A6)</p>
+         <p style="font-size:12px;color:#aaa;line-height:1.7;margin:0;">Your ticket is attached (A6, print-ready). Show the <strong style="color:#00ff9d;">check-in QR</strong> to staff at the entrance. It also carries your <strong>networking QR</strong>.</p>
+       </div>`;
 
   // Calendar invite links
   const gcalUrl = googleCalEventUrl(isFr, s);
@@ -857,10 +933,7 @@ export async function sendRegistrationTicket(
        ${qrImg}
        ${isCTFOnly ? "" : calLinks}
        ${livePresenceBlock}
-       <div style="margin-top:24px;padding:16px;background:#0d1117;border:1px solid #00ccff30;border-radius:8px;">
-         <p style="color:#00ccff;font-size:11px;letter-spacing:2px;margin:0 0 10px;">🪪 BADGE D'ENTRÉE À IMPRIMER</p>
-         ${badgeCoupon}
-       </div>
+       ${ticketPdfNote}
        <p style="font-size:12px;color:#888;margin-top:20px;">📍 ${s.event_venue || "Hotel Onomo"} · ${s.event_city || "Douala"} · ${s.event_country || "Cameroun"}</p>`
     : `<p>${greenLabel("Hello " + esc(fname) + " " + esc(lname))},</p>
        <p>${isCTFOnly ? "🏁 Your <strong>EyesOpenCTF</strong> access is confirmed. Get ready — the challenge starts soon!" : "🎟️ Your EOCON 2026 ticket is confirmed. See you from November 23 to 28 — online and in Douala!"}</p>
@@ -875,10 +948,7 @@ export async function sendRegistrationTicket(
        ${qrImg}
        ${isCTFOnly ? "" : calLinks}
        ${livePresenceBlock}
-       <div style="margin-top:24px;padding:16px;background:#0d1117;border:1px solid #00ccff30;border-radius:8px;">
-         <p style="color:#00ccff;font-size:11px;letter-spacing:2px;margin:0 0 10px;">🪪 ENTRY BADGE TO PRINT</p>
-         ${badgeCoupon}
-       </div>
+       ${ticketPdfNote}
        <p style="font-size:12px;color:#888;margin-top:20px;">📍 ${s.event_venue || "Hotel Onomo"} · ${s.event_city || "Douala"} · ${s.event_country_en || s.event_country || "Cameroon"}</p>`;
 
   const vars = { fname: esc(fname), lname: esc(lname), ticketType: esc(ticketType), ticketRef, qr_code_img: qrImg };
@@ -892,10 +962,11 @@ export async function sendRegistrationTicket(
     [
       { filename: "qr-checkin.png", content: accessQrBuffer, content_id: "qr_access" },
       { filename: "EOCON2026.ics", content: icsBuffer, content_id: "event_ics" },
-      ...(badgePdf ? [{ filename: `badge-EOCON2026-${ticketRef}.pdf`, content: badgePdf }] : []),
+      ...(badgePdf ? [{ filename: `EOCON2026-ticket-${ticketRef}.pdf`, content: badgePdf }] : []),
     ],
     "registration@eyesopensecurity.com",
   );
+  return true;
 }
 
 // ── The Watcher's first contact — Operator initiation (auto at registration) ──
@@ -972,7 +1043,7 @@ export async function sendWatcherRecruitment(
     from: FROM,
     to,
     subject: isFr ? "⟁ Transmission // The Watcher vous a sélectionné(e)" : "⟁ Transmission // The Watcher has selected you",
-    html: emailWrap(body, isFr, s),
+    html: emailWrap(body, isFr, s, { lore: true }),
     replyTo: "ctf@eyesopensecurity.com",
   });
 }

@@ -44,11 +44,11 @@ export async function sendRegistrationTicketTracked(registrationId: number): Pro
 
   let sent = false;
   try {
-    await sendRegistrationTicket(
+    // Returns false for CTF-only tickets (they get no EOCON badge/ticket email).
+    sent = await sendRegistrationTicket(
       reg.email, reg.fname, reg.lname, reg.ticketType, reg.id, formatTicketRef(reg.ticketRef || ""),
       reg.langExpression === "en" ? "en" : "fr",
     );
-    sent = true;
     // CTF access → also send The Watcher's initiation transmission (auto).
     const tt = await prisma.ticketType.findUnique({ where: { slug: reg.ticketType }, select: { includesCTF: true } }).catch(() => null);
     if (tt?.includesCTF) {

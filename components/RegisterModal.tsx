@@ -301,7 +301,7 @@ export default function RegisterModal({ t, onClose, lang = "fr", ctfMode = false
           ) : step === "tiers" ? (
             <div>
               {loadingTypes ? (
-                <div className="text-center py-12 text-gray-500 font-mono text-sm">Chargement des billets…</div>
+                <div className="text-center py-12 text-gray-500 font-mono text-sm">{lang === "fr" ? "Chargement des billets…" : "Loading tickets…"}</div>
               ) : displayTickets.length === 0 ? (
                 /* No matching ticket on sale → the pre-registration effect switches to the form. */
                 <div className="text-center py-12 text-gray-500 font-mono text-sm">…</div>
@@ -496,10 +496,10 @@ export default function RegisterModal({ t, onClose, lang = "fr", ctfMode = false
                     style={{ borderColor: "#00ccff40", background: "#00ccff05", transition: "all 0.3s", opacity: 1 }}
                   >
                     <p className="text-xs font-mono text-cyan-400 mb-1" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-                      ⚡ Participation CTF — <span className="text-gray-500">requis</span>
+                      ⚡ {lang === "fr" ? "Participation CTF" : "CTF Participation"} — <span className="text-gray-500">{lang === "fr" ? "requis" : "required"}</span>
                     </p>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>Pseudo CTF *</label>
+                      <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>{lang === "fr" ? "Pseudo CTF" : "CTF Handle"} *</label>
                       <input
                         required
                         className="cyber-input w-full px-3 py-2 rounded text-sm"
@@ -510,7 +510,9 @@ export default function RegisterModal({ t, onClose, lang = "fr", ctfMode = false
                     </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-                        Nom d&apos;équipe <span className="text-gray-600">(optionnel — max 2 joueurs par équipe)</span>
+                        {lang === "fr"
+                          ? <>Nom d&apos;équipe <span className="text-gray-600">(optionnel — max 2 joueurs par équipe)</span></>
+                          : <>Team name <span className="text-gray-600">(optional — max 2 players per team)</span></>}
                       </label>
                       <input
                         className="cyber-input w-full px-3 py-2 rounded text-sm"
@@ -526,7 +528,7 @@ export default function RegisterModal({ t, onClose, lang = "fr", ctfMode = false
                 {!preRegMode && (
                   <div className="p-3 rounded border" style={{ background: (selectedTicket?.color || "#00ff9d") + "08", borderColor: (selectedTicket?.color || "#00ff9d") + "22" }}>
                     <p className="text-xs text-gray-500 font-mono" style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-                      Billet sélectionné : <span style={{ color: selectedTicket?.color || "#00ff9d", fontWeight: "bold" }}>
+                      {lang === "fr" ? "Billet sélectionné" : "Selected ticket"} : <span style={{ color: selectedTicket?.color || "#00ff9d", fontWeight: "bold" }}>
                         {selectedTicket ? `${getName(selectedTicket)} — ${formatPrice(selectedTicket)}` : selectedTier}
                       </span>
                     </p>

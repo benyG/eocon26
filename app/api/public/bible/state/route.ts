@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBibleStateCached, computeTeamBibleState } from "@/lib/bibleState";
+import { getBibleStateCached, computeTeamBibleState, redactBibleStateForPublic } from "@/lib/bibleState";
 
 export const dynamic = "force-dynamic";
 
@@ -18,19 +18,19 @@ export async function GET(req: NextRequest) {
   if (team) {
     const teamState = await computeTeamBibleState(team);
     if (teamState) {
-      return NextResponse.json(teamState, {
+      return NextResponse.json(redactBibleStateForPublic(teamState), {
         headers: { "Cache-Control": "private, no-store" },
       });
     }
     // Unknown team → fall through to the global state (client stays on / reverts to
     // the global view). Flag it so the client can quietly clear a bad team name.
     const global = await getBibleStateCached();
-    return NextResponse.json({ ...global, scope: "global", teamResolved: false, teamName: team }, {
+    return NextResponse.json({ ...redactBibleStateForPublic(global), scope: "global", teamResolved: false, teamName: team }, {
       headers: { "Cache-Control": "private, no-store" },
     });
   }
   const state = await getBibleStateCached();
-  return NextResponse.json(state, {
+  return NextResponse.json(redactBibleStateForPublic(state), {
     headers: { "Cache-Control": "public, s-maxage=15, stale-while-revalidate=30" },
   });
 }

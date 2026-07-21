@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { prisma } from "@/lib/db";
 import { getCtfdConfig, ctfdFetch } from "@/lib/ctfd";
 import { ENTITIES, arcForEntity, ARCS, PALIERS, FINALE, ENTITY_BLUR, type Palier, type Arc } from "@/lib/loreStructure";
@@ -42,10 +43,11 @@ export interface FragmentState {
 export interface EntityState {
   key: string; declassified: boolean; blur: "none" | "partial" | "heavy"; lockLabel: Bi;
   stage: Stage;
+  cat?: Bi;  // display category for the record rail (sent so the client needs no key map)
   title?: Bi; status?: Bi; role?: Bi; intrigue?: Bi; objective?: Bi; state?: Bi;
 }
 export interface ArcState {
-  key: string; title: Bi; unlocked: boolean; recovered: number; total: number;
+  key: string; title?: Bi; unlocked: boolean; recovered: number; total: number;
   threshold: number; lockLabel: Bi; image: string | null; stage: Stage; reveal?: Bi;
 }
 // Global "state of the world" summary that drives the World State panel. Always
@@ -72,7 +74,7 @@ export interface BibleState {
   total: number; recoveredCount: number; stability: number;
   palier: Palier | null; paliers: Palier[];
   fragments: FragmentState[]; entities: EntityState[]; arcs: ArcState[];
-  characters: CharacterCard[]; concepts: ConceptState[]; samuelIdentified: boolean;
+  characters: CharacterCard[]; concepts: ConceptState[]; samuelIdentified?: boolean;
   finale: typeof FINALE | null; previewMode: boolean;
   worldState?: WorldState;    // only populated on the global state (never per-team)
   scope?: "global" | "team";  // which view this payload represents
@@ -265,11 +267,63 @@ export async function getBibleStateCached(): Promise<BibleState> {
 
 export function invalidateBibleCache() { _cache = null; _cacheAt = 0; _chs = null; _chsAt = 0; }
 
+// ── Public redaction — nothing unearned ever leaves the server ────────────────
+// The full BibleState (admin) knows everything. The public endpoint must not: an
+// API reader should learn nothing beyond what solved challenges have proven. This
+// strips, until earned: fragment metadata (story arc, Prime-Seal flag), future
+// palier announcements, locked arc titles/images, locked entity identities (their
+// keys are replaced by opaque ids so names like the engineer's or the choir's
+// never appear pre-reveal), and the engineer-identified flag.
+
+const ENTITY_CATS: Record<string, Bi> = {
+  watcher: { en: "Individual", fr: "Individu" }, assa: { en: "Individual", fr: "Individu" },
+  samuel: { en: "Individual", fr: "Individu" }, voss: { en: "Individual", fr: "Individu" },
+  nora: { en: "Intelligence", fr: "Intelligence" }, nullchoir: { en: "Intelligence", fr: "Intelligence" },
+  architects: { en: "Origin", fr: "Origine" },
+  protocol: { en: "Organization", fr: "Organisation" }, directorate: { en: "Organization", fr: "Organisation" },
+  meridian: { en: "Organization", fr: "Organisation" },
+};
+
+/** Stable opaque id for a locked entity (deterministic across restarts/polls). */
+function anonEntityId(key: string): string {
+  return "d-" + crypto.createHash("sha256").update("eocon-veil:" + key).digest("hex").slice(0, 8);
+}
+
+/** Public-safe copy of the state. The admin API keeps the full version. */
+export function redactBibleStateForPublic(st: BibleState): BibleState {
+  const fragments: FragmentState[] = st.fragments.map((f) =>
+    f.recovered ? f : { code: f.code, category: f.category, isPrimeSeal: false, storyArc: null, recovered: false, fragmentName: null, reveal: null },
+  );
+  // Only milestones already reached — the future announcement script stays server-side.
+  const paliers = st.paliers.filter((p) => p.threshold <= st.recoveredCount);
+  const arcs: ArcState[] = st.arcs.map((a) =>
+    a.unlocked ? a : {
+      key: a.key, unlocked: false, recovered: a.recovered, total: a.total,
+      threshold: a.threshold, lockLabel: a.lockLabel, image: null, stage: a.stage,
+    },
+  );
+  const entities: EntityState[] = st.entities.map((e) => {
+    const cat = ENTITY_CATS[e.key];
+    if (e.declassified) return { ...e, cat };
+    return { key: anonEntityId(e.key), declassified: false, blur: e.blur, lockLabel: e.lockLabel, stage: e.stage, cat };
+  });
+  const out: BibleState = { ...st, fragments, paliers, arcs, entities };
+  // The identified-engineer flag names him before he is earned — only ship it once true.
+  if (!st.samuelIdentified) delete out.samuelIdentified;
+  return out;
+}
+
 /** Is the arc/asset that gates a given image unlocked? Used by the gated asset endpoint. */
 export async function isImageUnlocked(imageKey: string): Promise<boolean> {
-  // The two concept-card images are the narrative hook — never sealed, always served.
+  // Always-public concept assets (Our Reality + the blurred Convergence preview).
   if (CONCEPT_IMAGE_KEYS.has(imageKey)) return true;
   const st = await getBibleStateCached();
+  // The full-resolution Convergence image is released only once the phenomenon is
+  // actually proven (stage ≥ VERIFIED) — before that only the preview is served.
+  if (imageKey === "convergence") {
+    const stage = st.concepts.find((c) => c.key === "convergence")?.stage;
+    return st.previewMode || stage === "VERIFIED" || stage === "COMPROMISED" || stage === "RESOLVED";
+  }
   // The engineer's portrait is also released once his identity is recovered.
   if (imageKey === "samuel" && st.samuelIdentified) return true;
   // Entity portraits are released once the entity dossier is declassified.

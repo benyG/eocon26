@@ -125,7 +125,8 @@ function samuelCard(unlocked: boolean): CharacterCard {
     };
   }
   return {
-    key: "samuel",
+    // Opaque key while locked — "samuel" in the payload would name him pre-reveal.
+    key: "engineer",
     name: { en: "Unidentified Engineer", fr: "Ingénieur non identifié" },
     role: { en: "An identity to reconstruct", fr: "Une identité à reconstruire" },
     status: { en: "RECORD DAMAGED // IDENTITY UNCONFIRMED", fr: "RECORD DAMAGED // IDENTITY UNCONFIRMED" },
@@ -146,7 +147,11 @@ export function isSamuelIdentified(rec: (code: string) => boolean): boolean {
 
 /** Build the launch character cards for the current recovery state. */
 export function computeCharacters(rec: (code: string) => boolean): CharacterCard[] {
-  const vossRed = rec("F-12") && (rec("F-09") || rec("F-32") || rec("F-39"));
-  const vossAmber = !vossRed && (rec("F-09") || rec("F-21") || rec("F-32"));
+  // Red asserts Voss's PERSONAL authority over Project Janus — only F-39 (his
+  // executive authorization on the activation) proves that; the corroborating
+  // fragment (F-09/F-12/F-32) proves the action was deliberate/concealed. Without
+  // F-39 the evidence stays at "person of interest" (amber).
+  const vossRed = rec("F-39") && (rec("F-09") || rec("F-12") || rec("F-32"));
+  const vossAmber = !vossRed && (rec("F-09") || rec("F-12") || rec("F-21") || rec("F-32") || rec("F-39"));
   return [WATCHER, ASSA, NORA, vossCard(vossRed, vossAmber), samuelCard(isSamuelIdentified(rec))];
 }

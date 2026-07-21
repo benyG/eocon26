@@ -129,5 +129,11 @@ export function computeConcepts(rec: (code: string) => boolean): ConceptState[] 
   return [realityConcept(rec), convergenceConcept(rec)];
 }
 
-/** Concept images are always released — the cards are never sealed. */
-export const CONCEPT_IMAGE_KEYS = new Set(["reality", "convergence"]);
+/**
+ * Concept images that are always released. « Our Reality » stays clear from the
+ * start (user-validated); « The Convergence » full image is stage-gated in
+ * isImageUnlocked — before it is VERIFIED only the blurred low-res preview
+ * (`convergence_preview`) is served, so the full-resolution image can't be pulled
+ * from the API before the phenomenon is proven.
+ */
+export const CONCEPT_IMAGE_KEYS = new Set(["reality", "convergence_preview"]);

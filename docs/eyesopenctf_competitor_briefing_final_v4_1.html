@@ -84,6 +84,9 @@ h1.title .glow{color:var(--green);display:inline-block;text-shadow:0 0 25px rgba
 .btn.primary{background:var(--green);color:#02120d;border-color:var(--green)}
 .btn.primary:hover{box-shadow:0 0 24px rgba(1,250,192,.4)}
 .btn.secondary:hover{border-color:var(--green);color:var(--green)}
+.btn.arena{border-color:var(--cyan);color:var(--cyan)}
+.btn.arena:hover{background:var(--cyan);color:#02181f;box-shadow:0 0 24px rgba(79,227,255,.35)}
+.btn.arena[hidden]{display:none}
 .status-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:30px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--line)}
 .status-strip>div{background:var(--bg2);padding:12px 14px}
 .status-strip small{display:block;color:var(--muted);font-size:.6rem;letter-spacing:.16em;margin-bottom:5px}
@@ -447,6 +450,7 @@ footer{border-top:1px solid var(--line);padding:40px 0 60px;color:var(--muted);f
       <div class="hero-actions">
         <a class="btn primary" href="#live"><span class="lang en">Open the Echo Vault ▸</span><span class="lang fr">Ouvrir l'Echo Vault ▸</span></a>
         <a class="btn secondary" href="/?modal=ctf"><span class="lang en">Register for CTF ▸</span><span class="lang fr">S'inscrire au CTF ▸</span></a>
+        <a class="btn arena" id="arenaBtn" href="#" target="_blank" rel="noopener" hidden><span class="lang en">Open the Arena ▸</span><span class="lang fr">Ouvrir l'Arène ▸</span></a>
       </div>
       <div class="status-strip">
         <div><small>FILE</small><strong>EO-CTF / CONV-26</strong></div>
@@ -918,7 +922,7 @@ footer{border-top:1px solid var(--line);padding:40px 0 60px;color:var(--muted);f
       wsAlertClock=byId("wsAlertClock"), wsScoreNum=byId("wsScoreNum"), wsBar=byId("wsBar"), wsStage=byId("wsStage"),
       wcHand=byId("wcHand"), wsAnimCap=byId("wsAnimCap"), wsReplay=byId("wsReplay"), wsSection=byId("worldstate"),
       wsReadout=byId("wsReadout"), wsScoreLab=byId("wsScoreLab"),
-      heroThreat=byId("heroThreat"), heroThreatCell=byId("heroThreatCell"),
+      heroThreat=byId("heroThreat"), heroThreatCell=byId("heroThreatCell"), arenaBtn=byId("arenaBtn"),
       vbTeam=byId("vbTeam"), vbGlobal=byId("vbGlobal"), teamInput=byId("teamInput"), teamStatus=byId("teamStatus"),
       hudScope=byId("hudScope"), hudScopeLabel=byId("hudScopeLabel");
 
@@ -1089,6 +1093,10 @@ footer{border-top:1px solid var(--line);padding:40px 0 60px;color:var(--muted);f
   }
   function applyGlobal(gs){
     globalState=gs;
+    if(arenaBtn){
+      if(gs && gs.ctfdUrl){ arenaBtn.href=gs.ctfdUrl; arenaBtn.hidden=false; }
+      else { arenaBtn.hidden=true; }
+    }
     if(gs && gs.worldState){
       cdData=gs.worldState;
       if(typeof gs.worldState.serverNowMs==="number") cdOffset=gs.worldState.serverNowMs-Date.now();

@@ -80,6 +80,7 @@ export interface BibleState {
   scope?: "global" | "team";  // which view this payload represents
   teamName?: string | null;   // echoed back for the team view
   teamResolved?: boolean;     // false when a requested team name could not be resolved
+  ctfdUrl?: string | null;    // public CTFd platform URL (never the API key) — for the "Open the Arena" link
 }
 
 async function fetchSolves(): Promise<Map<number, number>> {
@@ -235,6 +236,7 @@ export async function computeBibleState(): Promise<BibleState> {
   const state = buildState(chs, isRecovered, revealAll);
   state.scope = "global";
   state.worldState = computeWorldState(state, evaluateCtfWindow(settings.ctf_start, settings.ctf_end));
+  state.ctfdUrl = settings.ctfdUrl?.replace(/\/$/, "") || null;
   return state;
 }
 
@@ -245,7 +247,7 @@ export async function computeBibleState(): Promise<BibleState> {
 export async function computeTeamBibleState(teamName: string): Promise<BibleState | null> {
   const solvedIds = await getTeamSolvedChallengeIds(teamName);
   if (solvedIds == null) return null;
-  const chs = await getChallengesCached();
+  const [chs, settings] = await Promise.all([getChallengesCached(), getEventSettings().catch(() => ({} as Record<string, string>))]);
   const byCode = new Map(chs.map((c) => [c.fragmentCode!, c]));
   const isRecovered = (code: string) => {
     const c = byCode.get(code);
@@ -254,6 +256,7 @@ export async function computeTeamBibleState(teamName: string): Promise<BibleStat
   const state = buildState(chs, isRecovered, false);
   state.scope = "team";
   state.teamName = teamName;
+  state.ctfdUrl = settings.ctfdUrl?.replace(/\/$/, "") || null;
   return state;
 }
 
